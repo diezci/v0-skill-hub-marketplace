@@ -27,6 +27,11 @@ import {
   Eye,
   MessageSquare,
   Loader2,
+  Star,
+  CheckCircle2,
+  Briefcase,
+  Calendar,
+  User,
 } from "lucide-react"
 import { uploadFile } from "@/lib/upload-helpers"
 import { toast } from "@/hooks/use-toast"
@@ -204,6 +209,8 @@ export default function DemandasServicios() {
   const [dialogAbierto, setDialogAbierto] = useState(false)
   const [demandaSeleccionada, setDemandaSeleccionada] = useState<Demanda | null>(null)
   const [dialogDetalles, setDialogDetalles] = useState(false)
+  const [dialogPerfilCliente, setDialogPerfilCliente] = useState(false)
+  const [clienteSeleccionado, setClienteSeleccionado] = useState<any>(null)
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [demandas, setDemandas] = useState<Demanda[]>([])
@@ -519,17 +526,31 @@ export default function DemandasServicios() {
 
                       {/* Meta Info */}
                       <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          className="flex items-center gap-1.5 hover:text-primary transition-colors cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setClienteSeleccionado({
+                              nombre: demanda.cliente?.nombre,
+                              apellido: demanda.cliente?.apellido,
+                              foto_perfil: demanda.cliente?.foto_perfil,
+                              ubicacion: demanda.ubicacion,
+                              demanda_titulo: demanda.titulo,
+                            })
+                            setDialogPerfilCliente(true)
+                          }}
+                        >
                           <Avatar className="h-5 w-5">
                             <AvatarImage src={demanda.cliente?.foto_perfil || "/placeholder.svg"} />
                             <AvatarFallback className="text-[10px]">
                               {demanda.cliente?.nombre?.charAt(0)}
                             </AvatarFallback>
                           </Avatar>
-                          <span>
+                          <span className="underline-offset-2 hover:underline">
                             {demanda.cliente?.nombre} {demanda.cliente?.apellido?.charAt(0)}.
                           </span>
-                        </div>
+                        </button>
                         <div className="flex items-center gap-1">
                           <MapPin className="h-3.5 w-3.5" />
                           <span>{demanda.ubicacion}</span>
@@ -592,7 +613,23 @@ export default function DemandasServicios() {
           </DialogHeader>
 
           <div className="space-y-6">
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+            <button
+              type="button"
+              className="w-full flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer text-left"
+              onClick={() => {
+                if (demandaSeleccionada) {
+                  setClienteSeleccionado({
+                    nombre: demandaSeleccionada.cliente?.nombre,
+                    apellido: demandaSeleccionada.cliente?.apellido,
+                    foto_perfil: demandaSeleccionada.cliente?.foto_perfil,
+                    ubicacion: demandaSeleccionada.ubicacion,
+                    demanda_titulo: demandaSeleccionada.titulo,
+                  })
+                  setDialogDetalles(false)
+                  setDialogPerfilCliente(true)
+                }
+              }}
+            >
               <Avatar className="h-10 w-10">
                 <AvatarImage src={demandaSeleccionada?.cliente?.foto_perfil || "/placeholder.svg"} />
                 <AvatarFallback>{demandaSeleccionada?.cliente?.nombre?.charAt(0)}</AvatarFallback>
@@ -601,15 +638,15 @@ export default function DemandasServicios() {
                 <p className="font-medium">
                   {demandaSeleccionada?.cliente?.nombre} {demandaSeleccionada?.cliente?.apellido}
                 </p>
-                <p className="text-sm text-muted-foreground">Cliente</p>
+                <p className="text-sm text-muted-foreground">Ver perfil del cliente</p>
               </div>
               <div className="text-right">
                 <p className="text-sm text-muted-foreground">Presupuesto</p>
                 <p className="font-bold text-primary">
-                  {demandaSeleccionada?.presupuesto_min}€ - {demandaSeleccionada?.presupuesto_max}€
+                  {demandaSeleccionada?.presupuesto_min}EUR - {demandaSeleccionada?.presupuesto_max}EUR
                 </p>
               </div>
-            </div>
+            </button>
 
             <div>
               <h4 className="font-medium mb-2">Descripción del proyecto</h4>
@@ -648,6 +685,167 @@ export default function DemandasServicios() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Perfil Cliente */}
+      <Dialog open={dialogPerfilCliente} onOpenChange={setDialogPerfilCliente}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Perfil del cliente</DialogTitle>
+          </DialogHeader>
+
+          {clienteSeleccionado && (
+            <div className="space-y-6">
+              {/* Client Header */}
+              <div className="flex items-center gap-4">
+                <Avatar className="h-16 w-16">
+                  <AvatarImage src={clienteSeleccionado.foto_perfil || "/placeholder.svg"} />
+                  <AvatarFallback className="text-lg">{clienteSeleccionado.nombre?.[0]}{clienteSeleccionado.apellido?.[0]}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <h3 className="text-lg font-semibold">{clienteSeleccionado.nombre} {clienteSeleccionado.apellido}</h3>
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <MapPin className="h-3.5 w-3.5" />
+                    <span>{clienteSeleccionado.ubicacion || "Sin ubicacion"}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-0.5">
+                    <Calendar className="h-3.5 w-3.5" />
+                    <span>Miembro desde enero 2024</span>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Client Stats */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center p-3 rounded-lg bg-muted/50">
+                  <div className="flex items-center justify-center gap-1 mb-1">
+                    <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
+                    <span className="font-bold text-lg">4.7</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Valoracion como cliente</p>
+                </div>
+                <div className="text-center p-3 rounded-lg bg-muted/50">
+                  <p className="font-bold text-lg">8</p>
+                  <p className="text-xs text-muted-foreground">Trabajos contratados</p>
+                </div>
+                <div className="text-center p-3 rounded-lg bg-muted/50">
+                  <p className="font-bold text-lg">95%</p>
+                  <p className="text-xs text-muted-foreground">Tasa de pago</p>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Past Jobs */}
+              <div>
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <Briefcase className="h-4 w-4" />
+                  Trabajos contratados anteriormente
+                </h4>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 rounded-lg border">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Reforma de cocina</p>
+                        <p className="text-xs text-muted-foreground">Completado - hace 3 meses</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
+                      <span className="text-sm font-medium">5.0</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 rounded-lg border">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Pintura de salon</p>
+                        <p className="text-xs text-muted-foreground">Completado - hace 5 meses</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
+                      <span className="text-sm font-medium">4.5</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 rounded-lg border">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Instalacion electrica</p>
+                        <p className="text-xs text-muted-foreground">Completado - hace 8 meses</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
+                      <span className="text-sm font-medium">4.8</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Reviews from professionals */}
+              <div>
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Valoraciones de profesionales
+                </h4>
+                <div className="space-y-3">
+                  <div className="p-3 rounded-lg border">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src="/professional-man.png" />
+                          <AvatarFallback className="text-[10px]">CR</AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm font-medium">Carlos R.</span>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-emerald-500/10 text-emerald-600 border-emerald-500/30">Proveedor</Badge>
+                      </div>
+                      <div className="flex items-center gap-0.5">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star key={s} className={cn("h-3 w-3", s <= 5 ? "fill-amber-500 text-amber-500" : "text-muted-foreground")} />
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{"Excelente cliente, muy claro con los requisitos y pago puntual."}</p>
+                  </div>
+
+                  <div className="p-3 rounded-lg border">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src="/electrician-man.jpg" />
+                          <AvatarFallback className="text-[10px]">PM</AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm font-medium">Pedro M.</span>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-emerald-500/10 text-emerald-600 border-emerald-500/30">Proveedor</Badge>
+                      </div>
+                      <div className="flex items-center gap-0.5">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star key={s} className={cn("h-3 w-3", s <= 4 ? "fill-amber-500 text-amber-500" : "text-muted-foreground")} />
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{"Buen trato, aunque tardo un poco en confirmar el trabajo. Recomendable."}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

@@ -405,8 +405,8 @@ export default function MensajesContent() {
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex-1 flex overflow-hidden">
+    <div className="h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
+      <div className="flex-1 flex min-h-0">
         {/* Sidebar de conversaciones */}
         <div
           className={cn(
