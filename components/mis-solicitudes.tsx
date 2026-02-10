@@ -17,8 +17,10 @@ import {
   Banknote, ShieldCheck, Timer, TrendingUp, User, Building, Eye
 } from "lucide-react"
 import { obtenerSolicitudesPorUsuario } from "@/app/actions/solicitudes"
-import { crearTransaccionEscrow, liberarFondosEscrow } from "@/app/actions/escrow"
+import { crearTransaccionEscrow, liberarFondosEscrow, rechazarTrabajoYReembolsar } from "@/app/actions/escrow"
 import { obtenerMisTrabajos, actualizarProgresoTrabajo, marcarTrabajoEntregado, confirmarTrabajoCompletado } from "@/app/actions/trabajos"
+import { crearResena } from "@/app/actions/reviews"
+import { calcularTotalCliente, calcularReembolsoCliente, PLATFORM_CONFIG } from "@/lib/comisiones"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import {
@@ -174,6 +176,13 @@ export default function MisSolicitudes() {
   const [selectedSolicitud, setSelectedSolicitud] = useState<any>(null)
   const [selectedTrabajo, setSelectedTrabajo] = useState<any>(null)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [showRejectDialog, setShowRejectDialog] = useState(false)
+  const [showReviewDialog, setShowReviewDialog] = useState(false)
+  const [reviewRating, setReviewRating] = useState(5)
+  const [reviewComentario, setReviewComentario] = useState("")
+  const [reviewHover, setReviewHover] = useState(0)
+  const [rejectReason, setRejectReason] = useState("")
+  const [actionLoading, setActionLoading] = useState(false)
   const { toast } = useToast()
   const router = useRouter()
 
@@ -212,6 +221,7 @@ export default function MisSolicitudes() {
   }
 
   const handleConfirmarTrabajo = async (trabajo: any) => {
+    setActionLoading(true)
     const result = await confirmarTrabajoCompletado(trabajo.id)
     
     if (result.error) {
@@ -220,6 +230,7 @@ export default function MisSolicitudes() {
         description: result.error,
         variant: "destructive",
       })
+      setActionLoading(false)
     } else {
       // Release escrow funds
       if (trabajo.escrow?.id) {
@@ -228,15 +239,91 @@ export default function MisSolicitudes() {
       
       toast({
         title: "Trabajo confirmado",
-        description: "El pago ha sido liberado al profesional. ¡Gracias por usar SkillHub!",
+        description: "El pago ha sido liberado al profesional.",
       })
       setShowConfirmDialog(false)
-      setSelectedTrabajo(null)
+      setActionLoading(false)
       
-      // Refresh data
-      const result = await obtenerMisTrabajos()
-      if (result.data) setTrabajos(result.data)
+      // Show review dialog
+      setShowReviewDialog(true)
     }
+  }
+
+  const handleRechazarTrabajo = async (trabajo: any) => {
+    if (!rejectReason.trim()) {
+      toast({
+        title: "Error",
+        description: "Por favor, indica el motivo del rechazo.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setActionLoading(true)
+    
+    // First reject the work
+    const result = await rechazarTrabajoYReembolsar(trabajo.id, rejectReason)
+
+    if (result.error) {
+      toast({
+        title: "Error",
+        description: result.error,
+        variant: "destructive",
+      })
+    } else {
+      const reembolso = result.data
+      toast({
+        title: "Trabajo rechazado",
+        description: `Se te reembolsaran ${reembolso?.monto_reembolsado?.toFixed(2) || ""}EUR. La comision de la plataforma (${PLATFORM_CONFIG.comisionClientePorcentaje}%) no es reembolsable.`,
+      })
+      setShowRejectDialog(false)
+      setSelectedTrabajo(null)
+      setRejectReason("")
+
+      // Refresh
+      const refreshResult = await obtenerSolicitudesPorUsuario()
+      if (refreshResult.data) setSolicitudes(refreshResult.data)
+      const trabajosResult = await obtenerMisTrabajos()
+      if (trabajosResult.data) setTrabajos(trabajosResult.data)
+    }
+    setActionLoading(false)
+  }
+
+  const handleSubmitReview = async () => {
+    if (!selectedTrabajo) return
+    setActionLoading(true)
+
+    const result = await crearResena({
+      trabajo_id: selectedTrabajo.id,
+      profesional_id: selectedTrabajo.profesional_id,
+      rating: reviewRating,
+      comentario: reviewComentario,
+    })
+
+    if (result.error) {
+      toast({
+        title: "Error",
+        description: result.error,
+        variant: "destructive",
+      })
+    } else {
+      toast({
+        title: "Valoracion enviada",
+        description: "Gracias por tu valoracion. Ayuda a otros clientes a elegir mejor.",
+      })
+    }
+
+    setShowReviewDialog(false)
+    setSelectedTrabajo(null)
+    setReviewRating(5)
+    setReviewComentario("")
+    setActionLoading(false)
+
+    // Refresh
+    const refreshResult = await obtenerSolicitudesPorUsuario()
+    if (refreshResult.data) setSolicitudes(refreshResult.data)
+    const trabajosResult = await obtenerMisTrabajos()
+    if (trabajosResult.data) setTrabajos(trabajosResult.data)
   }
 
   const calcularDiasRestantes = (fechaFin: string) => {
@@ -654,9 +741,16 @@ export default function MisSolicitudes() {
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
-                          <Button variant="outline" className="bg-transparent">
-                            <AlertCircle className="h-4 w-4 mr-1" />
-                            Reportar Problema
+                          <Button 
+                            variant="outline" 
+                            className="bg-transparent text-destructive border-destructive/50 hover:bg-destructive/10"
+                            onClick={() => {
+                              setSelectedTrabajo(trabajo)
+                              setShowRejectDialog(true)
+                            }}
+                          >
+                            <XCircle className="h-4 w-4 mr-1" />
+                            Rechazar y Solicitar Reembolso
                           </Button>
                         </div>
                       </div>
@@ -681,37 +775,192 @@ export default function MisSolicitudes() {
               </CardContent>
             </Card>
           ) : (
-            solicitudesCompletadas.map((solicitud) => (
-              <Card key={solicitud.id} className="bg-emerald-500/5 border-emerald-500/20">
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                        <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+            solicitudesCompletadas.map((solicitud) => {
+              const hasReview = solicitud.trabajo?.review_cliente_id
+              return (
+                <Card key={solicitud.id} className="bg-emerald-500/5 border-emerald-500/20">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                          <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+                        </div>
+                        <div>
+                          <p className="font-semibold">{solicitud.titulo}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Completado el {solicitud.trabajo?.fecha_fin 
+                              ? formatearFecha(solicitud.trabajo.fecha_fin) 
+                              : formatearFecha(solicitud.created_at)}
+                          </p>
+                          {solicitud.trabajo?.profesional && (
+                            <p className="text-sm text-muted-foreground">
+                              Profesional: {solicitud.trabajo.profesional.nombre} {solicitud.trabajo.profesional.apellido}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-semibold">{solicitud.titulo}</p>
-                        <p className="text-sm text-muted-foreground">
-                          Completado el {solicitud.trabajo?.fecha_fin 
-                            ? formatearFecha(solicitud.trabajo.fecha_fin) 
-                            : formatearFecha(solicitud.created_at)}
-                        </p>
+                      <div className="text-right">
+                        <p className="text-lg font-bold">{solicitud.trabajo?.precio_acordado || solicitud.presupuesto_max}EUR</p>
+                        {hasReview ? (
+                          <Badge variant="outline" className="bg-transparent mt-2 text-emerald-500 border-emerald-500/50">
+                            <Check className="h-3 w-3 mr-1" />
+                            Valorado
+                          </Badge>
+                        ) : (
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="mt-2 bg-transparent"
+                            onClick={() => {
+                              setSelectedTrabajo(solicitud.trabajo)
+                              setShowReviewDialog(true)
+                            }}
+                          >
+                            <Star className="h-4 w-4 mr-1" />
+                            Dejar Valoracion
+                          </Button>
+                        )}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-lg font-bold">{solicitud.trabajo?.precio_acordado || solicitud.presupuesto_max}€</p>
-                      <Button size="sm" variant="outline" className="mt-2 bg-transparent">
-                        <Star className="h-4 w-4 mr-1" />
-                        Dejar Valoración
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
+                  </CardContent>
+                </Card>
+              )
+            })
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Review Dialog */}
+      <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Valorar al profesional</DialogTitle>
+            <DialogDescription>
+              Tu valoracion ayuda a otros clientes y motiva a los profesionales a dar lo mejor de si.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            {/* Star Rating */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Puntuacion</label>
+              <div className="flex items-center justify-center gap-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onMouseEnter={() => setReviewHover(star)}
+                    onMouseLeave={() => setReviewHover(0)}
+                    onClick={() => setReviewRating(star)}
+                    className="transition-transform hover:scale-110"
+                  >
+                    <Star 
+                      className={`h-8 w-8 transition-colors ${
+                        star <= (reviewHover || reviewRating) 
+                          ? "fill-amber-500 text-amber-500" 
+                          : "text-muted-foreground"
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+              <p className="text-center text-sm text-muted-foreground">
+                {reviewRating === 1 && "Muy malo"}
+                {reviewRating === 2 && "Malo"}
+                {reviewRating === 3 && "Aceptable"}
+                {reviewRating === 4 && "Bueno"}
+                {reviewRating === 5 && "Excelente"}
+              </p>
+            </div>
+
+            {/* Comment */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Comentario</label>
+              <Textarea
+                placeholder="Describe tu experiencia con este profesional..."
+                value={reviewComentario}
+                onChange={(e) => setReviewComentario(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" className="bg-transparent" onClick={() => {
+              setShowReviewDialog(false)
+              setSelectedTrabajo(null)
+              setReviewRating(5)
+              setReviewComentario("")
+            }}>
+              Omitir
+            </Button>
+            <Button onClick={handleSubmitReview} disabled={actionLoading || !reviewComentario.trim()}>
+              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+              Enviar Valoracion
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject / Refund Dialog */}
+      <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-destructive">Rechazar trabajo y solicitar reembolso</DialogTitle>
+            <DialogDescription>
+              Si el trabajo no cumple con lo acordado, puedes rechazarlo y solicitar un reembolso.
+              La comision de la plataforma ({PLATFORM_CONFIG.comisionClientePorcentaje}%) no es reembolsable.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {selectedTrabajo && (
+              <div className="bg-muted/50 rounded-lg p-4 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Precio acordado</span>
+                  <span>{selectedTrabajo.precio_acordado} EUR</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Comision plataforma (no reembolsable)</span>
+                  <span className="text-destructive">
+                    -{calcularTotalCliente(selectedTrabajo.precio_acordado).comisionCliente.toFixed(2)} EUR
+                  </span>
+                </div>
+                <Separator />
+                <div className="flex justify-between font-semibold">
+                  <span>Reembolso estimado</span>
+                  <span className="text-emerald-600">
+                    {calcularReembolsoCliente(selectedTrabajo.precio_acordado).reembolsoCliente.toFixed(2)} EUR
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Motivo del rechazo *</label>
+              <Textarea
+                placeholder="Explica por que el trabajo no cumple con lo acordado..."
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" className="bg-transparent" onClick={() => {
+              setShowRejectDialog(false)
+              setRejectReason("")
+            }}>
+              Cancelar
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => handleRechazarTrabajo(selectedTrabajo)} 
+              disabled={actionLoading || !rejectReason.trim()}
+            >
+              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
+              Rechazar y Reembolsar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
