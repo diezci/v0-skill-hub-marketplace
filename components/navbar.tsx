@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Menu, X, User, Users, ClipboardList, FileText, MessageSquare } from "lucide-react"
+import { Menu, X, User, Users, ClipboardList, FileText, MessageSquare, Briefcase } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { cn } from "@/lib/utils"
@@ -35,7 +35,8 @@ const Navbar = () => {
   const navLinks = [
     { name: "Profesionales", path: "/profesionales", icon: Users },
     { name: "Demandas", path: "/demandas", icon: ClipboardList },
-    { name: "Mis Solicitudes", path: "/mis-solicitudes", icon: FileText },
+    { name: "Mis Solicitudes", path: "/mis-solicitudes", icon: FileText, role: "cliente" },
+    { name: "Mis Trabajos", path: "/mis-trabajos", icon: Briefcase, role: "proveedor" },
     { name: "Mensajes", path: "/mensajes", icon: MessageSquare },
     { name: "Mi Perfil", path: "/mi-perfil", icon: User },
   ]
