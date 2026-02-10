@@ -32,7 +32,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { obtenerConversaciones, obtenerMensajes, enviarMensaje } from "@/app/actions/mensajes"
+import { obtenerConversaciones, obtenerMensajes, enviarMensaje } from "@/app/actions/messages"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 
@@ -53,12 +53,17 @@ interface Conversation {
   participante_2: string
   ultimo_mensaje?: string
   fecha_ultimo_mensaje?: string
+  participante_otro?: { nombre: string; apellido: string; foto_perfil?: string }
   participante1?: { nombre: string; apellido: string; foto_perfil?: string }
   participante2?: { nombre: string; apellido: string; foto_perfil?: string }
   unread_count?: number
-  proyecto?: { titulo: string; estado: string }
+  proyecto?: { titulo: string; estado: string; progreso?: number }
+  solicitud_id?: string
+  trabajo_id?: string
   pinned?: boolean
   archived?: boolean
+  mi_rol?: "cliente" | "proveedor"
+  rol_otro?: "cliente" | "proveedor"
 }
 
 const MOCK_CONVERSATIONS: Conversation[] = [
@@ -68,11 +73,15 @@ const MOCK_CONVERSATIONS: Conversation[] = [
     participante_2: "user-2",
     ultimo_mensaje: "Perfecto, mañana a las 10h paso a ver el trabajo",
     fecha_ultimo_mensaje: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+    participante_otro: { nombre: "Carlos", apellido: "Rodríguez", foto_perfil: "/professional-man.png" },
     participante1: { nombre: "Carlos", apellido: "Rodríguez", foto_perfil: "/professional-man.png" },
     participante2: { nombre: "María", apellido: "García", foto_perfil: "/professional-woman.png" },
     unread_count: 2,
-    proyecto: { titulo: "Reforma de baño completo", estado: "en_progreso" },
+    proyecto: { titulo: "Reforma de baño completo", estado: "en_progreso", progreso: 65 },
+    trabajo_id: "trabajo-1",
     pinned: true,
+    mi_rol: "cliente",
+    rol_otro: "proveedor",
   },
   {
     id: "conv-2",
@@ -84,6 +93,8 @@ const MOCK_CONVERSATIONS: Conversation[] = [
     participante2: { nombre: "Ana", apellido: "López", foto_perfil: "/woman-client.png" },
     unread_count: 0,
     proyecto: { titulo: "Instalación eléctrica cocina", estado: "pendiente" },
+    mi_rol: "proveedor",
+    rol_otro: "cliente",
   },
   {
     id: "conv-3",
@@ -95,6 +106,8 @@ const MOCK_CONVERSATIONS: Conversation[] = [
     participante2: { nombre: "Carmen", apellido: "Ruiz", foto_perfil: "/woman-homeowner.png" },
     unread_count: 0,
     proyecto: { titulo: "Pintura interior vivienda", estado: "completado" },
+    mi_rol: "cliente",
+    rol_otro: "proveedor",
   },
   {
     id: "conv-4",
@@ -106,6 +119,8 @@ const MOCK_CONVERSATIONS: Conversation[] = [
     participante2: { nombre: "Elena", apellido: "Navarro", foto_perfil: "/business-woman.png" },
     unread_count: 0,
     proyecto: { titulo: "Montaje de muebles IKEA", estado: "completado" },
+    mi_rol: "proveedor",
+    rol_otro: "cliente",
   },
 ]
 
@@ -390,8 +405,8 @@ export default function MensajesContent() {
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex-1 flex overflow-hidden">
+    <div className="h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
+      <div className="flex-1 flex min-h-0">
         {/* Sidebar de conversaciones */}
         <div
           className={cn(
@@ -496,9 +511,24 @@ export default function MensajesContent() {
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <span className={cn("font-medium truncate", hasUnread && "text-foreground")}>
-                            {otherUser?.nombre} {otherUser?.apellido}
-                          </span>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className={cn("font-medium truncate", hasUnread && "text-foreground")}>
+                              {otherUser?.nombre} {otherUser?.apellido}
+                            </span>
+                            {conv.rol_otro && (
+                              <Badge 
+                                variant="outline" 
+                                className={cn(
+                                  "text-[10px] px-1.5 py-0 h-4 shrink-0",
+                                  conv.rol_otro === "proveedor" 
+                                    ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30" 
+                                    : "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                                )}
+                              >
+                                {conv.rol_otro === "proveedor" ? "Proveedor" : "Cliente"}
+                              </Badge>
+                            )}
+                          </div>
                           <span
                             className={cn(
                               "text-xs shrink-0",
@@ -579,12 +609,36 @@ export default function MensajesContent() {
                   </Avatar>
 
                   <div>
-                    <h2 className="font-medium">
-                      {getOtherUser(selectedConversation)?.nombre} {getOtherUser(selectedConversation)?.apellido}
-                    </h2>
-                    {selectedConversation.proyecto && (
-                      <p className="text-xs text-muted-foreground">{selectedConversation.proyecto.titulo}</p>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <h2 className="font-medium">
+                        {getOtherUser(selectedConversation)?.nombre} {getOtherUser(selectedConversation)?.apellido}
+                      </h2>
+                      {selectedConversation.rol_otro && (
+                        <Badge 
+                          variant="outline" 
+                          className={cn(
+                            "text-[10px] px-1.5 py-0 h-4",
+                            selectedConversation.rol_otro === "proveedor" 
+                              ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30" 
+                              : "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                          )}
+                        >
+                          {selectedConversation.rol_otro === "proveedor" ? "Proveedor" : "Cliente"}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {selectedConversation.proyecto && (
+                        <p className="text-xs text-muted-foreground">{selectedConversation.proyecto.titulo}</p>
+                      )}
+                      {selectedConversation.mi_rol && (
+                        <span className="text-xs text-muted-foreground">
+                          · Tú: <span className={selectedConversation.mi_rol === "proveedor" ? "text-emerald-600" : "text-blue-600"}>
+                            {selectedConversation.mi_rol === "proveedor" ? "Proveedor" : "Cliente"}
+                          </span>
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 

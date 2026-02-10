@@ -218,45 +218,55 @@ export async function obtenerProfesionalesDestacados() {
     }
 
     try {
-      const { data, error } = await supabase
+      // First, get professionals
+      const { data: profesionales, error: profError } = await supabase
         .from("profesionales")
-        .select(`
-          id,
-          titulo,
-          tarifa_por_hora,
-          rating_promedio,
-          total_reseñas,
-          profiles!inner(nombre, apellido, foto_perfil, ubicacion)
-        `)
+        .select("id, titulo, tarifa_por_hora, rating_promedio, total_reseñas, disponible")
         .eq("disponible", true)
-        .gte("rating_promedio", 4.5)
         .order("total_reseñas", { ascending: false })
         .limit(6)
 
-      if (error) {
-        console.error("[v0] Supabase query error:", error.message)
+      if (profError) {
+        console.error("[v0] Supabase professionals query error:", profError.message)
         return []
       }
 
-      if (!data || data.length === 0) {
+      if (!profesionales || profesionales.length === 0) {
         console.log("[v0] No featured professionals found in database")
         return []
       }
 
-      return data.map((prof: any) => ({
-        id: prof.id,
-        titulo_profesional: prof.titulo || "Profesional",
-        descripcion: "Profesional verificado",
-        tarifa_hora: prof.tarifa_por_hora || 0,
-        rating_promedio: prof.rating_promedio || 0,
-        total_reviews: prof.total_reseñas || 0,
-        foto_portada: prof.profiles?.foto_portada,
-        foto_perfil: prof.profiles?.foto_perfil,
-        nombre_completo: `${prof.profiles?.nombre || ""} ${prof.profiles?.apellido || ""}`.trim(),
-        ubicacion: prof.profiles?.ubicacion || "Ubicación no especificada",
-        categoria: "Servicios Generales",
-        disponible: true,
-      }))
+      // Then get profiles for these professionals
+      const profIds = profesionales.map(p => p.id)
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id, nombre, apellido, foto_perfil, ubicacion")
+        .in("id", profIds)
+
+      if (profilesError) {
+        console.error("[v0] Supabase profiles query error:", profilesError.message)
+      }
+
+      // Create a map for quick profile lookup
+      const profilesMap = new Map((profiles || []).map(p => [p.id, p]))
+
+      return profesionales.map((prof: any) => {
+        const profile = profilesMap.get(prof.id)
+        return {
+          id: prof.id,
+          titulo_profesional: prof.titulo || "Profesional",
+          descripcion: "Profesional verificado",
+          tarifa_hora: prof.tarifa_por_hora || 0,
+          rating_promedio: prof.rating_promedio || 0,
+          total_reviews: prof.total_reseñas || 0,
+          foto_portada: profile?.foto_perfil,
+          foto_perfil: profile?.foto_perfil,
+          nombre_completo: `${profile?.nombre || ""} ${profile?.apellido || ""}`.trim() || "Profesional",
+          ubicacion: profile?.ubicacion || "Ubicación no especificada",
+          categoria: "Servicios Generales",
+          disponible: true,
+        }
+      })
     } catch (queryError) {
       console.error(
         "[v0] Network or server error fetching professionals:",
