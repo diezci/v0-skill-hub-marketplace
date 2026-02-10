@@ -670,6 +670,7 @@ export default function DemandasServicios() {
 
             <div className="flex gap-3">
               <Button
+                type="button"
                 className="flex-1"
                 onClick={() => {
                   setDialogDetalles(false)
@@ -701,7 +702,9 @@ export default function DemandasServicios() {
               <div className="flex items-center gap-4">
                 <Avatar className="h-16 w-16">
                   <AvatarImage src={clienteSeleccionado.foto_perfil || "/placeholder.svg"} />
-                  <AvatarFallback className="text-lg">{clienteSeleccionado.nombre?.[0]}{clienteSeleccionado.apellido?.[0]}</AvatarFallback>
+                  <AvatarFallback className="text-lg">
+                    {clienteSeleccionado.nombre?.[0]}{clienteSeleccionado.apellido?.[0]}
+                  </AvatarFallback>
                 </Avatar>
                 <div>
                   <h3 className="text-lg font-semibold">{clienteSeleccionado.nombre} {clienteSeleccionado.apellido}</h3>
@@ -719,21 +722,17 @@ export default function DemandasServicios() {
               <Separator />
 
               {/* Client Stats */}
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="text-center p-3 rounded-lg bg-muted/50">
                   <div className="flex items-center justify-center gap-1 mb-1">
                     <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
                     <span className="font-bold text-lg">4.7</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">Valoracion como cliente</p>
+                  <p className="text-xs text-muted-foreground">Valoración como cliente</p>
                 </div>
                 <div className="text-center p-3 rounded-lg bg-muted/50">
                   <p className="font-bold text-lg">8</p>
                   <p className="text-xs text-muted-foreground">Trabajos contratados</p>
-                </div>
-                <div className="text-center p-3 rounded-lg bg-muted/50">
-                  <p className="font-bold text-lg">95%</p>
-                  <p className="text-xs text-muted-foreground">Tasa de pago</p>
                 </div>
               </div>
 
