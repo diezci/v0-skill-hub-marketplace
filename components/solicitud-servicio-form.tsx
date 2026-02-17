@@ -48,6 +48,24 @@ const categories = [
   "Impermeabilizaciones",
 ]
 
+const ciudades = [
+  { ciudad: "Madrid", codigo: "28" },
+  { ciudad: "Barcelona", codigo: "08" },
+  { ciudad: "Valencia", codigo: "46" },
+  { ciudad: "Sevilla", codigo: "41" },
+  { ciudad: "Málaga", codigo: "29" },
+  { ciudad: "Bilbao", codigo: "48" },
+  { ciudad: "Alicante", codigo: "03" },
+  { ciudad: "Córdoba", codigo: "14" },
+  { ciudad: "Valladolid", codigo: "47" },
+  { ciudad: "Palma", codigo: "07" },
+  { ciudad: "Murcia", codigo: "30" },
+  { ciudad: "Zaragoza", codigo: "50" },
+  { ciudad: "Granada", codigo: "18" },
+  { ciudad: "Oviedo", codigo: "33" },
+  { ciudad: "Otra ciudad", codigo: "00" },
+]
+
 interface Props {
   embedded?: boolean
 }
@@ -158,9 +176,20 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
                   <MapPin className="h-4 w-4 text-emerald-500" />
                   Ubicación
                 </FormLabel>
-                <FormControl>
-                  <Input placeholder="Ciudad o zona" {...field} />
-                </FormControl>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona una ciudad" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {ciudades.map((loc) => (
+                      <SelectItem key={loc.codigo} value={`${loc.ciudad} (${loc.codigo})`}>
+                        {loc.ciudad} - CP: {loc.codigo}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}

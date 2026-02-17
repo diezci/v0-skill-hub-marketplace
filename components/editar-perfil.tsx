@@ -9,10 +9,29 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Camera, Plus, X, Upload, Loader2 } from "lucide-react"
+import { Camera, Plus, X, Upload, Loader2, MapPin } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { uploadFile } from "@/lib/upload-helpers"
 import { actualizarPerfil, obtenerPerfilActual } from "@/app/actions/profiles"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
+const ciudades = [
+  { ciudad: "Madrid", codigo: "28" },
+  { ciudad: "Barcelona", codigo: "08" },
+  { ciudad: "Valencia", codigo: "46" },
+  { ciudad: "Sevilla", codigo: "41" },
+  { ciudad: "Málaga", codigo: "29" },
+  { ciudad: "Bilbao", codigo: "48" },
+  { ciudad: "Alicante", codigo: "03" },
+  { ciudad: "Córdoba", codigo: "14" },
+  { ciudad: "Valladolid", codigo: "47" },
+  { ciudad: "Palma", codigo: "07" },
+  { ciudad: "Murcia", codigo: "30" },
+  { ciudad: "Zaragoza", codigo: "50" },
+  { ciudad: "Granada", codigo: "18" },
+  { ciudad: "Oviedo", codigo: "33" },
+  { ciudad: "Otra ciudad", codigo: "00" },
+]
 
 export default function EditarPerfil() {
   const { toast } = useToast()
@@ -264,12 +283,22 @@ export default function EditarPerfil() {
               <Input id="name" value={profileData.name} onChange={(e) => handleInputChange("name", e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="location">Ubicación</Label>
-              <Input
-                id="location"
-                value={profileData.location}
-                onChange={(e) => handleInputChange("location", e.target.value)}
-              />
+              <Label htmlFor="location" className="flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                Ubicación
+              </Label>
+              <Select value={profileData.location} onValueChange={(value) => handleInputChange("location", value)}>
+                <SelectTrigger id="location">
+                  <SelectValue placeholder="Selecciona una ciudad" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ciudades.map((loc) => (
+                    <SelectItem key={loc.codigo} value={`${loc.ciudad} (${loc.codigo})`}>
+                      {loc.ciudad} - CP: {loc.codigo}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
