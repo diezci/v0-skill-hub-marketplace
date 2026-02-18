@@ -48,22 +48,56 @@ const categories = [
   "Impermeabilizaciones",
 ]
 
-const ciudades = [
-  { ciudad: "Madrid", codigo: "28" },
-  { ciudad: "Barcelona", codigo: "08" },
-  { ciudad: "Valencia", codigo: "46" },
-  { ciudad: "Sevilla", codigo: "41" },
-  { ciudad: "Málaga", codigo: "29" },
-  { ciudad: "Bilbao", codigo: "48" },
-  { ciudad: "Alicante", codigo: "03" },
-  { ciudad: "Córdoba", codigo: "14" },
-  { ciudad: "Valladolid", codigo: "47" },
-  { ciudad: "Palma", codigo: "07" },
-  { ciudad: "Murcia", codigo: "30" },
-  { ciudad: "Zaragoza", codigo: "50" },
-  { ciudad: "Granada", codigo: "18" },
-  { ciudad: "Oviedo", codigo: "33" },
-  { ciudad: "Otra ciudad", codigo: "00" },
+const provincias = [
+  { provincia: "Álava", codigo: "01" },
+  { provincia: "Albacete", codigo: "02" },
+  { provincia: "Alicante", codigo: "03" },
+  { provincia: "Almería", codigo: "04" },
+  { provincia: "Ávila", codigo: "05" },
+  { provincia: "Badajoz", codigo: "06" },
+  { provincia: "Islas Baleares", codigo: "07" },
+  { provincia: "Barcelona", codigo: "08" },
+  { provincia: "Burgos", codigo: "09" },
+  { provincia: "Cáceres", codigo: "10" },
+  { provincia: "Cádiz", codigo: "11" },
+  { provincia: "Castellón", codigo: "12" },
+  { provincia: "Ciudad Real", codigo: "13" },
+  { provincia: "Córdoba", codigo: "14" },
+  { provincia: "Cuenca", codigo: "16" },
+  { provincia: "Girona", codigo: "17" },
+  { provincia: "Granada", codigo: "18" },
+  { provincia: "Guadalajara", codigo: "19" },
+  { provincia: "Guipúzcoa", codigo: "20" },
+  { provincia: "Huelva", codigo: "21" },
+  { provincia: "Huesca", codigo: "22" },
+  { provincia: "Jaén", codigo: "23" },
+  { provincia: "La Coruña", codigo: "15" },
+  { provincia: "La Rioja", codigo: "26" },
+  { provincia: "Las Palmas", codigo: "35" },
+  { provincia: "León", codigo: "24" },
+  { provincia: "Lleida", codigo: "25" },
+  { provincia: "Lugo", codigo: "27" },
+  { provincia: "Madrid", codigo: "28" },
+  { provincia: "Málaga", codigo: "29" },
+  { provincia: "Murcia", codigo: "30" },
+  { provincia: "Navarra", codigo: "31" },
+  { provincia: "Ourense", codigo: "32" },
+  { provincia: "Asturias", codigo: "33" },
+  { provincia: "Palencia", codigo: "34" },
+  { provincia: "Pontevedra", codigo: "36" },
+  { provincia: "Segovia", codigo: "40" },
+  { provincia: "Sevilla", codigo: "41" },
+  { provincia: "Soria", codigo: "42" },
+  { provincia: "Tarragona", codigo: "43" },
+  { provincia: "Teruel", codigo: "44" },
+  { provincia: "Toledo", codigo: "45" },
+  { provincia: "Valencia", codigo: "46" },
+  { provincia: "Valladolid", codigo: "47" },
+  { provincia: "Vizcaya", codigo: "48" },
+  { provincia: "Zamora", codigo: "49" },
+  { provincia: "Zaragoza", codigo: "50" },
+  { provincia: "Ceuta", codigo: "51" },
+  { provincia: "Melilla", codigo: "52" },
 ]
 
 interface Props {
@@ -174,18 +208,18 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
               <FormItem>
                 <FormLabel className="flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-emerald-500" />
-                  Ubicación
+                  Provincia
                 </FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecciona una ciudad" />
+                      <SelectValue placeholder="Selecciona una provincia" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {ciudades.map((loc) => (
-                      <SelectItem key={loc.codigo} value={`${loc.ciudad} (${loc.codigo})`}>
-                        {loc.ciudad} - CP: {loc.codigo}
+                    {provincias.map((prov) => (
+                      <SelectItem key={prov.codigo} value={`${prov.provincia}`}>
+                        {prov.provincia}
                       </SelectItem>
                     ))}
                   </SelectContent>
