@@ -68,6 +68,39 @@ const provincias = [
   { provincia: "Melilla", codigo: "52" },
 ]
 
+const prefijosPais = [
+  { pais: "España", prefijo: "+34", codigo: "ES" },
+  { pais: "Francia", prefijo: "+33", codigo: "FR" },
+  { pais: "Portugal", prefijo: "+351", codigo: "PT" },
+  { pais: "Reino Unido", prefijo: "+44", codigo: "GB" },
+  { pais: "Alemania", prefijo: "+49", codigo: "DE" },
+  { pais: "Italia", prefijo: "+39", codigo: "IT" },
+  { pais: "Países Bajos", prefijo: "+31", codigo: "NL" },
+  { pais: "Bélgica", prefijo: "+32", codigo: "BE" },
+  { pais: "Suiza", prefijo: "+41", codigo: "CH" },
+  { pais: "Austria", prefijo: "+43", codigo: "AT" },
+  { pais: "Polonia", prefijo: "+48", codigo: "PL" },
+  { pais: "Suecia", prefijo: "+46", codigo: "SE" },
+  { pais: "Noruega", prefijo: "+47", codigo: "NO" },
+  { pais: "Dinamarca", prefijo: "+45", codigo: "DK" },
+  { pais: "Finlandia", prefijo: "+358", codigo: "FI" },
+  { pais: "Irlanda", prefijo: "+353", codigo: "IE" },
+  { pais: "Grecia", prefijo: "+30", codigo: "GR" },
+  { pais: "República Checa", prefijo: "+420", codigo: "CZ" },
+  { pais: "Rumanía", prefijo: "+40", codigo: "RO" },
+  { pais: "Hungría", prefijo: "+36", codigo: "HU" },
+  { pais: "Estados Unidos", prefijo: "+1", codigo: "US" },
+  { pais: "Canadá", prefijo: "+1", codigo: "CA" },
+  { pais: "México", prefijo: "+52", codigo: "MX" },
+  { pais: "Argentina", prefijo: "+54", codigo: "AR" },
+  { pais: "Colombia", prefijo: "+57", codigo: "CO" },
+  { pais: "Chile", prefijo: "+56", codigo: "CL" },
+  { pais: "Perú", prefijo: "+51", codigo: "PE" },
+  { pais: "Venezuela", prefijo: "+58", codigo: "VE" },
+  { pais: "Brasil", prefijo: "+55", codigo: "BR" },
+  { pais: "Uruguay", prefijo: "+598", codigo: "UY" },
+]
+
 const formSchema = z
   .object({
     fullName: z.string().min(2, {
@@ -80,9 +113,10 @@ const formSchema = z
       message: "La contraseña debe tener al menos 8 caracteres.",
     }),
     confirmPassword: z.string(),
-    phone: z.string().optional(),
+    phonePrefix: z.string().optional(),
+    phoneNumber: z.string().optional(),
     city: z.string().min(2, {
-      message: "Por favor ingresa tu ciudad.",
+      message: "Por favor selecciona tu provincia.",
     }),
     termsAccepted: z.boolean().refine((val) => val === true, {
       message: "Debes aceptar los términos y condiciones.",
@@ -104,7 +138,8 @@ const RegistroForm = () => {
       email: "",
       password: "",
       confirmPassword: "",
-      phone: "",
+      phonePrefix: "+34",
+      phoneNumber: "",
       city: "",
       termsAccepted: false,
     },
@@ -113,11 +148,16 @@ const RegistroForm = () => {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true)
 
+    // Combinar prefijo y número de teléfono
+    const fullPhone = values.phonePrefix && values.phoneNumber 
+      ? `${values.phonePrefix} ${values.phoneNumber}`
+      : undefined
+
     const result = await registrarCliente({
       email: values.email,
       password: values.password,
       fullName: values.fullName,
-      phone: values.phone,
+      phone: fullPhone,
       city: values.city,
     })
 
@@ -205,20 +245,45 @@ const RegistroForm = () => {
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Teléfono (Opcional)</FormLabel>
-                  <FormControl>
-                    <Input type="tel" placeholder="+34 600 000 000" {...field} />
-                  </FormControl>
-                  <FormDescription>Los profesionales podrán contactarte por teléfono.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="space-y-2">
+              <FormLabel>Teléfono (Opcional)</FormLabel>
+              <div className="flex gap-2">
+                <FormField
+                  control={form.control}
+                  name="phonePrefix"
+                  render={({ field }) => (
+                    <FormItem className="w-32">
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Prefijo" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {prefijosPais.map((p) => (
+                            <SelectItem key={p.codigo} value={p.prefijo}>
+                              {p.prefijo} {p.pais}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="phoneNumber"
+                  render={({ field }) => (
+                    <FormItem className="flex-1">
+                      <FormControl>
+                        <Input type="tel" placeholder="600 000 000" {...field} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <p className="text-sm text-muted-foreground">Los profesionales podrán contactarte por teléfono.</p>
+            </div>
 
             <FormField
               control={form.control}
