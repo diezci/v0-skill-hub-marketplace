@@ -60,7 +60,7 @@ Al lanzar la plataforma, no tendrás profesionales registrados, lo que puede dar
 ### A. Estado Vacío Inteligente (Empty States)
 Cuando no hay profesionales, mostrar:
 
-```
+\`\`\`
 ┌─────────────────────────────────────────┐
 │  🚧 Estamos construyendo tu red local  │
 │                                         │
@@ -74,7 +74,7 @@ Cuando no hay profesionales, mostrar:
 │                                         │
 │  [Publicar mi Proyecto] [Soy Profesional] │
 └─────────────────────────────────────────┘
-```
+\`\`\`
 
 ### B. Priorizar las Demandas de Clientes
 **Cambiar el enfoque inicial:**
