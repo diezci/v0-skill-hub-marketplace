@@ -15,6 +15,8 @@ import Link from "next/link"
 import { registrarCliente } from "@/app/actions/auth"
 import { useRouter } from "next/navigation"
 import { MapPin } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
+import { Separator } from "@/components/ui/separator"
 
 const provincias = [
   { provincia: "Álava", codigo: "01" },
@@ -129,7 +131,37 @@ const formSchema = z
 
 const RegistroForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const router = useRouter()
+
+  const handleGoogleSignup = async () => {
+    setIsGoogleLoading(true)
+    const supabase = createClient()
+    
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      })
+      if (error) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error.message,
+        })
+      }
+    } catch (error: unknown) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Error al registrarse con Google",
+      })
+    } finally {
+      setIsGoogleLoading(false)
+    }
+  }
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
