@@ -33,6 +33,15 @@ export async function registrarUsuario(formData: {
   })
 
   if (authError) {
+    // Handle specific error cases
+    if (authError.message.includes("over_email_send_rate_limit")) {
+      return { 
+        error: "Has excedido el límite de registros por hora. Por favor espera 1 hora o contacta con soporte para aumentar el límite." 
+      }
+    }
+    if (authError.message.includes("User already registered")) {
+      return { error: "Este email ya está registrado. Intenta iniciar sesión." }
+    }
     return { error: authError.message }
   }
 
