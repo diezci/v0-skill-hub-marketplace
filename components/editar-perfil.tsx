@@ -9,10 +9,63 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Camera, Plus, X, Upload, Loader2 } from "lucide-react"
+import { Camera, Plus, X, Upload, Loader2, MapPin } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { uploadFile } from "@/lib/upload-helpers"
 import { actualizarPerfil, obtenerPerfilActual } from "@/app/actions/profiles"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
+const provincias = [
+  { provincia: "Álava", codigo: "01" },
+  { provincia: "Albacete", codigo: "02" },
+  { provincia: "Alicante", codigo: "03" },
+  { provincia: "Almería", codigo: "04" },
+  { provincia: "Ávila", codigo: "05" },
+  { provincia: "Badajoz", codigo: "06" },
+  { provincia: "Islas Baleares", codigo: "07" },
+  { provincia: "Barcelona", codigo: "08" },
+  { provincia: "Burgos", codigo: "09" },
+  { provincia: "Cáceres", codigo: "10" },
+  { provincia: "Cádiz", codigo: "11" },
+  { provincia: "Castellón", codigo: "12" },
+  { provincia: "Ciudad Real", codigo: "13" },
+  { provincia: "Córdoba", codigo: "14" },
+  { provincia: "Cuenca", codigo: "16" },
+  { provincia: "Girona", codigo: "17" },
+  { provincia: "Granada", codigo: "18" },
+  { provincia: "Guadalajara", codigo: "19" },
+  { provincia: "Guipúzcoa", codigo: "20" },
+  { provincia: "Huelva", codigo: "21" },
+  { provincia: "Huesca", codigo: "22" },
+  { provincia: "Jaén", codigo: "23" },
+  { provincia: "La Coruña", codigo: "15" },
+  { provincia: "La Rioja", codigo: "26" },
+  { provincia: "Las Palmas", codigo: "35" },
+  { provincia: "León", codigo: "24" },
+  { provincia: "Lleida", codigo: "25" },
+  { provincia: "Lugo", codigo: "27" },
+  { provincia: "Madrid", codigo: "28" },
+  { provincia: "Málaga", codigo: "29" },
+  { provincia: "Murcia", codigo: "30" },
+  { provincia: "Navarra", codigo: "31" },
+  { provincia: "Ourense", codigo: "32" },
+  { provincia: "Asturias", codigo: "33" },
+  { provincia: "Palencia", codigo: "34" },
+  { provincia: "Pontevedra", codigo: "36" },
+  { provincia: "Segovia", codigo: "40" },
+  { provincia: "Sevilla", codigo: "41" },
+  { provincia: "Soria", codigo: "42" },
+  { provincia: "Tarragona", codigo: "43" },
+  { provincia: "Teruel", codigo: "44" },
+  { provincia: "Toledo", codigo: "45" },
+  { provincia: "Valencia", codigo: "46" },
+  { provincia: "Valladolid", codigo: "47" },
+  { provincia: "Vizcaya", codigo: "48" },
+  { provincia: "Zamora", codigo: "49" },
+  { provincia: "Zaragoza", codigo: "50" },
+  { provincia: "Ceuta", codigo: "51" },
+  { provincia: "Melilla", codigo: "52" },
+]
 
 export default function EditarPerfil() {
   const { toast } = useToast()
@@ -264,12 +317,22 @@ export default function EditarPerfil() {
               <Input id="name" value={profileData.name} onChange={(e) => handleInputChange("name", e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="location">Ubicación</Label>
-              <Input
-                id="location"
-                value={profileData.location}
-                onChange={(e) => handleInputChange("location", e.target.value)}
-              />
+              <Label htmlFor="location" className="flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                Provincia
+              </Label>
+              <Select value={profileData.location} onValueChange={(value) => handleInputChange("location", value)}>
+                <SelectTrigger id="location">
+                  <SelectValue placeholder="Selecciona una provincia" />
+                </SelectTrigger>
+                <SelectContent>
+                  {provincias.map((prov) => (
+                    <SelectItem key={prov.codigo} value={`${prov.provincia}`}>
+                      {prov.provincia}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

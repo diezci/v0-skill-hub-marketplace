@@ -585,7 +585,7 @@ export default function MensajesContent() {
         </div>
 
         {/* Panel de chat */}
-        <div className={cn("flex-1 flex flex-col bg-background", !selectedConversation && "hidden md:flex")}>
+        <div className={cn("flex-1 flex flex-col bg-background min-h-0", !selectedConversation && "hidden md:flex")}>
           {selectedConversation ? (
             <>
               {/* Header del chat */}
@@ -667,8 +667,9 @@ export default function MensajesContent() {
               </div>
 
               {/* Mensajes - scrollable area */}
-              <ScrollArea className="flex-1 p-4">
-                <div className="space-y-4">
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <ScrollArea className="h-full w-full">
+                  <div className="p-4 space-y-4">
                   {loadingMessages ? (
                     <div className="flex items-center justify-center py-12">
                       <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -832,6 +833,7 @@ export default function MensajesContent() {
                   )}
                 </div>
               </ScrollArea>
+              </div>
 
               {/* Input de mensaje */}
               <div className="p-4 border-t border-border shrink-0">
