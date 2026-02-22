@@ -83,7 +83,6 @@ export async function registrarUsuario(formData: {
     email: formData.email,
     telefono: formData.telefono || null,
     ubicacion: formData.ubicacion || null,
-    empresa_id: empresaId,
   })
 
   if (profileError) {

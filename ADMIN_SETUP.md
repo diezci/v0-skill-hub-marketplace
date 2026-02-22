@@ -10,22 +10,22 @@ Para probar el sistema de admin, debes:
 #### Opción A: Crear Admin Manual en Supabase
 1. Ve a tu proyecto Supabase
 2. En **SQL Editor**, ejecuta:
-```sql
+\`\`\`sql
 -- Primero, crea un usuario en Auth (si no existe)
 -- Luego, actualiza su perfil:
 UPDATE profiles 
 SET rol = 'admin' 
 WHERE email = 'tu-email@ejemplo.com';
-```
+\`\`\`
 
 #### Opción B: Usar Usuario de Prueba
 1. Regístrate con cualquier email (ej: `admin@skillhub.test`)
 2. Luego en Supabase SQL:
-```sql
+\`\`\`sql
 UPDATE profiles 
 SET rol = 'admin' 
 WHERE email = 'admin@skillhub.test';
-```
+\`\`\`
 
 ### 3. **Cómo Funciona el Sistema**
 
@@ -69,7 +69,7 @@ WHERE email = 'admin@skillhub.test';
 
 ### 5. **Estructura de Base de Datos**
 
-```
+\`\`\`
 Tabla: profiles
 - rol: 'admin', 'cliente', 'proveedor', 'freelancer'
 
@@ -86,7 +86,7 @@ Tabla: disputas
 Tabla: transacciones_escrow
 - estado: 'pendiente' | 'liberado' | 'reembolsado'
 - Se actualiza automáticamente cuando se resuelve una disputa
-```
+\`\`\`
 
 ### 6. **Protecciones Implementadas**
 
