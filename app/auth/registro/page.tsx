@@ -145,7 +145,7 @@ export default function RegistroPage() {
   }
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-6">
+    <div className="flex min-h-screen w-full items-center justify-center bg-gray-100 p-6">
       <div className="w-full max-w-md">
         <Card className="shadow-lg">
           <CardHeader className="space-y-1">
