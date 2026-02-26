@@ -8,11 +8,41 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 
-const GOOGLE_OAUTH_ENABLED = false
+const GOOGLE_OAUTH_ENABLED = true
+
+const provincias = [
+  "Álava", "Albacete", "Alicante", "Almería", "Asturias", "Ávila",
+  "Badajoz", "Barcelona", "Burgos", "Cáceres", "Cádiz", "Cantabria",
+  "Castellón", "Ceuta", "Ciudad Real", "Córdoba", "Cuenca", "Girona",
+  "Granada", "Guadalajara", "Guipúzcoa", "Huelva", "Huesca", "Islas Baleares",
+  "Jaén", "La Coruña", "La Rioja", "Las Palmas", "León", "Lleida",
+  "Lugo", "Madrid", "Málaga", "Melilla", "Murcia", "Navarra",
+  "Ourense", "Palencia", "Pontevedra", "Santa Cruz de Tenerife", "Segovia",
+  "Sevilla", "Soria", "Tarragona", "Teruel", "Toledo", "Valencia",
+  "Valladolid", "Vizcaya", "Zamora", "Zaragoza",
+]
+
+const prefijosPais = [
+  { pais: "España", prefijo: "+34" },
+  { pais: "Francia", prefijo: "+33" },
+  { pais: "Portugal", prefijo: "+351" },
+  { pais: "Reino Unido", prefijo: "+44" },
+  { pais: "Alemania", prefijo: "+49" },
+  { pais: "Italia", prefijo: "+39" },
+  { pais: "Estados Unidos", prefijo: "+1" },
+  { pais: "México", prefijo: "+52" },
+  { pais: "Argentina", prefijo: "+54" },
+  { pais: "Colombia", prefijo: "+57" },
+  { pais: "Chile", prefijo: "+56" },
+  { pais: "Perú", prefijo: "+51" },
+  { pais: "Brasil", prefijo: "+55" },
+  { pais: "Uruguay", prefijo: "+598" },
+]
 
 export default function RegistroPage() {
   const [nombre, setNombre] = useState("")
@@ -23,7 +53,8 @@ export default function RegistroPage() {
   const [tipoEntidad, setTipoEntidad] = useState<"particular" | "empresa">("particular")
   const [documento, setDocumento] = useState("")
   const [nombreEmpresa, setNombreEmpresa] = useState("")
-  const [telefono, setTelefono] = useState("")
+  const [telefonoPrefijo, setTelefonoPrefijo] = useState("+34")
+  const [telefonoNumero, setTelefonoNumero] = useState("")
   const [ubicacion, setUbicacion] = useState("")
   const [tokenInvitacion, setTokenInvitacion] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -61,6 +92,8 @@ export default function RegistroPage() {
 
     try {
       const { registrarUsuario } = await import("@/app/actions/auth")
+
+      const telefono = telefonoNumero ? `${telefonoPrefijo} ${telefonoNumero}` : ""
 
       const result = await registrarUsuario({
         email,
@@ -127,7 +160,7 @@ export default function RegistroPage() {
                     <Button
                       type="button"
                       variant="outline"
-                      className="w-full bg-transparent"
+                      className="w-full h-11 bg-transparent"
                       onClick={handleGoogleSignUp}
                       disabled={isLoading}
                     >
@@ -154,10 +187,10 @@ export default function RegistroPage() {
 
                     <div className="relative">
                       <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t" />
+                        <Separator />
                       </div>
                       <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-gray-900 px-2 text-gray-300">O continúa con email</span>
+                        <span className="bg-background px-2 text-muted-foreground">O regístrate con email</span>
                       </div>
                     </div>
                   </>
@@ -261,25 +294,44 @@ export default function RegistroPage() {
                 )}
 
                 <div className="grid gap-2">
-                  <Label htmlFor="telefono">Teléfono</Label>
-                  <Input
-                    id="telefono"
-                    type="tel"
-                    placeholder="+34 600 000 000"
-                    value={telefono}
-                    onChange={(e) => setTelefono(e.target.value)}
-                  />
+                  <Label>Teléfono (opcional)</Label>
+                  <div className="flex gap-2">
+                    <Select value={telefonoPrefijo} onValueChange={setTelefonoPrefijo}>
+                      <SelectTrigger className="w-36">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {prefijosPais.map((p) => (
+                          <SelectItem key={p.prefijo + p.pais} value={p.prefijo}>
+                            {p.prefijo} {p.pais}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="tel"
+                      placeholder="600 000 000"
+                      className="flex-1"
+                      value={telefonoNumero}
+                      onChange={(e) => setTelefonoNumero(e.target.value)}
+                    />
+                  </div>
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="ubicacion">Ubicación</Label>
-                  <Input
-                    id="ubicacion"
-                    type="text"
-                    placeholder="Madrid, España"
-                    value={ubicacion}
-                    onChange={(e) => setUbicacion(e.target.value)}
-                  />
+                  <Label htmlFor="ubicacion">Provincia</Label>
+                  <Select value={ubicacion} onValueChange={setUbicacion}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona tu provincia" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {provincias.map((prov) => (
+                        <SelectItem key={prov} value={prov}>
+                          {prov}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="grid gap-2">
