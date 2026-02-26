@@ -25,7 +25,7 @@ El límite de emails se resetea cada hora. Simplemente espera 60 minutos antes d
 
 Puedes crear usuarios directamente en la base de datos sin pasar por el límite de emails:
 
-```sql
+\`\`\`sql
 -- 1. Crear usuario en auth.users (usando password hasheado)
 -- Nota: Esto es solo para testing, en producción usa el sistema de auth normal
 
@@ -41,7 +41,7 @@ VALUES (
   NOW(),
   NOW()
 );
-```
+\`\`\`
 
 **IMPORTANTE:** Esta opción crea solo el perfil, no el usuario de auth. Para login necesitarás usar la Solución 1.
 
@@ -70,7 +70,7 @@ Para probar el sistema de pagos sin crear múltiples usuarios:
 
 ### Script para usar usuarios existentes:
 
-```sql
+\`\`\`sql
 -- Ver todos los usuarios actuales
 SELECT id, email, nombre, apellido, rol FROM profiles;
 
@@ -78,7 +78,7 @@ SELECT id, email, nombre, apellido, rol FROM profiles;
 UPDATE profiles SET rol = 'proveedor' WHERE email = 'tumail@example.com';
 UPDATE profiles SET rol = 'cliente' WHERE email = 'otromail@example.com';
 UPDATE profiles SET rol = 'admin' WHERE email = 'admin@example.com';
-```
+\`\`\`
 
 ## Verificar que funciona
 

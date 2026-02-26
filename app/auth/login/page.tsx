@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Mail, Lock, AlertCircle } from "lucide-react"
 
-const GOOGLE_OAUTH_ENABLED = false
+const GOOGLE_OAUTH_ENABLED = true
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
