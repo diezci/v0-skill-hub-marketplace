@@ -24,7 +24,7 @@ CREATE POLICY "Admins can manage invitaciones"
     EXISTS (
       SELECT 1 FROM profiles
       WHERE profiles.id = auth.uid()
-      AND profiles.role = 'admin'
+      AND profiles.es_admin = true
     )
   );
 
