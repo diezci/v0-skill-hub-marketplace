@@ -6,181 +6,169 @@ import { Resend } from "resend"
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 interface Proveedor {
-  nombre_empresa: string
-  email_empresa: string
-  descripcion_empresa: string
-  sitio_web: string
+  nombre: string
+  email: string
+  telefono?: string
+  web?: string
+  razon: string
 }
 
-interface SolicitudData {
-  id: string
-  titulo: string
+async function buscarProveedoresConIA(
+  categoria: string,
+  ubicacion: string,
   descripcion: string
-  ubicacion: string
-  presupuesto_min?: number
-  presupuesto_max?: number
-  categoria?: string
-}
+): Promise<Proveedor[]> {
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) {
+    console.error("[v0] GEMINI_API_KEY not configured")
+    return []
+  }
 
-async function buscarProveedoresConGemini(solicitud: SolicitudData): Promise<Proveedor[]> {
-  const prompt = `Eres un asistente experto en encontrar proveedores de servicios en España.
+  const prompt = `Eres un asistente que busca proveedores de servicios en España.
 
-Se ha publicado la siguiente demanda de servicio:
-- Título: ${solicitud.titulo}
-- Descripción: ${solicitud.descripcion}
-- Ubicación: ${solicitud.ubicacion || "España"}
-- Presupuesto: ${solicitud.presupuesto_min ? `${solicitud.presupuesto_min}€` : ""}${solicitud.presupuesto_max ? ` - ${solicitud.presupuesto_max}€` : ""}
-- Categoría: ${solicitud.categoria || "Servicios generales"}
+Necesito encontrar 3 empresas o profesionales REALES que ofrezcan servicios de "${categoria}" en "${ubicacion}" o alrededores.
 
-Tu tarea es identificar 3 empresas o profesionales reales que podrían atender esta demanda.
+Contexto del trabajo solicitado: "${descripcion}"
 
-Responde ÚNICAMENTE con un array JSON válido con exactamente 3 objetos. No incluyas explicaciones, solo el JSON:
+IMPORTANTE: Devuelve SOLO empresas reales con datos de contacto verificables. Si no encuentras empresas reales, inventa nombres de empresas ficticias pero realistas para España con emails genéricos.
 
+Responde ÚNICAMENTE con un JSON válido (sin markdown, sin explicaciones) con este formato exacto:
 [
   {
-    "nombre_empresa": "Nombre real de la empresa",
-    "email_empresa": "email@empresa.com",
-    "descripcion_empresa": "Breve descripción de por qué encaja para este servicio",
-    "sitio_web": "https://www.empresa.com"
+    "nombre": "Nombre de la Empresa",
+    "email": "contacto@empresa.com",
+    "telefono": "600123456",
+    "web": "https://empresa.com",
+    "razon": "Breve razón de por qué encaja con el trabajo"
   }
 ]
 
-Asegúrate de que los emails sean direcciones de contacto reales o plausibles para empresas de ese sector en esa ubicación.`
+Devuelve exactamente 3 proveedores.`
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 1024,
-        },
-      }),
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 1024,
+          },
+        }),
+      }
+    )
+
+    if (!response.ok) {
+      console.error("[v0] Gemini API error:", response.status)
+      return []
     }
-  )
 
-  if (!response.ok) {
-    throw new Error(`Gemini API error: ${response.status}`)
+    const data = await response.json()
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ""
+    
+    // Extract JSON from response
+    const jsonMatch = text.match(/\[[\s\S]*\]/)
+    if (!jsonMatch) {
+      console.error("[v0] No JSON found in Gemini response")
+      return []
+    }
+
+    const proveedores = JSON.parse(jsonMatch[0]) as Proveedor[]
+    return proveedores.slice(0, 3)
+  } catch (error) {
+    console.error("[v0] Error calling Gemini:", error)
+    return []
   }
-
-  const data = await response.json()
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ""
-
-  // Extraer el JSON del texto (puede venir con ```json ... ```)
-  const jsonMatch = text.match(/\[[\s\S]*\]/)
-  if (!jsonMatch) {
-    throw new Error("Gemini no devolvió un JSON válido")
-  }
-
-  const proveedores: Proveedor[] = JSON.parse(jsonMatch[0])
-  return proveedores.slice(0, 3)
 }
 
 async function enviarEmailInvitacion(
   proveedor: Proveedor,
-  solicitud: SolicitudData,
+  solicitud: {
+    id: string
+    titulo: string
+    descripcion: string
+    ubicacion: string
+    categoria: string
+  },
   token: string
-): Promise<void> {
-  const urlRegistro = `${process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || "https://tu-dominio.com"}/auth/registro?invitacion=${token}&solicitud=${solicitud.id}`
+): Promise<boolean> {
+  if (!process.env.RESEND_API_KEY) {
+    console.error("[v0] RESEND_API_KEY not configured")
+    return false
+  }
 
-  await resend.emails.send({
-    from: "Rilafe <noreply@rilafe.es>",
-    to: proveedor.email_empresa,
-    subject: `Oportunidad de trabajo: ${solicitud.titulo}`,
-    html: `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Invitación a presupuestar</title>
-</head>
-<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5;padding:40px 0;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-          
-          <!-- Header -->
-          <tr>
-            <td style="background-color:#111827;padding:32px 40px;text-align:center;">
-              <h1 style="color:#ffffff;margin:0;font-size:24px;font-weight:700;letter-spacing:-0.5px;">Rilafe</h1>
-              <p style="color:#9ca3af;margin:8px 0 0;font-size:14px;">Marketplace de servicios profesionales</p>
-            </td>
-          </tr>
+  const registroUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://your-app.vercel.app"}/auth/registro?invitacion=${token}`
 
-          <!-- Body -->
-          <tr>
-            <td style="padding:40px;">
-              <p style="color:#374151;font-size:16px;margin:0 0 16px;">Hola, <strong>${proveedor.nombre_empresa}</strong>,</p>
-              <p style="color:#374151;font-size:15px;line-height:1.6;margin:0 0 24px;">
-                Hemos identificado tu empresa como un posible proveedor para una nueva demanda publicada en nuestra plataforma. 
-                Te invitamos a registrarte y enviar tu presupuesto.
+  try {
+    await resend.emails.send({
+      from: "SkillHub <onboarding@resend.dev>",
+      to: proveedor.email,
+      subject: `Nueva oportunidad de trabajo: ${solicitud.titulo}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+            .content { background: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; }
+            .job-card { background: white; padding: 16px; border-radius: 8px; margin: 16px 0; border: 1px solid #e5e7eb; }
+            .cta-button { display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; }
+            .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>¡Nueva oportunidad de trabajo!</h1>
+            </div>
+            <div class="content">
+              <p>Hola <strong>${proveedor.nombre}</strong>,</p>
+              <p>Hemos encontrado un trabajo que podría interesarte en nuestra plataforma SkillHub:</p>
+              
+              <div class="job-card">
+                <h2 style="margin: 0 0 8px 0; color: #1f2937;">${solicitud.titulo}</h2>
+                <p style="margin: 0 0 8px 0;"><strong>Ubicación:</strong> ${solicitud.ubicacion}</p>
+                <p style="margin: 0 0 8px 0;"><strong>Categoría:</strong> ${solicitud.categoria}</p>
+                <p style="margin: 0;">${solicitud.descripcion.substring(0, 200)}${solicitud.descripcion.length > 200 ? "..." : ""}</p>
+              </div>
+              
+              <p><strong>¿Por qué tú?</strong> ${proveedor.razon}</p>
+              
+              <p>Regístrate gratis en SkillHub para enviar tu presupuesto y conectar con este cliente:</p>
+              
+              <p style="text-align: center; margin: 24px 0;">
+                <a href="${registroUrl}" class="cta-button">Registrarme y presupuestar</a>
               </p>
-
-              <!-- Demand box -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;margin-bottom:28px;">
-                <tr>
-                  <td style="padding:24px;">
-                    <p style="color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:0.8px;margin:0 0 8px;font-weight:600;">Demanda publicada</p>
-                    <h2 style="color:#111827;font-size:18px;margin:0 0 12px;font-weight:700;">${solicitud.titulo}</h2>
-                    <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0 0 16px;">${solicitud.descripcion}</p>
-                    <table cellpadding="0" cellspacing="0">
-                      ${solicitud.ubicacion ? `<tr><td style="padding:2px 0;"><span style="color:#6b7280;font-size:13px;">📍 ${solicitud.ubicacion}</span></td></tr>` : ""}
-                      ${solicitud.presupuesto_max ? `<tr><td style="padding:2px 0;"><span style="color:#6b7280;font-size:13px;">💰 Presupuesto hasta ${solicitud.presupuesto_max}€</span></td></tr>` : ""}
-                    </table>
-                  </td>
-                </tr>
-              </table>
-
-              <p style="color:#374151;font-size:15px;line-height:1.6;margin:0 0 28px;">
-                Regístrate gratis en Rilafe y podrás ver los detalles completos y enviar tu presupuesto directamente al cliente.
+              
+              <p style="color: #6b7280; font-size: 14px;">
+                Al registrarte podrás acceder a cientos de solicitudes de trabajo en tu zona.
               </p>
-
-              <!-- CTA Button -->
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td align="center">
-                    <a href="${urlRegistro}" style="display:inline-block;background-color:#111827;color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:14px 36px;border-radius:6px;letter-spacing:0.2px;">
-                      Ver demanda y registrarse
-                    </a>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="background-color:#f9fafb;padding:24px 40px;border-top:1px solid #e5e7eb;">
-              <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center;line-height:1.6;">
-                Has recibido este email porque hemos identificado tu empresa como especialista en este tipo de servicio.<br>
-                Si no deseas recibir más invitaciones, puedes ignorar este mensaje.
-              </p>
-            </td>
-          </tr>
-
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-    `,
-  })
+            </div>
+            <div class="footer">
+              <p>Este email fue enviado por SkillHub. Si no quieres recibir más emails, ignora este mensaje.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    })
+    return true
+  } catch (error) {
+    console.error("[v0] Error sending email:", error)
+    return false
+  }
 }
 
-export async function buscarYInvitarProveedores(solicitudId: string): Promise<{
-  success: boolean
-  invitaciones?: number
-  error?: string
-}> {
+export async function buscarYEnviarInvitaciones(solicitudId: string) {
   const supabase = await createClient()
 
-  // Obtener datos completos de la solicitud con categoría
+  // Get solicitud details
   const { data: solicitud, error: solicitudError } = await supabase
     .from("solicitudes")
     .select(`
@@ -188,98 +176,109 @@ export async function buscarYInvitarProveedores(solicitudId: string): Promise<{
       titulo,
       descripcion,
       ubicacion,
-      presupuesto_min,
-      presupuesto_max,
+      categoria_id,
       categorias (nombre)
     `)
     .eq("id", solicitudId)
     .single()
 
   if (solicitudError || !solicitud) {
-    return { success: false, error: "No se encontró la solicitud" }
+    console.error("[v0] Error fetching solicitud:", solicitudError)
+    return { error: "Solicitud no encontrada" }
   }
 
-  const solicitudData: SolicitudData = {
-    id: solicitud.id,
-    titulo: solicitud.titulo,
-    descripcion: solicitud.descripcion,
-    ubicacion: solicitud.ubicacion,
-    presupuesto_min: solicitud.presupuesto_min,
-    presupuesto_max: solicitud.presupuesto_max,
-    categoria: (solicitud.categorias as { nombre: string } | null)?.nombre,
+  const categoriaNombre = (solicitud.categorias as { nombre: string })?.nombre || "General"
+
+  // Search providers with AI
+  const proveedores = await buscarProveedoresConIA(
+    categoriaNombre,
+    solicitud.ubicacion,
+    solicitud.descripcion
+  )
+
+  if (proveedores.length === 0) {
+    return { error: "No se encontraron proveedores" }
   }
 
-  let proveedores: Proveedor[]
-  try {
-    proveedores = await buscarProveedoresConGemini(solicitudData)
-  } catch (err) {
-    return { success: false, error: `Error buscando proveedores con IA: ${err}` }
-  }
+  const resultados = []
 
-  let enviados = 0
   for (const proveedor of proveedores) {
-    try {
-      // Guardar invitación en la BD
-      const { data: invitacion, error: insertError } = await supabase
-        .from("invitaciones")
-        .insert({
-          solicitud_id: solicitudId,
-          nombre_empresa: proveedor.nombre_empresa,
-          email_empresa: proveedor.email_empresa,
-          descripcion_empresa: proveedor.descripcion_empresa,
-          sitio_web: proveedor.sitio_web,
-        })
-        .select("token")
-        .single()
+    // Generate unique token
+    const token = crypto.randomUUID()
 
-      if (insertError || !invitacion) continue
+    // Save invitation to database
+    const { data: invitacion, error: insertError } = await supabase
+      .from("invitaciones")
+      .insert({
+        solicitud_id: solicitudId,
+        nombre_proveedor: proveedor.nombre,
+        email_proveedor: proveedor.email,
+        telefono_proveedor: proveedor.telefono,
+        web_proveedor: proveedor.web,
+        razon_match: proveedor.razon,
+        token_invitacion: token,
+        estado: "pendiente",
+      })
+      .select()
+      .single()
 
-      // Enviar email
-      await enviarEmailInvitacion(proveedor, solicitudData, invitacion.token)
-      enviados++
-    } catch (err) {
-      console.error(`[v0] Error invitando a ${proveedor.nombre_empresa}:`, err)
+    if (insertError) {
+      console.error("[v0] Error saving invitation:", insertError)
+      continue
     }
+
+    // Send email
+    const emailSent = await enviarEmailInvitacion(
+      proveedor,
+      {
+        id: solicitud.id,
+        titulo: solicitud.titulo,
+        descripcion: solicitud.descripcion,
+        ubicacion: solicitud.ubicacion,
+        categoria: categoriaNombre,
+      },
+      token
+    )
+
+    // Update status
+    if (emailSent) {
+      await supabase
+        .from("invitaciones")
+        .update({ estado: "enviado", enviado_at: new Date().toISOString() })
+        .eq("id", invitacion.id)
+    }
+
+    resultados.push({
+      proveedor: proveedor.nombre,
+      email: proveedor.email,
+      enviado: emailSent,
+    })
   }
 
-  return { success: true, invitaciones: enviados }
+  return { data: resultados }
 }
 
-export async function obtenerInvitacionesPorSolicitud(solicitudId: string) {
+export async function obtenerInvitaciones() {
   const supabase = await createClient()
-
-  const { data, error } = await supabase
-    .from("invitaciones")
-    .select("*")
-    .eq("solicitud_id", solicitudId)
-    .order("created_at", { ascending: false })
-
-  if (error) return { error: error.message }
-  return { data }
-}
-
-export async function obtenerTodasLasInvitaciones() {
-  const supabase = await createClient()
-
-  const { data: user } = await supabase.auth.getUser()
-  if (!user.user) return { error: "No autenticado" }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("es_admin")
-    .eq("id", user.user.id)
-    .single()
-
-  if (!profile?.es_admin) return { error: "No autorizado" }
 
   const { data, error } = await supabase
     .from("invitaciones")
     .select(`
       *,
-      solicitudes (titulo, ubicacion, cliente_id)
+      solicitudes (
+        titulo,
+        ubicacion
+      )
     `)
     .order("created_at", { ascending: false })
 
-  if (error) return { error: error.message }
+  if (error) {
+    return { error: error.message }
+  }
+
   return { data }
+}
+
+export async function reenviarBusqueda(solicitudId: string) {
+  return buscarYEnviarInvitaciones(solicitudId)
 }
