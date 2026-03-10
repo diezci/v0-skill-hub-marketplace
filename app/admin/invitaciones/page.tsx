@@ -12,16 +12,17 @@ import { toast } from "@/hooks/use-toast"
 interface Invitacion {
   id: string
   solicitud_id: string
-  nombre_empresa: string
-  email: string
-  sitio_web: string | null
-  estado: "pendiente" | "enviada" | "abierta" | "registrado" | "error"
-  token_invitacion: string
-  fecha_envio: string | null
+  nombre_proveedor: string
+  email_proveedor: string
+  web_proveedor: string | null
+  especialidad: string | null
+  estado: "pendiente" | "enviado" | "abierto" | "registrado" | "error"
+  token: string
+  enviado_at: string | null
   created_at: string
-  solicitud?: {
+  solicitudes?: {
     titulo: string
-    categoria?: {
+    categorias?: {
       nombre: string
     }
   }
@@ -43,9 +44,9 @@ export default function AdminInvitacionesPage() {
       .from("invitaciones")
       .select(`
         *,
-        solicitud:solicitudes(
+        solicitudes(
           titulo,
-          categoria:categorias(nombre)
+          categorias(nombre)
         )
       `)
       .order("created_at", { ascending: false })
@@ -68,16 +69,17 @@ export default function AdminInvitacionesPage() {
     setProcessingId(solicitudId)
     try {
       const result = await buscarYEnviarInvitaciones(solicitudId)
-      if (result.error) {
+      if (!result.success) {
         toast({
           variant: "destructive",
           title: "Error",
-          description: result.error,
+          description: "No se pudieron enviar las invitaciones",
         })
       } else {
+        const enviadas = result.invitaciones.filter(i => i.enviado).length
         toast({
           title: "Invitaciones enviadas",
-          description: `Se enviaron ${result.invitacionesEnviadas} invitaciones`,
+          description: `Se enviaron ${enviadas} invitaciones`,
         })
         fetchInvitaciones()
       }
@@ -93,10 +95,10 @@ export default function AdminInvitacionesPage() {
 
   const getEstadoBadge = (estado: string) => {
     switch (estado) {
-      case "enviada":
-        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200"><Mail className="w-3 h-3 mr-1" /> Enviada</Badge>
-      case "abierta":
-        return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200"><Clock className="w-3 h-3 mr-1" /> Abierta</Badge>
+      case "enviado":
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200"><Mail className="w-3 h-3 mr-1" /> Enviado</Badge>
+      case "abierto":
+        return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200"><Clock className="w-3 h-3 mr-1" /> Abierto</Badge>
       case "registrado":
         return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200"><CheckCircle className="w-3 h-3 mr-1" /> Registrado</Badge>
       case "error":
@@ -111,17 +113,17 @@ export default function AdminInvitacionesPage() {
     const key = inv.solicitud_id
     if (!acc[key]) {
       acc[key] = {
-        solicitud: inv.solicitud,
+        solicitud: inv.solicitudes,
         invitaciones: [],
       }
     }
     acc[key].invitaciones.push(inv)
     return acc
-  }, {} as Record<string, { solicitud: Invitacion["solicitud"]; invitaciones: Invitacion[] }>)
+  }, {} as Record<string, { solicitud: Invitacion["solicitudes"]; invitaciones: Invitacion[] }>)
 
   // Stats
   const totalInvitaciones = invitaciones.length
-  const enviadas = invitaciones.filter((i) => i.estado === "enviada").length
+  const enviadas = invitaciones.filter((i) => i.estado === "enviado").length
   const registrados = invitaciones.filter((i) => i.estado === "registrado").length
   const tasaConversion = totalInvitaciones > 0 ? ((registrados / totalInvitaciones) * 100).toFixed(1) : "0"
 
@@ -185,7 +187,7 @@ export default function AdminInvitacionesPage() {
                 <div>
                   <CardTitle className="text-lg">{solicitud?.titulo || "Solicitud sin título"}</CardTitle>
                   <CardDescription>
-                    {solicitud?.categoria?.nombre || "Sin categoría"} • {invs.length} proveedores encontrados
+                    {solicitud?.categorias?.nombre || "Sin categoría"} - {invs.length} proveedores encontrados
                   </CardDescription>
                 </div>
                 <Button
@@ -208,13 +210,14 @@ export default function AdminInvitacionesPage() {
                 {invs.map((inv) => (
                   <div key={inv.id} className="py-3 flex items-center justify-between">
                     <div className="flex-1">
-                      <p className="font-medium">{inv.nombre_empresa}</p>
-                      <p className="text-sm text-muted-foreground">{inv.email}</p>
+                      <p className="font-medium">{inv.nombre_proveedor}</p>
+                      <p className="text-sm text-muted-foreground">{inv.email_proveedor}</p>
+                      {inv.especialidad && <p className="text-xs text-muted-foreground">{inv.especialidad}</p>}
                     </div>
                     <div className="flex items-center gap-3">
-                      {inv.sitio_web && (
+                      {inv.web_proveedor && (
                         <a
-                          href={inv.sitio_web}
+                          href={inv.web_proveedor}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-muted-foreground hover:text-foreground"
@@ -223,9 +226,9 @@ export default function AdminInvitacionesPage() {
                         </a>
                       )}
                       {getEstadoBadge(inv.estado)}
-                      {inv.fecha_envio && (
+                      {inv.enviado_at && (
                         <span className="text-xs text-muted-foreground">
-                          {new Date(inv.fecha_envio).toLocaleDateString("es-ES")}
+                          {new Date(inv.enviado_at).toLocaleDateString("es-ES")}
                         </span>
                       )}
                     </div>

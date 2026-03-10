@@ -1,19 +1,22 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { Resend } from "resend"
-
-const resend = new Resend(process.env.RESEND_API_KEY)
 
 interface Proveedor {
   nombre: string
   email: string
-  web?: string
   telefono?: string
+  web?: string
   especialidad?: string
 }
 
-// Function to search for providers using Gemini AI
+interface InvitacionResult {
+  proveedor: Proveedor
+  enviado: boolean
+  error?: string
+}
+
+// Buscar proveedores usando Gemini
 async function buscarProveedoresConIA(
   categoria: string,
   ubicacion: string,
@@ -26,38 +29,39 @@ async function buscarProveedoresConIA(
     return []
   }
 
-  const prompt = `Eres un asistente que ayuda a encontrar proveedores de servicios profesionales en España.
+  const prompt = `Eres un asistente que busca empresas y profesionales reales en España.
 
-Necesito encontrar 3 empresas o profesionales reales que ofrezcan servicios de "${categoria}" en la zona de "${ubicacion}".
+Necesito encontrar 3 proveedores de servicios para este proyecto:
+- Categoría: ${categoria}
+- Ubicación: ${ubicacion}
+- Descripción del proyecto: ${descripcion}
 
-Contexto del proyecto: ${descripcion}
+Busca empresas o profesionales REALES que ofrezcan estos servicios en esa zona de España.
+Intenta encontrar información de contacto real (email, teléfono, web).
 
-Por favor, devuelve EXACTAMENTE un JSON array con 3 proveedores. Cada proveedor debe tener:
-- nombre: Nombre de la empresa o profesional
-- email: Email de contacto (si no lo encuentras, genera uno plausible basado en el nombre de la empresa)
-- web: Sitio web (opcional)
-- telefono: Teléfono de contacto (opcional)
-- especialidad: Su especialidad principal
+IMPORTANTE: Responde SOLO con un JSON válido, sin markdown ni explicaciones.
+El formato debe ser exactamente:
+[
+  {
+    "nombre": "Nombre de la empresa",
+    "email": "email@ejemplo.com",
+    "telefono": "+34 XXX XXX XXX",
+    "web": "https://ejemplo.com",
+    "especialidad": "Su especialidad principal"
+  }
+]
 
-IMPORTANTE: Responde SOLO con el JSON array, sin texto adicional ni markdown.
-
-Ejemplo de formato:
-[{"nombre":"Empresa Ejemplo","email":"contacto@ejemplo.com","web":"https://ejemplo.com","telefono":"912345678","especialidad":"Reformas integrales"}]`
+Si no encuentras información real de contacto para alguna empresa, inventa un email plausible basado en el nombre de la empresa (ej: info@nombreempresa.com).
+Devuelve exactamente 3 proveedores.`
 
   try {
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [
-            {
-              parts: [{ text: prompt }],
-            },
-          ],
+          contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.7,
             maxOutputTokens: 1024,
@@ -67,171 +71,159 @@ Ejemplo de formato:
     )
 
     if (!response.ok) {
-      console.error("[v0] Gemini API error:", response.status, await response.text())
+      console.error("[v0] Gemini API error:", response.status)
       return []
     }
 
     const data = await response.json()
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ""
     
-    // Clean up the response - remove markdown code blocks if present
-    const cleanedText = text
-      .replace(/```json\n?/g, "")
-      .replace(/```\n?/g, "")
-      .trim()
+    // Extract JSON from response
+    const jsonMatch = text.match(/\[[\s\S]*\]/)
+    if (!jsonMatch) {
+      console.error("[v0] No JSON found in Gemini response")
+      return []
+    }
 
-    const proveedores = JSON.parse(cleanedText)
-    return Array.isArray(proveedores) ? proveedores.slice(0, 3) : []
+    const proveedores = JSON.parse(jsonMatch[0]) as Proveedor[]
+    return proveedores.slice(0, 3)
   } catch (error) {
     console.error("[v0] Error calling Gemini:", error)
     return []
   }
 }
 
-// Function to send invitation email
+// Enviar email de invitación con Resend
 async function enviarEmailInvitacion(
   proveedor: Proveedor,
   solicitud: {
+    id: string
     titulo: string
-    descripcion: string
+    categoria: string
     ubicacion: string
-    presupuesto_min?: number
-    presupuesto_max?: number
+    descripcion: string
   },
   token: string
 ): Promise<boolean> {
-  if (!process.env.RESEND_API_KEY) {
+  const resendKey = process.env.RESEND_API_KEY
+  
+  if (!resendKey) {
     console.error("[v0] RESEND_API_KEY not configured")
     return false
   }
 
   const registroUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://v0-skill-hub-marketplace.vercel.app"}/auth/registro?invitacion=${token}`
 
-  const presupuestoText =
-    solicitud.presupuesto_min && solicitud.presupuesto_max
-      ? `${solicitud.presupuesto_min}€ - ${solicitud.presupuesto_max}€`
-      : solicitud.presupuesto_min
-        ? `Desde ${solicitud.presupuesto_min}€`
-        : solicitud.presupuesto_max
-          ? `Hasta ${solicitud.presupuesto_max}€`
-          : "A convenir"
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 24px;">Nuevo proyecto en tu zona</h1>
+      </div>
+      
+      <div style="background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; border-top: none;">
+        <p>Hola <strong>${proveedor.nombre}</strong>,</p>
+        
+        <p>Hemos encontrado un proyecto que podría interesarte en <strong>SkillHub</strong>:</p>
+        
+        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 20px 0;">
+          <h2 style="margin: 0 0 10px 0; color: #1f2937; font-size: 18px;">${solicitud.titulo}</h2>
+          <p style="margin: 5px 0; color: #6b7280;"><strong>Categoría:</strong> ${solicitud.categoria}</p>
+          <p style="margin: 5px 0; color: #6b7280;"><strong>Ubicación:</strong> ${solicitud.ubicacion}</p>
+          <p style="margin: 15px 0 0 0; color: #374151;">${solicitud.descripcion.substring(0, 200)}${solicitud.descripcion.length > 200 ? "..." : ""}</p>
+        </div>
+        
+        <p>El cliente está buscando profesionales como tú para presupuestar este trabajo.</p>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${registroUrl}" style="background: #667eea; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block;">Registrarme y presupuestar</a>
+        </div>
+        
+        <p style="color: #6b7280; font-size: 14px;">Registrarte es gratis y solo te llevará 2 minutos. Podrás acceder a este y otros proyectos en tu zona.</p>
+      </div>
+      
+      <div style="background: #1f2937; padding: 20px; border-radius: 0 0 10px 10px; text-align: center;">
+        <p style="color: #9ca3af; margin: 0; font-size: 12px;">SkillHub - Conectamos profesionales con clientes</p>
+      </div>
+    </body>
+    </html>
+  `
 
   try {
-    await resend.emails.send({
-      from: "SkillHub <noreply@resend.dev>",
-      to: proveedor.email,
-      subject: `Nueva oportunidad de trabajo: ${solicitud.titulo}`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">SkillHub</h1>
-            <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Nueva oportunidad de trabajo</p>
-          </div>
-          
-          <div style="background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; border-top: none;">
-            <p style="margin-top: 0;">Hola <strong>${proveedor.nombre}</strong>,</p>
-            
-            <p>Hemos encontrado un proyecto que podría interesarte en nuestra plataforma:</p>
-            
-            <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 20px 0;">
-              <h2 style="margin: 0 0 15px 0; color: #111; font-size: 18px;">${solicitud.titulo}</h2>
-              <p style="margin: 0 0 15px 0; color: #666;">${solicitud.descripcion.substring(0, 200)}${solicitud.descripcion.length > 200 ? "..." : ""}</p>
-              
-              <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-                <div>
-                  <span style="color: #888; font-size: 12px; text-transform: uppercase;">Ubicación</span>
-                  <p style="margin: 5px 0 0 0; font-weight: 500;">${solicitud.ubicacion}</p>
-                </div>
-                <div>
-                  <span style="color: #888; font-size: 12px; text-transform: uppercase;">Presupuesto</span>
-                  <p style="margin: 5px 0 0 0; font-weight: 500;">${presupuestoText}</p>
-                </div>
-              </div>
-            </div>
-            
-            <p>Para enviar tu presupuesto y acceder a este y otros proyectos similares, regístrate gratis en SkillHub:</p>
-            
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${registroUrl}" style="background: #10b981; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-block;">
-                Registrarme y presupuestar
-              </a>
-            </div>
-            
-            <p style="color: #666; font-size: 14px;">Si ya tienes cuenta, <a href="${process.env.NEXT_PUBLIC_APP_URL || "https://v0-skill-hub-marketplace.vercel.app"}/auth/login" style="color: #10b981;">inicia sesión aquí</a>.</p>
-          </div>
-          
-          <div style="text-align: center; padding: 20px; color: #888; font-size: 12px;">
-            <p style="margin: 0;">Este email fue enviado por SkillHub.</p>
-            <p style="margin: 5px 0 0 0;">Si no deseas recibir más emails, puedes ignorar este mensaje.</p>
-          </div>
-        </body>
-        </html>
-      `,
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${resendKey}`,
+      },
+      body: JSON.stringify({
+        from: "SkillHub <onboarding@resend.dev>",
+        to: [proveedor.email],
+        subject: `Nuevo proyecto de ${solicitud.categoria} en ${solicitud.ubicacion}`,
+        html: htmlContent,
+      }),
     })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      console.error("[v0] Resend API error:", errorData)
+      return false
+    }
+
     return true
   } catch (error) {
-    console.error("[v0] Error sending email to", proveedor.email, error)
+    console.error("[v0] Error sending email:", error)
     return false
   }
 }
 
-// Main function to search providers and send invitations
-export async function buscarYEnviarInvitaciones(solicitudId: string): Promise<{
-  success: boolean
-  proveedoresEncontrados: number
-  emailsEnviados: number
-  error?: string
-}> {
+// Función principal: buscar proveedores y enviar invitaciones
+export async function buscarYEnviarInvitaciones(
+  solicitudId: string
+): Promise<{ success: boolean; invitaciones: InvitacionResult[] }> {
   const supabase = await createClient()
 
   // Get solicitud details
   const { data: solicitud, error: solicitudError } = await supabase
     .from("solicitudes")
     .select(`
-      *,
-      categoria:categorias(nombre)
+      id,
+      titulo,
+      descripcion,
+      ubicacion,
+      categorias (nombre)
     `)
     .eq("id", solicitudId)
     .single()
 
   if (solicitudError || !solicitud) {
     console.error("[v0] Error fetching solicitud:", solicitudError)
-    return {
-      success: false,
-      proveedoresEncontrados: 0,
-      emailsEnviados: 0,
-      error: "Solicitud not found",
-    }
+    return { success: false, invitaciones: [] }
   }
 
-  const categoriaNombre = solicitud.categoria?.nombre || "servicios profesionales"
-
+  const categoria = solicitud.categorias?.nombre || "Servicios generales"
+  
   // Search for providers using AI
   const proveedores = await buscarProveedoresConIA(
-    categoriaNombre,
+    categoria,
     solicitud.ubicacion || "España",
     solicitud.descripcion || solicitud.titulo
   )
 
   if (proveedores.length === 0) {
-    return {
-      success: true,
-      proveedoresEncontrados: 0,
-      emailsEnviados: 0,
-    }
+    console.error("[v0] No providers found by AI")
+    return { success: false, invitaciones: [] }
   }
 
-  let emailsEnviados = 0
+  const resultados: InvitacionResult[] = []
 
-  // Process each provider
+  // Send invitations to each provider
   for (const proveedor of proveedores) {
-    // Generate unique token
     const token = crypto.randomUUID()
 
     // Save invitation to database
@@ -239,49 +231,55 @@ export async function buscarYEnviarInvitaciones(solicitudId: string): Promise<{
       solicitud_id: solicitudId,
       nombre_proveedor: proveedor.nombre,
       email_proveedor: proveedor.email,
-      web_proveedor: proveedor.web,
       telefono_proveedor: proveedor.telefono,
+      web_proveedor: proveedor.web,
       especialidad: proveedor.especialidad,
-      token_invitacion: token,
+      token,
       estado: "pendiente",
     })
 
     if (insertError) {
       console.error("[v0] Error saving invitation:", insertError)
+      resultados.push({ proveedor, enviado: false, error: insertError.message })
       continue
     }
 
     // Send email
-    const emailSent = await enviarEmailInvitacion(
+    const enviado = await enviarEmailInvitacion(
       proveedor,
       {
+        id: solicitud.id,
         titulo: solicitud.titulo,
-        descripcion: solicitud.descripcion,
-        ubicacion: solicitud.ubicacion,
-        presupuesto_min: solicitud.presupuesto_min,
-        presupuesto_max: solicitud.presupuesto_max,
+        categoria,
+        ubicacion: solicitud.ubicacion || "España",
+        descripcion: solicitud.descripcion || "",
       },
       token
     )
 
-    if (emailSent) {
-      emailsEnviados++
-      // Update invitation status
+    // Update invitation status
+    if (enviado) {
       await supabase
         .from("invitaciones")
-        .update({ estado: "enviada", fecha_envio: new Date().toISOString() })
-        .eq("token_invitacion", token)
+        .update({ estado: "enviado", enviado_at: new Date().toISOString() })
+        .eq("token", token)
+    } else {
+      await supabase
+        .from("invitaciones")
+        .update({ estado: "error" })
+        .eq("token", token)
     }
+
+    resultados.push({ proveedor, enviado })
   }
 
   return {
-    success: true,
-    proveedoresEncontrados: proveedores.length,
-    emailsEnviados,
+    success: resultados.some((r) => r.enviado),
+    invitaciones: resultados,
   }
 }
 
-// Get invitations for admin dashboard
+// Get all invitations (for admin dashboard)
 export async function obtenerInvitaciones() {
   const supabase = await createClient()
 
@@ -289,19 +287,22 @@ export async function obtenerInvitaciones() {
     .from("invitaciones")
     .select(`
       *,
-      solicitud:solicitudes(titulo, ubicacion)
+      solicitudes (
+        titulo,
+        categorias (nombre)
+      )
     `)
     .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("[v0] Error fetching invitaciones:", error)
+    console.error("[v0] Error fetching invitations:", error)
     return { error: error.message }
   }
 
   return { data }
 }
 
-// Resend search for a solicitud
+// Retry search for a specific solicitud
 export async function reenviarBusqueda(solicitudId: string) {
   return buscarYEnviarInvitaciones(solicitudId)
 }
