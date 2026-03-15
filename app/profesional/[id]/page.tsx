@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   const nombre = `${profile.perfil?.nombre || ""} ${profile.perfil?.apellido || ""}`
 
   return {
-    title: `${nombre} - ${profile.titulo} | SkillHub`,
+    title: `${nombre} - ${profile.titulo} | Diime`,
     description: `${profile.bio} - ${profile.proyectos_completados} proyectos completados.`,
   }
 }

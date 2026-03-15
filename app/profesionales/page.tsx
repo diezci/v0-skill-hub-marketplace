@@ -3,7 +3,7 @@ import GigListing from "@/components/gig-listing"
 import GigFilters from "@/components/gig-filters"
 
 export const metadata: Metadata = {
-  title: "Profesionales - SkillHub",
+  title: "Profesionales - Diime",
   description: "Encuentra profesionales verificados para tus proyectos de construcción y reformas",
 }
 

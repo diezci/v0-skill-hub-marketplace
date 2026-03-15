@@ -11,9 +11,9 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-space" })
 
 export const metadata: Metadata = {
-  title: "SkillHub - Conecta con Profesionales",
+  title: "Diime - Conecta con Profesionales",
   description:
-    "La plataforma que conecta profesionales cualificados con clientes. Encuentra expertos en construcción, reformas y más.",
+    "Diime es la plataforma que conecta profesionales cualificados con clientes. Encuentra expertos en construcción, reformas y más.",
     generator: 'v0.app'
 }
 

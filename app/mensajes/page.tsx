@@ -3,7 +3,7 @@ import MensajesContent from "@/components/mensajes-content"
 import { Loader2 } from "lucide-react"
 
 export const metadata = {
-  title: "Mensajes | SkillHub",
+  title: "Mensajes | Diime",
   description: "Gestiona tus conversaciones con clientes y profesionales",
 }
 

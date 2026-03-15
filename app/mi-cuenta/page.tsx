@@ -11,7 +11,7 @@ import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 
 export const metadata: Metadata = {
-  title: "Mi Cuenta - SkillHub",
+  title: "Mi Cuenta - Diime",
   description: "Gestiona tus solicitudes de servicio y perfil",
 }
 

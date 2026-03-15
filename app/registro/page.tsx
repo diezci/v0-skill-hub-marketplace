@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import RegistroForm from "@/components/registro-form"
 
 export const metadata: Metadata = {
-  title: "Registro de Cliente | SkillHub",
+  title: "Registro de Cliente | Diime",
   description: "Regístrate para encontrar y contratar profesionales de construcción y mejoras del hogar",
 }
 

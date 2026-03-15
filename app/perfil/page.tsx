@@ -1,7 +1,7 @@
 import EditarPerfil from "@/components/editar-perfil"
 
 export const metadata = {
-  title: "Mi Perfil Profesional | SkillHub",
+  title: "Mi Perfil Profesional | Diime",
   description: "Edita tu perfil profesional y gestiona tu información",
 }
 

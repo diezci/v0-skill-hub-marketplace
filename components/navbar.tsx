@@ -52,9 +52,9 @@ const Navbar = () => {
         <div className="flex items-center justify-between h-16">
           <Link href="/" className="flex items-center gap-2">
             <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-lg">S</span>
+              <span className="text-white font-bold text-lg">D</span>
             </div>
-            <span className="font-bold text-xl hidden sm:block">SkillHub</span>
+            <span className="font-bold text-xl hidden sm:block">Diime</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-1">
