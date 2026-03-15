@@ -5,7 +5,7 @@ import ComingSoonTest from "@/components/coming-soon-test"
 import DemandasServicios from "@/components/demandas-servicios"
 
 export const metadata: Metadata = {
-  title: "Ofrecer Servicios - SkillHub",
+  title: "Ofrecer Servicios - Diime",
   description: "Regístrate como profesional y muestra tus habilidades a clientes en toda España",
 }
 

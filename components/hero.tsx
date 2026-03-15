@@ -37,15 +37,15 @@ const Hero = () => {
 
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-            <Link href="/gigs">
+            <Link href="/solicitar-servicio">
               <Button size="lg" className="rounded-xl text-base px-8 h-12 gap-2">
-                Buscar profesionales
+                Solicitar servicio
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
             <Link href="/convertirse-profesional">
               <Button size="lg" variant="outline" className="rounded-xl text-base px-8 h-12 bg-transparent">
-                Ofrecer mis servicios
+                Soy profesional
               </Button>
             </Link>
           </div>
