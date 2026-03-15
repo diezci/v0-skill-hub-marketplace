@@ -9,19 +9,20 @@ SET search_path = public
 LANGUAGE plpgsql
 AS $$
 BEGIN
-  INSERT INTO public.profiles (id, email, nombre, avatar_url, created_at, updated_at)
+  INSERT INTO public.profiles (id, email, nombre, foto_perfil, tipo_usuario, created_at, updated_at)
   VALUES (
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
     NEW.raw_user_meta_data->>'avatar_url',
+    'cliente',
     NOW(),
     NOW()
   )
   ON CONFLICT (id) DO UPDATE SET
     email = EXCLUDED.email,
     nombre = COALESCE(EXCLUDED.nombre, profiles.nombre),
-    avatar_url = COALESCE(EXCLUDED.avatar_url, profiles.avatar_url),
+    foto_perfil = COALESCE(EXCLUDED.foto_perfil, profiles.foto_perfil),
     updated_at = NOW();
   
   RETURN NEW;
