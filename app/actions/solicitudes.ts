@@ -2,7 +2,6 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
-import { buscarYEnviarInvitaciones } from "./invitaciones"
 
 export async function crearSolicitud(formData: {
   titulo: string
@@ -65,11 +64,6 @@ export async function crearSolicitud(formData: {
     console.error("[v0] Error creating solicitud:", error)
     return { error: error.message }
   }
-
-  // Trigger AI-powered supplier finder in background (non-blocking)
-  buscarYEnviarInvitaciones(data.id).catch((err) => {
-    console.error("[v0] Error in AI invitation flow:", err)
-  })
 
   revalidatePath("/")
   revalidatePath("/mis-solicitudes")
