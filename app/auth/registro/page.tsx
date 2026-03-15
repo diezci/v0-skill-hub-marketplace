@@ -146,7 +146,7 @@ export default function RegistroPage() {
 
   return (
     <div 
-      className="flex min-h-screen w-full items-center justify-center p-6"
+      className="flex min-h-screen w-full items-center justify-center p-6 relative"
       style={{
         backgroundImage: "url('/background-working-gray.jpg')",
         backgroundSize: "cover",
@@ -154,8 +154,8 @@ export default function RegistroPage() {
         backgroundAttachment: "fixed",
       }}
     >
-      <div className="absolute inset-0 bg-black/50 pointer-events-none"></div>
-      <div className="w-full max-w-md relative z-10">
+      <div className="absolute inset-0 bg-black/40"></div>
+      <div className="w-full max-w-md z-10">
         <Card className="shadow-lg">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold">Crear Cuenta</CardTitle>

@@ -1,7 +1,7 @@
 import PerfilProfesional from "@/components/perfil-profesional"
 
 export const metadata = {
-  title: "Mi Perfil | SkillHub",
+  title: "Mi Perfil | Diime",
   description: "Gestiona tu perfil profesional, habilidades, experiencia y trabajos pasados",
 }
 
