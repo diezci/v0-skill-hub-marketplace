@@ -19,7 +19,7 @@ const testimonials = [
   {
     id: 2,
     content:
-      "Como electricista, SkillHub me ha permitido encontrar clientes de calidad constantemente. La plataforma es muy intuitiva.",
+      "Como electricista, Diime me ha permitido encontrar clientes de calidad constantemente. La plataforma es muy intuitiva.",
     name: "Miguel Sánchez",
     role: "Electricista",
     avatar: "https://randomuser.me/api/portraits/men/32.jpg",

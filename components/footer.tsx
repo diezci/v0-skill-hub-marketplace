@@ -32,11 +32,11 @@ const Footer = () => {
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2 mb-4">
               <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-lg">S</span>
+                <span className="text-primary-foreground font-bold text-lg">D</span>
               </div>
-              <span className="font-semibold text-lg">SkillHub</span>
+              <span className="font-semibold text-lg">Diime</span>
             </Link>
-            <p className="text-sm text-muted-foreground">La plataforma que conecta profesionales con clientes.</p>
+            <p className="text-sm text-muted-foreground">Diime conecta profesionales con clientes.</p>
           </div>
 
           {/* Links */}
@@ -107,7 +107,7 @@ const Footer = () => {
 
         <div className="border-t border-border mt-10 pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} SkillHub. Todos los derechos reservados.
+            © {new Date().getFullYear()} Diime. Todos los derechos reservados.
           </p>
           <p className="text-sm text-muted-foreground">Hecho con cariño en España</p>
         </div>

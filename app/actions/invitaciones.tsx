@@ -129,7 +129,7 @@ async function enviarEmailInvitacion(
       <div style="background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; border-top: none;">
         <p>Hola <strong>${proveedor.nombre}</strong>,</p>
         
-        <p>Hemos encontrado un proyecto que podría interesarte en <strong>SkillHub</strong>:</p>
+        <p>Hemos encontrado un proyecto que podría interesarte en <strong>Diime</strong>:</p>
         
         <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 20px 0;">
           <h2 style="margin: 0 0 10px 0; color: #1f2937; font-size: 18px;">${solicitud.titulo}</h2>
@@ -148,7 +148,7 @@ async function enviarEmailInvitacion(
       </div>
       
       <div style="background: #1f2937; padding: 20px; border-radius: 0 0 10px 10px; text-align: center;">
-        <p style="color: #9ca3af; margin: 0; font-size: 12px;">SkillHub - Conectamos profesionales con clientes</p>
+        <p style="color: #9ca3af; margin: 0; font-size: 12px;">Diime - Conectamos profesionales con clientes</p>
       </div>
     </body>
     </html>
@@ -162,7 +162,7 @@ async function enviarEmailInvitacion(
         Authorization: `Bearer ${resendKey}`,
       },
       body: JSON.stringify({
-        from: "SkillHub <onboarding@resend.dev>",
+        from: "Diime <onboarding@resend.dev>",
         to: [proveedor.email],
         subject: `Nuevo proyecto de ${solicitud.categoria} en ${solicitud.ubicacion}`,
         html: htmlContent,

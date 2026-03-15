@@ -1,7 +1,7 @@
 import DemandasServicios from "@/components/demandas-servicios"
 
 export const metadata = {
-  title: "Tablón de Proyectos | SkillHub",
+  title: "Tablón de Proyectos | Diime",
   description: "Encuentra proyectos y ofrece tus servicios profesionales",
 }
 

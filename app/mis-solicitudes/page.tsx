@@ -1,7 +1,7 @@
 import MisSolicitudes from "@/components/mis-solicitudes"
 
 export const metadata = {
-  title: "Mis Solicitudes | SkillHub",
+  title: "Mis Solicitudes | Diime",
   description: "Gestiona tus demandas de servicios publicadas y revisa las ofertas recibidas",
 }
 

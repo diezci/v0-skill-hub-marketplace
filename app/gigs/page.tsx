@@ -3,7 +3,7 @@ import GigListing from "@/components/gig-listing"
 import GigFilters from "@/components/gig-filters"
 
 export const metadata: Metadata = {
-  title: "Servicios - SkillHub",
+  title: "Servicios - Diime",
   description: "Explora nuestra amplia selección de profesionales de la construcción y reformas",
 }
 
