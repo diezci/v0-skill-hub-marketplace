@@ -13,8 +13,8 @@ const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-space
 export const metadata: Metadata = {
   title: "Diime - Conecta con Profesionales",
   description:
-    "Diime es la plataforma que conecta profesionales cualificados con clientes. Encuentra expertos en construcción, reformas y más.",
-    generator: 'v0.app'
+    "Diime es la plataforma que conecta profesionales cualificados con clientes. Encuentra expertos en construccion, reformas y mas.",
+  generator: "v0.app",
 }
 
 export const viewport: Viewport = {

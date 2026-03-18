@@ -16,12 +16,17 @@ export async function registrarUsuario(formData: {
   ubicacion?: string
 }) {
   const supabase = await createClient()
+  
+  // Use NEXT_PUBLIC_SITE_URL for production, fallback to VERCEL_URL, then localhost
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL 
+    || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
+    || "http://localhost:3000"
 
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email: formData.email,
     password: formData.password,
     options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || "http://localhost:3000"}/auth/callback`,
+      emailRedirectTo: `${siteUrl}/auth/callback`,
       data: {
         nombre: formData.nombre,
         apellido: formData.apellido,
@@ -146,9 +151,14 @@ export async function crearPerfilProfesional(formData: {
 
 export async function resetPassword(email: string) {
   const supabase = await createClient()
+  
+  // Use NEXT_PUBLIC_SITE_URL for production, fallback to VERCEL_URL, then localhost
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL 
+    || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
+    || "http://localhost:3000"
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"}/auth/reset-password`,
+    redirectTo: `${siteUrl}/auth/reset-password`,
   })
 
   if (error) {
@@ -174,11 +184,16 @@ export async function updatePassword(newPassword: string) {
 
 export async function signInWithGoogle() {
   const supabase = await createClient()
+  
+  // Use NEXT_PUBLIC_SITE_URL for production, fallback to VERCEL_URL, then localhost
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL 
+    || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
+    || "http://localhost:3000"
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"}/auth/callback`,
+      redirectTo: `${siteUrl}/auth/callback`,
       queryParams: {
         access_type: "offline",
         prompt: "consent",
@@ -289,10 +304,15 @@ export async function obtenerEmpresa() {
 export async function loginConGoogle() {
   const supabase = await createClient()
   
+  // Use NEXT_PUBLIC_SITE_URL for production, fallback to VERCEL_URL, then localhost
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL 
+    || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
+    || "http://localhost:3000"
+  
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || "http://localhost:3000"}/auth/callback`,
+      redirectTo: `${siteUrl}/auth/callback`,
       queryParams: {
         access_type: 'offline',
         prompt: 'consent',
