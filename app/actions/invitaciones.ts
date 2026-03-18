@@ -14,7 +14,6 @@ export async function buscarYEnviarInvitaciones(solicitudId: string) {
     .single()
 
   if (solicitudError || !solicitud) {
-    console.error("[v0] Error fetching solicitud:", solicitudError)
     return { error: "Solicitud not found" }
   }
 
@@ -27,7 +26,6 @@ export async function buscarYEnviarInvitaciones(solicitudId: string) {
     .limit(10)
 
   if (profError) {
-    console.error("[v0] Error fetching professionals:", profError)
     return { error: profError.message }
   }
 
@@ -48,7 +46,6 @@ export async function buscarYEnviarInvitaciones(solicitudId: string) {
     .insert(invitaciones)
 
   if (insertError) {
-    console.error("[v0] Error creating invitations:", insertError)
     return { error: insertError.message }
   }
 
@@ -71,7 +68,6 @@ export async function getInvitacionesProfesional(profesionalId: string) {
     .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("[v0] Error fetching invitations:", error)
     return { error: error.message }
   }
 
@@ -94,7 +90,6 @@ export async function responderInvitacion(
     .eq("id", invitacionId)
 
   if (error) {
-    console.error("[v0] Error updating invitation:", error)
     return { error: error.message }
   }
 
