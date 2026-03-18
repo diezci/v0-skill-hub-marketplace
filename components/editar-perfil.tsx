@@ -163,8 +163,6 @@ export default function EditarPerfil() {
     setSaving(true)
     const nameParts = profileData.name.split(" ")
 
-    console.log("[v0] Saving profile data:", profileData)
-
     const result = await actualizarPerfil({
       nombre: nameParts[0],
       apellido: nameParts.slice(1).join(" "),
@@ -183,8 +181,6 @@ export default function EditarPerfil() {
     })
 
     setSaving(false)
-
-    console.log("[v0] Profile save result:", result)
 
     if (result.error) {
       toast({
