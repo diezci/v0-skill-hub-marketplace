@@ -124,18 +124,26 @@ export async function actualizarPerfil(formData: {
     return { error: "No autenticado" }
   }
 
+  console.log("[v0] actualizarPerfil called for user:", user.id)
+  console.log("[v0] formData received:", JSON.stringify(formData))
+
   const profileUpdates: any = {}
-  if (formData.nombre) profileUpdates.nombre = formData.nombre
-  if (formData.apellido) profileUpdates.apellido = formData.apellido
-  if (formData.ubicacion) profileUpdates.ubicacion = formData.ubicacion
-  if (formData.telefono) profileUpdates.telefono = formData.telefono
-  if (formData.foto_perfil) profileUpdates.foto_perfil = formData.foto_perfil
-  if (formData.foto_portada) profileUpdates.foto_portada = formData.foto_portada
+  if (formData.nombre !== undefined) profileUpdates.nombre = formData.nombre
+  if (formData.apellido !== undefined) profileUpdates.apellido = formData.apellido
+  if (formData.ubicacion !== undefined) profileUpdates.ubicacion = formData.ubicacion
+  if (formData.telefono !== undefined) profileUpdates.telefono = formData.telefono
+  if (formData.foto_perfil !== undefined) profileUpdates.foto_perfil = formData.foto_perfil
+  if (formData.foto_portada !== undefined) profileUpdates.foto_portada = formData.foto_portada
+
+  console.log("[v0] profileUpdates:", JSON.stringify(profileUpdates))
 
   if (Object.keys(profileUpdates).length > 0) {
-    const { error: profileError } = await supabase.from("profiles").update(profileUpdates).eq("id", user.id)
+    const { data: updateResult, error: profileError } = await supabase.from("profiles").update(profileUpdates).eq("id", user.id).select()
+    
+    console.log("[v0] Profile update result:", JSON.stringify(updateResult))
 
     if (profileError) {
+      console.log("[v0] Profile update error:", profileError.message)
       return { error: profileError.message }
     }
   }
@@ -144,14 +152,14 @@ export async function actualizarPerfil(formData: {
 
   if (profesional) {
     const profUpdates: any = {}
-    if (formData.bio) profUpdates.bio = formData.bio
-    if (formData.titulo) profUpdates.titulo = formData.titulo
-    if (formData.habilidades) profUpdates.habilidades = formData.habilidades
-    if (formData.certificaciones) profUpdates.certificaciones = formData.certificaciones
-    if (formData.idiomas) profUpdates.idiomas = formData.idiomas
-    if (formData.tarifa_por_hora) profUpdates.tarifa_por_hora = formData.tarifa_por_hora
-    if (formData.anos_experiencia) profUpdates.anos_experiencia = formData.anos_experiencia
-    if (formData.tiempo_respuesta) profUpdates.tiempo_respuesta = formData.tiempo_respuesta
+    if (formData.bio !== undefined) profUpdates.bio = formData.bio
+    if (formData.titulo !== undefined) profUpdates.titulo = formData.titulo
+    if (formData.habilidades !== undefined) profUpdates.habilidades = formData.habilidades
+    if (formData.certificaciones !== undefined) profUpdates.certificaciones = formData.certificaciones
+    if (formData.idiomas !== undefined) profUpdates.idiomas = formData.idiomas
+    if (formData.tarifa_por_hora !== undefined) profUpdates.tarifa_por_hora = formData.tarifa_por_hora
+    if (formData.anos_experiencia !== undefined) profUpdates.anos_experiencia = formData.anos_experiencia
+    if (formData.tiempo_respuesta !== undefined) profUpdates.tiempo_respuesta = formData.tiempo_respuesta
 
     if (Object.keys(profUpdates).length > 0) {
       const { error: profError } = await supabase.from("profesionales").update(profUpdates).eq("id", profesional.id)
