@@ -148,24 +148,50 @@ export async function actualizarPerfil(formData: {
     }
   }
 
+  // Check if professional profile exists
   const { data: profesional } = await supabase.from("profesionales").select("id").eq("id", user.id).single()
 
-  if (profesional) {
-    const profUpdates: any = {}
-    if (formData.bio !== undefined) profUpdates.bio = formData.bio
-    if (formData.titulo !== undefined) profUpdates.titulo = formData.titulo
-    if (formData.habilidades !== undefined) profUpdates.habilidades = formData.habilidades
-    if (formData.certificaciones !== undefined) profUpdates.certificaciones = formData.certificaciones
-    if (formData.idiomas !== undefined) profUpdates.idiomas = formData.idiomas
-    if (formData.tarifa_por_hora !== undefined) profUpdates.tarifa_por_hora = formData.tarifa_por_hora
-    if (formData.anos_experiencia !== undefined) profUpdates.anos_experiencia = formData.anos_experiencia
-    if (formData.tiempo_respuesta !== undefined) profUpdates.tiempo_respuesta = formData.tiempo_respuesta
+  // Prepare professional data
+  const profData: any = {}
+  if (formData.bio !== undefined) profData.bio = formData.bio
+  if (formData.titulo !== undefined) profData.titulo = formData.titulo
+  if (formData.habilidades !== undefined) profData.habilidades = formData.habilidades
+  if (formData.certificaciones !== undefined) profData.certificaciones = formData.certificaciones
+  if (formData.idiomas !== undefined) profData.idiomas = formData.idiomas
+  if (formData.tarifa_por_hora !== undefined) profData.tarifa_por_hora = formData.tarifa_por_hora
+  if (formData.anos_experiencia !== undefined) profData.anos_experiencia = formData.anos_experiencia
+  if (formData.tiempo_respuesta !== undefined) profData.tiempo_respuesta = formData.tiempo_respuesta
 
-    if (Object.keys(profUpdates).length > 0) {
-      const { error: profError } = await supabase.from("profesionales").update(profUpdates).eq("id", profesional.id)
+  console.log("[v0] profData:", JSON.stringify(profData))
+  console.log("[v0] profesional exists:", !!profesional)
 
+  if (Object.keys(profData).length > 0) {
+    if (profesional) {
+      // Update existing professional
+      const { error: profError } = await supabase.from("profesionales").update(profData).eq("id", profesional.id)
+      console.log("[v0] Professional update error:", profError?.message)
       if (profError) {
         return { error: profError.message }
+      }
+    } else {
+      // Create new professional profile if user is trying to add professional data
+      const hasProfessionalData = formData.titulo || formData.bio || 
+        (formData.habilidades && formData.habilidades.length > 0) || 
+        (formData.certificaciones && formData.certificaciones.length > 0)
+      
+      if (hasProfessionalData) {
+        const { error: createError } = await supabase.from("profesionales").insert({
+          id: user.id,
+          ...profData,
+          disponible: true,
+          verificado: false,
+          rating_promedio: 0,
+          total_reseñas: 0,
+        })
+        console.log("[v0] Professional create error:", createError?.message)
+        if (createError) {
+          return { error: createError.message }
+        }
       }
     }
   }
