@@ -108,7 +108,6 @@ export async function actualizarPerfil(formData: {
   tarifa_por_hora?: number
   anos_experiencia?: number
   titulo?: string
-  tiempo_respuesta?: string
 }) {
   const supabase = await createClient()
 
@@ -124,9 +123,6 @@ export async function actualizarPerfil(formData: {
     return { error: "No autenticado" }
   }
 
-  console.log("[v0] actualizarPerfil called for user:", user.id)
-  console.log("[v0] formData received:", JSON.stringify(formData))
-
   const profileUpdates: any = {}
   if (formData.nombre !== undefined) profileUpdates.nombre = formData.nombre
   if (formData.apellido !== undefined) profileUpdates.apellido = formData.apellido
@@ -135,15 +131,10 @@ export async function actualizarPerfil(formData: {
   if (formData.foto_perfil !== undefined) profileUpdates.foto_perfil = formData.foto_perfil
   if (formData.foto_portada !== undefined) profileUpdates.foto_portada = formData.foto_portada
 
-  console.log("[v0] profileUpdates:", JSON.stringify(profileUpdates))
-
   if (Object.keys(profileUpdates).length > 0) {
-    const { data: updateResult, error: profileError } = await supabase.from("profiles").update(profileUpdates).eq("id", user.id).select()
-    
-    console.log("[v0] Profile update result:", JSON.stringify(updateResult))
+    const { error: profileError } = await supabase.from("profiles").update(profileUpdates).eq("id", user.id)
 
     if (profileError) {
-      console.log("[v0] Profile update error:", profileError.message)
       return { error: profileError.message }
     }
   }
@@ -151,7 +142,7 @@ export async function actualizarPerfil(formData: {
   // Check if professional profile exists
   const { data: profesional } = await supabase.from("profesionales").select("id").eq("id", user.id).single()
 
-  // Prepare professional data
+  // Prepare professional data (tiempo_respuesta is calculated automatically, not user-editable)
   const profData: any = {}
   if (formData.bio !== undefined) profData.bio = formData.bio
   if (formData.titulo !== undefined) profData.titulo = formData.titulo
@@ -160,16 +151,11 @@ export async function actualizarPerfil(formData: {
   if (formData.idiomas !== undefined) profData.idiomas = formData.idiomas
   if (formData.tarifa_por_hora !== undefined) profData.tarifa_por_hora = formData.tarifa_por_hora
   if (formData.anos_experiencia !== undefined) profData.anos_experiencia = formData.anos_experiencia
-  if (formData.tiempo_respuesta !== undefined) profData.tiempo_respuesta = formData.tiempo_respuesta
-
-  console.log("[v0] profData:", JSON.stringify(profData))
-  console.log("[v0] profesional exists:", !!profesional)
 
   if (Object.keys(profData).length > 0) {
     if (profesional) {
       // Update existing professional
       const { error: profError } = await supabase.from("profesionales").update(profData).eq("id", profesional.id)
-      console.log("[v0] Professional update error:", profError?.message)
       if (profError) {
         return { error: profError.message }
       }
@@ -188,7 +174,6 @@ export async function actualizarPerfil(formData: {
           rating_promedio: 0,
           total_reseñas: 0,
         })
-        console.log("[v0] Professional create error:", createError?.message)
         if (createError) {
           return { error: createError.message }
         }
