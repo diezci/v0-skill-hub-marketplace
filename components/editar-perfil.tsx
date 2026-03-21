@@ -81,7 +81,6 @@ export default function EditarPerfil() {
     email: "",
     hourlyRate: 0,
     yearsExperience: 0,
-    responseTime: "",
     avatar: "",
     coverImage: "",
   })
@@ -101,7 +100,7 @@ export default function EditarPerfil() {
       if (result.data) {
         const { data } = result
         setProfileData({
-          name: `${data.nombre || ""} ${data.apellido || ""}`,
+          name: `${data.nombre || ""} ${data.apellido || ""}`.trim(),
           title: data.profesional?.titulo || "",
           location: data.ubicacion || "",
           bio: data.profesional?.bio || "",
@@ -109,7 +108,6 @@ export default function EditarPerfil() {
           email: data.email || "",
           hourlyRate: data.profesional?.tarifa_por_hora || 0,
           yearsExperience: data.profesional?.anos_experiencia || 0,
-          responseTime: data.profesional?.tiempo_respuesta || "24 horas",
           avatar: data.foto_perfil || "",
           coverImage: data.foto_portada || "",
         })
@@ -177,7 +175,6 @@ export default function EditarPerfil() {
       idiomas: languages,
       tarifa_por_hora: profileData.hourlyRate,
       anos_experiencia: profileData.yearsExperience,
-      tiempo_respuesta: profileData.responseTime,
     })
 
     setSaving(false)
@@ -375,7 +372,7 @@ export default function EditarPerfil() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="hourlyRate">Tarifa por Hora (€)</Label>
               <Input
@@ -392,15 +389,6 @@ export default function EditarPerfil() {
                 type="number"
                 value={profileData.yearsExperience}
                 onChange={(e) => handleInputChange("yearsExperience", Number(e.target.value))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="responseTime">Tiempo de Respuesta</Label>
-              <Input
-                id="responseTime"
-                value={profileData.responseTime}
-                onChange={(e) => handleInputChange("responseTime", e.target.value)}
-                placeholder="ej: 2 horas"
               />
             </div>
           </div>
