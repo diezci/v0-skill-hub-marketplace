@@ -11,7 +11,6 @@ export async function updateSession(request: NextRequest) {
 
   // If Supabase is not configured, skip auth checks
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.log("[v0] Supabase not configured in middleware, skipping auth checks")
     return supabaseResponse
   }
 
@@ -46,8 +45,7 @@ export async function updateSession(request: NextRequest) {
     }
 
     return supabaseResponse
-  } catch (error) {
-    console.error("[v0] Middleware error:", error)
+  } catch {
     return supabaseResponse
   }
 }

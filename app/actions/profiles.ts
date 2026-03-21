@@ -11,7 +11,6 @@ export async function obtenerProfesionales(filtros?: {
   const supabase = await createClient()
 
   if (!supabase) {
-    console.warn("[v0] Supabase client not available")
     return { error: "Base de datos no disponible", data: [] }
   }
 
@@ -44,7 +43,6 @@ export async function obtenerProfesionales(filtros?: {
   const { data, error } = await query
 
   if (error) {
-    console.log("[v0] Error fetching professionals:", error)
     return { error: error.message }
   }
 
@@ -69,7 +67,6 @@ export async function obtenerProfesionalPorId(id: string) {
     .single()
 
   if (profError) {
-    console.log("[v0] Error fetching professional:", profError)
     return { error: profError.message }
   }
 
@@ -111,7 +108,6 @@ export async function actualizarPerfil(formData: {
   tarifa_por_hora?: number
   anos_experiencia?: number
   titulo?: string
-  tiempo_respuesta?: string
 }) {
   const supabase = await createClient()
 
@@ -127,51 +123,64 @@ export async function actualizarPerfil(formData: {
     return { error: "No autenticado" }
   }
 
-  console.log("[v0] Updating profile for user:", user.id)
-
   const profileUpdates: any = {}
-  if (formData.nombre) profileUpdates.nombre = formData.nombre
-  if (formData.apellido) profileUpdates.apellido = formData.apellido
-  if (formData.ubicacion) profileUpdates.ubicacion = formData.ubicacion
-  if (formData.telefono) profileUpdates.telefono = formData.telefono
-  if (formData.foto_perfil) profileUpdates.foto_perfil = formData.foto_perfil
-  if (formData.foto_portada) profileUpdates.foto_portada = formData.foto_portada
+  if (formData.nombre !== undefined) profileUpdates.nombre = formData.nombre
+  if (formData.apellido !== undefined) profileUpdates.apellido = formData.apellido
+  if (formData.ubicacion !== undefined) profileUpdates.ubicacion = formData.ubicacion
+  if (formData.telefono !== undefined) profileUpdates.telefono = formData.telefono
+  if (formData.foto_perfil !== undefined) profileUpdates.foto_perfil = formData.foto_perfil
+  if (formData.foto_portada !== undefined) profileUpdates.foto_portada = formData.foto_portada
 
   if (Object.keys(profileUpdates).length > 0) {
-    console.log("[v0] Updating profiles table:", profileUpdates)
     const { error: profileError } = await supabase.from("profiles").update(profileUpdates).eq("id", user.id)
 
     if (profileError) {
-      console.log("[v0] Error updating profile:", profileError)
       return { error: profileError.message }
     }
   }
 
+  // Check if professional profile exists
   const { data: profesional } = await supabase.from("profesionales").select("id").eq("id", user.id).single()
 
-  if (profesional) {
-    const profUpdates: any = {}
-    if (formData.bio) profUpdates.bio = formData.bio
-    if (formData.titulo) profUpdates.titulo = formData.titulo
-    if (formData.habilidades) profUpdates.habilidades = formData.habilidades
-    if (formData.certificaciones) profUpdates.certificaciones = formData.certificaciones
-    if (formData.idiomas) profUpdates.idiomas = formData.idiomas
-    if (formData.tarifa_por_hora) profUpdates.tarifa_por_hora = formData.tarifa_por_hora
-    if (formData.anos_experiencia) profUpdates.anos_experiencia = formData.anos_experiencia
-    if (formData.tiempo_respuesta) profUpdates.tiempo_respuesta = formData.tiempo_respuesta
+  // Prepare professional data (tiempo_respuesta is calculated automatically, not user-editable)
+  const profData: any = {}
+  if (formData.bio !== undefined) profData.bio = formData.bio
+  if (formData.titulo !== undefined) profData.titulo = formData.titulo
+  if (formData.habilidades !== undefined) profData.habilidades = formData.habilidades
+  if (formData.certificaciones !== undefined) profData.certificaciones = formData.certificaciones
+  if (formData.idiomas !== undefined) profData.idiomas = formData.idiomas
+  if (formData.tarifa_por_hora !== undefined) profData.tarifa_por_hora = formData.tarifa_por_hora
+  if (formData.anos_experiencia !== undefined) profData.anos_experiencia = formData.anos_experiencia
 
-    if (Object.keys(profUpdates).length > 0) {
-      console.log("[v0] Updating profesionales table:", profUpdates)
-      const { error: profError } = await supabase.from("profesionales").update(profUpdates).eq("id", profesional.id)
-
+  if (Object.keys(profData).length > 0) {
+    if (profesional) {
+      // Update existing professional
+      const { error: profError } = await supabase.from("profesionales").update(profData).eq("id", profesional.id)
       if (profError) {
-        console.log("[v0] Error updating professional:", profError)
         return { error: profError.message }
+      }
+    } else {
+      // Create new professional profile if user is trying to add professional data
+      const hasProfessionalData = formData.titulo || formData.bio || 
+        (formData.habilidades && formData.habilidades.length > 0) || 
+        (formData.certificaciones && formData.certificaciones.length > 0)
+      
+      if (hasProfessionalData) {
+        const { error: createError } = await supabase.from("profesionales").insert({
+          id: user.id,
+          ...profData,
+          disponible: true,
+          verificado: false,
+          rating_promedio: 0,
+          total_reseñas: 0,
+        })
+        if (createError) {
+          return { error: createError.message }
+        }
       }
     }
   }
 
-  console.log("[v0] Profile update successful")
   revalidatePath("/mi-cuenta")
   revalidatePath(`/profesional/${profesional?.id}`)
   return { data: { success: true } }
@@ -213,7 +222,6 @@ export async function obtenerProfesionalesDestacados() {
     const supabase = await createClient()
 
     if (!supabase) {
-      console.warn("[v0] Supabase client not available, returning empty array")
       return []
     }
 
@@ -227,12 +235,10 @@ export async function obtenerProfesionalesDestacados() {
         .limit(6)
 
       if (profError) {
-        console.error("[v0] Supabase professionals query error:", profError.message)
         return []
       }
 
       if (!profesionales || profesionales.length === 0) {
-        console.log("[v0] No featured professionals found in database")
         return []
       }
 
@@ -244,7 +250,7 @@ export async function obtenerProfesionalesDestacados() {
         .in("id", profIds)
 
       if (profilesError) {
-        console.error("[v0] Supabase profiles query error:", profilesError.message)
+        // Continue with available data
       }
 
       // Create a map for quick profile lookup
@@ -267,18 +273,10 @@ export async function obtenerProfesionalesDestacados() {
           disponible: true,
         }
       })
-    } catch (queryError) {
-      console.error(
-        "[v0] Network or server error fetching professionals:",
-        queryError instanceof Error ? queryError.message : "Unknown error",
-      )
+    } catch {
       return []
     }
-  } catch (error) {
-    console.error(
-      "[v0] Unexpected error in obtenerProfesionalesDestacados:",
-      error instanceof Error ? error.message : "Unknown error",
-    )
+  } catch {
     return []
   }
 }
