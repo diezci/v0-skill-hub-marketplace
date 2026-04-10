@@ -47,7 +47,6 @@ export function RealtimeNotifications() {
 
       if (error) {
         // Table doesn't exist or other error
-        console.error("[v0] Notifications table not available:", error.message)
         setIsTableAvailable(false)
         return
       }

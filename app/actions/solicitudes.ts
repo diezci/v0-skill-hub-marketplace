@@ -62,13 +62,12 @@ export async function crearSolicitud(formData: {
     .single()
 
   if (error) {
-    console.error("[v0] Error creating solicitud:", error)
     return { error: error.message }
   }
 
   // Trigger AI provider finder in the background (non-blocking)
-  buscarYEnviarInvitaciones(data.id).catch((err) => {
-    console.error("[v0] Error in AI invitation flow:", err)
+  buscarYEnviarInvitaciones(data.id).catch(() => {
+    // Silent fail for background task
   })
 
   revalidatePath("/")
@@ -103,7 +102,6 @@ export async function obtenerSolicitudes(filtros?: {
   const { data, error } = await query
 
   if (error) {
-    console.error("[v0] Error fetching solicitudes:", error)
     return { error: error.message }
   }
 
@@ -140,7 +138,6 @@ export async function obtenerMisSolicitudes() {
     .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("[v0] Error fetching mis solicitudes:", error)
     return { error: error.message }
   }
 
@@ -161,7 +158,6 @@ export async function obtenerSolicitudesAbiertas() {
     .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("[v0] Error fetching solicitudes abiertas:", error)
     return { error: error.message }
   }
 
@@ -203,7 +199,6 @@ export async function obtenerSolicitudesPorUsuario() {
     .order("created_at", { ascending: false })
 
   if (solicitudesError) {
-    console.error("[v0] Error fetching solicitudes por usuario:", solicitudesError)
     return { error: solicitudesError.message }
   }
 
@@ -225,7 +220,6 @@ export async function obtenerSolicitudesPorUsuario() {
         .eq("solicitud_id", solicitud.id)
 
       if (ofertasError) {
-        console.error("[v0] Error fetching ofertas for solicitud:", ofertasError)
         return { ...solicitud, ofertas: [] }
       }
 
@@ -239,7 +233,6 @@ export async function obtenerSolicitudesPorUsuario() {
             .single()
 
           if (profesionalError) {
-            console.error("[v0] Error fetching profesional info:", profesionalError)
             return { ...oferta, profesional: null }
           }
 
@@ -250,7 +243,6 @@ export async function obtenerSolicitudesPorUsuario() {
             .single()
 
           if (profileError) {
-            console.error("[v0] Error fetching profile info:", profileError)
             return { ...oferta, profesional: profesional }
           }
 

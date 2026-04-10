@@ -113,8 +113,8 @@ export function EscrowPaymentDialog({
       )
       setClientSecret(result.clientSecret)
       setEscrowId(result.escrowId)
-    } catch (error) {
-      console.error("[v0] Error initializing payment:", error)
+    } catch {
+      // Silent fail
     } finally {
       setLoading(false)
     }

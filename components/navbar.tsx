@@ -35,10 +35,9 @@ const Navbar = () => {
   const navLinks = [
     { name: "Profesionales", path: "/profesionales", icon: Search },
     { name: "Demandas", path: "/demandas", icon: ClipboardList },
-    { name: "Mis Solicitudes", path: "/mis-solicitudes", icon: FileText, role: "cliente" },
-    { name: "Mis Trabajos", path: "/mis-trabajos", icon: Briefcase, role: "proveedor" },
+    { name: "Mis Proyectos", path: "/mis-solicitudes", icon: FileText },
+    { name: "Mis Trabajos", path: "/mis-trabajos", icon: Briefcase },
     { name: "Mensajes", path: "/mensajes", icon: MessageSquare },
-    { name: "Mi Perfil", path: "/mi-perfil", icon: User },
   ]
 
   return (

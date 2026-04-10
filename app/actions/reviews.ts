@@ -58,7 +58,6 @@ export async function crearResena(data: {
     .single()
 
   if (error) {
-    console.error("[v0] Error creating review:", error)
     return { error: error.message }
   }
 
