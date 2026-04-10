@@ -112,8 +112,8 @@ const FeaturedGigs = () => {
         }))
         setGigs(formattedGigs)
       }
-    } catch (error) {
-      console.error("[v0] Error loading featured gigs:", error)
+    } catch {
+      // Silent fail - show fallback gigs
     } finally {
       setLoading(false)
     }
