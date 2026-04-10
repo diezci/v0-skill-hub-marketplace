@@ -3,24 +3,22 @@ import Link from "next/link"
 const Footer = () => {
   const links = {
     platform: [
-      { name: "Buscar profesionales", href: "/gigs" },
+      { name: "Buscar profesionales", href: "/profesionales" },
+      { name: "Ver demandas", href: "/demandas" },
       { name: "Publicar proyecto", href: "/solicitar-servicio" },
-      { name: "Cómo funciona", href: "/#como-funciona" },
     ],
     professionals: [
       { name: "Crear perfil", href: "/convertirse-profesional" },
-      { name: "Tarifas", href: "#" },
-      { name: "Recursos", href: "#" },
+      { name: "Mis trabajos", href: "/mis-trabajos" },
+      { name: "Mensajes", href: "/mensajes" },
     ],
     company: [
       { name: "Sobre nosotros", href: "#" },
-      { name: "Blog", href: "#" },
-      { name: "Contacto", href: "#" },
+      { name: "Contacto", href: "mailto:contacto@diime.es" },
     ],
     legal: [
-      { name: "Términos", href: "#" },
-      { name: "Privacidad", href: "#" },
-      { name: "Cookies", href: "#" },
+      { name: "Terminos y condiciones", href: "#" },
+      { name: "Politica de privacidad", href: "#" },
     ],
   }
 
