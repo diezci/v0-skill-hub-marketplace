@@ -128,6 +128,96 @@ export async function actualizarEstimacionTrabajo(
   return { success: true }
 }
 
+export interface ServicioSolicitado {
+  id: string
+  titulo: string
+  descripcion: string
+  estado: string
+  monto: number
+  fecha_inicio: string | null
+  fecha_estimada_fin: string | null
+  profesional: {
+    id: string
+    nombre: string
+    apellido: string
+    foto_perfil: string | null
+    titulo?: string
+  } | null
+  solicitud: {
+    id: string
+    titulo: string
+    categoria: string
+  } | null
+}
+
+export async function obtenerServiciosSolicitados(): Promise<{
+  data: ServicioSolicitado[]
+  error?: string
+}> {
+  const supabase = await createClient()
+  if (!supabase) {
+    return { data: [], error: "No se pudo conectar a la base de datos" }
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { data: [], error: "No autenticado" }
+  }
+
+  const { data, error } = await supabase
+    .from("trabajos")
+    .select(`
+      id,
+      titulo,
+      descripcion,
+      estado,
+      monto,
+      fecha_inicio,
+      fecha_estimada_fin,
+      profesional:profesional_id (
+        id,
+        nombre,
+        apellido,
+        foto_perfil
+      ),
+      solicitud:solicitud_id (
+        id,
+        titulo,
+        categoria
+      )
+    `)
+    .eq("cliente_id", user.id)
+    .in("estado", ["en_progreso", "pendiente_pago", "completado"])
+    .order("fecha_inicio", { ascending: true })
+
+  if (error) {
+    return { data: [], error: error.message }
+  }
+
+  // Get professional titles
+  const serviciosConTitulo = await Promise.all(
+    (data || []).map(async (servicio: any) => {
+      if (servicio.profesional?.id) {
+        const { data: profData } = await supabase
+          .from("profesionales")
+          .select("titulo")
+          .eq("id", servicio.profesional.id)
+          .single()
+        
+        if (profData) {
+          servicio.profesional.titulo = profData.titulo
+        }
+      }
+      return servicio
+    })
+  )
+
+  return { data: serviciosConTitulo as ServicioSolicitado[] }
+}
+
 export async function obtenerEstadisticasCarga(): Promise<{
   totalTrabajos: number
   trabajosEnProgreso: number
