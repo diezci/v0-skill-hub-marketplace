@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Menu, X, User, Search, ClipboardList, FileText, MessageSquare, Briefcase } from "lucide-react"
+import { Menu, X, User, Search, ClipboardList, FileText, MessageSquare, Briefcase, Calendar } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { cn } from "@/lib/utils"
@@ -37,6 +37,7 @@ const Navbar = () => {
     { name: "Demandas", path: "/demandas", icon: ClipboardList },
     { name: "Mis Proyectos", path: "/mis-solicitudes", icon: FileText },
     { name: "Mis Trabajos", path: "/mis-trabajos", icon: Briefcase },
+    { name: "Calendario", path: "/mi-calendario", icon: Calendar },
     { name: "Mensajes", path: "/mensajes", icon: MessageSquare },
   ]
 
