@@ -73,7 +73,6 @@ export async function POST(request: Request) {
         progreso: 0,
       })
 
-      console.log(`[v0] Escrow payment completed for trabajo ${trabajoId}`)
       break
     }
 
@@ -92,7 +91,6 @@ export async function POST(request: Request) {
         .eq("trabajo_id", metadata.trabajo_id)
         .eq("estado", "pendiente")
 
-      console.log(`[v0] Escrow payment expired for trabajo ${metadata.trabajo_id}`)
       break
     }
   }
