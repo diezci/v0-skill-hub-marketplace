@@ -135,7 +135,6 @@ export function ChatWidget() {
 
     const result = await obtenerConversaciones()
     if (result.error) {
-      console.error("[v0] Error loading conversations:", result.error)
       return
     }
     if (result.data) {
