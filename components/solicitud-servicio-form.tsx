@@ -157,7 +157,7 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
       })
       form.reset()
       setAttachedFiles([])
-      router.push("/mis-proyectos")
+      router.push("/mis-solicitudes")
     } catch (error) {
       toast({
         title: "Error",
