@@ -2,6 +2,9 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import PerfilProfesional from "@/components/perfil-profesional"
 import { obtenerProfesionalPorId } from "@/app/actions/profiles"
+import { isFavorito } from "@/app/actions/favoritos"
+import { FavoriteButton } from "@/components/favorite-button"
+import { TrustBadges } from "@/components/trust-badges"
 
 export async function generateStaticParams() {
   return []
@@ -82,8 +85,19 @@ export default async function ProfilePage({ params }: { params: { id: string } }
     },
   }
 
+  const isFav = await isFavorito(id)
+
   return (
     <div className="container mx-auto px-4 py-8">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <TrustBadges
+          verificado={mappedProfile.verificado}
+          totalTrabajos={mappedProfile.proyectos_completados}
+          ratingPromedio={mappedProfile.rating}
+          totalResenas={mappedProfile.total_reviews}
+        />
+        <FavoriteButton profesionalId={id} initialIsFavorite={isFav} showLabel size="sm" />
+      </div>
       <PerfilProfesional editable={false} perfil={mappedProfile} />
     </div>
   )

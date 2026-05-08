@@ -89,6 +89,31 @@ export async function enviarMensaje(conversacionId: string, contenido: string) {
     })
     .eq("id", conversacionId)
 
+  // Notificar al otro participante
+  const { data: conv } = await supabase
+    .from("conversaciones")
+    .select("participante_1, participante_2")
+    .eq("id", conversacionId)
+    .single()
+
+  if (conv) {
+    const otroUsuarioId = conv.participante_1 === user.id ? conv.participante_2 : conv.participante_1
+    const { data: remitente } = await supabase
+      .from("profiles")
+      .select("nombre, apellido")
+      .eq("id", user.id)
+      .single()
+
+    const nombreRemitente = remitente ? `${remitente.nombre} ${remitente.apellido || ""}`.trim() : "Alguien"
+    await supabase.from("notificaciones").insert({
+      usuario_id: otroUsuarioId,
+      tipo: "nuevo_mensaje",
+      titulo: `Nuevo mensaje de ${nombreRemitente}`,
+      mensaje: contenido.length > 80 ? contenido.slice(0, 80) + "..." : contenido,
+      link: "/mensajes",
+    })
+  }
+
   revalidatePath("/")
   return { data }
 }
