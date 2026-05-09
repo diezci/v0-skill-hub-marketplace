@@ -103,9 +103,9 @@ export default function LoginPage() {
   return (
     <>
       <AuthBackground />
-      <div className="flex min-h-screen w-full items-center justify-center p-6">
+      <div className="relative z-10 flex min-h-screen w-full items-center justify-center p-6">
         <div className="w-full max-w-md">
-          <Card className="shadow-xl border-0 backdrop-blur-sm bg-white/95">
+          <Card className="shadow-2xl border border-white/40 backdrop-blur-md bg-white/80">
             <CardHeader className="space-y-1 text-center pb-6">
               <CardTitle className="text-3xl font-bold tracking-tight">Bienvenido</CardTitle>
               <CardDescription className="text-base">Inicia sesión para acceder a tu cuenta</CardDescription>
