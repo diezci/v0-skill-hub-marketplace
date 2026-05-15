@@ -84,7 +84,7 @@ const Navbar = () => {
                   )}
                 >
                   <Icon className="h-4 w-4 shrink-0" />
-                  <span className="hidden lg:inline">{link.shortName}</span>
+                  <span>{link.shortName}</span>
                 </Link>
               )
             })}
