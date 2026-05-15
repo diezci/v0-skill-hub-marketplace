@@ -9,7 +9,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
-import { AuthBackground } from "@/components/auth-background"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
 
 const GOOGLE_OAUTH_ENABLED = true
 
@@ -143,11 +145,18 @@ export default function RegistroPage() {
   }
 
   return (
-    <>
-      <AuthBackground />
-      <div className="flex min-h-screen w-full items-center justify-center p-6 relative">
-        <div className="w-full max-w-md z-10">
-        <Card className="shadow-lg backdrop-blur-sm bg-white/95">
+    <div 
+      className="flex min-h-screen w-full items-center justify-center p-6 relative"
+      style={{
+        backgroundImage: "url('/background-working-gray.jpg')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      <div className="absolute inset-0 bg-black/40"></div>
+      <div className="w-full max-w-md z-10">
+        <Card className="shadow-lg">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold">Crear Cuenta</CardTitle>
             <CardDescription>Regístrate para contratar u ofrecer servicios profesionales</CardDescription>

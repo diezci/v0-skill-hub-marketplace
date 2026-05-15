@@ -51,6 +51,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { createClient } from "@/lib/supabase/client"
+import { ProjectCalendar } from "@/components/project-calendar"
 
 type EstadoTrabajo = "pendiente_pago" | "en_progreso" | "entregado" | "completado" | "cancelado"
 
@@ -289,9 +290,9 @@ export default function MisTrabajosPage() {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Mis Trabajos</h1>
+          <h1 className="text-3xl font-bold mb-2">Gestión de Proyectos</h1>
           <p className="text-muted-foreground">
-            Gestiona tus proyectos como proveedor, actualiza el progreso y entrega trabajos
+            Cronograma editable, lista de proyectos y eventos personalizados en un solo lugar
           </p>
         </div>
 
@@ -355,8 +356,12 @@ export default function MisTrabajosPage() {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="activos" className="space-y-6">
-          <TabsList className="bg-muted/50">
+        <Tabs defaultValue="calendario" className="space-y-6">
+          <TabsList className="bg-muted/50 flex-wrap h-auto">
+            <TabsTrigger value="calendario" className="gap-2">
+              <Calendar className="h-4 w-4" />
+              Calendario
+            </TabsTrigger>
             <TabsTrigger value="activos" className="gap-2">
               <Briefcase className="h-4 w-4" />
               Activos ({trabajosEnProgreso.length + trabajosPendientePago.length})
@@ -370,6 +375,10 @@ export default function MisTrabajosPage() {
               Completados ({trabajosCompletados.length})
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="calendario" className="space-y-4">
+            <ProjectCalendar />
+          </TabsContent>
 
           {/* Active Jobs */}
           <TabsContent value="activos" className="space-y-4">
