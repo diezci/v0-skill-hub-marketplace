@@ -66,32 +66,6 @@ export async function crearOferta(formData: {
   // Update total_ofertas in solicitud
   await supabase.rpc("increment_total_ofertas", { solicitud_uuid: formData.solicitud_id })
 
-  // Notify client
-  const { data: solicitud } = await supabase
-    .from("solicitudes")
-    .select("titulo, cliente_id")
-    .eq("id", formData.solicitud_id)
-    .single()
-
-  if (solicitud) {
-    const { data: profesional } = await supabase
-      .from("profiles")
-      .select("nombre, apellido")
-      .eq("id", user.id)
-      .single()
-
-    const nombreProf = profesional ? `${profesional.nombre} ${profesional.apellido || ""}`.trim() : "Un profesional"
-
-    await supabase.from("notificaciones").insert({
-      usuario_id: solicitud.cliente_id,
-      tipo: "nueva_oferta",
-      titulo: "Nueva oferta recibida",
-      mensaje: `${nombreProf} ha enviado una oferta para "${solicitud.titulo}"`,
-      link: "/mis-solicitudes",
-      metadata: { solicitud_id: formData.solicitud_id, oferta_id: data.id },
-    })
-  }
-
   revalidatePath("/demandas")
   revalidatePath("/mis-solicitudes")
   return { data }
@@ -201,24 +175,6 @@ export async function aceptarOferta(ofertaId: string) {
   if (trabajoResult.error) {
     return { error: trabajoResult.error }
   }
-
-  // Notify professional that their offer was accepted
-  const { data: cliente } = await supabase
-    .from("profiles")
-    .select("nombre, apellido")
-    .eq("id", user.id)
-    .single()
-
-  const nombreCliente = cliente ? `${cliente.nombre} ${cliente.apellido || ""}`.trim() : "El cliente"
-
-  await supabase.from("notificaciones").insert({
-    usuario_id: oferta.profesional_id,
-    tipo: "oferta_aceptada",
-    titulo: "Tu oferta ha sido aceptada",
-    mensaje: `${nombreCliente} ha aceptado tu oferta para "${oferta.solicitud.titulo}"`,
-    link: "/mis-trabajos",
-    metadata: { oferta_id: ofertaId, trabajo_id: trabajoResult.data?.id },
-  })
 
   return { data: trabajoResult.data }
 }

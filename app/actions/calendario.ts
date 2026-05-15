@@ -218,6 +218,160 @@ export async function obtenerServiciosSolicitados(): Promise<{
   return { data: serviciosConTitulo as ServicioSolicitado[] }
 }
 
+export interface EventoCalendario {
+  id: string
+  titulo: string
+  descripcion: string | null
+  fecha_inicio: string
+  fecha_fin: string | null
+  color: string
+  tipo: string
+  todo_el_dia: boolean
+  ubicacion: string | null
+}
+
+export async function obtenerEventosCalendario(): Promise<{
+  data: EventoCalendario[]
+  error?: string
+}> {
+  const supabase = await createClient()
+  if (!supabase) {
+    return { data: [], error: "No se pudo conectar a la base de datos" }
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { data: [], error: "No autenticado" }
+  }
+
+  const { data, error } = await supabase
+    .from("eventos_calendario")
+    .select("id, titulo, descripcion, fecha_inicio, fecha_fin, color, tipo, todo_el_dia, ubicacion")
+    .eq("usuario_id", user.id)
+    .order("fecha_inicio", { ascending: true })
+
+  if (error) {
+    return { data: [], error: error.message }
+  }
+
+  return { data: (data || []) as EventoCalendario[] }
+}
+
+export async function crearEventoCalendario(datos: {
+  titulo: string
+  descripcion?: string
+  fecha_inicio: string
+  fecha_fin?: string | null
+  color?: string
+  tipo?: string
+  todo_el_dia?: boolean
+  ubicacion?: string
+}): Promise<{ success: boolean; error?: string; id?: string }> {
+  const supabase = await createClient()
+  if (!supabase) {
+    return { success: false, error: "No se pudo conectar a la base de datos" }
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, error: "No autenticado" }
+  }
+
+  const { data, error } = await supabase
+    .from("eventos_calendario")
+    .insert({
+      usuario_id: user.id,
+      titulo: datos.titulo,
+      descripcion: datos.descripcion || null,
+      fecha_inicio: datos.fecha_inicio,
+      fecha_fin: datos.fecha_fin || null,
+      color: datos.color || "emerald",
+      tipo: datos.tipo || "personal",
+      todo_el_dia: datos.todo_el_dia ?? true,
+      ubicacion: datos.ubicacion || null,
+    })
+    .select("id")
+    .single()
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  return { success: true, id: data?.id }
+}
+
+export async function actualizarEventoCalendario(
+  id: string,
+  datos: Partial<{
+    titulo: string
+    descripcion: string | null
+    fecha_inicio: string
+    fecha_fin: string | null
+    color: string
+    tipo: string
+    todo_el_dia: boolean
+    ubicacion: string | null
+  }>,
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  if (!supabase) {
+    return { success: false, error: "No se pudo conectar a la base de datos" }
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, error: "No autenticado" }
+  }
+
+  const { error } = await supabase
+    .from("eventos_calendario")
+    .update(datos)
+    .eq("id", id)
+    .eq("usuario_id", user.id)
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  return { success: true }
+}
+
+export async function eliminarEventoCalendario(id: string): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  if (!supabase) {
+    return { success: false, error: "No se pudo conectar a la base de datos" }
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, error: "No autenticado" }
+  }
+
+  const { error } = await supabase
+    .from("eventos_calendario")
+    .delete()
+    .eq("id", id)
+    .eq("usuario_id", user.id)
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  return { success: true }
+}
+
 export async function obtenerEstadisticasCarga(): Promise<{
   totalTrabajos: number
   trabajosEnProgreso: number
