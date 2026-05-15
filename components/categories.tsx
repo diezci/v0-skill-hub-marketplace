@@ -1,80 +1,62 @@
 "use client"
 
 import { Card } from "@/components/ui/card"
-import { Hammer, PaintBucket, Zap, Droplets, Ruler, Wind, Trees, Lock, Home, ArrowRight } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import Link from "next/link"
 
 const categories = [
   {
     name: "Albañilería",
     description: "Reformas y construcción",
-    icon: Hammer,
-    color: "text-orange-600 dark:text-orange-400",
-    bg: "bg-orange-500/10",
+    image: "/categories/albanileria.jpg",
     href: "/profesionales?category=albanileria",
   },
   {
     name: "Fontanería",
     description: "Instalaciones y reparaciones",
-    icon: Droplets,
-    color: "text-blue-600 dark:text-blue-400",
-    bg: "bg-blue-500/10",
+    image: "/categories/fontaneria.jpg",
     href: "/profesionales?category=fontaneria",
   },
   {
     name: "Electricidad",
     description: "Instalaciones eléctricas",
-    icon: Zap,
-    color: "text-yellow-600 dark:text-yellow-400",
-    bg: "bg-yellow-500/10",
+    image: "/categories/electricidad.jpg",
     href: "/profesionales?category=electricidad",
   },
   {
     name: "Pintura",
     description: "Interior y exterior",
-    icon: PaintBucket,
-    color: "text-pink-600 dark:text-pink-400",
-    bg: "bg-pink-500/10",
+    image: "/categories/pintura.jpg",
     href: "/profesionales?category=pintura",
   },
   {
     name: "Carpintería",
     description: "Muebles a medida",
-    icon: Ruler,
-    color: "text-amber-700 dark:text-amber-400",
-    bg: "bg-amber-500/10",
+    image: "/categories/carpinteria.jpg",
     href: "/profesionales?category=carpinteria",
   },
   {
     name: "Climatización",
     description: "Aire y calefacción",
-    icon: Wind,
-    color: "text-cyan-600 dark:text-cyan-400",
-    bg: "bg-cyan-500/10",
+    image: "/categories/climatizacion.jpg",
     href: "/profesionales?category=climatizacion",
   },
   {
     name: "Jardinería",
     description: "Diseño y mantenimiento",
-    icon: Trees,
-    color: "text-emerald-600 dark:text-emerald-400",
-    bg: "bg-emerald-500/10",
+    image: "/categories/jardineria.jpg",
     href: "/profesionales?category=jardineria",
   },
   {
     name: "Cerrajería",
     description: "Cerraduras y seguridad",
-    icon: Lock,
-    color: "text-slate-600 dark:text-slate-400",
-    bg: "bg-slate-500/10",
+    image: "/categories/cerrajeria.jpg",
     href: "/profesionales?category=cerrajeria",
   },
   {
     name: "Arquitectura",
     description: "Proyectos y diseño",
-    icon: Home,
-    color: "text-indigo-600 dark:text-indigo-400",
-    bg: "bg-indigo-500/10",
+    image: "/categories/arquitectura.jpg",
     href: "/profesionales?category=arquitectura",
   },
 ]
@@ -103,14 +85,22 @@ const Categories = () => {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {categories.map((cat) => (
           <Link key={cat.name} href={cat.href}>
-            <Card className="p-5 h-full card-hover cursor-pointer group border-border/40 hover:border-primary/40 transition-colors">
-              <div
-                className={`${cat.bg} ${cat.color} w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}
-              >
-                <cat.icon className="h-6 w-6" />
+            <Card className="relative h-48 overflow-hidden cursor-pointer group border-border/40 hover:border-primary/40 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 rounded-2xl p-0">
+              {/* Background image */}
+              <img
+                src={cat.image || "/placeholder.svg"}
+                alt={`${cat.name} - ${cat.description}`}
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+              />
+
+              {/* Dark gradient overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/10" />
+
+              {/* Content */}
+              <div className="relative h-full flex flex-col justify-end p-4 text-white">
+                <h3 className="font-semibold text-base mb-1 drop-shadow-md">{cat.name}</h3>
+                <p className="text-xs text-white/85 drop-shadow">{cat.description}</p>
               </div>
-              <h3 className="font-semibold text-base mb-1">{cat.name}</h3>
-              <p className="text-xs text-muted-foreground">{cat.description}</p>
             </Card>
           </Link>
         ))}

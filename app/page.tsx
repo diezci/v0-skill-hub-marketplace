@@ -34,13 +34,13 @@ export default function Home() {
 
             {/* Headline */}
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 tracking-tight text-balance leading-[1.05]">
-              Encuentra al <span className="gradient-text">profesional perfecto</span>
-              <br className="hidden md:block" /> para tu proyecto
+              Publica tu <span className="gradient-text">proyecto</span>
+              <br className="hidden md:block" /> y recibe ofertas en minutos
             </h1>
 
             {/* Subheadline */}
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto text-pretty">
-              Publica tu proyecto y recibe ofertas de profesionales cualificados en minutos. Rapido, seguro y sin
+              Describe lo que necesitas y conecta con profesionales cualificados al instante. Rapido, seguro y sin
               complicaciones.
             </p>
           </div>
