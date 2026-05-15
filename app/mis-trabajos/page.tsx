@@ -355,30 +355,24 @@ export default function MisTrabajosPage() {
           </Card>
         </div>
 
-        {/* Tabs */}
-        <Tabs defaultValue="calendario" className="space-y-6">
-          <TabsList className="bg-muted/50 flex-wrap h-auto">
-            <TabsTrigger value="calendario" className="gap-2">
-              <Calendar className="h-4 w-4" />
-              Calendario
-            </TabsTrigger>
-            <TabsTrigger value="activos" className="gap-2">
-              <Briefcase className="h-4 w-4" />
-              Activos ({trabajosEnProgreso.length + trabajosPendientePago.length})
-            </TabsTrigger>
-            <TabsTrigger value="entregados" className="gap-2">
-              <Package className="h-4 w-4" />
-              Entregados ({trabajosEntregados.length})
-            </TabsTrigger>
-            <TabsTrigger value="completados" className="gap-2">
-              <CheckCircle2 className="h-4 w-4" />
-              Completados ({trabajosCompletados.length})
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="calendario" className="space-y-4">
-            <ProjectCalendar />
-          </TabsContent>
+        {/* Two-column layout: jobs list on left, calendar on right */}
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-6">
+          {/* Left column: Tabs with job lists */}
+          <Tabs defaultValue="activos" className="space-y-6">
+            <TabsList className="bg-muted/50 flex-wrap h-auto">
+              <TabsTrigger value="activos" className="gap-2">
+                <Briefcase className="h-4 w-4" />
+                Activos ({trabajosEnProgreso.length + trabajosPendientePago.length})
+              </TabsTrigger>
+              <TabsTrigger value="entregados" className="gap-2">
+                <Package className="h-4 w-4" />
+                Entregados ({trabajosEntregados.length})
+              </TabsTrigger>
+              <TabsTrigger value="completados" className="gap-2">
+                <CheckCircle2 className="h-4 w-4" />
+                Completados ({trabajosCompletados.length})
+              </TabsTrigger>
+            </TabsList>
 
           {/* Active Jobs */}
           <TabsContent value="activos" className="space-y-4">
@@ -455,7 +449,13 @@ export default function MisTrabajosPage() {
               ))
             )}
           </TabsContent>
-        </Tabs>
+          </Tabs>
+
+          {/* Right column: Calendar (sticky on desktop) */}
+          <aside className="xl:sticky xl:top-24 xl:self-start xl:max-h-[calc(100vh-7rem)] xl:overflow-y-auto">
+            <ProjectCalendar />
+          </aside>
+        </div>
 
         {/* Update Progress Dialog */}
         <Dialog open={updateDialogOpen} onOpenChange={setUpdateDialogOpen}>
