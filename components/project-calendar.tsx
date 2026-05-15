@@ -54,6 +54,54 @@ function colorClass(color: string) {
   return COLOR_OPTIONS.find((c) => c.value === color)?.class || "bg-emerald-500"
 }
 
+// Festivos nacionales de España (fijos + variables calculados)
+function getEasterSunday(year: number): Date {
+  const a = year % 19
+  const b = Math.floor(year / 100)
+  const c = year % 100
+  const d = Math.floor(b / 4)
+  const e = b % 4
+  const f = Math.floor((b + 8) / 25)
+  const g = Math.floor((b - f + 1) / 3)
+  const h = (19 * a + b - d - g + 15) % 30
+  const i = Math.floor(c / 4)
+  const k = c % 4
+  const l = (32 + 2 * e + 2 * i - h - k) % 7
+  const m = Math.floor((a + 11 * h + 22 * l) / 451)
+  const month = Math.floor((h + l - 7 * m + 114) / 31)
+  const day = ((h + l - 7 * m + 114) % 31) + 1
+  return new Date(year, month - 1, day)
+}
+
+function getFestivosEspana(year: number): Map<string, string> {
+  const map = new Map<string, string>()
+  const add = (d: Date, name: string) => {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, "0")
+    const day = String(d.getDate()).padStart(2, "0")
+    map.set(`${y}-${m}-${day}`, name)
+  }
+  // Fijos
+  add(new Date(year, 0, 1), "Año Nuevo")
+  add(new Date(year, 0, 6), "Reyes Magos")
+  add(new Date(year, 4, 1), "Día del Trabajo")
+  add(new Date(year, 7, 15), "Asunción de la Virgen")
+  add(new Date(year, 9, 12), "Fiesta Nacional de España")
+  add(new Date(year, 10, 1), "Todos los Santos")
+  add(new Date(year, 11, 6), "Día de la Constitución")
+  add(new Date(year, 11, 8), "Inmaculada Concepción")
+  add(new Date(year, 11, 25), "Navidad")
+  // Variables: Jueves y Viernes Santo
+  const easter = getEasterSunday(year)
+  const juevesSanto = new Date(easter)
+  juevesSanto.setDate(easter.getDate() - 3)
+  const viernesSanto = new Date(easter)
+  viernesSanto.setDate(easter.getDate() - 2)
+  add(juevesSanto, "Jueves Santo")
+  add(viernesSanto, "Viernes Santo")
+  return map
+}
+
 function toDateStr(date: Date) {
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, "0")
@@ -89,6 +137,11 @@ export function ProjectCalendar() {
     ubicacion: "",
   })
   const { toast } = useToast()
+
+  const festivos = useMemo(() => {
+    const y = currentDate.getFullYear()
+    return getFestivosEspana(y)
+  }, [currentDate])
 
   useEffect(() => {
     loadAll()
@@ -301,8 +354,14 @@ export function ProjectCalendar() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-7 gap-1 mb-2">
-            {DIAS_SEMANA.map((d) => (
-              <div key={d} className="text-xs font-medium text-muted-foreground text-center py-2">
+            {DIAS_SEMANA.map((d, i) => (
+              <div
+                key={d}
+                className={cn(
+                  "text-xs font-medium text-center py-2",
+                  i >= 5 ? "text-red-600/80 dark:text-red-400/80" : "text-muted-foreground",
+                )}
+              >
                 {d}
               </div>
             ))}
@@ -310,25 +369,49 @@ export function ProjectCalendar() {
           <div className="grid grid-cols-7 gap-1">
             {dias.map(({ date, isCurrentMonth }, idx) => {
               const dayItems = itemsOnDay(date)
+              const dow = date.getDay() // 0=Dom, 6=Sáb
+              const isWeekend = dow === 0 || dow === 6
+              const festivoNombre = festivos.get(toDateStr(date))
+              const isHoliday = Boolean(festivoNombre)
+              const isSpecial = isWeekend || isHoliday
               return (
                 <button
                   type="button"
                   key={idx}
                   onClick={() => openNewEvent(date)}
+                  title={festivoNombre || undefined}
                   className={cn(
-                    "min-h-[90px] p-1.5 rounded-lg border text-left transition-colors flex flex-col gap-1",
-                    isCurrentMonth ? "bg-card border-border hover:bg-muted/50" : "bg-muted/20 border-transparent text-muted-foreground/60",
-                    isToday(date) && "ring-2 ring-emerald-500/50",
+                    "relative min-h-[90px] p-1.5 rounded-lg border text-left transition-colors flex flex-col gap-1",
+                    isCurrentMonth
+                      ? "bg-card border-border hover:bg-muted/50"
+                      : "bg-muted/20 border-transparent text-muted-foreground/60",
+                    isCurrentMonth && isWeekend && !isHoliday && "bg-red-50/60 dark:bg-red-950/20 border-red-200/60 dark:border-red-900/30",
+                    isCurrentMonth && isHoliday && "bg-red-100/70 dark:bg-red-950/40 border-red-300 dark:border-red-800",
+                    isToday(date) && "ring-2 ring-emerald-500/60",
                   )}
                 >
-                  <span
-                    className={cn(
-                      "text-xs font-medium",
-                      isToday(date) && "text-emerald-600 dark:text-emerald-400 font-bold",
+                  <div className="flex items-center justify-between gap-1">
+                    <span
+                      className={cn(
+                        "text-xs font-medium",
+                        isCurrentMonth && isSpecial && "text-red-600 dark:text-red-400 font-semibold",
+                        isToday(date) && "text-emerald-600 dark:text-emerald-400 font-bold",
+                      )}
+                    >
+                      {date.getDate()}
+                    </span>
+                    {isCurrentMonth && isHoliday && (
+                      <span
+                        className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0"
+                        aria-label={`Festivo: ${festivoNombre}`}
+                      />
                     )}
-                  >
-                    {date.getDate()}
-                  </span>
+                  </div>
+                  {isCurrentMonth && isHoliday && (
+                    <span className="text-[9px] text-red-700 dark:text-red-300 leading-tight truncate">
+                      {festivoNombre}
+                    </span>
+                  )}
                   <div className="flex flex-col gap-1 overflow-hidden">
                     {dayItems.slice(0, 3).map((it) => (
                       <div
@@ -352,7 +435,7 @@ export function ProjectCalendar() {
           </div>
 
           {/* Leyenda */}
-          <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t text-xs text-muted-foreground">
+          <div className="flex flex-wrap gap-x-3 gap-y-2 mt-4 pt-4 border-t text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full bg-blue-500" /> Inicio trabajo
             </span>
@@ -367,6 +450,13 @@ export function ProjectCalendar() {
             </span>
             <span className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Evento personal
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-sm bg-red-100 dark:bg-red-950/40 border border-red-300 dark:border-red-800" />
+              Fin de semana
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-red-500" /> Festivo nacional
             </span>
           </div>
         </CardContent>
