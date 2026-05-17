@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
 import { ChevronLeft, ChevronRight, Plus, Trash2, Briefcase, ShoppingBag, CalendarDays, MapPin } from "lucide-react"
 import {
@@ -532,6 +532,9 @@ export function ProjectCalendar() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingId ? "Editar evento" : "Nuevo evento"}</DialogTitle>
+            <DialogDescription>
+              Añade reuniones, recordatorios u otros eventos personales a tu calendario.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">

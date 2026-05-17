@@ -254,6 +254,10 @@ export async function obtenerEventosCalendario(): Promise<{
     .order("fecha_inicio", { ascending: true })
 
   if (error) {
+    // If table doesn't exist yet (migration not applied), return empty data instead of erroring
+    if (error.code === "42P01" || error.message?.includes("eventos_calendario")) {
+      return { data: [] }
+    }
     return { data: [], error: error.message }
   }
 
