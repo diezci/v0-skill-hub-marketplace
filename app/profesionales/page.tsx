@@ -1,6 +1,5 @@
 import type { Metadata } from "next"
-import GigListing from "@/components/gig-listing"
-import GigFilters from "@/components/gig-filters"
+import ProfesionalesContent from "@/components/profesionales-content"
 
 export const metadata: Metadata = {
   title: "Profesionales - Diime",
@@ -17,14 +16,7 @@ export default function ProfesionalesPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        <div className="lg:col-span-1">
-          <GigFilters />
-        </div>
-        <div className="lg:col-span-3">
-          <GigListing />
-        </div>
-      </div>
+      <ProfesionalesContent />
     </div>
   )
 }

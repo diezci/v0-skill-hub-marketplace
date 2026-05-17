@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { Mail, Shield, Heart } from "lucide-react"
+import { ReportarIncidenciaDialog } from "@/components/reportar-incidencia-dialog"
 
 const Footer = () => {
   const links = {
@@ -126,9 +127,12 @@ const Footer = () => {
           <p className="text-sm text-muted-foreground">
             © {new Date().getFullYear()} Diime. Todos los derechos reservados.
           </p>
-          <p className="text-sm text-muted-foreground inline-flex items-center gap-1.5">
-            Hecho con <Heart className="h-3.5 w-3.5 fill-primary text-primary" /> en España
-          </p>
+          <div className="flex items-center gap-3">
+            <ReportarIncidenciaDialog />
+            <p className="text-sm text-muted-foreground inline-flex items-center gap-1.5">
+              Hecho con <Heart className="h-3.5 w-3.5 fill-primary text-primary" /> en España
+            </p>
+          </div>
         </div>
       </div>
     </footer>
