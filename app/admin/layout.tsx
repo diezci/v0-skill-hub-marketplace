@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
-import { Loader2, Users, Scale, CreditCard, LayoutDashboard, LogOut, ChevronRight } from "lucide-react"
+import { Loader2, Users, Scale, CreditCard, LayoutDashboard, LogOut, ChevronRight, ShieldAlert } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -12,6 +12,7 @@ const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/usuarios", label: "Usuarios", icon: Users },
   { href: "/admin/disputas", label: "Disputas", icon: Scale },
+  { href: "/admin/incidencias", label: "Incidencias", icon: ShieldAlert },
   { href: "/admin/pagos", label: "Pagos", icon: CreditCard },
 ]
 

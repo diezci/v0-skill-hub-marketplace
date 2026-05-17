@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { createClient } from "@/lib/supabase/client"
-import { Users, Briefcase, Scale, CreditCard, TrendingUp, AlertCircle } from "lucide-react"
+import { Users, Briefcase, Scale, CreditCard, TrendingUp, AlertCircle, ShieldAlert } from "lucide-react"
 import Link from "next/link"
 
 interface Stats {
@@ -12,6 +12,8 @@ interface Stats {
   totalTrabajos: number
   trabajosActivos: number
   disputasAbiertas: number
+  incidenciasAbiertas: number
+  incidenciasCriticas: number
   pagosEnEscrow: number
   montoEscrow: number
 }
@@ -23,6 +25,8 @@ export default function AdminDashboard() {
     totalTrabajos: 0,
     trabajosActivos: 0,
     disputasAbiertas: 0,
+    incidenciasAbiertas: 0,
+    incidenciasCriticas: 0,
     pagosEnEscrow: 0,
     montoEscrow: 0,
   })
@@ -62,6 +66,25 @@ export default function AdminDashboard() {
         .select("*", { count: "exact", head: true })
         .eq("estado", "abierta")
 
+      // Incidencias abiertas y críticas (tolerante si la tabla no existe)
+      let incidenciasAb = 0
+      let incidenciasCrit = 0
+      try {
+        const { count: incAb } = await supabase
+          .from("incidencias")
+          .select("*", { count: "exact", head: true })
+          .in("estado", ["abierta", "en_revision"])
+        const { count: incCrit } = await supabase
+          .from("incidencias")
+          .select("*", { count: "exact", head: true })
+          .eq("prioridad", "critica")
+          .neq("estado", "cerrada")
+        incidenciasAb = incAb || 0
+        incidenciasCrit = incCrit || 0
+      } catch {
+        // Table may not exist yet
+      }
+
       // Pagos en escrow
       const { data: escrowData } = await supabase
         .from("transacciones_escrow")
@@ -77,6 +100,8 @@ export default function AdminDashboard() {
         totalTrabajos: trabajos || 0,
         trabajosActivos: activos || 0,
         disputasAbiertas: disputas || 0,
+        incidenciasAbiertas: incidenciasAb,
+        incidenciasCriticas: incidenciasCrit,
         pagosEnEscrow: pagosEscrow,
         montoEscrow: montoTotal,
       })
@@ -120,6 +145,19 @@ export default function AdminDashboard() {
       color: stats.disputasAbiertas > 0 ? "text-amber-500" : "text-emerald-500",
       bgColor: stats.disputasAbiertas > 0 ? "bg-amber-500/10" : "bg-emerald-500/10",
       alert: stats.disputasAbiertas > 0,
+    },
+    {
+      title: "Incidencias",
+      value: stats.incidenciasAbiertas,
+      subtitle:
+        stats.incidenciasCriticas > 0
+          ? `${stats.incidenciasCriticas} crítica${stats.incidenciasCriticas === 1 ? "" : "s"}`
+          : "abiertas o en revisión",
+      icon: ShieldAlert,
+      href: "/admin/incidencias",
+      color: stats.incidenciasCriticas > 0 ? "text-red-500" : stats.incidenciasAbiertas > 0 ? "text-amber-500" : "text-emerald-500",
+      bgColor: stats.incidenciasCriticas > 0 ? "bg-red-500/10" : stats.incidenciasAbiertas > 0 ? "bg-amber-500/10" : "bg-emerald-500/10",
+      alert: stats.incidenciasCriticas > 0,
     },
     {
       title: "Pagos en Escrow",
@@ -209,6 +247,16 @@ export default function AdminDashboard() {
             <div>
               <p className="font-medium">Resolver Disputas</p>
               <p className="text-sm text-muted-foreground">Mediar conflictos entre usuarios</p>
+            </div>
+          </Link>
+          <Link
+            href="/admin/incidencias"
+            className="flex items-center gap-3 p-4 rounded-lg border hover:bg-accent transition-colors"
+          >
+            <ShieldAlert className="h-5 w-5 text-primary" />
+            <div>
+              <p className="font-medium">Gestionar Incidencias</p>
+              <p className="text-sm text-muted-foreground">Reportes de fraude, abuso y soporte</p>
             </div>
           </Link>
           <Link

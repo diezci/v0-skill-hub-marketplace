@@ -1,14 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Star, Grid3X3, List } from "lucide-react"
+import { Star, Grid3X3, List, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+import type { ProfesionalesFiltros } from "@/components/profesionales-content"
 
 const gigs = [
   {
@@ -17,6 +18,7 @@ const gigs = [
     description: "Realizo reformas completas de pisos y casas con más de 15 años de experiencia",
     price: 3500,
     category: "Albañilería",
+    provincia: "Madrid",
     image:
       "https://images.unsplash.com/photo-1504307651254-35680f356dfd?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
     rating: 4.9,
@@ -33,6 +35,7 @@ const gigs = [
     description: "Instalación y reparación de sistemas de agua, calefacción y gas certificado",
     price: 450,
     category: "Fontanería",
+    provincia: "Barcelona",
     image:
       "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
     rating: 4.8,
@@ -49,6 +52,7 @@ const gigs = [
     description: "Electricista certificado para instalaciones residenciales y comerciales",
     price: 380,
     category: "Electricidad",
+    provincia: "Valencia",
     image:
       "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
     rating: 4.9,
@@ -65,6 +69,7 @@ const gigs = [
     description: "Servicio de pintura con acabados de alta calidad y garantía de 2 años",
     price: 850,
     category: "Pintura",
+    provincia: "Sevilla",
     image:
       "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
     rating: 4.7,
@@ -81,6 +86,7 @@ const gigs = [
     description: "Diseño y fabricación de muebles personalizados, armarios empotrados y cocinas",
     price: 1200,
     category: "Carpintería",
+    provincia: "Madrid",
     image:
       "https://images.unsplash.com/photo-1617806118233-18e1de247200?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
     rating: 4.9,
@@ -97,6 +103,7 @@ const gigs = [
     description: "Instalación y mantenimiento de sistemas de climatización con garantía oficial",
     price: 680,
     category: "Climatización",
+    provincia: "Málaga",
     image:
       "https://images.unsplash.com/photo-1631545806609-c2ce1e6e4e0c?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
     rating: 4.8,
@@ -113,6 +120,7 @@ const gigs = [
     description: "Diseño, instalación y mantenimiento de jardines residenciales y comerciales",
     price: 950,
     category: "Jardinería",
+    provincia: "Barcelona",
     image: "https://images.unsplash.com/photo-1558904541-efa843a96f01?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
     rating: 4.7,
     reviews: 64,
@@ -128,6 +136,7 @@ const gigs = [
     description: "Cerrajero profesional especializado en seguridad del hogar",
     price: 420,
     category: "Cerrajería",
+    provincia: "Zaragoza",
     image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
     rating: 4.9,
     reviews: 89,
@@ -143,6 +152,7 @@ const gigs = [
     description: "Arquitecto colegiado para diseño de viviendas, reformas y dirección de obra",
     price: 2500,
     category: "Arquitectura",
+    provincia: "Madrid",
     image: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
     rating: 4.9,
     reviews: 45,
@@ -158,6 +168,7 @@ const gigs = [
     description: "Especialista en instalación de parquet, tarima, gres y cerámica",
     price: 720,
     category: "Albañilería",
+    provincia: "Valencia",
     image:
       "https://images.unsplash.com/photo-1581858726788-75bc0f6a952d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
     rating: 4.8,
@@ -174,6 +185,7 @@ const gigs = [
     description: "Interiorista profesional para proyectos residenciales y comerciales",
     price: 1800,
     category: "Arquitectura",
+    provincia: "Bizkaia",
     image:
       "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
     rating: 4.9,
@@ -190,6 +202,7 @@ const gigs = [
     description: "Técnico especializado en reparación de lavadoras, frigoríficos y hornos",
     price: 85,
     category: "Electricidad",
+    provincia: "Sevilla",
     image: "https://images.unsplash.com/photo-1556911220-bff31c812dba?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
     rating: 4.6,
     reviews: 134,
@@ -201,16 +214,97 @@ const gigs = [
   },
 ]
 
-const GigListing = () => {
+const CATEGORIA_ID_TO_LABEL: Record<string, string> = {
+  albanileria: "Albañilería",
+  fontaneria: "Fontanería",
+  electricidad: "Electricidad",
+  pintura: "Pintura",
+  carpinteria: "Carpintería",
+  climatizacion: "Climatización",
+  jardineria: "Jardinería",
+  cerrajeria: "Cerrajería",
+  arquitectura: "Arquitectura",
+}
+
+const NIVEL_ID_TOKENS: Record<string, string[]> = {
+  any: [],
+  certificado: ["certificado", "colegiado"],
+  experto: ["experto", "verificado", "especialista"],
+  maestro: ["maestro"],
+}
+
+interface GigListingProps {
+  filtros?: ProfesionalesFiltros
+}
+
+const GigListing = ({ filtros }: GigListingProps) => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [sortBy, setSortBy] = useState("recommended")
+
+  const filtered = useMemo(() => {
+    if (!filtros) return gigs
+    let list = gigs.filter((g) => {
+      // Provincia
+      if (filtros.provincia && g.provincia.toLowerCase() !== filtros.provincia.toLowerCase()) {
+        return false
+      }
+      // Categorías
+      if (filtros.categorias.length > 0) {
+        const categoriaLabels = filtros.categorias.map((id) => CATEGORIA_ID_TO_LABEL[id] || id)
+        if (!categoriaLabels.includes(g.category)) return false
+      }
+      // Niveles
+      if (filtros.niveles.length > 0 && !filtros.niveles.includes("any")) {
+        const levelLower = g.freelancer.level.toLowerCase()
+        const matches = filtros.niveles.some((id) =>
+          NIVEL_ID_TOKENS[id]?.some((tok) => levelLower.includes(tok)),
+        )
+        if (!matches) return false
+      }
+      // Precio
+      if (g.price < filtros.precioMin || g.price > filtros.precioMax) return false
+      // Búsqueda
+      if (filtros.search) {
+        const q = filtros.search.toLowerCase()
+        const haystack = `${g.title} ${g.description} ${g.category} ${g.provincia} ${g.freelancer.name}`.toLowerCase()
+        if (!haystack.includes(q)) return false
+      }
+      return true
+    })
+
+    switch (sortBy) {
+      case "price-low":
+        list = [...list].sort((a, b) => a.price - b.price)
+        break
+      case "price-high":
+        list = [...list].sort((a, b) => b.price - a.price)
+        break
+      case "rating":
+        list = [...list].sort((a, b) => b.rating - a.rating)
+        break
+      case "newest":
+        list = [...list].sort((a, b) => b.id - a.id)
+        break
+    }
+    return list
+  }, [filtros, sortBy])
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <p className="text-muted-foreground">
-            Mostrando <span className="font-medium">{gigs.length}</span> resultados
+            Mostrando <span className="font-medium">{filtered.length}</span> resultados
+            {filtros?.provincia && (
+              <>
+                {" "}
+                en{" "}
+                <span className="font-medium text-foreground inline-flex items-center gap-1">
+                  <MapPin className="h-3.5 w-3.5 text-emerald-600" />
+                  {filtros.provincia}
+                </span>
+              </>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -249,9 +343,17 @@ const GigListing = () => {
         </div>
       </div>
 
-      {viewMode === "grid" ? (
+      {filtered.length === 0 ? (
+        <Card>
+          <CardContent className="py-16 text-center text-muted-foreground">
+            <MapPin className="h-10 w-10 mx-auto mb-3 opacity-40" />
+            <p className="font-medium text-foreground mb-1">No se encontraron profesionales</p>
+            <p className="text-sm">Prueba a cambiar los filtros o seleccionar otra provincia.</p>
+          </CardContent>
+        </Card>
+      ) : viewMode === "grid" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {gigs.map((gig) => (
+          {filtered.map((gig) => (
             <Link key={gig.id} href={`/profesional/${gig.id}`}>
               <Card className="h-full overflow-hidden transition-all duration-200 hover:shadow-md hover:-translate-y-1 cursor-pointer">
                 <div className="relative h-48 overflow-hidden">
@@ -274,11 +376,17 @@ const GigListing = () => {
                     </div>
                   </div>
                   <h3 className="text-xl font-semibold mb-2">{gig.title}</h3>
-                  <p className="text-muted-foreground mb-4 line-clamp-2">{gig.description}</p>
-                  <div className="flex items-center space-x-1 text-amber-500">
-                    <Star className="h-4 w-4 fill-current" />
-                    <span className="font-medium">{gig.rating}</span>
-                    <span className="text-muted-foreground text-sm">({gig.reviews})</span>
+                  <p className="text-muted-foreground mb-3 line-clamp-2">{gig.description}</p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-1 text-amber-500">
+                      <Star className="h-4 w-4 fill-current" />
+                      <span className="font-medium">{gig.rating}</span>
+                      <span className="text-muted-foreground text-sm">({gig.reviews})</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      {gig.provincia}
+                    </span>
                   </div>
                 </CardContent>
                 <CardFooter className="p-6 pt-0 border-t flex justify-between items-center">
@@ -291,7 +399,7 @@ const GigListing = () => {
         </div>
       ) : (
         <div className="space-y-4">
-          {gigs.map((gig) => (
+          {filtered.map((gig) => (
             <Link key={gig.id} href={`/profesional/${gig.id}`}>
               <Card className="overflow-hidden transition-all duration-200 hover:shadow-md cursor-pointer">
                 <div className="flex flex-col md:flex-row">
@@ -313,10 +421,16 @@ const GigListing = () => {
                         <p className="text-sm font-medium">{gig.freelancer.name}</p>
                         <p className="text-xs text-muted-foreground">{gig.freelancer.level}</p>
                       </div>
-                      <div className="ml-auto flex items-center space-x-1 text-amber-500">
-                        <Star className="h-4 w-4 fill-current" />
-                        <span className="font-medium">{gig.rating}</span>
-                        <span className="text-muted-foreground text-sm">({gig.reviews})</span>
+                      <div className="ml-auto flex items-center gap-3">
+                        <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {gig.provincia}
+                        </span>
+                        <div className="flex items-center space-x-1 text-amber-500">
+                          <Star className="h-4 w-4 fill-current" />
+                          <span className="font-medium">{gig.rating}</span>
+                          <span className="text-muted-foreground text-sm">({gig.reviews})</span>
+                        </div>
                       </div>
                     </div>
                     <h3 className="text-xl font-semibold mb-2">{gig.title}</h3>
@@ -335,24 +449,6 @@ const GigListing = () => {
           ))}
         </div>
       )}
-
-      <div className="flex justify-center mt-8">
-        <Button variant="outline" className="mx-2 bg-transparent">
-          Anterior
-        </Button>
-        <Button variant="outline" className="mx-2 bg-primary text-primary-foreground">
-          1
-        </Button>
-        <Button variant="outline" className="mx-2 bg-transparent">
-          2
-        </Button>
-        <Button variant="outline" className="mx-2 bg-transparent">
-          3
-        </Button>
-        <Button variant="outline" className="mx-2 bg-transparent">
-          Siguiente
-        </Button>
-      </div>
     </div>
   )
 }
