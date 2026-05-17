@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -734,6 +734,7 @@ export default function MiCalendarioPage() {
               <Briefcase className="h-5 w-5 text-primary" />
               Gestionar Trabajo
             </DialogTitle>
+            <DialogDescription>Edita las fechas y notas del trabajo seleccionado.</DialogDescription>
           </DialogHeader>
           
           {selectedItem && (
@@ -840,6 +841,7 @@ export default function MiCalendarioPage() {
               <ShoppingBag className="h-5 w-5 text-rose-500" />
               Servicio Solicitado
             </DialogTitle>
+            <DialogDescription>Detalles del servicio que has contratado.</DialogDescription>
           </DialogHeader>
           
           {selectedItem && selectedItem.tipo === "servicio" && (
