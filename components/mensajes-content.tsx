@@ -585,7 +585,7 @@ export default function MensajesContent() {
         </div>
 
         {/* Panel de chat */}
-        <div className={cn("flex-1 flex flex-col bg-background min-h-0", !selectedConversation && "hidden md:flex")}>
+        <div className={cn("flex-1 flex flex-col bg-background min-h-0 min-w-0", !selectedConversation && "hidden md:flex")}>
           {selectedConversation ? (
             <>
               {/* Header del chat */}
@@ -902,6 +902,176 @@ export default function MensajesContent() {
             </div>
           )}
         </div>
+
+        {/* Panel lateral "Acerca de" estilo Fiverr */}
+        {selectedConversation && (
+          <aside className="hidden lg:flex w-80 xl:w-96 flex-col border-l border-border bg-card/30 shrink-0">
+            <ScrollArea className="h-full">
+              <div className="p-6 space-y-6">
+                {/* Header del usuario */}
+                <div className="flex flex-col items-center text-center">
+                  <Avatar className="h-20 w-20 mb-3 ring-2 ring-background shadow-md">
+                    <AvatarImage src={getOtherUser(selectedConversation)?.foto_perfil || "/placeholder.svg"} />
+                    <AvatarFallback className="text-xl">
+                      {getOtherUser(selectedConversation)?.nombre?.[0]}
+                      {getOtherUser(selectedConversation)?.apellido?.[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                  <h3 className="font-semibold text-base">
+                    {getOtherUser(selectedConversation)?.nombre} {getOtherUser(selectedConversation)?.apellido}
+                  </h3>
+                  {selectedConversation.rol_otro && (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "mt-2 text-[11px]",
+                        selectedConversation.rol_otro === "proveedor"
+                          ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                          : "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                      )}
+                    >
+                      {selectedConversation.rol_otro === "proveedor" ? "Proveedor" : "Cliente"}
+                    </Badge>
+                  )}
+                  <div className="flex items-center gap-1 mt-3 text-sm">
+                    <span className="text-amber-500">★</span>
+                    <span className="font-medium">4.9</span>
+                    <span className="text-muted-foreground">(127 reseñas)</span>
+                  </div>
+                </div>
+
+                {/* Acciones rápidas */}
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" size="sm" className="text-xs">
+                    Ver perfil
+                  </Button>
+                  <Button variant="outline" size="sm" className="text-xs">
+                    Valorar
+                  </Button>
+                </div>
+
+                {/* Información del usuario */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Acerca de
+                  </h4>
+                  <dl className="space-y-2.5 text-sm">
+                    <div className="flex items-center justify-between">
+                      <dt className="text-muted-foreground">Desde</dt>
+                      <dd className="font-medium">España</dd>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <dt className="text-muted-foreground">Miembro desde</dt>
+                      <dd className="font-medium">Mar 2024</dd>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <dt className="text-muted-foreground">Tiempo respuesta</dt>
+                      <dd className="font-medium">~ 1 hora</dd>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <dt className="text-muted-foreground">Idiomas</dt>
+                      <dd className="font-medium">Español, Inglés</dd>
+                    </div>
+                  </dl>
+                </div>
+
+                {/* Proyecto activo */}
+                {selectedConversation.proyecto && (
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Proyecto activo
+                    </h4>
+                    <div className="rounded-lg border border-border bg-background p-4 space-y-3">
+                      <div className="flex items-start gap-2">
+                        <Briefcase className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium leading-snug">
+                            {selectedConversation.proyecto.titulo}
+                          </p>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "mt-1.5 text-[10px] px-1.5 py-0 h-4",
+                              selectedConversation.proyecto.estado === "en_progreso" &&
+                                "border-emerald-500/50 text-emerald-600",
+                              selectedConversation.proyecto.estado === "pendiente" &&
+                                "border-amber-500/50 text-amber-600",
+                              selectedConversation.proyecto.estado === "completado" &&
+                                "border-blue-500/50 text-blue-600",
+                            )}
+                          >
+                            {getStatusText(selectedConversation.proyecto.estado)}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      {typeof selectedConversation.proyecto.progreso === "number" && (
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground">Progreso</span>
+                            <span className="font-medium">{selectedConversation.proyecto.progreso}%</span>
+                          </div>
+                          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-primary transition-all"
+                              style={{ width: `${selectedConversation.proyecto.progreso}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <Button size="sm" className="w-full text-xs h-8">
+                        Ver detalles del proyecto
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Archivos compartidos */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Archivos compartidos
+                    </h4>
+                    <button className="text-xs text-primary hover:underline">Ver todos</button>
+                  </div>
+                  <div className="space-y-2">
+                    {messages
+                      .filter((m) => m.tipo === "archivo" || m.tipo === "imagen")
+                      .slice(0, 3)
+                      .map((m) => (
+                        <div
+                          key={m.id}
+                          className="flex items-center gap-2 p-2 rounded-md border border-border bg-background hover:bg-muted/50 transition-colors cursor-pointer"
+                        >
+                          <div className="h-8 w-8 rounded bg-muted flex items-center justify-center shrink-0">
+                            {m.tipo === "imagen" ? (
+                              <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <FileText className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-medium truncate">
+                              {m.archivo_nombre || "Archivo"}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {formatMessageTime(m.created_at)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    {messages.filter((m) => m.tipo === "archivo" || m.tipo === "imagen").length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-3">
+                        Aún no hay archivos compartidos
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </ScrollArea>
+          </aside>
+        )}
       </div>
     </div>
   )

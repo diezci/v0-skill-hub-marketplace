@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Menu, X, User, Search, ClipboardList, FileText, MessageSquare, FolderKanban } from "lucide-react"
+import { Menu, X, User, Search, Megaphone, Inbox, MessageSquare, FolderKanban } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { cn } from "@/lib/utils"
@@ -37,10 +37,10 @@ const Navbar = () => {
     {
       name: "Demandas publicadas por los usuarios",
       path: "/demandas",
-      icon: ClipboardList,
+      icon: Megaphone,
       shortName: "Demandas",
     },
-    { name: "Mis Solicitudes", path: "/mis-solicitudes", icon: FileText, shortName: "Mis Solicitudes" },
+    { name: "Mis Solicitudes", path: "/mis-solicitudes", icon: Inbox, shortName: "Mis Solicitudes" },
     {
       name: "Gestión de proyectos",
       path: "/mis-trabajos",

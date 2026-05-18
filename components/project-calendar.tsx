@@ -331,49 +331,70 @@ export function ProjectCalendar() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap pb-4">
+      <Card className="overflow-hidden border-border/60 shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap pb-4 bg-gradient-to-r from-emerald-50/50 to-transparent dark:from-emerald-950/20 border-b">
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 bg-transparent"
+              onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}
+              aria-label="Mes anterior"
+            >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <CardTitle className="text-xl min-w-[180px] text-center">
-              {MESES[currentDate.getMonth()]} {currentDate.getFullYear()}
+            <CardTitle className="text-xl min-w-[200px] text-center capitalize tracking-tight">
+              {MESES[currentDate.getMonth()]}{" "}
+              <span className="text-muted-foreground font-normal">{currentDate.getFullYear()}</span>
             </CardTitle>
-            <Button variant="outline" size="icon" onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 bg-transparent"
+              onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}
+              aria-label="Mes siguiente"
+            >
               <ChevronRight className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setCurrentDate(new Date())} className="ml-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCurrentDate(new Date())}
+              className="ml-1 h-9"
+            >
               Hoy
             </Button>
           </div>
-          <Button onClick={() => openNewEvent()} className="bg-emerald-600 hover:bg-emerald-700 gap-2">
+          <Button onClick={() => openNewEvent()} className="bg-emerald-600 hover:bg-emerald-700 gap-2 shadow-sm">
             <Plus className="h-4 w-4" />
             Añadir evento
           </Button>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-7 gap-1 mb-2">
+        <CardContent className="p-3 sm:p-4">
+          {/* Day headers */}
+          <div className="grid grid-cols-7 mb-2 rounded-lg overflow-hidden bg-muted/40">
             {DIAS_SEMANA.map((d, i) => (
               <div
                 key={d}
                 className={cn(
-                  "text-xs font-medium text-center py-2",
-                  i >= 5 ? "text-red-600/80 dark:text-red-400/80" : "text-muted-foreground",
+                  "text-[11px] font-semibold uppercase tracking-wider text-center py-2.5",
+                  i >= 5 ? "text-rose-600/90 dark:text-rose-400/90" : "text-muted-foreground",
                 )}
               >
                 {d}
               </div>
             ))}
           </div>
-          <div className="grid grid-cols-7 gap-1">
+
+          {/* Days grid */}
+          <div className="grid grid-cols-7 gap-1.5">
             {dias.map(({ date, isCurrentMonth }, idx) => {
               const dayItems = itemsOnDay(date)
-              const dow = date.getDay() // 0=Dom, 6=Sáb
+              const dow = date.getDay()
               const isWeekend = dow === 0 || dow === 6
               const festivoNombre = festivos.get(toDateStr(date))
               const isHoliday = Boolean(festivoNombre)
-              const isSpecial = isWeekend || isHoliday
+              const today = isToday(date)
               return (
                 <button
                   type="button"
@@ -381,34 +402,36 @@ export function ProjectCalendar() {
                   onClick={() => openNewEvent(date)}
                   title={festivoNombre || undefined}
                   className={cn(
-                    "relative min-h-[90px] p-1.5 rounded-lg border text-left transition-colors flex flex-col gap-1",
+                    "group relative min-h-[96px] p-2 rounded-lg border text-left transition-all flex flex-col gap-1.5",
+                    "hover:border-emerald-400/60 hover:shadow-sm",
                     isCurrentMonth
-                      ? "bg-card border-border hover:bg-muted/50"
-                      : "bg-muted/20 border-transparent text-muted-foreground/60",
-                    isCurrentMonth && isWeekend && !isHoliday && "bg-red-50/60 dark:bg-red-950/20 border-red-200/60 dark:border-red-900/30",
-                    isCurrentMonth && isHoliday && "bg-red-100/70 dark:bg-red-950/40 border-red-300 dark:border-red-800",
-                    isToday(date) && "ring-2 ring-emerald-500/60",
+                      ? "bg-card border-border/60"
+                      : "bg-muted/20 border-transparent text-muted-foreground/50",
+                    isCurrentMonth && isWeekend && !isHoliday && "bg-muted/30",
+                    isCurrentMonth && isHoliday && "bg-rose-50/70 dark:bg-rose-950/20 border-rose-200/70 dark:border-rose-900/40",
+                    today && "ring-2 ring-emerald-500 ring-offset-1 ring-offset-background border-emerald-500/40",
                   )}
                 >
                   <div className="flex items-center justify-between gap-1">
                     <span
                       className={cn(
-                        "text-xs font-medium",
-                        isCurrentMonth && isSpecial && "text-red-600 dark:text-red-400 font-semibold",
-                        isToday(date) && "text-emerald-600 dark:text-emerald-400 font-bold",
+                        "inline-flex items-center justify-center text-xs font-semibold transition-colors",
+                        today && "h-6 w-6 rounded-full bg-emerald-600 text-white",
+                        !today && isCurrentMonth && isHoliday && "text-rose-600 dark:text-rose-400",
+                        !today && isCurrentMonth && isWeekend && !isHoliday && "text-rose-600/70 dark:text-rose-400/70",
                       )}
                     >
                       {date.getDate()}
                     </span>
                     {isCurrentMonth && isHoliday && (
                       <span
-                        className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0"
+                        className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0"
                         aria-label={`Festivo: ${festivoNombre}`}
                       />
                     )}
                   </div>
                   {isCurrentMonth && isHoliday && (
-                    <span className="text-[9px] text-red-700 dark:text-red-300 leading-tight truncate">
+                    <span className="text-[9px] font-medium text-rose-700/80 dark:text-rose-300/80 leading-tight truncate uppercase tracking-wide">
                       {festivoNombre}
                     </span>
                   )}
@@ -417,16 +440,18 @@ export function ProjectCalendar() {
                       <div
                         key={it.id}
                         className={cn(
-                          "text-[10px] px-1.5 py-0.5 rounded text-white truncate leading-tight",
+                          "text-[10.5px] font-medium px-1.5 py-1 rounded-md text-white truncate leading-tight shadow-sm",
                           colorClass(it.color),
                         )}
-                        title={`${it.titulo} - ${it.meta || ""}`}
+                        title={`${it.titulo}${it.meta ? ` - ${it.meta}` : ""}`}
                       >
                         {it.titulo}
                       </div>
                     ))}
                     {dayItems.length > 3 && (
-                      <div className="text-[10px] text-muted-foreground px-1">+{dayItems.length - 3}</div>
+                      <div className="text-[10px] text-muted-foreground font-medium px-1">
+                        +{dayItems.length - 3} más
+                      </div>
                     )}
                   </div>
                 </button>
@@ -435,7 +460,7 @@ export function ProjectCalendar() {
           </div>
 
           {/* Leyenda */}
-          <div className="flex flex-wrap gap-x-3 gap-y-2 mt-4 pt-4 border-t text-xs text-muted-foreground">
+          <div className="flex flex-wrap gap-x-4 gap-y-2 mt-5 pt-4 border-t text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full bg-blue-500" /> Inicio trabajo
             </span>
@@ -452,11 +477,7 @@ export function ProjectCalendar() {
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Evento personal
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-sm bg-red-100 dark:bg-red-950/40 border border-red-300 dark:border-red-800" />
-              Fin de semana
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-red-500" /> Festivo nacional
+              <span className="h-2 w-2 rounded-full bg-rose-500" /> Festivo nacional
             </span>
           </div>
         </CardContent>

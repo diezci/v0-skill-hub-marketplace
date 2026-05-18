@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { formatearPrecioEuros } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
@@ -471,7 +472,7 @@ export default function MisSolicitudes() {
                         {solicitud.categoria?.nombre}
                       </Badge>
                       <p className="text-lg font-semibold text-primary">
-                        {solicitud.presupuesto_min}€ - {solicitud.presupuesto_max}€
+                        {formatearPrecioEuros(solicitud.presupuesto_min)} - {formatearPrecioEuros(solicitud.presupuesto_max)}
                       </p>
                     </div>
                   </div>
@@ -516,7 +517,7 @@ export default function MisSolicitudes() {
                                       </div>
                                     </div>
                                     <div className="text-right">
-                                      <p className="text-xl font-bold text-primary">{oferta.precio}€</p>
+                                      <p className="text-xl font-bold text-primary">{formatearPrecioEuros(oferta.precio)}</p>
                                       <p className="text-sm text-muted-foreground">
                                         {oferta.tiempo_estimado} {oferta.unidad_tiempo}
                                       </p>
@@ -599,7 +600,7 @@ export default function MisSolicitudes() {
                         <CardDescription>{solicitud.categoria?.nombre}</CardDescription>
                       </div>
                       <div className="text-right">
-                        <p className="text-2xl font-bold">{trabajo?.precio_acordado}€</p>
+                        <p className="text-2xl font-bold">{formatearPrecioEuros(trabajo?.precio_acordado)}</p>
                         {pagado && (
                           <Badge variant="outline" className="bg-transparent text-emerald-500 border-emerald-500/50">
                             <ShieldCheck className="h-3 w-3 mr-1" />
@@ -729,7 +730,7 @@ export default function MisSolicitudes() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Confirmar finalización del trabajo</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Al confirmar, el pago de {trabajo?.precio_acordado}€ será liberado al profesional.
+                                  Al confirmar, el pago de {formatearPrecioEuros(trabajo?.precio_acordado)} será liberado al profesional.
                                   Esta acción no se puede deshacer. ¿Estás seguro de que el trabajo ha sido completado satisfactoriamente?
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
