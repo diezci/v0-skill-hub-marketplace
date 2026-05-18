@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CheckCircle2, XCircle, Loader2, Calendar, MapPin, Euro, User, FileText, AlertCircle } from "lucide-react"
 import { obtenerMisTrabajos, actualizarEstadoTrabajo } from "@/app/actions/trabajos"
 import { useToast } from "@/hooks/use-toast"
+import { formatearPrecioEuros } from "@/lib/utils"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -183,7 +184,7 @@ export default function MisTrabajos() {
                           </div>
                           <div className="flex items-center gap-2 text-muted-foreground">
                             <Euro className="h-4 w-4" />
-                            <span className="font-semibold text-foreground">{trabajo.oferta?.precio}€</span>
+                            <span className="font-semibold text-foreground">{formatearPrecioEuros(trabajo.oferta?.precio)}</span>
                           </div>
                           <div className="flex items-center gap-2 text-muted-foreground">
                             <User className="h-4 w-4" />
