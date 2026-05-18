@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { formatearPrecioEuros } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Star, MapPin, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
@@ -196,7 +197,7 @@ const FeaturedGigs = () => {
                         </span>
                       )}
                     </div>
-                    <span className="font-bold text-primary">{gig.price}€/h</span>
+                    <span className="font-bold text-primary">{formatearPrecioEuros(gig.price)}/h</span>
                   </div>
                 </div>
               </Card>

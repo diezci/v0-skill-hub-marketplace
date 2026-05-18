@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { formatearPrecioEuros } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -865,7 +866,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Tarifa por hora</span>
-                <span className="font-bold">{editData.tarifa_hora}€/h</span>
+                      <span className="font-bold">{formatearPrecioEuros(editData.tarifa_hora)}/h</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Tiempo de respuesta</span>

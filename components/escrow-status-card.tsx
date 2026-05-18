@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { formatearPrecioEuros } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Shield, Clock, CheckCircle, AlertCircle, XCircle, Package } from "lucide-react"
@@ -127,7 +128,7 @@ export function EscrowStatusCard({ transaction, userType, onUpdate }: EscrowStat
       <CardContent className="space-y-4">
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">Monto:</span>
-          <span className="text-xl font-bold">{(transaction.amount / 100).toFixed(2)}€</span>
+              <span className="text-xl font-bold">{formatearPrecioEuros(transaction.amount / 100, { decimales: true })}</span>
         </div>
 
         <div className="flex items-center justify-between text-sm">

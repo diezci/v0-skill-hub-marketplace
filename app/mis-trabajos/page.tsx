@@ -51,7 +51,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { createClient } from "@/lib/supabase/client"
-import { ProjectCalendar } from "@/components/project-calendar"
 
 type EstadoTrabajo = "pendiente_pago" | "en_progreso" | "entregado" | "completado" | "cancelado"
 
@@ -255,9 +254,12 @@ export default function MisTrabajosPage() {
   }
 
   const formatCurrency = (amount: number) => {
+    const isInteger = Number.isInteger(amount)
     return new Intl.NumberFormat("es-ES", {
       style: "currency",
       currency: "EUR",
+      minimumFractionDigits: isInteger ? 0 : 2,
+      maximumFractionDigits: 2,
     }).format(amount)
   }
 
@@ -452,8 +454,57 @@ export default function MisTrabajosPage() {
           </Tabs>
 
           {/* Right column: Calendar (sticky on desktop) */}
-          <aside className="xl:sticky xl:top-24 xl:self-start xl:max-h-[calc(100vh-7rem)] xl:overflow-y-auto">
-            <ProjectCalendar />
+          <aside className="xl:sticky xl:top-24 xl:self-start space-y-4">
+            <Card className="overflow-hidden border-emerald-200/60 dark:border-emerald-900/40 bg-gradient-to-br from-emerald-50/60 to-background dark:from-emerald-950/20">
+              <CardContent className="p-5">
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="h-10 w-10 rounded-lg bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center shrink-0">
+                    <Calendar className="h-5 w-5 text-emerald-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="font-semibold leading-tight">Calendario de proyectos</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Visualiza inicios, entregas, festivos y eventos personales
+                    </p>
+                  </div>
+                </div>
+                <Button asChild className="w-full bg-emerald-600 hover:bg-emerald-700">
+                  <a href="/mi-calendario">
+                    Abrir calendario
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </a>
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Briefcase className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="font-medium text-sm">Acciones rapidas</h3>
+                </div>
+                <div className="grid gap-2">
+                  <Button variant="outline" size="sm" className="justify-start bg-transparent" asChild>
+                    <a href="/mensajes">
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      Mensajes con clientes
+                    </a>
+                  </Button>
+                  <Button variant="outline" size="sm" className="justify-start bg-transparent" asChild>
+                    <a href="/mis-ofertas">
+                      <FileText className="h-4 w-4 mr-2" />
+                      Ofertas enviadas
+                    </a>
+                  </Button>
+                  <Button variant="outline" size="sm" className="justify-start bg-transparent" asChild>
+                    <a href="/incidencias">
+                      <AlertCircle className="h-4 w-4 mr-2" />
+                      Incidencias
+                    </a>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </aside>
         </div>
 

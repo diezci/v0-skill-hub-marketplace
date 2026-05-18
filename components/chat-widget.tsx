@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { formatearPrecioEuros } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -465,7 +466,7 @@ export function ChatWidget() {
                                 <div className="space-y-2 text-sm">
                                   <div className="flex items-center gap-2 text-muted-foreground">
                                     <Euro className="h-3.5 w-3.5" />
-                                    <span className="font-semibold text-foreground">{offer.precio_ofertado}€</span>
+                                    <span className="font-semibold text-foreground">{formatearPrecioEuros(offer.precio_ofertado)}</span>
                                   </div>
                                 </div>
                               </div>
@@ -479,7 +480,7 @@ export function ChatWidget() {
                                 <div className="space-y-2 text-sm">
                                   <div className="flex items-center gap-2 text-muted-foreground">
                                     <Euro className="h-3.5 w-3.5" />
-                                    <span>Presupuesto: {request.presupuesto_max}€</span>
+                                    <span>Presupuesto: {formatearPrecioEuros(request.presupuesto_max)}</span>
                                   </div>
                                   <div className="flex items-center gap-2 text-muted-foreground">
                                     <MapPin className="h-3.5 w-3.5" />
