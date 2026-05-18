@@ -31,7 +31,6 @@ export async function obtenerConversaciones() {
     .order("fecha_ultimo_mensaje", { ascending: false, nullsFirst: false })
 
   if (error) {
-    console.error("[v0] Error fetching conversations:", error)
     return { error: error.message, data: [] }
   }
 
@@ -137,7 +136,6 @@ export async function obtenerMensajes(conversacionId: string) {
     .order("created_at", { ascending: true })
 
   if (error) {
-    console.error("[v0] Error fetching messages:", error)
     return { error: error.message, data: [] }
   }
 
@@ -187,7 +185,6 @@ export async function enviarMensaje(conversacionId: string, contenido: string, a
     .single()
 
   if (error) {
-    console.error("[v0] Error sending message:", error)
     return { error: error.message }
   }
 
@@ -259,7 +256,6 @@ export async function crearConversacion(params: {
     .single()
 
   if (error) {
-    console.error("[v0] Error creating conversation:", error)
     return { error: error.message }
   }
 

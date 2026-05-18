@@ -1,15 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
-import { Separator } from "@/components/ui/separator"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Star,
   MapPin,
@@ -25,143 +26,277 @@ import {
   X,
   Edit2,
   ExternalLink,
-  ThumbsUp,
   Loader2,
+  Globe,
+  Upload,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useToast } from "@/hooks/use-toast"
+import { actualizarPerfil, obtenerPerfilActual } from "@/app/actions/profiles"
+import { uploadFile } from "@/lib/upload-helpers"
+
+const provincias = [
+  { provincia: "Álava", codigo: "01" },
+  { provincia: "Albacete", codigo: "02" },
+  { provincia: "Alicante", codigo: "03" },
+  { provincia: "Almería", codigo: "04" },
+  { provincia: "Ávila", codigo: "05" },
+  { provincia: "Badajoz", codigo: "06" },
+  { provincia: "Islas Baleares", codigo: "07" },
+  { provincia: "Barcelona", codigo: "08" },
+  { provincia: "Burgos", codigo: "09" },
+  { provincia: "Cáceres", codigo: "10" },
+  { provincia: "Cádiz", codigo: "11" },
+  { provincia: "Castellón", codigo: "12" },
+  { provincia: "Ciudad Real", codigo: "13" },
+  { provincia: "Córdoba", codigo: "14" },
+  { provincia: "Cuenca", codigo: "16" },
+  { provincia: "Girona", codigo: "17" },
+  { provincia: "Granada", codigo: "18" },
+  { provincia: "Guadalajara", codigo: "19" },
+  { provincia: "Guipúzcoa", codigo: "20" },
+  { provincia: "Huelva", codigo: "21" },
+  { provincia: "Huesca", codigo: "22" },
+  { provincia: "Jaén", codigo: "23" },
+  { provincia: "La Coruña", codigo: "15" },
+  { provincia: "La Rioja", codigo: "26" },
+  { provincia: "Las Palmas", codigo: "35" },
+  { provincia: "León", codigo: "24" },
+  { provincia: "Lleida", codigo: "25" },
+  { provincia: "Lugo", codigo: "27" },
+  { provincia: "Madrid", codigo: "28" },
+  { provincia: "Málaga", codigo: "29" },
+  { provincia: "Murcia", codigo: "30" },
+  { provincia: "Navarra", codigo: "31" },
+  { provincia: "Ourense", codigo: "32" },
+  { provincia: "Asturias", codigo: "33" },
+  { provincia: "Palencia", codigo: "34" },
+  { provincia: "Pontevedra", codigo: "36" },
+  { provincia: "Segovia", codigo: "40" },
+  { provincia: "Sevilla", codigo: "41" },
+  { provincia: "Soria", codigo: "42" },
+  { provincia: "Tarragona", codigo: "43" },
+  { provincia: "Teruel", codigo: "44" },
+  { provincia: "Toledo", codigo: "45" },
+  { provincia: "Valencia", codigo: "46" },
+  { provincia: "Valladolid", codigo: "47" },
+  { provincia: "Vizcaya", codigo: "48" },
+  { provincia: "Zamora", codigo: "49" },
+  { provincia: "Zaragoza", codigo: "50" },
+  { provincia: "Ceuta", codigo: "51" },
+  { provincia: "Melilla", codigo: "52" },
+]
 
 interface PerfilProfesionalProps {
   editable?: boolean
-  perfil?: any
-  onSave?: (data: any) => void
-  saving?: boolean
 }
 
-// Mock data for demonstration
-const MOCK_PERFIL = {
-  id: "1",
-  nombre: "Carlos",
-  apellido: "Rodríguez García",
-  titulo: "Maestro Albañil Especializado en Reformas Integrales",
-  ubicacion: "Madrid, España",
-  bio: "Con más de 15 años de experiencia en el sector de la construcción y reformas, me especializo en reformas integrales de viviendas, rehabilitación de edificios y obras nuevas. Mi compromiso es ofrecer un trabajo de calidad, cumpliendo plazos y presupuestos acordados. Cuento con un equipo de profesionales cualificados para proyectos de cualquier envergadura.",
-  foto_perfil: "/professional-man-construction.jpg",
-  foto_portada: "/construction-renovation-work.jpg",
-  telefono: "+34 612 345 678",
-  email: "carlos.rodriguez@email.com",
-  rating: 4.9,
-  total_reviews: 127,
-  proyectos_completados: 89,
-  anos_experiencia: 15,
-  tarifa_hora: 35,
-  tiempo_respuesta: "2 horas",
-  nivel: "Experto Verificado",
-  disponibilidad: "Disponible",
-  verificado: true,
-  habilidades: [
-    "Albañilería",
-    "Reformas integrales",
-    "Azulejos",
-    "Tabiquería",
-    "Impermeabilización",
-    "Solados",
-    "Alicatados",
-  ],
-  certificaciones: ["Técnico en Construcción", "PRL 60h", "Trabajos en Altura", "Carné de Carretillero"],
-  idiomas: ["Español (Nativo)", "Inglés (Básico)"],
-  portfolio: [
-    {
-      id: 1,
-      titulo: "Reforma baño completo",
-      imagen: "/modern-bathroom-renovation.png",
-      descripcion: "Reforma integral de baño de 8m² con cambio de distribución",
-    },
-    {
-      id: 2,
-      titulo: "Cocina abierta",
-      imagen: "/kitchen-renovation-open-concept.jpg",
-      descripcion: "Apertura de cocina al salón y reforma completa",
-    },
-    {
-      id: 3,
-      titulo: "Rehabilitación fachada",
-      imagen: "/building-facade-renovation.png",
-      descripcion: "Rehabilitación de fachada en edificio del centro",
-    },
-    {
-      id: 4,
-      titulo: "Reforma integral piso",
-      imagen: "/apartment-full-renovation.jpg",
-      descripcion: "Reforma completa de vivienda de 90m²",
-    },
-  ],
-  reviews: [
-    {
-      id: 1,
-      cliente: "María G.",
-      avatar: "/serene-woman.png",
-      rating: 5,
-      fecha: "Hace 2 semanas",
-      texto:
-        "Excelente trabajo en la reforma de mi baño. Carlos y su equipo fueron muy profesionales, puntuales y el resultado superó mis expectativas. Lo recomiendo 100%.",
-      proyecto: "Reforma de baño",
-    },
-    {
-      id: 2,
-      cliente: "Antonio L.",
-      avatar: "/man-face-elderly.jpg",
-      rating: 5,
-      fecha: "Hace 1 mes",
-      texto:
-        "Gran profesional. Realizó la reforma de mi cocina en el tiempo acordado y con una calidad impecable. Muy limpio y ordenado durante toda la obra.",
-      proyecto: "Reforma de cocina",
-    },
-    {
-      id: 3,
-      cliente: "Laura S.",
-      avatar: "/woman-young-face.jpg",
-      rating: 4,
-      fecha: "Hace 2 meses",
-      texto:
-        "Buen trabajo en general. Hubo un pequeño retraso pero el resultado final fue muy bueno. Buena comunicación durante todo el proceso.",
-      proyecto: "Alicatado terraza",
-    },
-  ],
-  estadisticas: {
-    entrega_tiempo: 95,
-    calidad_trabajo: 98,
-    comunicacion: 96,
-    precio_calidad: 94,
-  },
-}
-
-export default function PerfilProfesional({
-  editable = false,
-  perfil = MOCK_PERFIL,
-  onSave,
-  saving = false,
-}: PerfilProfesionalProps) {
+export default function PerfilProfesional({ editable = false }: PerfilProfesionalProps) {
+  const { toast } = useToast()
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
-  const [editData, setEditData] = useState(perfil)
+  const [isUploading, setIsUploading] = useState(false)
+
+  const [editData, setEditData] = useState({
+    nombre: "",
+    apellido: "",
+    titulo: "",
+    ubicacion: "",
+    bio: "",
+    foto_perfil: "",
+    foto_portada: "",
+    telefono: "",
+    email: "",
+    rating: 0,
+    total_reviews: 0,
+    proyectos_completados: 0,
+    anos_experiencia: 0,
+    tarifa_hora: 0,
+    tiempo_respuesta: "24 horas",
+    nivel: "Profesional",
+    disponibilidad: "Disponible",
+    verificado: false,
+    habilidades: [] as string[],
+    certificaciones: [] as string[],
+    idiomas: [] as string[],
+    portfolio: [] as any[],
+    reviews: [] as any[],
+    estadisticas: {
+      entrega_tiempo: 0,
+      calidad_trabajo: 0,
+      comunicacion: 0,
+      precio_calidad: 0,
+    },
+  })
+
   const [newSkill, setNewSkill] = useState("")
   const [newCert, setNewCert] = useState("")
+  const [newLanguage, setNewLanguage] = useState("")
 
-  const handleSave = () => {
-    if (onSave) {
-      onSave(editData)
+  useEffect(() => {
+    async function cargarPerfil() {
+      const result = await obtenerPerfilActual()
+      if (result.data) {
+        const { data } = result
+        setEditData({
+          nombre: data.nombre || "",
+          apellido: data.apellido || "",
+          titulo: data.profesional?.titulo || "",
+          ubicacion: data.ubicacion || "",
+          bio: data.profesional?.bio || "",
+          foto_perfil: data.foto_perfil || "",
+          foto_portada: data.foto_portada || "",
+          telefono: data.telefono || "",
+          email: data.email || "",
+          rating: data.profesional?.rating_promedio || 0,
+          total_reviews: data.profesional?.total_reseñas || 0,
+          proyectos_completados: data.profesional?.proyectos_completados || 0,
+          anos_experiencia: data.profesional?.anos_experiencia || 0,
+          tarifa_hora: data.profesional?.tarifa_por_hora || 0,
+          tiempo_respuesta: data.profesional?.tiempo_respuesta || "24 horas",
+          nivel: data.profesional?.verificado ? "Profesional Verificado" : "Profesional",
+          disponibilidad: data.profesional?.disponible ? "Disponible" : "No disponible",
+          verificado: data.profesional?.verificado || false,
+          habilidades: data.profesional?.habilidades || [],
+          certificaciones: data.profesional?.certificaciones || [],
+          idiomas: data.profesional?.idiomas || [],
+          portfolio: [],
+          reviews: [],
+          estadisticas: {
+            entrega_tiempo: 0,
+            calidad_trabajo: 0,
+            comunicacion: 0,
+            precio_calidad: 0,
+          },
+        })
+      }
+      setLoading(false)
     }
-    setIsEditing(false)
+    cargarPerfil()
+  }, [])
+
+  const handleSave = async () => {
+    setSaving(true)
+
+    const result = await actualizarPerfil({
+      nombre: editData.nombre,
+      apellido: editData.apellido,
+      titulo: editData.titulo,
+      bio: editData.bio,
+      ubicacion: editData.ubicacion,
+      telefono: editData.telefono,
+      foto_perfil: editData.foto_perfil,
+      foto_portada: editData.foto_portada,
+      habilidades: editData.habilidades,
+      certificaciones: editData.certificaciones,
+      idiomas: editData.idiomas,
+      tarifa_por_hora: editData.tarifa_hora,
+      anos_experiencia: editData.anos_experiencia,
+    })
+
+    setSaving(false)
+
+    if (result.error) {
+      toast({
+        title: "Error",
+        description: `No se pudo actualizar el perfil: ${result.error}`,
+        variant: "destructive",
+      })
+    } else {
+      toast({
+        title: "Perfil actualizado",
+        description: "Tu información ha sido guardada correctamente.",
+      })
+      setIsEditing(false)
+    }
   }
 
   const addSkill = () => {
-    if (newSkill.trim()) {
+    if (newSkill.trim() && !editData.habilidades.includes(newSkill.trim())) {
       setEditData({ ...editData, habilidades: [...editData.habilidades, newSkill.trim()] })
       setNewSkill("")
     }
   }
 
   const removeSkill = (index: number) => {
-    setEditData({ ...editData, habilidades: editData.habilidades.filter((_: any, i: number) => i !== index) })
+    setEditData({ ...editData, habilidades: editData.habilidades.filter((_, i) => i !== index) })
+  }
+
+  const addCertification = () => {
+    if (newCert.trim() && !editData.certificaciones.includes(newCert.trim())) {
+      setEditData({ ...editData, certificaciones: [...editData.certificaciones, newCert.trim()] })
+      setNewCert("")
+    }
+  }
+
+  const removeCertification = (index: number) => {
+    setEditData({ ...editData, certificaciones: editData.certificaciones.filter((_, i) => i !== index) })
+  }
+
+  const addLanguage = () => {
+    if (newLanguage.trim() && !editData.idiomas.includes(newLanguage.trim())) {
+      setEditData({ ...editData, idiomas: [...editData.idiomas, newLanguage.trim()] })
+      setNewLanguage("")
+    }
+  }
+
+  const removeLanguage = (index: number) => {
+    setEditData({ ...editData, idiomas: editData.idiomas.filter((_, i) => i !== index) })
+  }
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsUploading(true)
+    const result = await uploadFile(file)
+    setIsUploading(false)
+
+    if (result) {
+      setEditData({ ...editData, foto_perfil: result.url })
+      toast({
+        title: "Foto actualizada",
+        description: "Tu foto de perfil se ha subido correctamente.",
+      })
+    } else {
+      toast({
+        title: "Error",
+        description: "No se pudo subir la imagen. Inténtalo de nuevo.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsUploading(true)
+    const result = await uploadFile(file)
+    setIsUploading(false)
+
+    if (result) {
+      setEditData({ ...editData, foto_portada: result.url })
+      toast({
+        title: "Portada actualizada",
+        description: "Tu imagen de portada se ha subido correctamente.",
+      })
+    } else {
+      toast({
+        title: "Error",
+        description: "No se pudo subir la imagen. Inténtalo de nuevo.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
   }
 
   return (
@@ -169,12 +304,31 @@ export default function PerfilProfesional({
       {/* Cover & Profile Header */}
       <div className="relative">
         <div className="h-48 md:h-64 rounded-xl overflow-hidden bg-gradient-to-r from-primary/20 to-primary/5">
-          <img src={editData.foto_portada || "/placeholder.svg"} alt="Cover" className="w-full h-full object-cover" />
+          <img
+            src={editData.foto_portada || "/placeholder.svg"}
+            alt="Cover"
+            className="w-full h-full object-cover"
+          />
           {editable && isEditing && (
-            <Button size="sm" variant="secondary" className="absolute top-4 right-4">
-              <Camera className="h-4 w-4 mr-2" />
-              Cambiar portada
-            </Button>
+            <>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="absolute top-4 right-4"
+                onClick={() => document.getElementById("cover-upload")?.click()}
+                disabled={isUploading}
+              >
+                <Camera className="h-4 w-4 mr-2" />
+                {isUploading ? "Subiendo..." : "Cambiar portada"}
+              </Button>
+              <input
+                id="cover-upload"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleCoverUpload}
+              />
+            </>
           )}
         </div>
 
@@ -193,9 +347,24 @@ export default function PerfilProfesional({
                   </div>
                 )}
                 {editable && isEditing && (
-                  <Button size="icon" variant="secondary" className="absolute bottom-0 right-0">
-                    <Camera className="h-4 w-4" />
-                  </Button>
+                  <>
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      className="absolute bottom-0 right-0"
+                      onClick={() => document.getElementById("avatar-upload")?.click()}
+                      disabled={isUploading}
+                    >
+                      <Camera className="h-4 w-4" />
+                    </Button>
+                    <input
+                      id="avatar-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleAvatarUpload}
+                    />
+                  </>
                 )}
               </div>
 
@@ -204,14 +373,20 @@ export default function PerfilProfesional({
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                   <div className="space-y-2">
                     {isEditing ? (
-                      <Input
-                        value={`${editData.nombre} ${editData.apellido}`}
-                        onChange={(e) => {
-                          const parts = e.target.value.split(" ")
-                          setEditData({ ...editData, nombre: parts[0], apellido: parts.slice(1).join(" ") })
-                        }}
-                        className="text-2xl font-bold h-auto py-1"
-                      />
+                      <div className="flex gap-2">
+                        <Input
+                          value={editData.nombre}
+                          onChange={(e) => setEditData({ ...editData, nombre: e.target.value })}
+                          placeholder="Nombre"
+                          className="text-xl font-bold h-auto py-1 w-32"
+                        />
+                        <Input
+                          value={editData.apellido}
+                          onChange={(e) => setEditData({ ...editData, apellido: e.target.value })}
+                          placeholder="Apellidos"
+                          className="text-xl font-bold h-auto py-1 flex-1"
+                        />
+                      </div>
                     ) : (
                       <h1 className="text-2xl md:text-3xl font-bold">
                         {editData.nombre} {editData.apellido}
@@ -222,23 +397,34 @@ export default function PerfilProfesional({
                       <Input
                         value={editData.titulo}
                         onChange={(e) => setEditData({ ...editData, titulo: e.target.value })}
+                        placeholder="Título profesional (ej: Maestro Albañil)"
                         className="text-muted-foreground"
                       />
                     ) : (
-                      <p className="text-lg text-muted-foreground">{editData.titulo}</p>
+                      <p className="text-lg text-muted-foreground">{editData.titulo || "Sin título profesional"}</p>
                     )}
 
                     <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <MapPin className="h-4 w-4" />
                         {isEditing ? (
-                          <Input
+                          <Select
                             value={editData.ubicacion}
-                            onChange={(e) => setEditData({ ...editData, ubicacion: e.target.value })}
-                            className="h-6 w-32"
-                          />
+                            onValueChange={(value) => setEditData({ ...editData, ubicacion: value })}
+                          >
+                            <SelectTrigger className="h-7 w-40">
+                              <SelectValue placeholder="Provincia" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {provincias.map((prov) => (
+                                <SelectItem key={prov.codigo} value={prov.provincia}>
+                                  {prov.provincia}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         ) : (
-                          <span>{editData.ubicacion}</span>
+                          <span>{editData.ubicacion || "Sin ubicación"}</span>
                         )}
                       </div>
                       <div className="flex items-center gap-1">
@@ -254,7 +440,7 @@ export default function PerfilProfesional({
                     <div className="flex flex-wrap items-center gap-3">
                       <div className="flex items-center gap-1">
                         <Star className="h-5 w-5 fill-amber-500 text-amber-500" />
-                        <span className="font-bold text-lg">{editData.rating}</span>
+                        <span className="font-bold text-lg">{editData.rating.toFixed(1)}</span>
                         <span className="text-muted-foreground">({editData.total_reviews} valoraciones)</span>
                       </div>
                       <Badge variant="secondary">{editData.nivel}</Badge>
@@ -278,10 +464,7 @@ export default function PerfilProfesional({
                           </Button>
                           <Button
                             variant="outline"
-                            onClick={() => {
-                              setIsEditing(false)
-                              setEditData(perfil)
-                            }}
+                            onClick={() => setIsEditing(false)}
                           >
                             Cancelar
                           </Button>
@@ -350,10 +533,73 @@ export default function PerfilProfesional({
                       value={editData.bio}
                       onChange={(e) => setEditData({ ...editData, bio: e.target.value })}
                       rows={5}
+                      placeholder="Describe tu experiencia, especialización y qué te hace único..."
                     />
                   ) : (
-                    <p className="text-muted-foreground leading-relaxed">{editData.bio}</p>
+                    <p className="text-muted-foreground leading-relaxed">
+                      {editData.bio || "No has añadido una descripción todavía."}
+                    </p>
                   )}
+                </CardContent>
+              </Card>
+
+              {/* Professional Info */}
+              {isEditing && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Información Profesional</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="tarifa">Tarifa por hora (€)</Label>
+                        <Input
+                          id="tarifa"
+                          type="number"
+                          value={editData.tarifa_hora}
+                          onChange={(e) => setEditData({ ...editData, tarifa_hora: Number(e.target.value) })}
+                          placeholder="35"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="experiencia">Años de experiencia</Label>
+                        <Input
+                          id="experiencia"
+                          type="number"
+                          value={editData.anos_experiencia}
+                          onChange={(e) => setEditData({ ...editData, anos_experiencia: Number(e.target.value) })}
+                          placeholder="10"
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Contact Info */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Contacto</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Phone className="h-5 w-5 text-muted-foreground" />
+                    {isEditing ? (
+                      <Input
+                        type="tel"
+                        value={editData.telefono}
+                        onChange={(e) => setEditData({ ...editData, telefono: e.target.value })}
+                        placeholder="+34 612 345 678"
+                        className="flex-1"
+                      />
+                    ) : (
+                      <span>{editData.telefono || "No especificado"}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Mail className="h-5 w-5 text-muted-foreground" />
+                    <span>{editData.email || "No especificado"}</span>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -364,7 +610,10 @@ export default function PerfilProfesional({
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex flex-wrap gap-2">
-                    {editData.habilidades.map((skill: string, i: number) => (
+                    {editData.habilidades.length === 0 && !isEditing && (
+                      <p className="text-muted-foreground text-sm">No has añadido habilidades todavía.</p>
+                    )}
+                    {editData.habilidades.map((skill, i) => (
                       <Badge key={i} variant="secondary" className="text-sm py-1.5 px-3">
                         {skill}
                         {isEditing && (
@@ -382,6 +631,7 @@ export default function PerfilProfesional({
                         onChange={(e) => setNewSkill(e.target.value)}
                         placeholder="Nueva habilidad..."
                         className="flex-1"
+                        onKeyPress={(e) => e.key === "Enter" && addSkill()}
                       />
                       <Button onClick={addSkill} size="icon" variant="outline">
                         <Plus className="h-4 w-4" />
@@ -399,21 +649,96 @@ export default function PerfilProfesional({
                     Certificaciones
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {editData.certificaciones.map((cert: string, i: number) => (
-                      <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                        <CheckCircle className="h-5 w-5 text-emerald-500" />
-                        <span>{cert}</span>
+                <CardContent className="space-y-3">
+                  {editData.certificaciones.length === 0 && !isEditing && (
+                    <p className="text-muted-foreground text-sm">No has añadido certificaciones todavía.</p>
+                  )}
+                  <div className="space-y-2">
+                    {editData.certificaciones.map((cert, i) => (
+                      <div key={i} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-muted/50">
+                        <div className="flex items-center gap-3">
+                          <CheckCircle className="h-5 w-5 text-emerald-500" />
+                          <span>{cert}</span>
+                        </div>
+                        {isEditing && (
+                          <button onClick={() => removeCertification(i)} className="hover:text-destructive">
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
+                  {isEditing && (
+                    <div className="flex gap-2">
+                      <Input
+                        value={newCert}
+                        onChange={(e) => setNewCert(e.target.value)}
+                        placeholder="Nueva certificación..."
+                        className="flex-1"
+                        onKeyPress={(e) => e.key === "Enter" && addCertification()}
+                      />
+                      <Button onClick={addCertification} size="icon" variant="outline">
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Languages */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Globe className="h-5 w-5 text-primary" />
+                    Idiomas
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {editData.idiomas.length === 0 && !isEditing && (
+                    <p className="text-muted-foreground text-sm">No has añadido idiomas todavía.</p>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    {editData.idiomas.map((lang, i) => (
+                      <Badge key={i} variant="outline" className="text-sm py-1.5 px-3">
+                        <CheckCircle className="h-3 w-3 mr-1.5 text-emerald-500" />
+                        {lang}
+                        {isEditing && (
+                          <button onClick={() => removeLanguage(i)} className="ml-2 hover:text-destructive">
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </Badge>
+                    ))}
+                  </div>
+                  {isEditing && (
+                    <div className="flex gap-2">
+                      <Input
+                        value={newLanguage}
+                        onChange={(e) => setNewLanguage(e.target.value)}
+                        placeholder="Nuevo idioma (ej: Español - Nativo)..."
+                        className="flex-1"
+                        onKeyPress={(e) => e.key === "Enter" && addLanguage()}
+                      />
+                      <Button onClick={addLanguage} size="icon" variant="outline">
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
 
             <TabsContent value="portfolio" className="pt-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {editData.portfolio.length === 0 && (
+                  <div className="col-span-2 text-center py-12 text-muted-foreground">
+                    <Briefcase className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No tienes proyectos en tu portfolio todavía.</p>
+                    {editable && (
+                      <p className="text-sm mt-2">Añade proyectos desde la sección de Portfolio en Mi Cuenta.</p>
+                    )}
+                  </div>
+                )}
                 {editData.portfolio.map((item: any) => (
                   <Card key={item.id} className="group overflow-hidden cursor-pointer hover:shadow-lg transition-all">
                     <div className="relative h-48 overflow-hidden">
@@ -435,14 +760,6 @@ export default function PerfilProfesional({
                     </CardContent>
                   </Card>
                 ))}
-                {isEditing && (
-                  <Card className="flex items-center justify-center h-48 border-dashed cursor-pointer hover:bg-muted/50 transition-colors">
-                    <div className="text-center">
-                      <Plus className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground">Añadir proyecto</p>
-                    </div>
-                  </Card>
-                )}
               </div>
             </TabsContent>
 
@@ -452,7 +769,7 @@ export default function PerfilProfesional({
                 <CardContent className="p-6">
                   <div className="flex flex-col md:flex-row gap-8">
                     <div className="text-center">
-                      <div className="text-5xl font-bold mb-2">{editData.rating}</div>
+                      <div className="text-5xl font-bold mb-2">{editData.rating.toFixed(1)}</div>
                       <div className="flex justify-center gap-1 mb-2">
                         {[1, 2, 3, 4, 5].map((star) => (
                           <Star
@@ -471,9 +788,9 @@ export default function PerfilProfesional({
                         <div key={key} className="space-y-1">
                           <div className="flex justify-between text-sm">
                             <span className="capitalize">{key.replace("_", " ")}</span>
-                            <span className="font-medium">{value as number}%</span>
+                            <span className="font-medium">{value}%</span>
                           </div>
-                          <Progress value={value as number} className="h-2" />
+                          <Progress value={value} className="h-2" />
                         </div>
                       ))}
                     </div>
@@ -482,6 +799,13 @@ export default function PerfilProfesional({
               </Card>
 
               {/* Reviews */}
+              {editData.reviews.length === 0 && (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Star className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Aún no tienes valoraciones.</p>
+                  <p className="text-sm mt-2">Las valoraciones aparecerán aquí cuando completes proyectos.</p>
+                </div>
+              )}
               <div className="space-y-4">
                 {editData.reviews.map((review: any) => (
                   <Card key={review.id}>
@@ -489,33 +813,30 @@ export default function PerfilProfesional({
                       <div className="flex items-start gap-4">
                         <Avatar>
                           <AvatarImage src={review.avatar || "/placeholder.svg"} />
-                          <AvatarFallback>{review.cliente.charAt(0)}</AvatarFallback>
+                          <AvatarFallback>{review.cliente?.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1">
-                          <div className="flex items-center justify-between mb-2">
-                            <div>
-                              <p className="font-medium">{review.cliente}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {review.proyecto} · {review.fecha}
-                              </p>
-                            </div>
-                            <div className="flex gap-0.5">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <Star
-                                  key={star}
-                                  className={cn(
-                                    "h-4 w-4",
-                                    star <= review.rating ? "fill-amber-500 text-amber-500" : "text-muted",
-                                  )}
-                                />
-                              ))}
-                            </div>
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-semibold">{review.cliente}</h4>
+                            <span className="text-sm text-muted-foreground">{review.fecha}</span>
                           </div>
-                          <p className="text-muted-foreground">{review.texto}</p>
-                          <Button variant="ghost" size="sm" className="mt-2 text-muted-foreground">
-                            <ThumbsUp className="h-4 w-4 mr-1" />
-                            Útil
-                          </Button>
+                          <div className="flex items-center gap-1 my-1">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star
+                                key={star}
+                                className={cn(
+                                  "h-4 w-4",
+                                  star <= review.rating ? "fill-amber-500 text-amber-500" : "text-muted",
+                                )}
+                              />
+                            ))}
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-2">{review.texto}</p>
+                          {review.proyecto && (
+                            <Badge variant="secondary" className="mt-2">
+                              {review.proyecto}
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     </CardContent>
@@ -528,64 +849,27 @@ export default function PerfilProfesional({
 
         {/* Right Column - Sidebar */}
         <div className="space-y-6">
-          {/* Quick Stats */}
+          {/* Stats */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Información</CardTitle>
+              <CardTitle className="text-lg">Estadísticas</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Proyectos completados</span>
+                <span className="font-bold">{editData.proyectos_completados}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Años de experiencia</span>
+                <span className="font-bold">{editData.anos_experiencia}</span>
+              </div>
+              <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Tarifa por hora</span>
-                <span className="font-bold text-lg text-primary">{editData.tarifa_hora}€/h</span>
+                <span className="font-bold">{editData.tarifa_hora}€/h</span>
               </div>
-              <Separator />
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Experiencia</span>
-                <span className="font-medium">{editData.anos_experiencia} años</span>
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Proyectos</span>
-                <span className="font-medium">{editData.proyectos_completados} completados</span>
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Respuesta</span>
-                <span className="font-medium">{editData.tiempo_respuesta}</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Contact */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Contacto</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-3">
-                <Phone className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">{editData.telefono}</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">{editData.email}</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Languages */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Idiomas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {editData.idiomas.map((idioma: string, i: number) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-emerald-500" />
-                    <span className="text-sm">{idioma}</span>
-                  </div>
-                ))}
+                <span className="text-muted-foreground">Tiempo de respuesta</span>
+                <span className="font-bold">{editData.tiempo_respuesta}</span>
               </div>
             </CardContent>
           </Card>

@@ -25,8 +25,7 @@ export async function POST(request: Request) {
       signature,
       process.env.STRIPE_WEBHOOK_SECRET!
     )
-  } catch (err: any) {
-    console.error("[v0] Webhook signature verification failed:", err.message)
+  } catch {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
   }
 
@@ -74,7 +73,6 @@ export async function POST(request: Request) {
         progreso: 0,
       })
 
-      console.log(`[v0] Escrow payment completed for trabajo ${trabajoId}`)
       break
     }
 
@@ -93,7 +91,6 @@ export async function POST(request: Request) {
         .eq("trabajo_id", metadata.trabajo_id)
         .eq("estado", "pendiente")
 
-      console.log(`[v0] Escrow payment expired for trabajo ${metadata.trabajo_id}`)
       break
     }
   }

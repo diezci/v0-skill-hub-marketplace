@@ -91,16 +91,25 @@ export async function registrarUsuario(formData: {
     }
   }
 
-  const { error: profileError } = await supabase.from("profiles").insert({
-    id: authData.user.id,
-    nombre: formData.nombre,
-    apellido: formData.apellido,
-    email: formData.email,
-    telefono: formData.telefono || null,
-    ubicacion: formData.ubicacion || null,
-  })
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .upsert(
+      {
+        id: authData.user.id,
+        nombre: formData.nombre,
+        apellido: formData.apellido,
+        email: formData.email,
+        telefono: formData.telefono || null,
+        ubicacion: formData.ubicacion || null,
+        tipo_usuario: "cliente",
+      },
+      { onConflict: "id" },
+    )
 
-  if (profileError) {
+  // Profile may already be auto-created by the DB trigger, or RLS may block
+  // because email confirmation is required and there's no session yet.
+  // We swallow these specific errors silently — the trigger handles the base row.
+  if (profileError && !profileError.message?.includes("row-level security") && profileError.code !== "23505") {
     return { error: profileError.message }
   }
 
@@ -158,7 +167,7 @@ export async function resetPassword(email: string) {
     || "http://localhost:3000"
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${siteUrl}/auth/reset-password`,
+    redirectTo: `${siteUrl}/auth/actualizar-contrasena`,
   })
 
   if (error) {

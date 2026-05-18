@@ -43,7 +43,6 @@ export async function crearDisputa(data: {
     .single()
 
   if (error) {
-    console.error("[v0] Error creating disputa:", error)
     return { error: error.message }
   }
 
@@ -91,7 +90,6 @@ export async function obtenerDisputas() {
     .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("[v0] Error fetching disputas:", error)
     return { error: error.message }
   }
 

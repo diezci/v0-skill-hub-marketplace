@@ -4,8 +4,10 @@
 export const PLATFORM_CONFIG = {
   // Commission charged TO THE CLIENT on top of the agreed price (percentage)
   comision_cliente: 10, // 10% added on top
+  comisionClientePorcentaje: 10, // Alias for display
   // Commission charged TO THE PROVIDER deducted from the agreed price (percentage)
   comision_proveedor: 5, // 5% deducted from payment
+  comisionProveedorPorcentaje: 5, // Alias for display
   // Minimum commission in euros
   comision_minima: 2,
   // Currency

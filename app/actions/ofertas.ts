@@ -60,7 +60,6 @@ export async function crearOferta(formData: {
     .single()
 
   if (error) {
-    console.error("[v0] Error creating oferta:", error)
     return { error: error.message }
   }
 
@@ -99,7 +98,6 @@ export async function obtenerMisOfertas() {
     .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("[v0] Error fetching ofertas:", error)
     return { error: error.message }
   }
 
@@ -217,7 +215,6 @@ export async function obtenerOfertasPorSolicitud(solicitudId: string) {
     .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("[v0] Error fetching ofertas por solicitud:", error)
     return { error: error.message }
   }
 

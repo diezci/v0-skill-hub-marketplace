@@ -112,8 +112,8 @@ const FeaturedGigs = () => {
         }))
         setGigs(formattedGigs)
       }
-    } catch (error) {
-      console.error("[v0] Error loading featured gigs:", error)
+    } catch {
+      // Silent fail - show fallback gigs
     } finally {
       setLoading(false)
     }
@@ -126,7 +126,7 @@ const FeaturedGigs = () => {
           <h2 className="text-2xl md:text-3xl font-bold mb-2">Profesionales destacados</h2>
           <p className="text-muted-foreground">Los mejor valorados por nuestros clientes</p>
         </div>
-        <Link href="/gigs" className="text-sm text-primary hover:underline hidden sm:block">
+        <Link href="/profesionales" className="text-sm font-medium text-primary hover:gap-3 transition-all flex items-center gap-2">
           Ver todos
         </Link>
       </div>

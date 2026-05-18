@@ -63,7 +63,6 @@ export async function crearTrabajo(data: {
     .single()
 
   if (error) {
-    console.error("[v0] Error creating trabajo:", error)
     return { error: error.message }
   }
 
@@ -105,7 +104,6 @@ export async function obtenerMisTrabajos() {
     .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("[v0] Error fetching trabajos:", error)
     return { error: error.message }
   }
 
