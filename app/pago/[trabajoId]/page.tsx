@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { ShieldCheck, ArrowLeft, CheckCircle2, AlertCircle, Loader2 } from "lucide-react"
-import { calcularTotalCliente, calcularPagoProveedor, PLATFORM_CONFIG } from "@/lib/comisiones"
+import { calcularTotalCliente, calcularPagoProveedor, PLATFORM_CONFIG, formatearPrecio } from "@/lib/comisiones"
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -131,18 +131,18 @@ export default function PagoPage() {
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Precio del servicio</span>
-                        <span>{desglose.precioBase.toFixed(2)} EUR</span>
+                        <span>{formatearPrecio(desglose.precioBase)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">
                           Comision plataforma ({PLATFORM_CONFIG.comisionClientePorcentaje}%)
                         </span>
-                        <span>{desglose.comisionCliente.toFixed(2)} EUR</span>
+                        <span>{formatearPrecio(desglose.comisionCliente)}</span>
                       </div>
                       <Separator />
-                      <div className="flex justify-between font-semibold">
+                      <div className="flex justify-between font-semibold text-base">
                         <span>Total a pagar</span>
-                        <span>{desglose.totalCliente.toFixed(2)} EUR</span>
+                        <span className="text-primary">{formatearPrecio(desglose.totalCliente)}</span>
                       </div>
                     </div>
 
@@ -154,18 +154,18 @@ export default function PagoPage() {
                       </h4>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Precio del servicio</span>
-                        <span>{desglose.precioBase.toFixed(2)} EUR</span>
+                        <span>{formatearPrecio(desglose.precioBase)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">
                           Comision plataforma (-{PLATFORM_CONFIG.comisionProveedorPorcentaje}%)
                         </span>
-                        <span className="text-destructive">-{desglose.comisionProveedor.toFixed(2)} EUR</span>
+                        <span className="text-destructive">-{formatearPrecio(desglose.comisionProveedor)}</span>
                       </div>
                       <Separator />
                       <div className="flex justify-between font-semibold">
                         <span>Pago neto</span>
-                        <span className="text-emerald-600">{desglose.pagoNeto.toFixed(2)} EUR</span>
+                        <span className="text-emerald-600">{formatearPrecio(desglose.pagoNeto)}</span>
                       </div>
                     </div>
                   </div>
