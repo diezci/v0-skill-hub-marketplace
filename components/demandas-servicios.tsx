@@ -3,6 +3,7 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
+import { formatearPrecioEuros } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -380,7 +381,7 @@ export default function DemandasServicios() {
 
           <div className="space-y-3">
             <Label className="text-sm text-muted-foreground">
-              Presupuesto: {rangoPresupuesto[0]}€ - {rangoPresupuesto[1]}€
+              Presupuesto: {formatearPrecioEuros(rangoPresupuesto[0])} - {formatearPrecioEuros(rangoPresupuesto[1])}
             </Label>
             <Slider
               value={rangoPresupuesto}
@@ -516,7 +517,7 @@ export default function DemandasServicios() {
                         <div className="text-right shrink-0">
                           <p className="text-xs text-muted-foreground">Presupuesto</p>
                           <p className="font-bold text-lg text-primary">
-                            {demanda.presupuesto_min}€ - {demanda.presupuesto_max}€
+                            {formatearPrecioEuros(demanda.presupuesto_min)} - {formatearPrecioEuros(demanda.presupuesto_max)}
                           </p>
                         </div>
                       </div>

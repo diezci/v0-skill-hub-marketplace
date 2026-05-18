@@ -140,8 +140,8 @@ export default function DemoPagoPage() {
                   className="mt-4"
                 />
                 <div className="flex justify-between text-xs text-muted-foreground mt-2">
-                  <span>50€</span>
-                  <span>10.000€</span>
+                  <span>50 €</span>
+                  <span>10.000 €</span>
                 </div>
               </div>
               <div className="md:w-px md:h-20 md:bg-border" />
@@ -270,48 +270,18 @@ export default function DemoPagoPage() {
                 </div>
 
                 {/* Provider breakdown */}
-                <div className="rounded-lg bg-muted/40 p-4 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Info className="h-4 w-4 text-muted-foreground" />
+                <div className="rounded-lg bg-muted/40 p-4 space-y-2 text-sm">
+                  <div className="flex items-center gap-2 mb-1">
+                    <ShieldCheck className="h-4 w-4 text-emerald-600" />
                     <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      El profesional recibira
+                      Que cubre tu pago
                     </h4>
                   </div>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Precio acordado</span>
-                      <span>{formatearPrecio(desglose.precioBase)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        Comision plataforma (-{PLATFORM_CONFIG.comisionProveedorPorcentaje}%)
-                      </span>
-                      <span className="text-rose-600 dark:text-rose-400">
-                        -{formatearPrecio(desglose.comisionProveedor)}
-                      </span>
-                    </div>
-                    <Separator />
-                    <div className="flex justify-between font-semibold">
-                      <span>Pago neto al profesional</span>
-                      <span className="text-emerald-700 dark:text-emerald-400">
-                        {formatearPrecio(desglose.pagoNeto)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Platform margin (transparent) */}
-                <div className="rounded-lg border border-dashed border-border p-4">
-                  <div className="flex justify-between items-center text-sm">
-                    <div>
-                      <p className="font-medium">Margen total de la plataforma</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {PLATFORM_CONFIG.comisionClientePorcentaje}% del cliente +{" "}
-                        {PLATFORM_CONFIG.comisionProveedorPorcentaje}% del profesional
-                      </p>
-                    </div>
-                    <span className="font-semibold">{formatearPrecio(desglose.margenPlataforma)}</span>
-                  </div>
+                  <p className="text-muted-foreground text-xs leading-relaxed">
+                    El precio acordado con el profesional ({formatearPrecio(desglose.precioBase)}) y los servicios
+                    de la plataforma: pago protegido en escrow, mediacion en disputas, soporte 24/7 y garantia
+                    de satisfaccion.
+                  </p>
                 </div>
               </CardContent>
             </Card>

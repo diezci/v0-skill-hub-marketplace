@@ -145,29 +145,6 @@ export default function PagoPage() {
                         <span className="text-primary">{formatearPrecio(desglose.totalCliente)}</span>
                       </div>
                     </div>
-
-                    <Separator />
-
-                    <div className="space-y-2 text-sm">
-                      <h4 className="text-xs text-muted-foreground uppercase tracking-wider">
-                        El profesional recibira
-                      </h4>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Precio del servicio</span>
-                        <span>{formatearPrecio(desglose.precioBase)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          Comision plataforma (-{PLATFORM_CONFIG.comisionProveedorPorcentaje}%)
-                        </span>
-                        <span className="text-destructive">-{formatearPrecio(desglose.comisionProveedor)}</span>
-                      </div>
-                      <Separator />
-                      <div className="flex justify-between font-semibold">
-                        <span>Pago neto</span>
-                        <span className="text-emerald-600">{formatearPrecio(desglose.pagoNeto)}</span>
-                      </div>
-                    </div>
                   </div>
                 ) : (
                   <div className="flex items-center justify-center py-4">

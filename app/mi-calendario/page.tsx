@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import Navbar from "@/components/navbar"
 import Footer from "@/components/footer"
+import { formatearPrecioEuros } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -816,7 +817,7 @@ export default function MiCalendarioPage() {
 
               <div className="flex items-center justify-between pt-2 border-t">
                 <div className="text-sm text-muted-foreground">
-                  Monto: <span className="font-semibold text-foreground">{selectedItem.monto}€</span>
+                          Monto: <span className="font-semibold text-foreground">{formatearPrecioEuros(selectedItem.monto)}</span>
                 </div>
               </div>
             </div>
@@ -877,7 +878,7 @@ export default function MiCalendarioPage() {
                 </div>
                 <div className="p-3 bg-muted/30 rounded-lg">
                   <p className="text-xs text-muted-foreground">Monto</p>
-                  <p className="text-lg font-bold text-foreground">{selectedItem.monto}€</p>
+                          <p className="text-lg font-bold text-foreground">{formatearPrecioEuros(selectedItem.monto)}</p>
                 </div>
               </div>
 

@@ -73,11 +73,16 @@ export function calcularReembolsoCliente(precioAcordado: number): {
 }
 
 /**
- * Format currency for display
+ * Format currency for display.
+ * Uses Spanish locale (dot as thousand separator). Hides decimals when the
+ * value is a whole number, shows two decimals otherwise.
  */
 export function formatearPrecio(precio: number): string {
+  const isInteger = Number.isInteger(precio)
   return new Intl.NumberFormat("es-ES", {
     style: "currency",
     currency: "EUR",
+    minimumFractionDigits: isInteger ? 0 : 2,
+    maximumFractionDigits: 2,
   }).format(precio)
 }
