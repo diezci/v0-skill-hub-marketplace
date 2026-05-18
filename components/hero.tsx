@@ -26,12 +26,12 @@ const Hero = () => {
 
           {/* Headline */}
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 text-balance">
-            Encuentra al <span className="gradient-text">profesional perfecto</span> para tu proyecto
+            Publica tu <span className="gradient-text">proyecto</span> y recibe ofertas en minutos
           </h1>
 
           {/* Subheadline */}
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 text-pretty">
-            Conectamos a miles de profesionales cualificados con clientes que buscan servicios de calidad. Rápido,
+            Describe lo que necesitas y conecta con miles de profesionales cualificados listos para ayudarte. Rápido,
             seguro y garantizado.
           </p>
 

@@ -37,12 +37,12 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="es" suppressHydrationWarning className={`${inter.variable} ${spaceGrotesk.variable}`}>
+    <html lang="es" suppressHydrationWarning className={`${inter.variable} ${spaceGrotesk.variable} bg-background`}>
       <body className="font-sans antialiased">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-          <div className="flex flex-col min-h-screen overflow-hidden">
+          <div className="flex flex-col min-h-screen">
             <Navbar />
-            <main className="flex-1 overflow-hidden">{children}</main>
+            <main className="flex-1 pt-16">{children}</main>
             <Footer />
             <ChatWidget />
           </div>

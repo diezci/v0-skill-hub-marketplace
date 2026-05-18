@@ -96,7 +96,6 @@ export async function crearPagoEscrow(data: {
       .single()
 
     if (escrowError) {
-      console.error("[v0] Error creating escrow:", escrowError)
       return { error: escrowError.message }
     }
 
@@ -112,7 +111,6 @@ export async function crearPagoEscrow(data: {
       }
     }
   } catch (error: any) {
-    console.error("[v0] Stripe error:", error)
     return { error: error.message }
   }
 }
@@ -153,7 +151,6 @@ export async function confirmarPagoEscrow(sessionId: string) {
       .single()
 
     if (error) {
-      console.error("[v0] Error confirming escrow:", error)
       return { error: error.message }
     }
 
@@ -167,7 +164,6 @@ export async function confirmarPagoEscrow(sessionId: string) {
     revalidatePath("/mis-trabajos")
     return { data: escrow }
   } catch (error: any) {
-    console.error("[v0] Error confirming payment:", error)
     return { error: error.message }
   }
 }
@@ -251,7 +247,6 @@ export async function liberarFondosEscrow(trabajoId: string) {
     revalidatePath("/mis-trabajos")
     return { success: true }
   } catch (error: any) {
-    console.error("[v0] Error releasing funds:", error)
     return { error: error.message }
   }
 }
@@ -361,7 +356,6 @@ export async function rechazarTrabajoYReembolsar(trabajoId: string, motivo: stri
       retencionPlataforma,
     }
   } catch (error: any) {
-    console.error("[v0] Error processing refund:", error)
     return { error: error.message }
   }
 }

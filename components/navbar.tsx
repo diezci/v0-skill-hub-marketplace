@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Menu, X, User, Search, ClipboardList, FileText, MessageSquare, Briefcase } from "lucide-react"
+import { Menu, X, User, Search, ClipboardList, FileText, MessageSquare, FolderKanban } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { cn } from "@/lib/utils"
@@ -33,19 +33,30 @@ const Navbar = () => {
   }, [])
 
   const navLinks = [
-    { name: "Profesionales", path: "/profesionales", icon: Search },
-    { name: "Demandas", path: "/demandas", icon: ClipboardList },
-    { name: "Mis Solicitudes", path: "/mis-solicitudes", icon: FileText, role: "cliente" },
-    { name: "Mis Trabajos", path: "/mis-trabajos", icon: Briefcase, role: "proveedor" },
-    { name: "Mensajes", path: "/mensajes", icon: MessageSquare },
-    { name: "Mi Perfil", path: "/mi-perfil", icon: User },
+    { name: "Profesionales", path: "/profesionales", icon: Search, shortName: "Profesionales" },
+    {
+      name: "Demandas publicadas por los usuarios",
+      path: "/demandas",
+      icon: ClipboardList,
+      shortName: "Demandas",
+    },
+    { name: "Mis Solicitudes", path: "/mis-solicitudes", icon: FileText, shortName: "Mis Solicitudes" },
+    {
+      name: "Gestión de proyectos",
+      path: "/mis-trabajos",
+      icon: FolderKanban,
+      shortName: "Gestión de proyectos",
+    },
+    { name: "Mensajes", path: "/mensajes", icon: MessageSquare, shortName: "Mensajes" },
   ]
 
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 w-full transition-all duration-300",
-        isScrolled ? "bg-background/95 backdrop-blur-md shadow-sm border-b" : "bg-background/50 backdrop-blur-sm",
+        "fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300",
+        isScrolled
+          ? "bg-background/95 backdrop-blur-md shadow-sm border-b border-border"
+          : "bg-background/80 backdrop-blur-sm border-b border-border/40",
       )}
     >
       <div className="container mx-auto px-4">
@@ -64,15 +75,16 @@ const Navbar = () => {
                 <Link
                   key={link.path}
                   href={link.path}
+                  title={link.name}
                   className={cn(
-                    "px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2",
+                    "px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap",
                     pathname === link.path
                       ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted",
                   )}
                 >
-                  <Icon className="h-4 w-4" />
-                  {link.name}
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span>{link.shortName}</span>
                 </Link>
               )
             })}
@@ -127,8 +139,8 @@ const Navbar = () => {
                         : "text-muted-foreground hover:text-foreground hover:bg-muted",
                     )}
                   >
-                    <Icon className="h-5 w-5" />
-                    {link.name}
+                    <Icon className="h-5 w-5 shrink-0" />
+                    <span>{link.name}</span>
                   </Link>
                 )
               })}
