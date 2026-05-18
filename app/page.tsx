@@ -65,14 +65,7 @@ export default function Home() {
           </div>
 
           {/* Secondary CTA for professionals */}
-          <div className="text-center mt-10">
-            <p className="text-sm text-muted-foreground mb-3">Eres profesional?</p>
-            <Link href="/convertirse-profesional">
-              <Button variant="outline" className="rounded-xl bg-transparent">
-                Crea tu perfil gratis
-              </Button>
-            </Link>
-          </div>
+          
         </div>
       </section>
 
