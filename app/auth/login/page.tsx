@@ -100,9 +100,18 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-6">
-      <div className="w-full max-w-md">
-        <Card className="shadow-xl border-0">
+    <div
+      className="flex min-h-screen w-full items-center justify-center p-6 relative"
+      style={{
+        backgroundImage: "url('/background-working-gray.jpg')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" aria-hidden="true"></div>
+      <div className="w-full max-w-md z-10">
+        <Card className="shadow-2xl border-0 backdrop-blur-md bg-card/95">
           <CardHeader className="space-y-1 text-center pb-6">
             <CardTitle className="text-3xl font-bold tracking-tight">Bienvenido</CardTitle>
             <CardDescription className="text-base">Inicia sesión para acceder a tu cuenta</CardDescription>

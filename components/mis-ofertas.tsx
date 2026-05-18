@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { formatearPrecioEuros } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Clock, CheckCircle2, XCircle, MessageSquare, MapPin, Calendar, Phone, FileText, Loader2 } from "lucide-react"
@@ -212,7 +213,7 @@ export default function MisOfertas() {
                             </CardDescription>
                           </div>
                           <div className="text-right">
-                            <div className="text-2xl font-bold text-primary">{oferta.precio}€</div>
+                            <div className="text-2xl font-bold text-primary">{formatearPrecioEuros(oferta.precio)}</div>
                             <p className="text-sm text-muted-foreground">Precio ofertado</p>
                           </div>
                         </div>

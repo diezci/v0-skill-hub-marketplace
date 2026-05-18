@@ -366,8 +366,8 @@ export default function ServiceRequestWizard() {
                       className="mb-4"
                     />
                     <div className="flex justify-between text-sm">
-                      <span className="font-medium">{data.presupuestoMin.toLocaleString()}€</span>
-                      <span className="font-medium">{data.presupuestoMax.toLocaleString()}€</span>
+                      <span className="font-medium">{data.presupuestoMin.toLocaleString("es-ES")}€</span>
+                      <span className="font-medium">{data.presupuestoMax.toLocaleString("es-ES")}€</span>
                     </div>
                   </div>
                 </div>
@@ -379,7 +379,7 @@ export default function ServiceRequestWizard() {
                     <p><strong>Categoría:</strong> {selectedCategory?.name}</p>
                     <p><strong>Ubicación:</strong> {data.ubicacion}</p>
                     <p><strong>Urgencia:</strong> {URGENCY_OPTIONS.find(o => o.id === data.urgencia)?.name}</p>
-                    <p><strong>Presupuesto:</strong> {data.presupuestoMin.toLocaleString()}€ - {data.presupuestoMax.toLocaleString()}€</p>
+                    <p><strong>Presupuesto:</strong> {data.presupuestoMin.toLocaleString("es-ES")}€ - {data.presupuestoMax.toLocaleString("es-ES")}€</p>
                   </div>
                 </div>
               </CardContent>

@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { Navbar } from "@/components/navbar"
-import { Footer } from "@/components/footer"
+import Navbar from "@/components/navbar"
+import Footer from "@/components/footer"
+import { formatearPrecioEuros, cn } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -43,32 +44,19 @@ const MESES = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
 ]
 
-const COLORES_TRABAJO = [
-  "bg-blue-500",
-  "bg-emerald-500",
-  "bg-amber-500",
-  "bg-purple-500",
-  "bg-pink-500",
-  "bg-cyan-500",
-  "bg-orange-500",
-  "bg-indigo-500",
-]
+// Color fijo según tipo: azul = trabajos que realizo como profesional;
+// rosa = servicios que me realizan a mí como cliente. Esto evita confusión visual.
+const COLOR_TRABAJO = "bg-blue-500"
+const COLOR_TRABAJO_BORDER = "border-blue-600"
+const COLOR_SERVICIO = "bg-rose-500"
+const COLOR_SERVICIO_BORDER = "border-rose-600"
 
-const COLORES_SERVICIO = [
-  "bg-rose-500",
-  "bg-teal-500",
-  "bg-lime-500",
-  "bg-fuchsia-500",
-  "bg-sky-500",
-  "bg-yellow-500",
-]
-
-function getColorForTrabajo(index: number): string {
-  return COLORES_TRABAJO[index % COLORES_TRABAJO.length]
+function getColorForTrabajo(_index: number): string {
+  return COLOR_TRABAJO
 }
 
-function getColorForServicio(index: number): string {
-  return COLORES_SERVICIO[index % COLORES_SERVICIO.length]
+function getColorForServicio(_index: number): string {
+  return COLOR_SERVICIO
 }
 
 function getEstadoBadge(estado: string) {
@@ -376,6 +364,30 @@ export default function MiCalendarioPage() {
       <Navbar />
       
       <main className="container mx-auto px-4 py-8">
+        {/* Banner explicativo */}
+        <div className="mb-6 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between bg-gradient-to-r from-blue-500/5 via-transparent to-rose-500/5 border border-border rounded-xl p-4">
+          <div>
+            <h1 className="text-xl font-semibold flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-emerald-600" />
+              Mi calendario
+            </h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Aquí ves tanto los <span className="text-blue-600 dark:text-blue-400 font-medium">trabajos que tienes que realizar</span>
+              {" "}como los <span className="text-rose-600 dark:text-rose-400 font-medium">servicios que te van a realizar a ti</span>.
+            </p>
+          </div>
+          <div className="flex items-center gap-4 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="h-3 w-3 rounded-sm bg-blue-500" />
+              <span className="text-muted-foreground">{trabajos.length} trabajos</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="h-3 w-3 rounded-sm bg-rose-500" />
+              <span className="text-muted-foreground">{servicios.length} servicios</span>
+            </div>
+          </div>
+        </div>
+
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Panel izquierdo - Estadisticas y listas */}
           <div className="lg:w-80 space-y-4">
@@ -591,14 +603,18 @@ export default function MiCalendarioPage() {
                   </div>
                   
                   <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 text-xs">
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 rounded-full bg-blue-500" />
-                        <span className="text-muted-foreground">Trabajos</span>
+                    <div className="hidden md:flex items-center gap-3 text-xs">
+                      <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-500/10">
+                        <Briefcase className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                        <span className="text-blue-700 dark:text-blue-300 font-medium">
+                          Trabajos que realizo
+                        </span>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 rounded-full bg-rose-500" />
-                        <span className="text-muted-foreground">Servicios</span>
+                      <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-rose-500/10">
+                        <ShoppingBag className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
+                        <span className="text-rose-700 dark:text-rose-300 font-medium">
+                          Servicios que me realizan
+                        </span>
                       </div>
                     </div>
                     <Tabs value={vista} onValueChange={(v) => setVista(v as "mensual" | "semanal")}>
@@ -638,19 +654,26 @@ export default function MiCalendarioPage() {
                             {itemsDelDia.slice(0, 3).map(({ item, color, isStart, isEnd }) => (
                               <div
                                 key={item.id}
-                                className={`text-xs p-1 text-white cursor-pointer truncate ${color} ${
-                                  isStart ? "rounded-l" : ""
-                                } ${isEnd ? "rounded-r" : ""} ${
-                                  !isStart && !isEnd ? "rounded-none" : ""
-                                }`}
+                                className={cn(
+                                  "text-xs px-1.5 py-1 text-white cursor-pointer truncate flex items-center gap-1 leading-tight shadow-sm",
+                                  color,
+                                  isStart && "rounded-l-md",
+                                  isEnd && "rounded-r-md",
+                                  isStart && isEnd && "rounded-md",
+                                  !isStart && !isEnd && "rounded-none",
+                                )}
                                 onClick={() => openItemDialog(item)}
-                                title={item.titulo}
+                                title={`${item.tipo === "trabajo" ? "Trabajo que realizo" : "Servicio que me realizan"}: ${item.titulo}`}
                               >
-                                {isStart && (
-                                  <span className="flex items-center gap-1">
-                                    {item.tipo === "servicio" && <ShoppingBag className="h-3 w-3" />}
-                                    {item.titulo}
-                                  </span>
+                                {item.tipo === "trabajo" ? (
+                                  <Briefcase className="h-3 w-3 shrink-0" />
+                                ) : (
+                                  <ShoppingBag className="h-3 w-3 shrink-0" />
+                                )}
+                                {isStart ? (
+                                  <span className="truncate">{item.titulo}</span>
+                                ) : (
+                                  <span className="opacity-70 text-[10px]">·</span>
                                 )}
                               </div>
                             ))}
@@ -816,7 +839,7 @@ export default function MiCalendarioPage() {
 
               <div className="flex items-center justify-between pt-2 border-t">
                 <div className="text-sm text-muted-foreground">
-                  Monto: <span className="font-semibold text-foreground">{selectedItem.monto}€</span>
+                          Monto: <span className="font-semibold text-foreground">{formatearPrecioEuros(selectedItem.monto)}</span>
                 </div>
               </div>
             </div>
@@ -877,7 +900,7 @@ export default function MiCalendarioPage() {
                 </div>
                 <div className="p-3 bg-muted/30 rounded-lg">
                   <p className="text-xs text-muted-foreground">Monto</p>
-                  <p className="text-lg font-bold text-foreground">{selectedItem.monto}€</p>
+                          <p className="text-lg font-bold text-foreground">{formatearPrecioEuros(selectedItem.monto)}</p>
                 </div>
               </div>
 
