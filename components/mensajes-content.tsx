@@ -405,12 +405,12 @@ export default function MensajesContent() {
   }
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
-      <div className="flex-1 flex min-h-0">
+    <div className="h-[calc(100vh-4rem)] w-full flex flex-col overflow-hidden">
+      <div className="flex-1 flex w-full min-h-0 min-w-0 overflow-hidden">
         {/* Sidebar de conversaciones */}
         <div
           className={cn(
-            "w-full md:w-80 lg:w-96 border-r border-border flex flex-col bg-card",
+            "w-full md:w-80 lg:w-96 md:shrink-0 border-r border-border flex flex-col bg-card overflow-hidden",
             selectedConversation && "hidden md:flex",
           )}
         >
@@ -484,7 +484,7 @@ export default function MensajesContent() {
                       key={conv.id}
                       onClick={() => handleSelectConversation(conv)}
                       className={cn(
-                        "flex items-start gap-3 p-3 cursor-pointer transition-colors hover:bg-muted/50",
+                        "flex items-start gap-3 px-4 py-3 pr-6 cursor-pointer transition-colors hover:bg-muted/50",
                         isSelected && "bg-muted",
                         conv.pinned && "bg-primary/5",
                       )}
@@ -509,10 +509,10 @@ export default function MensajesContent() {
                         )}
                       </div>
 
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 pr-3">
                         <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className={cn("font-medium truncate", hasUnread && "text-foreground")}>
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className={cn("font-medium truncate min-w-0", hasUnread && "text-foreground")}>
                               {otherUser?.nombre} {otherUser?.apellido}
                             </span>
                             {conv.rol_otro && (
@@ -563,7 +563,7 @@ export default function MensajesContent() {
                         <div className="flex items-center justify-between mt-1">
                           <p
                             className={cn(
-                              "text-sm truncate pr-2",
+                              "text-sm truncate",
                               hasUnread ? "text-foreground font-medium" : "text-muted-foreground",
                             )}
                           >
@@ -585,7 +585,7 @@ export default function MensajesContent() {
         </div>
 
         {/* Panel de chat */}
-        <div className={cn("flex-1 flex flex-col bg-background min-h-0 min-w-0", !selectedConversation && "hidden md:flex")}>
+        <div className={cn("flex-1 flex flex-col bg-background min-h-0 min-w-0 overflow-hidden", !selectedConversation && "hidden md:flex")}>
           {selectedConversation ? (
             <>
               {/* Header del chat */}

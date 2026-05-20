@@ -2,10 +2,18 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Menu, X, User, Search, Megaphone, Inbox, MessageSquare, FolderKanban } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import { Menu, X, User, Search, Megaphone, Inbox, MessageSquare, FolderKanban, LogOut, Settings, UserCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 
@@ -13,7 +21,9 @@ const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
   const pathname = usePathname()
+  const router = useRouter()
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 10)
@@ -22,15 +32,33 @@ const Navbar = () => {
   }, [])
 
   useEffect(() => {
+    const supabase = createClient()
     const checkAuth = async () => {
-      const supabase = createClient()
       const {
         data: { user },
       } = await supabase.auth.getUser()
       setIsAuthenticated(!!user)
+      setUserEmail(user?.email ?? null)
     }
     checkAuth()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session?.user)
+      setUserEmail(session?.user?.email ?? null)
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
+
+  const handleLogout = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    setIsOpen(false)
+    router.push("/")
+    router.refresh()
+  }
 
   const navLinks = [
     { name: "Profesionales", path: "/profesionales", icon: Search, shortName: "Profesionales" },
@@ -93,11 +121,44 @@ const Navbar = () => {
           <div className="hidden md:flex items-center gap-2">
             <ThemeToggle />
             {isAuthenticated ? (
-              <Link href="/mi-perfil">
-                <Button variant="ghost" size="icon" className="rounded-lg">
-                  <User className="h-5 w-5" />
-                </Button>
-              </Link>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-lg" aria-label="Menu de usuario">
+                    <User className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium">Mi Cuenta</p>
+                      {userEmail && (
+                        <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
+                      )}
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/mi-perfil" className="cursor-pointer">
+                      <UserCircle className="mr-2 h-4 w-4" />
+                      Mi Perfil
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/mi-cuenta" className="cursor-pointer">
+                      <Settings className="mr-2 h-4 w-4" />
+                      Configuracion
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="cursor-pointer text-red-600 focus:text-red-600"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Cerrar Sesion
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
               <>
                 <Link href="/auth/login">
@@ -144,7 +205,7 @@ const Navbar = () => {
                   </Link>
                 )
               })}
-              {!isAuthenticated && (
+              {!isAuthenticated ? (
                 <div className="flex gap-2 mt-4 pt-4 border-t">
                   <Link href="/auth/login" className="flex-1">
                     <Button variant="outline" className="w-full rounded-lg bg-transparent">
@@ -154,6 +215,38 @@ const Navbar = () => {
                   <Link href="/auth/registro" className="flex-1">
                     <Button className="w-full rounded-lg bg-emerald-600 hover:bg-emerald-700">Registrarse</Button>
                   </Link>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1 mt-4 pt-4 border-t">
+                  {userEmail && (
+                    <p className="px-4 pb-2 text-xs text-muted-foreground truncate">
+                      {userEmail}
+                    </p>
+                  )}
+                  <Link
+                    href="/mi-perfil"
+                    onClick={() => setIsOpen(false)}
+                    className="px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted flex items-center gap-3"
+                  >
+                    <UserCircle className="h-5 w-5 shrink-0" />
+                    Mi Perfil
+                  </Link>
+                  <Link
+                    href="/mi-cuenta"
+                    onClick={() => setIsOpen(false)}
+                    className="px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted flex items-center gap-3"
+                  >
+                    <Settings className="h-5 w-5 shrink-0" />
+                    Configuracion
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-500/10 flex items-center gap-3 text-left"
+                  >
+                    <LogOut className="h-5 w-5 shrink-0" />
+                    Cerrar Sesion
+                  </button>
                 </div>
               )}
             </nav>

@@ -196,10 +196,14 @@ export default function MisSolicitudes() {
         obtenerMisTrabajos()
       ])
       
-      if (solicitudesResult.data && solicitudesResult.data.length > 0) {
+      // Always show real data (even if empty) so the user sees their own solicitudes.
+      // Only fall back to mock data on actual error.
+      if (solicitudesResult.data) {
         setSolicitudes(solicitudesResult.data)
-      } else {
+      } else if (solicitudesResult.error) {
         setSolicitudes(MOCK_SOLICITUDES)
+      } else {
+        setSolicitudes([])
       }
       
       if (trabajosResult.data) {
@@ -342,9 +346,17 @@ export default function MisSolicitudes() {
     })
   }
 
-  const solicitudesPendientes = solicitudes.filter(s => s.estado === "pendiente")
-  const solicitudesEnProgreso = solicitudes.filter(s => s.estado === "en-progreso")
-  const solicitudesCompletadas = solicitudes.filter(s => s.estado === "completado" || s.estado === "completada")
+  // DB statuses: "abierta" | "en_progreso" | "completada" | "cerrada"
+  // Mock data uses "pendiente" | "en-progreso" | "completado" — accept both.
+  const solicitudesPendientes = solicitudes.filter(
+    (s) => s.estado === "abierta" || s.estado === "pendiente",
+  )
+  const solicitudesEnProgreso = solicitudes.filter(
+    (s) => s.estado === "en_progreso" || s.estado === "en-progreso",
+  )
+  const solicitudesCompletadas = solicitudes.filter(
+    (s) => s.estado === "completado" || s.estado === "completada" || s.estado === "cerrada",
+  )
 
   if (loading) {
     return (
