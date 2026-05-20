@@ -130,6 +130,8 @@ export async function actualizarPerfil(formData: {
   if (formData.telefono !== undefined) profileUpdates.telefono = formData.telefono
   if (formData.foto_perfil !== undefined) profileUpdates.foto_perfil = formData.foto_perfil
   if (formData.foto_portada !== undefined) profileUpdates.foto_portada = formData.foto_portada
+  // bio belongs to profiles table, not profesionales
+  if (formData.bio !== undefined) profileUpdates.bio = formData.bio
 
   if (Object.keys(profileUpdates).length > 0) {
     console.log("[v0] Updating profile with:", profileUpdates)
@@ -145,9 +147,8 @@ export async function actualizarPerfil(formData: {
   // Check if professional profile exists
   const { data: profesional } = await supabase.from("profesionales").select("id").eq("id", user.id).single()
 
-  // Prepare professional data (tiempo_respuesta is calculated automatically, not user-editable)
+  // Prepare professional data (bio is in profiles, not profesionales)
   const profData: any = {}
-  if (formData.bio !== undefined) profData.bio = formData.bio
   if (formData.titulo !== undefined) profData.titulo = formData.titulo
   if (formData.habilidades !== undefined) profData.habilidades = formData.habilidades
   if (formData.certificaciones !== undefined) profData.certificaciones = formData.certificaciones
@@ -168,7 +169,7 @@ export async function actualizarPerfil(formData: {
       console.log("[v0] Profesional updated successfully")
     } else {
       // Create new professional profile if user is trying to add professional data
-      const hasProfessionalData = formData.titulo || formData.bio || 
+      const hasProfessionalData = formData.titulo ||
         (formData.habilidades && formData.habilidades.length > 0) || 
         (formData.certificaciones && formData.certificaciones.length > 0)
       
