@@ -150,7 +150,8 @@ export async function actualizarPerfil(formData: {
   if (formData.certificaciones !== undefined) profData.certificaciones = formData.certificaciones
   if (formData.idiomas !== undefined) profData.idiomas = formData.idiomas
   if (formData.tarifa_por_hora !== undefined) profData.tarifa_por_hora = formData.tarifa_por_hora
-  if (formData.anos_experiencia !== undefined) profData.anos_experiencia = formData.anos_experiencia
+  // DB column is "años_experiencia" (with ñ), not "anos_experiencia"
+  if (formData.anos_experiencia !== undefined) profData["años_experiencia"] = formData.anos_experiencia
 
   if (Object.keys(profData).length > 0) {
     if (profesional) {

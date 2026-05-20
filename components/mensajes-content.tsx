@@ -511,8 +511,8 @@ export default function MensajesContent() {
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className={cn("font-medium truncate", hasUnread && "text-foreground")}>
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className={cn("font-medium truncate min-w-0", hasUnread && "text-foreground")}>
                               {otherUser?.nombre} {otherUser?.apellido}
                             </span>
                             {conv.rol_otro && (
