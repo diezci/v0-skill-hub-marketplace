@@ -132,11 +132,14 @@ export async function actualizarPerfil(formData: {
   if (formData.foto_portada !== undefined) profileUpdates.foto_portada = formData.foto_portada
 
   if (Object.keys(profileUpdates).length > 0) {
+    console.log("[v0] Updating profile with:", profileUpdates)
     const { error: profileError } = await supabase.from("profiles").update(profileUpdates).eq("id", user.id)
 
     if (profileError) {
+      console.error("[v0] Profile update error:", profileError)
       return { error: profileError.message }
     }
+    console.log("[v0] Profile updated successfully")
   }
 
   // Check if professional profile exists
@@ -150,15 +153,19 @@ export async function actualizarPerfil(formData: {
   if (formData.certificaciones !== undefined) profData.certificaciones = formData.certificaciones
   if (formData.idiomas !== undefined) profData.idiomas = formData.idiomas
   if (formData.tarifa_por_hora !== undefined) profData.tarifa_por_hora = formData.tarifa_por_hora
-  if (formData.anos_experiencia !== undefined) profData.anos_experiencia = formData.anos_experiencia
+  // DB column is "años_experiencia" (with ñ), not "anos_experiencia"
+  if (formData.anos_experiencia !== undefined) profData["años_experiencia"] = formData.anos_experiencia
 
   if (Object.keys(profData).length > 0) {
+    console.log("[v0] Updating profesional with:", profData)
     if (profesional) {
       // Update existing professional
       const { error: profError } = await supabase.from("profesionales").update(profData).eq("id", profesional.id)
       if (profError) {
+        console.error("[v0] Profesional update error:", profError)
         return { error: profError.message }
       }
+      console.log("[v0] Profesional updated successfully")
     } else {
       // Create new professional profile if user is trying to add professional data
       const hasProfessionalData = formData.titulo || formData.bio || 
@@ -209,10 +216,16 @@ export async function obtenerPerfilActual() {
 
   const { data: profesional } = await supabase.from("profesionales").select("*").eq("id", user.id).single()
 
+  // Normalize años_experiencia to anos_experiencia for frontend compatibility
+  const normalizedProfesional = profesional ? {
+    ...profesional,
+    anos_experiencia: profesional["años_experiencia"] ?? profesional.anos_experiencia ?? 0,
+  } : null
+
   return {
     data: {
       ...profile,
-      profesional,
+      profesional: normalizedProfesional,
     },
   }
 }

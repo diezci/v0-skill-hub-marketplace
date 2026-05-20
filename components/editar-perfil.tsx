@@ -107,7 +107,7 @@ export default function EditarPerfil() {
           phone: data.telefono || "",
           email: data.email || "",
           hourlyRate: data.profesional?.tarifa_por_hora || 0,
-          yearsExperience: data.profesional?.anos_experiencia || 0,
+          yearsExperience: data.profesional?.anos_experiencia ?? data.profesional?.["años_experiencia"] ?? 0,
           avatar: data.foto_perfil || "",
           coverImage: data.foto_portada || "",
         })
@@ -190,6 +190,26 @@ export default function EditarPerfil() {
         title: "Perfil actualizado",
         description: "Tu información ha sido guardada correctamente.",
       })
+      // Reload the profile data to confirm persistence
+      const reloadResult = await obtenerPerfilActual()
+      if (reloadResult.data) {
+        const { data } = reloadResult
+        setProfileData({
+          name: `${data.nombre || ""} ${data.apellido || ""}`.trim(),
+          title: data.profesional?.titulo || "",
+          location: data.ubicacion || "",
+          bio: data.profesional?.bio || "",
+          phone: data.telefono || "",
+          email: data.email || "",
+          hourlyRate: data.profesional?.tarifa_por_hora || 0,
+          yearsExperience: data.profesional?.anos_experiencia ?? data.profesional?.["años_experiencia"] ?? 0,
+          avatar: data.foto_perfil || "",
+          coverImage: data.foto_portada || "",
+        })
+        setSkills(data.profesional?.habilidades || [])
+        setCertifications(data.profesional?.certificaciones || [])
+        setLanguages(data.profesional?.idiomas || [])
+      }
     }
   }
 

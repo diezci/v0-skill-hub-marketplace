@@ -34,7 +34,7 @@ export default function Home() {
 
             {/* Headline */}
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 tracking-tight text-balance leading-[1.05]">
-              Publica tu <span className="gradient-text">proyecto</span>
+              Publica tu <span className="gradient-text">demanda</span>
               <br className="hidden md:block" /> y recibe ofertas en minutos
             </h1>
 
@@ -65,14 +65,7 @@ export default function Home() {
           </div>
 
           {/* Secondary CTA for professionals */}
-          <div className="text-center mt-10">
-            <p className="text-sm text-muted-foreground mb-3">Eres profesional?</p>
-            <Link href="/convertirse-profesional">
-              <Button variant="outline" className="rounded-xl bg-transparent">
-                Crea tu perfil gratis
-              </Button>
-            </Link>
-          </div>
+          
         </div>
       </section>
 
