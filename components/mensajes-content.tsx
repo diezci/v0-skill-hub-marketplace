@@ -509,7 +509,7 @@ export default function MensajesContent() {
                         )}
                       </div>
 
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 pr-3">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2 min-w-0 flex-1">
                             <span className={cn("font-medium truncate min-w-0", hasUnread && "text-foreground")}>
@@ -563,7 +563,7 @@ export default function MensajesContent() {
                         <div className="flex items-center justify-between mt-1">
                           <p
                             className={cn(
-                              "text-sm truncate pr-2",
+                              "text-sm truncate",
                               hasUnread ? "text-foreground font-medium" : "text-muted-foreground",
                             )}
                           >
