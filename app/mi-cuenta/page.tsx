@@ -4,8 +4,10 @@ import MisOfertas from "@/components/mis-ofertas"
 import MisTrabajos from "@/components/mis-trabajos"
 import EditarPerfil from "@/components/editar-perfil"
 import PortfolioManager from "@/components/portfolio-manager"
+import LogoutButton from "@/components/logout-button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
 import { User, FileText, Settings, Briefcase, Hammer, MessageSquare } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
@@ -101,11 +103,24 @@ export default async function MiCuentaPage() {
         <TabsContent value="configuracion" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Configuración de Cuenta</CardTitle>
-              <CardDescription>Gestiona tus preferencias y configuración de privacidad</CardDescription>
+              <CardTitle>Configuracion de Cuenta</CardTitle>
+              <CardDescription>Gestiona tus preferencias y sesion</CardDescription>
             </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Funcionalidad de configuración próximamente disponible</p>
+            <CardContent className="space-y-6">
+              <div>
+                <h3 className="text-sm font-medium mb-1">Cuenta</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Sesion iniciada como <span className="font-medium text-foreground">{user.email}</span>
+                </p>
+              </div>
+              <Separator />
+              <div>
+                <h3 className="text-sm font-medium mb-1">Cerrar sesion</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Cierra tu sesion para entrar con otra cuenta o registrar una nueva.
+                </p>
+                <LogoutButton />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
