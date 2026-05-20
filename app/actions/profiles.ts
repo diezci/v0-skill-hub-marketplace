@@ -14,23 +14,15 @@ export async function obtenerProfesionales(filtros?: {
     return { error: "Base de datos no disponible", data: [] }
   }
 
+  // Note: profesionales table doesn't have verificado or categoria_id columns.
+  // Verification lives on profiles, and category is implicit via habilidades/titulo for now.
   let query = supabase
     .from("profesionales")
     .select(`
       *,
-      perfil:profiles(nombre, apellido, ubicacion, foto_perfil),
-      categoria:categorias(nombre, icono)
+      perfil:profiles!inner(nombre, apellido, ubicacion, foto_perfil, verificado)
     `)
-    .eq("verificado", true)
     .order("rating_promedio", { ascending: false })
-
-  if (filtros?.categoria) {
-    const { data: categoria } = await supabase.from("categorias").select("id").eq("nombre", filtros.categoria).single()
-
-    if (categoria) {
-      query = query.eq("categoria_id", categoria.id)
-    }
-  }
 
   if (filtros?.ubicacion) {
     query = query.eq("perfil.ubicacion", filtros.ubicacion)
@@ -60,8 +52,7 @@ export async function obtenerProfesionalPorId(id: string) {
     .from("profesionales")
     .select(`
       *,
-      perfil:profiles(nombre, apellido, ubicacion, foto_perfil, foto_portada, email, telefono),
-      categoria:categorias(nombre)
+      perfil:profiles(nombre, apellido, ubicacion, foto_perfil, foto_portada, email, telefono, bio)
     `)
     .eq("id", id)
     .single()
@@ -74,16 +65,16 @@ export async function obtenerProfesionalPorId(id: string) {
     .from("portfolio")
     .select("*")
     .eq("profesional_id", id)
-    .order("fecha_completado", { ascending: false })
+    .order("fecha_proyecto", { ascending: false })
 
   const { data: reviews } = await supabase
-    .from("reviews")
+    .from("reseñas")
     .select(`
       *,
-      cliente:cliente_id(nombre, apellido, foto_perfil)
+      cliente:autor_id(nombre, apellido, foto_perfil)
     `)
     .eq("profesional_id", id)
-    .order("fecha_creacion", { ascending: false })
+    .order("created_at", { ascending: false })
 
   return {
     data: {
@@ -134,14 +125,11 @@ export async function actualizarPerfil(formData: {
   if (formData.bio !== undefined) profileUpdates.bio = formData.bio
 
   if (Object.keys(profileUpdates).length > 0) {
-    console.log("[v0] Updating profile with:", profileUpdates)
     const { error: profileError } = await supabase.from("profiles").update(profileUpdates).eq("id", user.id)
 
     if (profileError) {
-      console.error("[v0] Profile update error:", profileError)
       return { error: profileError.message }
     }
-    console.log("[v0] Profile updated successfully")
   }
 
   // Check if professional profile exists
@@ -158,15 +146,12 @@ export async function actualizarPerfil(formData: {
   if (formData.anos_experiencia !== undefined) profData["años_experiencia"] = formData.anos_experiencia
 
   if (Object.keys(profData).length > 0) {
-    console.log("[v0] Updating profesional with:", profData)
     if (profesional) {
       // Update existing professional
       const { error: profError } = await supabase.from("profesionales").update(profData).eq("id", profesional.id)
       if (profError) {
-        console.error("[v0] Profesional update error:", profError)
         return { error: profError.message }
       }
-      console.log("[v0] Profesional updated successfully")
     } else {
       // Create new professional profile if user is trying to add professional data
       const hasProfessionalData = formData.titulo ||
@@ -174,13 +159,14 @@ export async function actualizarPerfil(formData: {
         (formData.certificaciones && formData.certificaciones.length > 0)
       
       if (hasProfessionalData) {
+        // profesionales does NOT have a verificado column (verification lives in profiles)
         const { error: createError } = await supabase.from("profesionales").insert({
           id: user.id,
           ...profData,
           disponible: true,
-          verificado: false,
           rating_promedio: 0,
           total_reseñas: 0,
+          total_trabajos: 0,
         })
         if (createError) {
           return { error: createError.message }
