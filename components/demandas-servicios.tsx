@@ -230,14 +230,14 @@ export default function DemandasServicios() {
     async function cargarDemandas() {
       setLoading(true)
       const result = await obtenerSolicitudesAbiertas()
-      // Show real data when available (even an empty list is fine if no demandas exist).
-      // Only fall back to mock data on error or when there are truly no demandas in the DB.
+      // Always show mock demandas for demo/discovery purposes,
+      // and prepend any real demandas the user (or others) have published.
       if (result.data && result.data.length > 0) {
-        setDemandas(result.data)
-      } else if (result.error) {
-        setDemandas(MOCK_DEMANDAS)
+        // Real demandas first (most recent), then mock as additional examples
+        setDemandas([...result.data, ...MOCK_DEMANDAS])
       } else {
-        setDemandas([])
+        // No real demandas yet (or RLS issue) - show only mocks
+        setDemandas(MOCK_DEMANDAS)
       }
       setLoading(false)
     }
