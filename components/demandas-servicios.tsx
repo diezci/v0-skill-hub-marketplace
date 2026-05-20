@@ -205,6 +205,7 @@ export default function DemandasServicios() {
   const [filtroTiempo, setFiltroTiempo] = useState<string>("todos")
   const [rangoPresupuesto, setRangoPresupuesto] = useState<[number, number]>([0, 10000])
   const [busqueda, setBusqueda] = useState("")
+  const [ordenarPor, setOrdenarPor] = useState<"recientes" | "antiguos" | "presupuesto-alto" | "presupuesto-bajo" | "menos-ofertas">("recientes")
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
 
   const [dialogAbierto, setDialogAbierto] = useState(false)
@@ -229,10 +230,14 @@ export default function DemandasServicios() {
     async function cargarDemandas() {
       setLoading(true)
       const result = await obtenerSolicitudesAbiertas()
+      // Show real data when available (even an empty list is fine if no demandas exist).
+      // Only fall back to mock data on error or when there are truly no demandas in the DB.
       if (result.data && result.data.length > 0) {
         setDemandas(result.data)
-      } else {
+      } else if (result.error) {
         setDemandas(MOCK_DEMANDAS)
+      } else {
+        setDemandas([])
       }
       setLoading(false)
     }
@@ -267,6 +272,23 @@ export default function DemandasServicios() {
       return false
 
     return true
+  })
+
+  const demandasOrdenadas = [...demandasFiltradas].sort((a, b) => {
+    switch (ordenarPor) {
+      case "recientes":
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      case "antiguos":
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      case "presupuesto-alto":
+        return (b.presupuesto_max ?? 0) - (a.presupuesto_max ?? 0)
+      case "presupuesto-bajo":
+        return (a.presupuesto_min ?? 0) - (b.presupuesto_min ?? 0)
+      case "menos-ofertas":
+        return (a.total_ofertas ?? 0) - (b.total_ofertas ?? 0)
+      default:
+        return 0
+    }
   })
 
   const handleVerDetalles = (demanda: Demanda) => {
@@ -466,16 +488,18 @@ export default function DemandasServicios() {
         {/* Results Count */}
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">{demandasFiltradas.length}</span> demandas encontradas
+            <span className="font-medium text-foreground">{demandasOrdenadas.length}</span> demandas encontradas
           </p>
-          <Select defaultValue="recientes">
-            <SelectTrigger className="w-40">
+          <Select value={ordenarPor} onValueChange={(v) => setOrdenarPor(v as typeof ordenarPor)}>
+            <SelectTrigger className="w-48">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="recientes">Más recientes</SelectItem>
-              <SelectItem value="presupuesto">Mayor presupuesto</SelectItem>
-              <SelectItem value="ofertas">Menos ofertas</SelectItem>
+              <SelectItem value="antiguos">Más antiguos</SelectItem>
+              <SelectItem value="presupuesto-alto">Mayor presupuesto</SelectItem>
+              <SelectItem value="presupuesto-bajo">Menor presupuesto</SelectItem>
+              <SelectItem value="menos-ofertas">Menos ofertas</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -490,7 +514,7 @@ export default function DemandasServicios() {
         {/* Demandas List */}
         {!loading && (
           <div className="space-y-4">
-            {demandasFiltradas.map((demanda) => (
+            {demandasOrdenadas.map((demanda) => (
               <Card
                 key={demanda.id}
                 className="group overflow-hidden transition-all hover:shadow-lg hover:border-primary/20 bg-card/50 backdrop-blur-sm"
