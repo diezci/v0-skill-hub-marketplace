@@ -410,7 +410,7 @@ export default function MensajesContent() {
         {/* Sidebar de conversaciones */}
         <div
           className={cn(
-            "w-full md:w-80 lg:w-96 border-r border-border flex flex-col bg-card",
+            "w-full md:w-80 lg:w-96 md:shrink-0 border-r border-border flex flex-col bg-card",
             selectedConversation && "hidden md:flex",
           )}
         >
