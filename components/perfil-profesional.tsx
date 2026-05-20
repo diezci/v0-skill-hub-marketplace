@@ -153,7 +153,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
           rating: data.profesional?.rating_promedio || 0,
           total_reviews: data.profesional?.total_reseñas || 0,
           proyectos_completados: data.profesional?.proyectos_completados || 0,
-          anos_experiencia: data.profesional?.anos_experiencia || 0,
+          anos_experiencia: data.profesional?.["años_experiencia"] ?? data.profesional?.anos_experiencia ?? 0,
           tarifa_hora: data.profesional?.tarifa_por_hora || 0,
           tiempo_respuesta: data.profesional?.tiempo_respuesta || "24 horas",
           nivel: data.profesional?.verificado ? "Profesional Verificado" : "Profesional",
