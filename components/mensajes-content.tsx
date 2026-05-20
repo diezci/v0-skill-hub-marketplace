@@ -405,12 +405,12 @@ export default function MensajesContent() {
   }
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
-      <div className="flex-1 flex min-h-0">
+    <div className="h-[calc(100vh-4rem)] w-full flex flex-col overflow-hidden">
+      <div className="flex-1 flex w-full min-h-0 min-w-0 overflow-hidden">
         {/* Sidebar de conversaciones */}
         <div
           className={cn(
-            "w-full md:w-80 lg:w-96 md:shrink-0 border-r border-border flex flex-col bg-card",
+            "w-full md:w-80 lg:w-96 md:shrink-0 border-r border-border flex flex-col bg-card overflow-hidden",
             selectedConversation && "hidden md:flex",
           )}
         >
@@ -585,7 +585,7 @@ export default function MensajesContent() {
         </div>
 
         {/* Panel de chat */}
-        <div className={cn("flex-1 flex flex-col bg-background min-h-0 min-w-0", !selectedConversation && "hidden md:flex")}>
+        <div className={cn("flex-1 flex flex-col bg-background min-h-0 min-w-0 overflow-hidden", !selectedConversation && "hidden md:flex")}>
           {selectedConversation ? (
             <>
               {/* Header del chat */}
