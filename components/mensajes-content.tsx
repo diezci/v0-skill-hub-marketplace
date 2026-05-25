@@ -484,7 +484,7 @@ export default function MensajesContent() {
                       key={conv.id}
                       onClick={() => handleSelectConversation(conv)}
                       className={cn(
-                        "flex items-start gap-3 px-4 py-3 pr-6 cursor-pointer transition-colors hover:bg-muted/50",
+                        "flex items-start gap-3 pl-4 pr-5 py-3 cursor-pointer transition-colors hover:bg-muted/50",
                         isSelected && "bg-muted",
                         conv.pinned && "bg-primary/5",
                       )}

@@ -62,11 +62,8 @@ export async function crearSolicitud(formData: {
     .single()
 
   if (error) {
-    console.error("[v0] Error creating solicitud:", error)
     return { error: error.message }
   }
-
-  console.log("[v0] Solicitud created successfully:", data)
 
   // Trigger AI provider finder in the background (non-blocking)
   buscarYEnviarInvitaciones(data.id).catch(() => {
@@ -202,11 +199,8 @@ export async function obtenerSolicitudesPorUsuario() {
     .order("created_at", { ascending: false })
 
   if (solicitudesError) {
-    console.error("[v0] Error fetching solicitudes:", solicitudesError)
     return { error: solicitudesError.message }
   }
-
-  console.log("[v0] Found solicitudes for user:", solicitudes?.length || 0)
 
   // Then get ofertas for each solicitud with professional info
   const dataWithOfertas = await Promise.all(
