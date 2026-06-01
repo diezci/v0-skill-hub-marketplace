@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import Navbar from "@/components/navbar"
 import Footer from "@/components/footer"
 import { ChatWidget } from "@/components/chat-widget"
+import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-space" })
@@ -47,6 +48,7 @@ export default function RootLayout({
             <Footer />
             <ChatWidget />
           </div>
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>
