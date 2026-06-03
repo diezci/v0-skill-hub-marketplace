@@ -3,12 +3,21 @@
 -- 2. The owner (cliente) can always view their own solicitudes regardless of estado
 -- 3. The owner can update/delete their own solicitudes
 
--- Drop existing policies to recreate them cleanly
+-- Make sure RLS is enabled
+ALTER TABLE solicitudes ENABLE ROW LEVEL SECURITY;
+
+-- Drop OLD policy names (in case they exist)
 DROP POLICY IF EXISTS "Todos pueden ver solicitudes abiertas" ON solicitudes;
 DROP POLICY IF EXISTS "Clientes pueden ver sus propias solicitudes" ON solicitudes;
 DROP POLICY IF EXISTS "Clientes pueden crear solicitudes" ON solicitudes;
 DROP POLICY IF EXISTS "Clientes pueden actualizar sus solicitudes" ON solicitudes;
 DROP POLICY IF EXISTS "Clientes pueden eliminar sus solicitudes" ON solicitudes;
+
+-- Drop NEW policy names (in case the script ran partially before)
+DROP POLICY IF EXISTS "Ver solicitudes abiertas o propias" ON solicitudes;
+DROP POLICY IF EXISTS "Crear solicitudes propias" ON solicitudes;
+DROP POLICY IF EXISTS "Actualizar solicitudes propias" ON solicitudes;
+DROP POLICY IF EXISTS "Eliminar solicitudes propias" ON solicitudes;
 
 -- SELECT: anyone can see open solicitudes OR the owner sees their own
 CREATE POLICY "Ver solicitudes abiertas o propias"
