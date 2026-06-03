@@ -62,8 +62,11 @@ export async function crearSolicitud(formData: {
     .single()
 
   if (error) {
+    console.error("[v0] Error creating solicitud:", error)
     return { error: error.message }
   }
+
+  console.log("[v0] Solicitud created successfully:", data)
 
   // Trigger AI provider finder in the background (non-blocking)
   buscarYEnviarInvitaciones(data.id).catch(() => {
@@ -76,20 +79,42 @@ export async function crearSolicitud(formData: {
   return { data }
 }
 
+// Helper: fetch categorias by id and return a lookup map
+async function obtenerMapaCategorias(supabase: any, categoriaIds: (string | null)[]) {
+  const ids = [...new Set(categoriaIds.filter((id): id is string => !!id))]
+  if (ids.length === 0) return {} as Record<string, { nombre: string; color: string | null }>
+
+  const { data } = await supabase.from("categorias").select("id, nombre, color").in("id", ids)
+  const mapa: Record<string, { nombre: string; color: string | null }> = {}
+  for (const cat of data || []) {
+    mapa[cat.id] = { nombre: cat.nombre, color: cat.color }
+  }
+  return mapa
+}
+
+// Helper: fetch profiles by id and return a lookup map
+async function obtenerMapaPerfiles(supabase: any, clienteIds: (string | null)[]) {
+  const ids = [...new Set(clienteIds.filter((id): id is string => !!id))]
+  if (ids.length === 0) return {} as Record<string, any>
+
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, nombre, apellido, ubicacion, telefono, email, foto_perfil")
+    .in("id", ids)
+  const mapa: Record<string, any> = {}
+  for (const p of data || []) {
+    mapa[p.id] = p
+  }
+  return mapa
+}
+
 export async function obtenerSolicitudes(filtros?: {
   categoria?: string
   estado?: string
 }) {
   const supabase = await createClient()
 
-  let query = supabase
-    .from("solicitudes")
-    .select(`
-      *,
-      categoria:categorias(nombre, color),
-      cliente:profiles!solicitudes_cliente_id_fkey(nombre, apellido, ubicacion, foto_perfil)
-    `)
-    .order("created_at", { ascending: false })
+  let query = supabase.from("solicitudes").select("*").order("created_at", { ascending: false })
 
   if (filtros?.categoria) {
     query = query.eq("categoria_id", filtros.categoria)
@@ -102,10 +127,26 @@ export async function obtenerSolicitudes(filtros?: {
   const { data, error } = await query
 
   if (error) {
+    console.error("[v0] Error en obtenerSolicitudes:", error)
     return { error: error.message }
   }
 
-  return { data }
+  const mapaCategorias = await obtenerMapaCategorias(
+    supabase,
+    (data || []).map((s: any) => s.categoria_id),
+  )
+  const mapaPerfiles = await obtenerMapaPerfiles(
+    supabase,
+    (data || []).map((s: any) => s.cliente_id),
+  )
+
+  const enriquecidas = (data || []).map((s: any) => ({
+    ...s,
+    categoria: s.categoria_id ? mapaCategorias[s.categoria_id] || null : null,
+    cliente: s.cliente_id ? mapaPerfiles[s.cliente_id] || null : null,
+  }))
+
+  return { data: enriquecidas }
 }
 
 export async function obtenerMisSolicitudes() {
@@ -120,28 +161,35 @@ export async function obtenerMisSolicitudes() {
 
   const { data, error } = await supabase
     .from("solicitudes")
-    .select(`
-      *,
-      categoria:categorias(nombre, color),
-      ofertas(
-        id,
-        precio,
-        tiempo_estimado,
-        unidad_tiempo,
-        descripcion,
-        estado,
-        created_at,
-        profesional_id
-      )
-    `)
+    .select("*")
     .eq("cliente_id", user.id)
     .order("created_at", { ascending: false })
 
   if (error) {
+    console.error("[v0] Error en obtenerMisSolicitudes:", error)
     return { error: error.message }
   }
 
-  return { data }
+  const mapaCategorias = await obtenerMapaCategorias(
+    supabase,
+    (data || []).map((s: any) => s.categoria_id),
+  )
+
+  const enriquecidas = await Promise.all(
+    (data || []).map(async (s: any) => {
+      const { data: ofertas } = await supabase
+        .from("ofertas")
+        .select("id, precio, tiempo_estimado, unidad_tiempo, descripcion, estado, created_at, profesional_id")
+        .eq("solicitud_id", s.id)
+      return {
+        ...s,
+        categoria: s.categoria_id ? mapaCategorias[s.categoria_id] || null : null,
+        ofertas: ofertas || [],
+      }
+    }),
+  )
+
+  return { data: enriquecidas }
 }
 
 export async function obtenerSolicitudesAbiertas() {
@@ -149,27 +197,38 @@ export async function obtenerSolicitudesAbiertas() {
 
   const { data, error } = await supabase
     .from("solicitudes")
-    .select(`
-      *,
-      categoria:categorias(nombre, color),
-      cliente:profiles!solicitudes_cliente_id_fkey(nombre, apellido, telefono, email, foto_perfil)
-    `)
+    .select("*")
     .eq("estado", "abierta")
     .order("created_at", { ascending: false })
 
   if (error) {
+    console.error("[v0] Error en obtenerSolicitudesAbiertas:", error)
     return { error: error.message }
   }
 
-  // Get offer counts separately
+  const mapaCategorias = await obtenerMapaCategorias(
+    supabase,
+    (data || []).map((s: any) => s.categoria_id),
+  )
+  const mapaPerfiles = await obtenerMapaPerfiles(
+    supabase,
+    (data || []).map((s: any) => s.cliente_id),
+  )
+
+  // Get offer counts separately and enrich with categoria/cliente
   const dataWithCounts = await Promise.all(
-    data.map(async (solicitud: any) => {
+    (data || []).map(async (solicitud: any) => {
       const { count } = await supabase
         .from("ofertas")
         .select("*", { count: "exact", head: true })
         .eq("solicitud_id", solicitud.id)
+      const perfil = solicitud.cliente_id ? mapaPerfiles[solicitud.cliente_id] : null
       return {
         ...solicitud,
+        categoria: solicitud.categoria_id ? mapaCategorias[solicitud.categoria_id] || null : null,
+        cliente: perfil,
+        telefono: perfil?.telefono || "",
+        email: perfil?.email || "",
         total_ofertas: count || 0,
       }
     }),
@@ -191,16 +250,21 @@ export async function obtenerSolicitudesPorUsuario() {
   // First get solicitudes
   const { data: solicitudes, error: solicitudesError } = await supabase
     .from("solicitudes")
-    .select(`
-      *,
-      categoria:categorias(nombre, color)
-    `)
+    .select("*")
     .eq("cliente_id", user.id)
     .order("created_at", { ascending: false })
 
   if (solicitudesError) {
+    console.error("[v0] Error fetching solicitudes:", solicitudesError)
     return { error: solicitudesError.message }
   }
+
+  console.log("[v0] Found solicitudes for user:", solicitudes?.length || 0)
+
+  const mapaCategorias = await obtenerMapaCategorias(
+    supabase,
+    (solicitudes || []).map((s: any) => s.categoria_id),
+  )
 
   // Then get ofertas for each solicitud with professional info
   const dataWithOfertas = await Promise.all(
@@ -260,6 +324,7 @@ export async function obtenerSolicitudesPorUsuario() {
 
       return {
         ...solicitud,
+        categoria: solicitud.categoria_id ? mapaCategorias[solicitud.categoria_id] || null : null,
         ofertas: ofertasWithProfesional,
       }
     }),
