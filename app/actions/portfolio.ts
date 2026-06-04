@@ -22,11 +22,27 @@ export async function crearItemPortfolio(data: {
     return { error: "No autenticado" }
   }
 
+  // Map the UI fields to the real DB columns:
+  // - imagen_url (string)   -> imagenes (text[])
+  // - fecha_completado      -> fecha_proyecto
+  // - presupuesto (string)  -> numeric or null
+  const presupuestoNum = data.presupuesto
+    ? Number.parseFloat(String(data.presupuesto).replace(/[^\d.,]/g, "").replace(",", "."))
+    : null
+
   const { data: portfolio, error } = await supabase
     .from("portfolio")
     .insert({
       profesional_id: user.id,
-      ...data,
+      titulo: data.titulo,
+      descripcion: data.descripcion,
+      categoria: data.categoria || null,
+      imagenes: data.imagen_url ? [data.imagen_url] : [],
+      fecha_proyecto: data.fecha_completado || null,
+      ubicacion: data.ubicacion || null,
+      duracion: data.duracion || null,
+      presupuesto: presupuestoNum && !Number.isNaN(presupuestoNum) ? presupuestoNum : null,
+      visible: true,
     })
     .select()
     .single()
@@ -46,13 +62,20 @@ export async function obtenerPortfolioPorProfesional(profesionalId: string) {
     .from("portfolio")
     .select("*")
     .eq("profesional_id", profesionalId)
-    .order("fecha_completado", { ascending: false })
+    .order("fecha_proyecto", { ascending: false })
 
   if (error) {
     return { error: error.message }
   }
 
-  return { data }
+  // Map DB columns back to the field names the UI expects
+  const mapped = (data || []).map((item: any) => ({
+    ...item,
+    imagen_url: Array.isArray(item.imagenes) ? item.imagenes[0] : item.imagen_url,
+    fecha_completado: item.fecha_proyecto || item.fecha_completado,
+  }))
+
+  return { data: mapped }
 }
 
 export async function eliminarItemPortfolio(itemId: string) {

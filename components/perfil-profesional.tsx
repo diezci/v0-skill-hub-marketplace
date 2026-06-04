@@ -93,12 +93,13 @@ const provincias = [
 
 interface PerfilProfesionalProps {
   editable?: boolean
+  perfil?: any
 }
 
-export default function PerfilProfesional({ editable = false }: PerfilProfesionalProps) {
+export default function PerfilProfesional({ editable = false, perfil }: PerfilProfesionalProps) {
   const { toast } = useToast()
   const router = useRouter()
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!perfil)
   const [saving, setSaving] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
@@ -141,6 +142,22 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
   const [newLanguage, setNewLanguage] = useState("")
 
   useEffect(() => {
+    // When a perfil is passed in (viewing another professional), use it directly
+    if (perfil) {
+      setEditData((prev) => ({
+        ...prev,
+        ...perfil,
+        habilidades: perfil.habilidades || [],
+        certificaciones: perfil.certificaciones || [],
+        idiomas: perfil.idiomas || [],
+        portfolio: perfil.portfolio || [],
+        reviews: perfil.reviews || [],
+        estadisticas: perfil.estadisticas || prev.estadisticas,
+      }))
+      setLoading(false)
+      return
+    }
+
     async function cargarPerfil() {
       const result = await obtenerPerfilActual()
       if (result.data) {

@@ -63,14 +63,16 @@ export default async function ProfilePage({ params }: { params: { id: string } }
       id: item.id,
       titulo: item.titulo,
       descripcion: item.descripcion,
-      imagen: item.imagen_url,
+      imagen: Array.isArray(item.imagenes) ? item.imagenes[0] : item.imagen_url,
     })),
     reviews: (profile.reviews || []).map((review: any) => ({
       id: review.id,
-      cliente: `${review.cliente?.nombre || ""} ${review.cliente?.apellido?.charAt(0) || ""}.`,
-      avatar: review.cliente?.foto_perfil || "",
+      cliente: `${review.autor?.nombre || "Usuario"} ${review.autor?.apellido?.charAt(0) || ""}.`,
+      avatar: review.autor?.foto_perfil || "",
       rating: review.rating,
-      fecha: new Date(review.fecha_creacion).toLocaleDateString("es-ES", { day: "numeric", month: "short" }),
+      fecha: review.created_at
+        ? new Date(review.created_at).toLocaleDateString("es-ES", { day: "numeric", month: "short" })
+        : "",
       texto: review.comentario,
       proyecto: review.tipo_proyecto || "Proyecto",
     })),

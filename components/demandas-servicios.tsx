@@ -57,10 +57,21 @@ type Demanda = {
   total_ofertas: number
 }
 
-const urgenciaConfig = {
+const urgenciaConfig: Record<string, { label: string; color: string }> = {
   baja: { label: "Baja", color: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" },
   media: { label: "Media", color: "bg-amber-500/10 text-amber-500 border-amber-500/20" },
   alta: { label: "Urgente", color: "bg-red-500/10 text-red-500 border-red-500/20" },
+  // Values produced by the service-request wizard
+  urgente: { label: "Urgente (1-3 días)", color: "bg-red-500/10 text-red-500 border-red-500/20" },
+  pronto: { label: "Pronto (1-2 semanas)", color: "bg-amber-500/10 text-amber-500 border-amber-500/20" },
+  planificado: { label: "Planificado", color: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" },
+  flexible: { label: "Flexible", color: "bg-sky-500/10 text-sky-500 border-sky-500/20" },
+}
+
+const URGENCIA_DEFAULT = { label: "Normal", color: "bg-muted text-muted-foreground border-border" }
+
+function getUrgencia(urgencia?: string) {
+  return (urgencia && urgenciaConfig[urgencia]) || URGENCIA_DEFAULT
 }
 
 const CATEGORIAS = [
@@ -530,9 +541,9 @@ export default function DemandasServicios() {
                             <Badge variant="outline" className="text-xs font-normal">
                               {demanda.categoria?.nombre}
                             </Badge>
-                            <Badge variant="outline" className={cn("text-xs", urgenciaConfig[demanda.urgencia].color)}>
-                              {urgenciaConfig[demanda.urgencia].label}
-                            </Badge>
+                            <Badge variant="outline" className={cn("text-xs", getUrgencia(demanda.urgencia).color)}>
+                            {getUrgencia(demanda.urgencia).label}
+                          </Badge>
                           </div>
                           <h3 className="font-semibold text-lg group-hover:text-primary transition-colors">
                             {demanda.titulo}
