@@ -2,96 +2,58 @@
 
 import { createClient } from "@/lib/supabase/server"
 
-// Function to find matching professionals and send invitations
+// When a new solicitud is published, notify available professionals so they can
+// send an offer. This uses the real "notificaciones" table (the old version
+// referenced columns that don't exist and silently failed).
 export async function buscarYEnviarInvitaciones(solicitudId: string) {
   const supabase = await createClient()
+  if (!supabase) return { error: "Base de datos no disponible" }
 
   // Get the solicitud details
-  const { data: solicitud, error: solicitudError } = await supabase
+  const { data: solicitud } = await supabase
     .from("solicitudes")
-    .select("*, categorias(*)")
+    .select("id, titulo, cliente_id")
     .eq("id", solicitudId)
     .single()
 
-  if (solicitudError || !solicitud) {
-    return { error: "Solicitud not found" }
+  if (!solicitud) {
+    return { error: "Solicitud no encontrada" }
   }
 
-  // Find professionals in the same category
-  const { data: profesionales, error: profError } = await supabase
-    .from("profiles")
-    .select("id, nombre, email, habilidades")
-    .eq("tipo_usuario", "profesional")
-    .eq("categoria_id", solicitud.categoria_id)
-    .limit(10)
-
-  if (profError) {
-    return { error: profError.message }
-  }
+  // Find available professionals (limited to avoid spamming everyone)
+  const { data: profesionales } = await supabase
+    .from("profesionales")
+    .select("id")
+    .eq("disponible", true)
+    .limit(25)
 
   if (!profesionales || profesionales.length === 0) {
-    return { message: "No matching professionals found" }
+    return { message: "No hay profesionales disponibles" }
   }
 
-  // Create invitations for each professional
-  const invitaciones = profesionales.map((prof) => ({
-    solicitud_id: solicitudId,
-    profesional_id: prof.id,
-    estado: "pendiente",
-    created_at: new Date().toISOString(),
-  }))
+  const notificaciones = profesionales
+    .filter((p) => p.id !== solicitud.cliente_id)
+    .map((p) => ({
+      usuario_id: p.id,
+      tipo: "nueva_solicitud",
+      titulo: "Nueva solicitud disponible",
+      mensaje: `Se ha publicado una nueva solicitud: ${solicitud.titulo}`,
+      link: "/demandas",
+      leida: false,
+    }))
 
-  const { error: insertError } = await supabase
-    .from("invitaciones")
-    .insert(invitaciones)
+  if (notificaciones.length === 0) {
+    return { message: "Sin destinatarios" }
+  }
+
+  const { error: insertError } = await supabase.from("notificaciones").insert(notificaciones)
 
   if (insertError) {
     return { error: insertError.message }
   }
 
-  return { 
-    success: true, 
-    count: profesionales.length,
-    message: "Invitaciones enviadas a " + profesionales.length + " profesionales"
+  return {
+    success: true,
+    count: notificaciones.length,
   }
-}
-
-// Get invitations for a professional
-export async function getInvitacionesProfesional(profesionalId: string) {
-  const supabase = await createClient()
-
-  const { data, error } = await supabase
-    .from("invitaciones")
-    .select("*, solicitudes(id, titulo, descripcion, presupuesto_min, presupuesto_max, ubicacion, urgencia, categorias(nombre))")
-    .eq("profesional_id", profesionalId)
-    .eq("estado", "pendiente")
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    return { error: error.message }
-  }
-
-  return { data }
-}
-
-// Accept or reject an invitation
-export async function responderInvitacion(
-  invitacionId: string, 
-  respuesta: "aceptada" | "rechazada"
-) {
-  const supabase = await createClient()
-
-  const { error } = await supabase
-    .from("invitaciones")
-    .update({ 
-      estado: respuesta,
-      updated_at: new Date().toISOString()
-    })
-    .eq("id", invitacionId)
-
-  if (error) {
-    return { error: error.message }
-  }
-
-  return { success: true }
 }

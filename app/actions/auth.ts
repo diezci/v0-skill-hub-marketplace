@@ -295,16 +295,20 @@ export async function obtenerEmpresa() {
     return { error: "Debes iniciar sesión" }
   }
 
-  const { data: profile } = await supabase.from("profiles").select("empresa_id").eq("id", user.id).single()
-
-  if (!profile?.empresa_id) {
-    return { error: "No perteneces a ninguna empresa" }
-  }
-
-  const { data, error } = await supabase.from("empresas").select("*").eq("id", profile.empresa_id).single()
+  // Companies are linked by their owner (propietario_id), there is no
+  // empresa_id column on profiles.
+  const { data, error } = await supabase
+    .from("empresas")
+    .select("*")
+    .eq("propietario_id", user.id)
+    .maybeSingle()
 
   if (error) {
     return { error: error.message }
+  }
+
+  if (!data) {
+    return { error: "No perteneces a ninguna empresa" }
   }
 
   return { data }
@@ -352,16 +356,22 @@ export async function obtenerMiembrosEmpresa() {
     return { error: "Debes iniciar sesión" }
   }
 
-  const { data: profile } = await supabase.from("profiles").select("empresa_id").eq("id", user.id).single()
+  // Find the company owned by this user
+  const { data: empresa } = await supabase
+    .from("empresas")
+    .select("id, propietario_id")
+    .eq("propietario_id", user.id)
+    .maybeSingle()
 
-  if (!profile?.empresa_id) {
+  if (!empresa) {
     return { error: "No perteneces a ninguna empresa" }
   }
 
+  // There is no team-membership column yet, so the owner is the only member.
   const { data, error } = await supabase
     .from("profiles")
     .select("id, nombre, apellido, email, foto_perfil, fecha_registro")
-    .eq("empresa_id", profile.empresa_id)
+    .eq("id", empresa.propietario_id)
 
   if (error) {
     return { error: error.message }
