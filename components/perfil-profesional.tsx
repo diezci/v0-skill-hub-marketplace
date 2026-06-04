@@ -30,11 +30,14 @@ import {
   Loader2,
   Globe,
   Upload,
+  LogOut,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { actualizarPerfil, obtenerPerfilActual } from "@/app/actions/profiles"
 import { uploadFile } from "@/lib/upload-helpers"
+import { createClient } from "@/lib/supabase/client"
+import { useRouter } from "next/navigation"
 
 const provincias = [
   { provincia: "Álava", codigo: "01" },
@@ -94,10 +97,12 @@ interface PerfilProfesionalProps {
 
 export default function PerfilProfesional({ editable = false }: PerfilProfesionalProps) {
   const { toast } = useToast()
+  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
 
   const [editData, setEditData] = useState({
     nombre: "",
@@ -244,6 +249,14 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
 
   const removeLanguage = (index: number) => {
     setEditData({ ...editData, idiomas: editData.idiomas.filter((_, i) => i !== index) })
+  }
+
+  const handleLogout = async () => {
+    setLoggingOut(true)
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push("/")
+    router.refresh()
   }
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -471,10 +484,25 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                           </Button>
                         </>
                       ) : (
-                        <Button onClick={() => setIsEditing(true)}>
-                          <Edit2 className="h-4 w-4 mr-2" />
-                          Editar perfil
-                        </Button>
+                        <>
+                          <Button onClick={() => setIsEditing(true)}>
+                            <Edit2 className="h-4 w-4 mr-2" />
+                            Editar perfil
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={handleLogout}
+                            disabled={loggingOut}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 bg-transparent"
+                          >
+                            {loggingOut ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <LogOut className="h-4 w-4 mr-2" />
+                            )}
+                            Cerrar sesion
+                          </Button>
+                        </>
                       )
                     ) : (
                       <>
