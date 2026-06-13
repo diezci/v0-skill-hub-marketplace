@@ -8,33 +8,42 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const { id } = params
-  const result = await obtenerProfesionalPorId(id)
+  try {
+    const { id } = params
+    const result = await obtenerProfesionalPorId(id)
 
-  if (!result.data) {
-    return {
-      title: "Perfil no encontrado",
+    if (!result.data) {
+      return { title: "Perfil no encontrado | Diime" }
     }
-  }
 
-  const profile = result.data
-  const nombre = `${profile.perfil?.nombre || ""} ${profile.perfil?.apellido || ""}`
+    const profile = result.data
+    const nombre = `${profile.perfil?.nombre || ""} ${profile.perfil?.apellido || ""}`.trim()
 
-  return {
-    title: `${nombre} - ${profile.titulo} | Diime`,
-    description: `${profile.bio} - ${profile.proyectos_completados} proyectos completados.`,
+    return {
+      title: `${nombre} - ${profile.titulo || "Profesional"} | Diime`,
+      description: `${profile.bio || "Profesional verificado en Diime"} - ${profile.proyectos_completados || 0} proyectos completados.`,
+    }
+  } catch {
+    return { title: "Perfil | Diime" }
   }
 }
 
 export default async function ProfilePage({ params }: { params: { id: string } }) {
   const { id } = params
-  const result = await obtenerProfesionalPorId(id)
 
-  if (!result.data) {
+  let result: Awaited<ReturnType<typeof obtenerProfesionalPorId>> | undefined
+
+  try {
+    result = await obtenerProfesionalPorId(id)
+  } catch {
     notFound()
   }
 
-  const profile = result.data
+  if (!result?.data) {
+    notFound()
+  }
+
+  const profile = result!.data!
 
   const mappedProfile = {
     id: profile.id,
@@ -63,14 +72,18 @@ export default async function ProfilePage({ params }: { params: { id: string } }
       id: item.id,
       titulo: item.titulo,
       descripcion: item.descripcion,
-      imagen: item.imagen_url,
+      imagen: item.imagen_url || (Array.isArray(item.imagenes) ? item.imagenes[0] : ""),
     })),
     reviews: (profile.reviews || []).map((review: any) => ({
       id: review.id,
       cliente: `${review.cliente?.nombre || ""} ${review.cliente?.apellido?.charAt(0) || ""}.`,
       avatar: review.cliente?.foto_perfil || "",
       rating: review.rating,
-      fecha: new Date(review.fecha_creacion).toLocaleDateString("es-ES", { day: "numeric", month: "short" }),
+      fecha: review.created_at
+        ? new Date(review.created_at).toLocaleDateString("es-ES", { day: "numeric", month: "short" })
+        : review.fecha_creacion
+        ? new Date(review.fecha_creacion).toLocaleDateString("es-ES", { day: "numeric", month: "short" })
+        : "",
       texto: review.comentario,
       proyecto: review.tipo_proyecto || "Proyecto",
     })),
