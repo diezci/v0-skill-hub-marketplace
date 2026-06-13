@@ -57,10 +57,11 @@ type Demanda = {
   total_ofertas: number
 }
 
-const urgenciaConfig = {
+const urgenciaConfig: Record<string, { label: string; color: string }> = {
   baja: { label: "Baja", color: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" },
   media: { label: "Media", color: "bg-amber-500/10 text-amber-500 border-amber-500/20" },
-  alta: { label: "Urgente", color: "bg-red-500/10 text-red-500 border-red-500/20" },
+  alta: { label: "Alta", color: "bg-orange-500/10 text-orange-500 border-orange-500/20" },
+  urgente: { label: "Urgente", color: "bg-red-500/10 text-red-500 border-red-500/20" },
 }
 
 const CATEGORIAS = [
@@ -530,8 +531,8 @@ export default function DemandasServicios() {
                             <Badge variant="outline" className="text-xs font-normal">
                               {demanda.categoria?.nombre}
                             </Badge>
-                            <Badge variant="outline" className={cn("text-xs", urgenciaConfig[demanda.urgencia].color)}>
-                              {urgenciaConfig[demanda.urgencia].label}
+                            <Badge variant="outline" className={cn("text-xs", (urgenciaConfig[demanda.urgencia] ?? urgenciaConfig.media).color)}>
+                              {(urgenciaConfig[demanda.urgencia] ?? urgenciaConfig.media).label}
                             </Badge>
                           </div>
                           <h3 className="font-semibold text-lg group-hover:text-primary transition-colors">
@@ -629,8 +630,8 @@ export default function DemandasServicios() {
             <div className="flex items-center gap-2 mb-2">
               <Badge variant="outline">{demandaSeleccionada?.categoria?.nombre}</Badge>
               {demandaSeleccionada && (
-                <Badge variant="outline" className={urgenciaConfig[demandaSeleccionada.urgencia].color}>
-                  {urgenciaConfig[demandaSeleccionada.urgencia].label}
+                <Badge variant="outline" className={(urgenciaConfig[demandaSeleccionada.urgencia] ?? urgenciaConfig.media).color}>
+                  {(urgenciaConfig[demandaSeleccionada.urgencia] ?? urgenciaConfig.media).label}
                 </Badge>
               )}
             </div>
