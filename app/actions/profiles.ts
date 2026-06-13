@@ -77,13 +77,13 @@ export async function obtenerProfesionalPorId(id: string) {
     .order("fecha_completado", { ascending: false })
 
   const { data: reviews } = await supabase
-    .from("reviews")
+    .from("reseñas")
     .select(`
       *,
-      cliente:cliente_id(nombre, apellido, foto_perfil)
+      cliente:autor_id(nombre, apellido, foto_perfil)
     `)
     .eq("profesional_id", id)
-    .order("fecha_creacion", { ascending: false })
+    .order("created_at", { ascending: false })
 
   return {
     data: {
