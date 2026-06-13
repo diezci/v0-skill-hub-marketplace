@@ -40,36 +40,36 @@ import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 
 const provincias = [
-  { provincia: "Álava", codigo: "01" },
+  { provincia: "Ãlava", codigo: "01" },
   { provincia: "Albacete", codigo: "02" },
   { provincia: "Alicante", codigo: "03" },
-  { provincia: "Almería", codigo: "04" },
-  { provincia: "Ávila", codigo: "05" },
+  { provincia: "AlmerÃ­a", codigo: "04" },
+  { provincia: "Ãvila", codigo: "05" },
   { provincia: "Badajoz", codigo: "06" },
   { provincia: "Islas Baleares", codigo: "07" },
   { provincia: "Barcelona", codigo: "08" },
   { provincia: "Burgos", codigo: "09" },
-  { provincia: "Cáceres", codigo: "10" },
-  { provincia: "Cádiz", codigo: "11" },
-  { provincia: "Castellón", codigo: "12" },
+  { provincia: "CÃ¡ceres", codigo: "10" },
+  { provincia: "CÃ¡diz", codigo: "11" },
+  { provincia: "CastellÃ³n", codigo: "12" },
   { provincia: "Ciudad Real", codigo: "13" },
-  { provincia: "Córdoba", codigo: "14" },
+  { provincia: "CÃ³rdoba", codigo: "14" },
   { provincia: "Cuenca", codigo: "16" },
   { provincia: "Girona", codigo: "17" },
   { provincia: "Granada", codigo: "18" },
   { provincia: "Guadalajara", codigo: "19" },
-  { provincia: "Guipúzcoa", codigo: "20" },
+  { provincia: "GuipÃºzcoa", codigo: "20" },
   { provincia: "Huelva", codigo: "21" },
   { provincia: "Huesca", codigo: "22" },
-  { provincia: "Jaén", codigo: "23" },
-  { provincia: "La Coruña", codigo: "15" },
+  { provincia: "JaÃ©n", codigo: "23" },
+  { provincia: "La CoruÃ±a", codigo: "15" },
   { provincia: "La Rioja", codigo: "26" },
   { provincia: "Las Palmas", codigo: "35" },
-  { provincia: "León", codigo: "24" },
+  { provincia: "LeÃ³n", codigo: "24" },
   { provincia: "Lleida", codigo: "25" },
   { provincia: "Lugo", codigo: "27" },
   { provincia: "Madrid", codigo: "28" },
-  { provincia: "Málaga", codigo: "29" },
+  { provincia: "MÃ¡laga", codigo: "29" },
   { provincia: "Murcia", codigo: "30" },
   { provincia: "Navarra", codigo: "31" },
   { provincia: "Ourense", codigo: "32" },
@@ -156,9 +156,9 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
           telefono: data.telefono || "",
           email: data.email || "",
           rating: data.profesional?.rating_promedio || 0,
-          total_reviews: data.profesional?.total_reseñas || 0,
+          total_reviews: data.profesional?.total_reseÃ±as || 0,
           proyectos_completados: data.profesional?.proyectos_completados || 0,
-          anos_experiencia: data.profesional?.["años_experiencia"] ?? data.profesional?.anos_experiencia ?? 0,
+          anos_experiencia: data.profesional?.["aÃ±os_experiencia"] ?? data.profesional?.anos_experiencia ?? 0,
           tarifa_hora: data.profesional?.tarifa_por_hora || 0,
           tiempo_respuesta: data.profesional?.tiempo_respuesta || "24 horas",
           nivel: data.profesional?.verificado ? "Profesional Verificado" : "Profesional",
@@ -176,6 +176,9 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
             precio_calidad: 0,
           },
         })
+      } else if (result.error === "No autenticado") {
+        router.push("/auth/login")
+        return
       }
       setLoading(false)
     }
@@ -212,7 +215,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     } else {
       toast({
         title: "Perfil actualizado",
-        description: "Tu información ha sido guardada correctamente.",
+        description: "Tu informaciÃ³n ha sido guardada correctamente.",
       })
       setIsEditing(false)
     }
@@ -276,7 +279,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     } else {
       toast({
         title: "Error",
-        description: "No se pudo subir la imagen. Inténtalo de nuevo.",
+        description: "No se pudo subir la imagen. IntÃ©ntalo de nuevo.",
         variant: "destructive",
       })
     }
@@ -299,7 +302,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     } else {
       toast({
         title: "Error",
-        description: "No se pudo subir la imagen. Inténtalo de nuevo.",
+        description: "No se pudo subir la imagen. IntÃ©ntalo de nuevo.",
         variant: "destructive",
       })
     }
@@ -411,11 +414,11 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                       <Input
                         value={editData.titulo}
                         onChange={(e) => setEditData({ ...editData, titulo: e.target.value })}
-                        placeholder="Título profesional (ej: Maestro Albañil)"
+                        placeholder="TÃ­tulo profesional (ej: Maestro AlbaÃ±il)"
                         className="text-muted-foreground"
                       />
                     ) : (
-                      <p className="text-lg text-muted-foreground">{editData.titulo || "Sin título profesional"}</p>
+                      <p className="text-lg text-muted-foreground">{editData.titulo || "Sin tÃ­tulo profesional"}</p>
                     )}
 
                     <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
@@ -438,7 +441,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                             </SelectContent>
                           </Select>
                         ) : (
-                          <span>{editData.ubicacion || "Sin ubicación"}</span>
+                          <span>{editData.ubicacion || "Sin ubicaciÃ³n"}</span>
                         )}
                       </div>
                       <div className="flex items-center gap-1">
@@ -534,7 +537,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 value="sobre-mi"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
               >
-                Sobre mí
+                Sobre mÃ­
               </TabsTrigger>
               <TabsTrigger
                 value="portfolio"
@@ -554,7 +557,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
               {/* Bio */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Descripción</CardTitle>
+                  <CardTitle className="text-lg">DescripciÃ³n</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {isEditing ? (
@@ -562,11 +565,11 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                       value={editData.bio}
                       onChange={(e) => setEditData({ ...editData, bio: e.target.value })}
                       rows={5}
-                      placeholder="Describe tu experiencia, especialización y qué te hace único..."
+                      placeholder="Describe tu experiencia, especializaciÃ³n y quÃ© te hace Ãºnico..."
                     />
                   ) : (
                     <p className="text-muted-foreground leading-relaxed">
-                      {editData.bio || "No has añadido una descripción todavía."}
+                      {editData.bio || "No has aÃ±adido una descripciÃ³n todavÃ­a."}
                     </p>
                   )}
                 </CardContent>
@@ -576,12 +579,12 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
               {isEditing && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Información Profesional</CardTitle>
+                    <CardTitle className="text-lg">InformaciÃ³n Profesional</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="tarifa">Tarifa por hora (€)</Label>
+                        <Label htmlFor="tarifa">Tarifa por hora (â¬)</Label>
                         <Input
                           id="tarifa"
                           type="number"
@@ -591,7 +594,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="experiencia">Años de experiencia</Label>
+                        <Label htmlFor="experiencia">AÃ±os de experiencia</Label>
                         <Input
                           id="experiencia"
                           type="number"
@@ -640,7 +643,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 <CardContent className="space-y-3">
                   <div className="flex flex-wrap gap-2">
                     {editData.habilidades.length === 0 && !isEditing && (
-                      <p className="text-muted-foreground text-sm">No has añadido habilidades todavía.</p>
+                      <p className="text-muted-foreground text-sm">No has aÃ±adido habilidades todavÃ­a.</p>
                     )}
                     {editData.habilidades.map((skill, i) => (
                       <Badge key={i} variant="secondary" className="text-sm py-1.5 px-3">
@@ -680,7 +683,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {editData.certificaciones.length === 0 && !isEditing && (
-                    <p className="text-muted-foreground text-sm">No has añadido certificaciones todavía.</p>
+                    <p className="text-muted-foreground text-sm">No has aÃ±adido certificaciones todavÃ­a.</p>
                   )}
                   <div className="space-y-2">
                     {editData.certificaciones.map((cert, i) => (
@@ -702,7 +705,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                       <Input
                         value={newCert}
                         onChange={(e) => setNewCert(e.target.value)}
-                        placeholder="Nueva certificación..."
+                        placeholder="Nueva certificaciÃ³n..."
                         className="flex-1"
                         onKeyPress={(e) => e.key === "Enter" && addCertification()}
                       />
@@ -724,7 +727,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {editData.idiomas.length === 0 && !isEditing && (
-                    <p className="text-muted-foreground text-sm">No has añadido idiomas todavía.</p>
+                    <p className="text-muted-foreground text-sm">No has aÃ±adido idiomas todavÃ­a.</p>
                   )}
                   <div className="flex flex-wrap gap-2">
                     {editData.idiomas.map((lang, i) => (
@@ -744,7 +747,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                       <Input
                         value={newLanguage}
                         onChange={(e) => setNewLanguage(e.target.value)}
-                        placeholder="Nuevo idioma (ej: Español - Nativo)..."
+                        placeholder="Nuevo idioma (ej: EspaÃ±ol - Nativo)..."
                         className="flex-1"
                         onKeyPress={(e) => e.key === "Enter" && addLanguage()}
                       />
@@ -762,9 +765,9 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 {editData.portfolio.length === 0 && (
                   <div className="col-span-2 text-center py-12 text-muted-foreground">
                     <Briefcase className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No tienes proyectos en tu portfolio todavía.</p>
+                    <p>No tienes proyectos en tu portfolio todavÃ­a.</p>
                     {editable && (
-                      <p className="text-sm mt-2">Añade proyectos desde la sección de Portfolio en Mi Cuenta.</p>
+                      <p className="text-sm mt-2">AÃ±ade proyectos desde la secciÃ³n de Portfolio en Mi Cuenta.</p>
                     )}
                   </div>
                 )}
@@ -831,8 +834,8 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
               {editData.reviews.length === 0 && (
                 <div className="text-center py-12 text-muted-foreground">
                   <Star className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Aún no tienes valoraciones.</p>
-                  <p className="text-sm mt-2">Las valoraciones aparecerán aquí cuando completes proyectos.</p>
+                  <p>AÃºn no tienes valoraciones.</p>
+                  <p className="text-sm mt-2">Las valoraciones aparecerÃ¡n aquÃ­ cuando completes proyectos.</p>
                 </div>
               )}
               <div className="space-y-4">
@@ -881,7 +884,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
           {/* Stats */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Estadísticas</CardTitle>
+              <CardTitle className="text-lg">EstadÃ­sticas</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
@@ -889,7 +892,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 <span className="font-bold">{editData.proyectos_completados}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Años de experiencia</span>
+                <span className="text-muted-foreground">AÃ±os de experiencia</span>
                 <span className="font-bold">{editData.anos_experiencia}</span>
               </div>
               <div className="flex items-center justify-between">
