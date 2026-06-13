@@ -35,10 +35,10 @@ const Navbar = () => {
     const supabase = createClient()
     const checkAuth = async () => {
       const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      setIsAuthenticated(!!user)
-      setUserEmail(user?.email ?? null)
+        data: { session },
+      } = await supabase.auth.getSession()
+      setIsAuthenticated(!!session?.user)
+      setUserEmail(session?.user?.email ?? null)
     }
     checkAuth()
 
@@ -54,7 +54,7 @@ const Navbar = () => {
 
   const handleLogout = async () => {
     const supabase = createClient()
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: 'local' })
     setIsOpen(false)
     router.push("/")
     router.refresh()
@@ -70,10 +70,10 @@ const Navbar = () => {
     },
     { name: "Mis Solicitudes", path: "/mis-solicitudes", icon: Inbox, shortName: "Mis Solicitudes" },
     {
-      name: "Gestión de proyectos",
+      name: "GestiÃ³n de proyectos",
       path: "/mis-trabajos",
       icon: FolderKanban,
-      shortName: "Gestión de proyectos",
+      shortName: "GestiÃ³n de proyectos",
     },
     { name: "Mensajes", path: "/mensajes", icon: MessageSquare, shortName: "Mensajes" },
   ]
