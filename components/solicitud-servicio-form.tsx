@@ -160,8 +160,8 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
       router.push("/mis-solicitudes")
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Hubo un problema. Inténtalo de nuevo.",
+        title: "No se pudo publicar",
+        description: error instanceof Error ? error.message : "Hubo un problema. Inténtalo de nuevo.",
         variant: "destructive",
       })
     } finally {
@@ -307,10 +307,11 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
+                    {/* Los valores deben coincidir con la constraint de la BD: baja | media | alta | urgente */}
                     <SelectItem value="urgente">Urgente (1-3 días)</SelectItem>
-                    <SelectItem value="esta-semana">Esta semana</SelectItem>
-                    <SelectItem value="este-mes">Este mes</SelectItem>
-                    <SelectItem value="flexible">Flexible</SelectItem>
+                    <SelectItem value="alta">Esta semana</SelectItem>
+                    <SelectItem value="media">Este mes</SelectItem>
+                    <SelectItem value="baja">Flexible</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />

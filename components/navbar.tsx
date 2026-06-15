@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Menu, X, User, Search, Megaphone, Inbox, MessageSquare, FolderKanban, LogOut, Settings, UserCircle } from "lucide-react"
+import { Menu, X, User, Search, Megaphone, Inbox, MessageSquare, FolderKanban, LogOut, Settings, UserCircle, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import {
@@ -32,7 +32,15 @@ const Navbar = () => {
   }, [])
 
   useEffect(() => {
-    const supabase = createClient()
+    let supabase
+    try {
+      supabase = createClient()
+    } catch (e) {
+      // Si faltan las variables de entorno de Supabase, no bloqueamos la navbar.
+      console.error("[navbar] No se pudo inicializar Supabase:", e)
+      return
+    }
+
     const checkAuth = async () => {
       const {
         data: { session },
@@ -53,8 +61,14 @@ const Navbar = () => {
   }, [])
 
   const handleLogout = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut({ scope: 'local' })
+    try {
+      const supabase = createClient()
+      await supabase.auth.signOut({ scope: "local" })
+    } catch (e) {
+      console.error("[navbar] Error al cerrar sesión:", e)
+    }
+    setIsAuthenticated(false)
+    setUserEmail(null)
     setIsOpen(false)
     router.push("/")
     router.refresh()
@@ -123,8 +137,18 @@ const Navbar = () => {
             {isAuthenticated ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="rounded-lg" aria-label="Menu de usuario">
-                    <User className="h-5 w-5" />
+                  <Button
+                    variant="ghost"
+                    className="rounded-lg gap-2 pl-1.5 pr-2"
+                    aria-label="Menu de usuario"
+                  >
+                    <span className="h-7 w-7 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-sm font-semibold uppercase">
+                      {userEmail?.charAt(0) ?? <User className="h-4 w-4" />}
+                    </span>
+                    <span className="hidden lg:block max-w-[120px] truncate text-sm font-medium">
+                      {userEmail?.split("@")[0] ?? "Mi cuenta"}
+                    </span>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
