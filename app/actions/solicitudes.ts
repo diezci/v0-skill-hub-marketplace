@@ -326,10 +326,64 @@ export async function obtenerSolicitudesPorUsuario() {
         }),
       )
 
+      // Get the active trabajo for this solicitud (if any) with its escrow,
+      // professional info and updates so the "En Progreso" tab can render the
+      // confirm/release/reject actions for real data (not only mock data).
+      const { data: trabajoRow } = await supabase
+        .from("trabajos")
+        .select("*")
+        .eq("solicitud_id", solicitud.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      let trabajo: any = null
+      if (trabajoRow) {
+        const { data: escrow } = await supabase
+          .from("transacciones_escrow")
+          .select("id, estado, monto")
+          .eq("trabajo_id", trabajoRow.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        const { data: profProfile } = await supabase
+          .from("profiles")
+          .select("nombre, apellido, foto_perfil")
+          .eq("id", trabajoRow.profesional_id)
+          .maybeSingle()
+
+        const { data: profDatos } = await supabase
+          .from("profesionales")
+          .select("rating_promedio")
+          .eq("id", trabajoRow.profesional_id)
+          .maybeSingle()
+
+        const { data: actualizaciones } = await supabase
+          .from("actualizaciones_trabajo")
+          .select("mensaje, progreso, created_at")
+          .eq("trabajo_id", trabajoRow.id)
+          .order("created_at", { ascending: true })
+
+        trabajo = {
+          ...trabajoRow,
+          escrow: escrow || null,
+          profesional: profProfile
+            ? { ...profProfile, rating: profDatos?.rating_promedio ?? null }
+            : null,
+          actualizaciones: (actualizaciones || []).map((a: any) => ({
+            fecha: a.created_at,
+            mensaje: a.mensaje,
+            progreso: a.progreso,
+          })),
+        }
+      }
+
       return {
         ...solicitud,
         categoria: solicitud.categoria_id ? mapaCategorias[solicitud.categoria_id] || null : null,
         ofertas: ofertasWithProfesional,
+        trabajo,
       }
     }),
   )

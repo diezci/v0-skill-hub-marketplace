@@ -249,9 +249,9 @@ export default function MisSolicitudes() {
       })
       setActionLoading(false)
     } else {
-      // Release escrow funds
+      // Release escrow funds (liberarFondosEscrow espera el id del trabajo)
       if (trabajo.escrow?.id) {
-        await liberarFondosEscrow(trabajo.escrow.id)
+        await liberarFondosEscrow(trabajo.id)
       }
       
       toast({
@@ -288,10 +288,9 @@ export default function MisSolicitudes() {
         variant: "destructive",
       })
     } else {
-      const reembolso = result.data
       toast({
         title: "Trabajo rechazado",
-        description: `Se te reembolsaran ${reembolso?.monto_reembolsado?.toFixed(2) || ""}EUR. La comision de la plataforma (${PLATFORM_CONFIG.comisionClientePorcentaje}%) no es reembolsable.`,
+        description: `Se te reembolsaran ${result.reembolso?.toFixed(2) || ""}EUR. La comision de la plataforma (${PLATFORM_CONFIG.comisionClientePorcentaje}%) no es reembolsable.`,
       })
       setShowRejectDialog(false)
       setSelectedTrabajo(null)
@@ -952,7 +951,7 @@ export default function MisSolicitudes() {
                 <div className="flex justify-between font-semibold">
                   <span>Reembolso estimado</span>
                   <span className="text-emerald-600">
-                    {calcularReembolsoCliente(selectedTrabajo.precio_acordado).reembolsoCliente.toFixed(2)} EUR
+                    {calcularReembolsoCliente(selectedTrabajo.precio_acordado).reembolso.toFixed(2)} EUR
                   </span>
                 </div>
               </div>
