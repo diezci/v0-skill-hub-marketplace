@@ -66,8 +66,8 @@ export async function crearTrabajo(data: {
     return { error: error.message }
   }
 
-  // Update solicitud status
-  await supabase.from("solicitudes").update({ estado: "en-progreso" }).eq("id", data.solicitud_id)
+  // Update solicitud status (valor válido para la constraint: en_progreso)
+  await supabase.from("solicitudes").update({ estado: "en_progreso" }).eq("id", data.solicitud_id)
 
   // Update oferta status
   await supabase.from("ofertas").update({ estado: "aceptada" }).eq("id", data.oferta_id)

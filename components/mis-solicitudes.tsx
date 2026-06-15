@@ -18,6 +18,7 @@ import {
   Banknote, ShieldCheck, Timer, TrendingUp, User, Building, Eye
 } from "lucide-react"
 import { obtenerSolicitudesPorUsuario } from "@/app/actions/solicitudes"
+import { aceptarOferta } from "@/app/actions/ofertas"
 import { crearTransaccionEscrow, liberarFondosEscrow, rechazarTrabajoYReembolsar } from "@/app/actions/escrow"
 import { obtenerMisTrabajos, actualizarProgresoTrabajo, marcarTrabajoEntregado, confirmarTrabajoCompletado } from "@/app/actions/trabajos"
 import { crearResena } from "@/app/actions/reviews"
@@ -218,11 +219,22 @@ export default function MisSolicitudes() {
   const handleAceptarOferta = async (oferta: any, solicitud: any) => {
     toast({
       title: "Procesando...",
-      description: "Creando transacción de pago seguro",
+      description: "Creando el trabajo y preparando el pago seguro",
     })
-    
-    // In real implementation, this would create the escrow and redirect to payment
-    router.push(`/pago?oferta=${oferta.id}`)
+
+    // Crear el trabajo a partir de la oferta y redirigir a la pasarela de pago escrow.
+    const result = await aceptarOferta(oferta.id)
+
+    if (result.error || !result.data?.id) {
+      toast({
+        title: "No se pudo aceptar la oferta",
+        description: result.error || "Inténtalo de nuevo.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    router.push(`/pago/${result.data.id}`)
   }
 
   const handleConfirmarTrabajo = async (trabajo: any) => {
