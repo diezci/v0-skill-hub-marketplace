@@ -15,6 +15,9 @@ export async function crearSolicitud(formData: {
   archivos_adjuntos?: string[]
 }) {
   const supabase = await createClient()
+  if (!supabase) {
+    return { error: "El servidor no está configurado correctamente. Falta la conexión con Supabase." }
+  }
 
   const {
     data: { user },
@@ -25,11 +28,12 @@ export async function crearSolicitud(formData: {
 
   let categoria_uuid = null
   if (formData.categoria_id) {
+    // Case-insensitive lookup so "Reformas integrales" matches "Reformas Integrales", etc.
     const { data: categoria } = await supabase
       .from("categorias")
       .select("id")
-      .eq("nombre", formData.categoria_id)
-      .single()
+      .ilike("nombre", formData.categoria_id)
+      .maybeSingle()
 
     if (categoria) {
       categoria_uuid = categoria.id
