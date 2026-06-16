@@ -62,7 +62,7 @@ const provincias = [
   { provincia: "Huelva", codigo: "21" },
   { provincia: "Huesca", codigo: "22" },
   { provincia: "JaÃ©n", codigo: "23" },
-  { provincia: "La CoruÃ±a", codigo: "15" },
+  { provincia: "La Coruña", codigo: "15" },
   { provincia: "La Rioja", codigo: "26" },
   { provincia: "Las Palmas", codigo: "35" },
   { provincia: "LeÃ³n", codigo: "24" },
@@ -156,9 +156,9 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
           telefono: data.telefono || "",
           email: data.email || "",
           rating: data.profesional?.rating_promedio || 0,
-          total_reviews: data.profesional?.total_reseÃ±as || 0,
+          total_reviews: data.profesional?.total_reseñas || 0,
           proyectos_completados: data.profesional?.proyectos_completados || 0,
-          anos_experiencia: data.profesional?.["aÃ±os_experiencia"] ?? data.profesional?.anos_experiencia ?? 0,
+          anos_experiencia: data.profesional?.["años_experiencia"] ?? data.profesional?.anos_experiencia ?? 0,
           tarifa_hora: data.profesional?.tarifa_por_hora || 0,
           tiempo_respuesta: data.profesional?.tiempo_respuesta || "24 horas",
           nivel: data.profesional?.verificado ? "Profesional Verificado" : "Profesional",
@@ -414,7 +414,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                       <Input
                         value={editData.titulo}
                         onChange={(e) => setEditData({ ...editData, titulo: e.target.value })}
-                        placeholder="TÃ­tulo profesional (ej: Maestro AlbaÃ±il)"
+                        placeholder="TÃ­tulo profesional (ej: Maestro Albañil)"
                         className="text-muted-foreground"
                       />
                     ) : (
@@ -569,7 +569,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                     />
                   ) : (
                     <p className="text-muted-foreground leading-relaxed">
-                      {editData.bio || "No has aÃ±adido una descripciÃ³n todavÃ­a."}
+                      {editData.bio || "No has añadido una descripciÃ³n todavÃ­a."}
                     </p>
                   )}
                 </CardContent>
@@ -594,7 +594,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="experiencia">AÃ±os de experiencia</Label>
+                        <Label htmlFor="experiencia">Años de experiencia</Label>
                         <Input
                           id="experiencia"
                           type="number"
@@ -643,7 +643,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 <CardContent className="space-y-3">
                   <div className="flex flex-wrap gap-2">
                     {editData.habilidades.length === 0 && !isEditing && (
-                      <p className="text-muted-foreground text-sm">No has aÃ±adido habilidades todavÃ­a.</p>
+                      <p className="text-muted-foreground text-sm">No has añadido habilidades todavÃ­a.</p>
                     )}
                     {editData.habilidades.map((skill, i) => (
                       <Badge key={i} variant="secondary" className="text-sm py-1.5 px-3">
@@ -683,7 +683,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {editData.certificaciones.length === 0 && !isEditing && (
-                    <p className="text-muted-foreground text-sm">No has aÃ±adido certificaciones todavÃ­a.</p>
+                    <p className="text-muted-foreground text-sm">No has añadido certificaciones todavÃ­a.</p>
                   )}
                   <div className="space-y-2">
                     {editData.certificaciones.map((cert, i) => (
@@ -727,7 +727,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {editData.idiomas.length === 0 && !isEditing && (
-                    <p className="text-muted-foreground text-sm">No has aÃ±adido idiomas todavÃ­a.</p>
+                    <p className="text-muted-foreground text-sm">No has añadido idiomas todavÃ­a.</p>
                   )}
                   <div className="flex flex-wrap gap-2">
                     {editData.idiomas.map((lang, i) => (
@@ -747,7 +747,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                       <Input
                         value={newLanguage}
                         onChange={(e) => setNewLanguage(e.target.value)}
-                        placeholder="Nuevo idioma (ej: EspaÃ±ol - Nativo)..."
+                        placeholder="Nuevo idioma (ej: Español - Nativo)..."
                         className="flex-1"
                         onKeyPress={(e) => e.key === "Enter" && addLanguage()}
                       />
@@ -767,7 +767,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                     <Briefcase className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No tienes proyectos en tu portfolio todavÃ­a.</p>
                     {editable && (
-                      <p className="text-sm mt-2">AÃ±ade proyectos desde la secciÃ³n de Portfolio en Mi Cuenta.</p>
+                      <p className="text-sm mt-2">Añade proyectos desde la secciÃ³n de Portfolio en Mi Cuenta.</p>
                     )}
                   </div>
                 )}
@@ -892,7 +892,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 <span className="font-bold">{editData.proyectos_completados}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">AÃ±os de experiencia</span>
+                <span className="text-muted-foreground">Años de experiencia</span>
                 <span className="font-bold">{editData.anos_experiencia}</span>
               </div>
               <div className="flex items-center justify-between">
