@@ -84,10 +84,10 @@ const Navbar = () => {
     },
     { name: "Mis Solicitudes", path: "/mis-solicitudes", icon: Inbox, shortName: "Mis Solicitudes" },
     {
-      name: "GestiÃ³n de proyectos",
+      name: "Gestión de proyectos",
       path: "/mis-trabajos",
       icon: FolderKanban,
-      shortName: "GestiÃ³n de proyectos",
+      shortName: "Gestión de proyectos",
     },
     { name: "Mensajes", path: "/mensajes", icon: MessageSquare, shortName: "Mensajes" },
   ]

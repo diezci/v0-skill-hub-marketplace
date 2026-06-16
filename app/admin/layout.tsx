@@ -40,11 +40,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       const { data: profile, error } = await supabase
         .from("profiles")
-        .select("rol, nombre, apellido")
+        .select("es_admin, nombre, apellido")
         .eq("id", user.id)
         .single()
 
-      if (error || profile?.rol !== "admin") {
+      if (error || !profile?.es_admin) {
         router.push("/")
         return
       }

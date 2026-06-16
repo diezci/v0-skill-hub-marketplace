@@ -40,36 +40,36 @@ import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 
 const provincias = [
-  { provincia: "Ãlava", codigo: "01" },
+  { provincia: "Álava", codigo: "01" },
   { provincia: "Albacete", codigo: "02" },
   { provincia: "Alicante", codigo: "03" },
-  { provincia: "AlmerÃ­a", codigo: "04" },
-  { provincia: "Ãvila", codigo: "05" },
+  { provincia: "Almería", codigo: "04" },
+  { provincia: "Ávila", codigo: "05" },
   { provincia: "Badajoz", codigo: "06" },
   { provincia: "Islas Baleares", codigo: "07" },
   { provincia: "Barcelona", codigo: "08" },
   { provincia: "Burgos", codigo: "09" },
-  { provincia: "CÃ¡ceres", codigo: "10" },
-  { provincia: "CÃ¡diz", codigo: "11" },
-  { provincia: "CastellÃ³n", codigo: "12" },
+  { provincia: "Cáceres", codigo: "10" },
+  { provincia: "Cádiz", codigo: "11" },
+  { provincia: "Castellón", codigo: "12" },
   { provincia: "Ciudad Real", codigo: "13" },
-  { provincia: "CÃ³rdoba", codigo: "14" },
+  { provincia: "Córdoba", codigo: "14" },
   { provincia: "Cuenca", codigo: "16" },
   { provincia: "Girona", codigo: "17" },
   { provincia: "Granada", codigo: "18" },
   { provincia: "Guadalajara", codigo: "19" },
-  { provincia: "GuipÃºzcoa", codigo: "20" },
+  { provincia: "Guipúzcoa", codigo: "20" },
   { provincia: "Huelva", codigo: "21" },
   { provincia: "Huesca", codigo: "22" },
-  { provincia: "JaÃ©n", codigo: "23" },
+  { provincia: "Jaén", codigo: "23" },
   { provincia: "La Coruña", codigo: "15" },
   { provincia: "La Rioja", codigo: "26" },
   { provincia: "Las Palmas", codigo: "35" },
-  { provincia: "LeÃ³n", codigo: "24" },
+  { provincia: "León", codigo: "24" },
   { provincia: "Lleida", codigo: "25" },
   { provincia: "Lugo", codigo: "27" },
   { provincia: "Madrid", codigo: "28" },
-  { provincia: "MÃ¡laga", codigo: "29" },
+  { provincia: "Málaga", codigo: "29" },
   { provincia: "Murcia", codigo: "30" },
   { provincia: "Navarra", codigo: "31" },
   { provincia: "Ourense", codigo: "32" },
@@ -215,7 +215,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     } else {
       toast({
         title: "Perfil actualizado",
-        description: "Tu informaciÃ³n ha sido guardada correctamente.",
+        description: "Tu información ha sido guardada correctamente.",
       })
       setIsEditing(false)
     }
@@ -279,7 +279,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     } else {
       toast({
         title: "Error",
-        description: "No se pudo subir la imagen. IntÃ©ntalo de nuevo.",
+        description: "No se pudo subir la imagen. Inténtalo de nuevo.",
         variant: "destructive",
       })
     }
@@ -302,7 +302,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     } else {
       toast({
         title: "Error",
-        description: "No se pudo subir la imagen. IntÃ©ntalo de nuevo.",
+        description: "No se pudo subir la imagen. Inténtalo de nuevo.",
         variant: "destructive",
       })
     }
@@ -414,11 +414,11 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                       <Input
                         value={editData.titulo}
                         onChange={(e) => setEditData({ ...editData, titulo: e.target.value })}
-                        placeholder="TÃ­tulo profesional (ej: Maestro Albañil)"
+                        placeholder="Título profesional (ej: Maestro Albañil)"
                         className="text-muted-foreground"
                       />
                     ) : (
-                      <p className="text-lg text-muted-foreground">{editData.titulo || "Sin tÃ­tulo profesional"}</p>
+                      <p className="text-lg text-muted-foreground">{editData.titulo || "Sin título profesional"}</p>
                     )}
 
                     <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
@@ -441,7 +441,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                             </SelectContent>
                           </Select>
                         ) : (
-                          <span>{editData.ubicacion || "Sin ubicaciÃ³n"}</span>
+                          <span>{editData.ubicacion || "Sin ubicación"}</span>
                         )}
                       </div>
                       <div className="flex items-center gap-1">
@@ -537,7 +537,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 value="sobre-mi"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
               >
-                Sobre mÃ­
+                Sobre mí
               </TabsTrigger>
               <TabsTrigger
                 value="portfolio"
@@ -557,7 +557,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
               {/* Bio */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">DescripciÃ³n</CardTitle>
+                  <CardTitle className="text-lg">Descripción</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {isEditing ? (
@@ -565,11 +565,11 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                       value={editData.bio}
                       onChange={(e) => setEditData({ ...editData, bio: e.target.value })}
                       rows={5}
-                      placeholder="Describe tu experiencia, especializaciÃ³n y quÃ© te hace Ãºnico..."
+                      placeholder="Describe tu experiencia, especialización y qué te hace único..."
                     />
                   ) : (
                     <p className="text-muted-foreground leading-relaxed">
-                      {editData.bio || "No has añadido una descripciÃ³n todavÃ­a."}
+                      {editData.bio || "No has añadido una descripción todavía."}
                     </p>
                   )}
                 </CardContent>
@@ -579,7 +579,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
               {isEditing && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">InformaciÃ³n Profesional</CardTitle>
+                    <CardTitle className="text-lg">Información Profesional</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -643,7 +643,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 <CardContent className="space-y-3">
                   <div className="flex flex-wrap gap-2">
                     {editData.habilidades.length === 0 && !isEditing && (
-                      <p className="text-muted-foreground text-sm">No has añadido habilidades todavÃ­a.</p>
+                      <p className="text-muted-foreground text-sm">No has añadido habilidades todavía.</p>
                     )}
                     {editData.habilidades.map((skill, i) => (
                       <Badge key={i} variant="secondary" className="text-sm py-1.5 px-3">
@@ -683,7 +683,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {editData.certificaciones.length === 0 && !isEditing && (
-                    <p className="text-muted-foreground text-sm">No has añadido certificaciones todavÃ­a.</p>
+                    <p className="text-muted-foreground text-sm">No has añadido certificaciones todavía.</p>
                   )}
                   <div className="space-y-2">
                     {editData.certificaciones.map((cert, i) => (
@@ -705,7 +705,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                       <Input
                         value={newCert}
                         onChange={(e) => setNewCert(e.target.value)}
-                        placeholder="Nueva certificaciÃ³n..."
+                        placeholder="Nueva certificación..."
                         className="flex-1"
                         onKeyPress={(e) => e.key === "Enter" && addCertification()}
                       />
@@ -727,7 +727,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {editData.idiomas.length === 0 && !isEditing && (
-                    <p className="text-muted-foreground text-sm">No has añadido idiomas todavÃ­a.</p>
+                    <p className="text-muted-foreground text-sm">No has añadido idiomas todavía.</p>
                   )}
                   <div className="flex flex-wrap gap-2">
                     {editData.idiomas.map((lang, i) => (
@@ -765,9 +765,9 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 {editData.portfolio.length === 0 && (
                   <div className="col-span-2 text-center py-12 text-muted-foreground">
                     <Briefcase className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No tienes proyectos en tu portfolio todavÃ­a.</p>
+                    <p>No tienes proyectos en tu portfolio todavía.</p>
                     {editable && (
-                      <p className="text-sm mt-2">Añade proyectos desde la secciÃ³n de Portfolio en Mi Cuenta.</p>
+                      <p className="text-sm mt-2">Añade proyectos desde la sección de Portfolio en Mi Cuenta.</p>
                     )}
                   </div>
                 )}
@@ -834,8 +834,8 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
               {editData.reviews.length === 0 && (
                 <div className="text-center py-12 text-muted-foreground">
                   <Star className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>AÃºn no tienes valoraciones.</p>
-                  <p className="text-sm mt-2">Las valoraciones aparecerÃ¡n aquÃ­ cuando completes proyectos.</p>
+                  <p>Aún no tienes valoraciones.</p>
+                  <p className="text-sm mt-2">Las valoraciones aparecerán aquí cuando completes proyectos.</p>
                 </div>
               )}
               <div className="space-y-4">
@@ -884,7 +884,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
           {/* Stats */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">EstadÃ­sticas</CardTitle>
+              <CardTitle className="text-lg">Estadísticas</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
