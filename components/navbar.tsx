@@ -136,11 +136,12 @@ const Navbar = () => {
             <ThemeToggle />
             {isAuthenticated ? (
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="rounded-lg gap-2 pl-1.5 pr-2"
-                    aria-label="Menu de usuario"
+                <div className="flex items-center rounded-lg hover:bg-muted transition-colors">
+                  {/* El nombre/avatar lleva directamente a Mi Perfil */}
+                  <Link
+                    href="/mi-perfil"
+                    title="Ver mi perfil"
+                    className="flex items-center gap-2 pl-1.5 pr-2 py-1.5 rounded-l-lg"
                   >
                     <span className="h-7 w-7 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-sm font-semibold uppercase">
                       {userEmail?.charAt(0) ?? <User className="h-4 w-4" />}
@@ -148,9 +149,18 @@ const Navbar = () => {
                     <span className="hidden lg:block max-w-[120px] truncate text-sm font-medium">
                       {userEmail?.split("@")[0] ?? "Mi cuenta"}
                     </span>
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </DropdownMenuTrigger>
+                  </Link>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-l-none"
+                      aria-label="Menú de usuario"
+                    >
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </div>
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>
                     <div className="flex flex-col space-y-1">
