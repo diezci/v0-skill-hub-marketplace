@@ -60,8 +60,7 @@ export async function obtenerProfesionalPorId(id: string) {
     .from("profesionales")
     .select(`
       *,
-      perfil:profiles(nombre, apellido, ubicacion, foto_perfil, foto_portada, email, telefono),
-      categoria:categorias(nombre)
+      perfil:profiles(nombre, apellido, ubicacion, foto_perfil, foto_portada, email, telefono)
     `)
     .eq("id", id)
     .single()
