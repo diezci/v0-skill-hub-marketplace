@@ -153,6 +153,92 @@ export async function obtenerSolicitudes(filtros?: {
   return { data: enriquecidas }
 }
 
+export async function actualizarSolicitud(
+  id: string,
+  campos: {
+    titulo?: string
+    descripcion?: string
+    ubicacion?: string
+    presupuesto_min?: number
+    presupuesto_max?: number
+    urgencia?: string
+  },
+) {
+  const supabase = await createClient()
+  if (!supabase) return { error: "Conexión con la base de datos no disponible." }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  // Solo se puede editar una demanda propia que siga abierta (sin trabajo en curso).
+  const { data: solicitud } = await supabase
+    .from("solicitudes")
+    .select("cliente_id, estado")
+    .eq("id", id)
+    .maybeSingle()
+
+  if (!solicitud || solicitud.cliente_id !== user.id) {
+    return { error: "No tienes permiso para editar esta demanda." }
+  }
+  if (solicitud.estado !== "abierta") {
+    return { error: "Solo puedes editar demandas que sigan abiertas (sin ofertas aceptadas)." }
+  }
+
+  const { data, error } = await supabase
+    .from("solicitudes")
+    .update({
+      titulo: campos.titulo,
+      descripcion: campos.descripcion,
+      ubicacion: campos.ubicacion,
+      presupuesto_min: campos.presupuesto_min,
+      presupuesto_max: campos.presupuesto_max,
+      urgencia: campos.urgencia,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("cliente_id", user.id)
+    .select()
+    .single()
+
+  if (error) return { error: error.message }
+
+  revalidatePath("/mis-solicitudes")
+  revalidatePath("/demandas")
+  return { data }
+}
+
+export async function eliminarSolicitud(id: string) {
+  const supabase = await createClient()
+  if (!supabase) return { error: "Conexión con la base de datos no disponible." }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: solicitud } = await supabase
+    .from("solicitudes")
+    .select("cliente_id, estado")
+    .eq("id", id)
+    .maybeSingle()
+
+  if (!solicitud || solicitud.cliente_id !== user.id) {
+    return { error: "No tienes permiso para borrar esta demanda." }
+  }
+  if (solicitud.estado !== "abierta") {
+    return { error: "No puedes borrar una demanda con un trabajo en curso." }
+  }
+
+  const { error } = await supabase.from("solicitudes").delete().eq("id", id).eq("cliente_id", user.id)
+  if (error) return { error: error.message }
+
+  revalidatePath("/mis-solicitudes")
+  revalidatePath("/demandas")
+  return { success: true }
+}
+
 export async function obtenerMisSolicitudes() {
   const supabase = await createClient()
 
