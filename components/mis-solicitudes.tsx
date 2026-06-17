@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
 import { Slider } from "@/components/ui/slider"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -15,9 +16,9 @@ import { Separator } from "@/components/ui/separator"
 import { 
   Clock, CheckCircle2, XCircle, Loader2, Calendar, MapPin, Euro, MessageSquare, FileText,
   CreditCard, AlertCircle, Send, Check, Star, ChevronRight, ArrowRight, Package,
-  Banknote, ShieldCheck, Timer, TrendingUp, User, Building, Eye
+  Banknote, ShieldCheck, Timer, TrendingUp, User, Building, Eye, Pencil, Trash2
 } from "lucide-react"
-import { obtenerSolicitudesPorUsuario } from "@/app/actions/solicitudes"
+import { obtenerSolicitudesPorUsuario, actualizarSolicitud, eliminarSolicitud } from "@/app/actions/solicitudes"
 import { aceptarOferta } from "@/app/actions/ofertas"
 import { crearTransaccionEscrow, liberarFondosEscrow, rechazarTrabajoYReembolsar } from "@/app/actions/escrow"
 import { obtenerMisTrabajos, actualizarProgresoTrabajo, marcarTrabajoEntregado, confirmarTrabajoCompletado } from "@/app/actions/trabajos"
@@ -185,8 +186,74 @@ export default function MisSolicitudes() {
   const [reviewHover, setReviewHover] = useState(0)
   const [rejectReason, setRejectReason] = useState("")
   const [actionLoading, setActionLoading] = useState(false)
+  const [editSolicitud, setEditSolicitud] = useState<any>(null)
+  const [editForm, setEditForm] = useState({
+    titulo: "",
+    descripcion: "",
+    ubicacion: "",
+    presupuesto_min: "",
+    presupuesto_max: "",
+    urgencia: "media",
+  })
+  const [deleteSolicitud, setDeleteSolicitud] = useState<any>(null)
   const { toast } = useToast()
   const router = useRouter()
+
+  const refrescarSolicitudes = async () => {
+    const result = await obtenerSolicitudesPorUsuario()
+    if (result.data) setSolicitudes(result.data)
+  }
+
+  const abrirEditar = (solicitud: any) => {
+    setEditForm({
+      titulo: solicitud.titulo || "",
+      descripcion: solicitud.descripcion || "",
+      ubicacion: solicitud.ubicacion || "",
+      presupuesto_min: solicitud.presupuesto_min?.toString() || "",
+      presupuesto_max: solicitud.presupuesto_max?.toString() || "",
+      urgencia: solicitud.urgencia || "media",
+    })
+    setEditSolicitud(solicitud)
+  }
+
+  const handleGuardarEdicion = async () => {
+    if (!editSolicitud) return
+    if (!editForm.titulo.trim() || editForm.descripcion.trim().length < 10) {
+      toast({ title: "Faltan datos", description: "Añade un título y una descripción (mín. 10 caracteres).", variant: "destructive" })
+      return
+    }
+    setActionLoading(true)
+    const result = await actualizarSolicitud(editSolicitud.id, {
+      titulo: editForm.titulo,
+      descripcion: editForm.descripcion,
+      ubicacion: editForm.ubicacion,
+      presupuesto_min: editForm.presupuesto_min ? Number.parseFloat(editForm.presupuesto_min) : undefined,
+      presupuesto_max: editForm.presupuesto_max ? Number.parseFloat(editForm.presupuesto_max) : undefined,
+      urgencia: editForm.urgencia,
+    })
+    if (result.error) {
+      toast({ title: "Error", description: result.error, variant: "destructive" })
+    } else {
+      toast({ title: "Demanda actualizada", description: "Los cambios se han guardado." })
+      setEditSolicitud(null)
+      await refrescarSolicitudes()
+    }
+    setActionLoading(false)
+  }
+
+  const handleBorrar = async () => {
+    if (!deleteSolicitud) return
+    setActionLoading(true)
+    const result = await eliminarSolicitud(deleteSolicitud.id)
+    if (result.error) {
+      toast({ title: "Error", description: result.error, variant: "destructive" })
+    } else {
+      toast({ title: "Demanda borrada", description: "La demanda se ha eliminado." })
+      setDeleteSolicitud(null)
+      await refrescarSolicitudes()
+    }
+    setActionLoading(false)
+  }
 
   useEffect(() => {
     async function cargarDatos() {
@@ -502,7 +569,23 @@ export default function MisSolicitudes() {
                 </CardHeader>
                 <CardContent className="pt-0">
                   <p className="text-sm text-muted-foreground mb-4">{solicitud.descripcion}</p>
-                  
+
+                  <div className="flex gap-2 mb-4">
+                    <Button variant="outline" size="sm" className="bg-transparent" onClick={() => abrirEditar(solicitud)}>
+                      <Pencil className="h-4 w-4 mr-1.5" />
+                      Editar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-transparent text-destructive border-destructive/40 hover:bg-destructive/10"
+                      onClick={() => setDeleteSolicitud(solicitud)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1.5" />
+                      Borrar
+                    </Button>
+                  </div>
+
                   {/* Ofertas recibidas */}
                   {solicitud.ofertas && solicitud.ofertas.length > 0 ? (
                     <div className="space-y-3">
@@ -985,6 +1068,100 @@ export default function MisSolicitudes() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Editar demanda */}
+      <Dialog open={!!editSolicitud} onOpenChange={(o) => !o && setEditSolicitud(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar demanda</DialogTitle>
+            <DialogDescription>Modifica los datos de tu demanda. Solo es posible mientras siga abierta.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Título</label>
+              <Input value={editForm.titulo} onChange={(e) => setEditForm({ ...editForm, titulo: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Descripción</label>
+              <Textarea
+                rows={4}
+                value={editForm.descripcion}
+                onChange={(e) => setEditForm({ ...editForm, descripcion: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Ubicación</label>
+              <Input value={editForm.ubicacion} onChange={(e) => setEditForm({ ...editForm, ubicacion: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Presupuesto mín. (€)</label>
+                <Input
+                  type="number"
+                  value={editForm.presupuesto_min}
+                  onChange={(e) => setEditForm({ ...editForm, presupuesto_min: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Presupuesto máx. (€)</label>
+                <Input
+                  type="number"
+                  value={editForm.presupuesto_max}
+                  onChange={(e) => setEditForm({ ...editForm, presupuesto_max: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Urgencia</label>
+              <select
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                value={editForm.urgencia}
+                onChange={(e) => setEditForm({ ...editForm, urgencia: e.target.value })}
+              >
+                <option value="urgente">Urgente</option>
+                <option value="alta">Alta</option>
+                <option value="media">Media</option>
+                <option value="baja">Baja</option>
+              </select>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" className="bg-transparent" onClick={() => setEditSolicitud(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleGuardarEdicion} disabled={actionLoading}>
+              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+              Guardar cambios
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmar borrado */}
+      <AlertDialog open={!!deleteSolicitud} onOpenChange={(o) => !o && setDeleteSolicitud(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Borrar esta demanda?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminará "{deleteSolicitud?.titulo}" de forma permanente. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleBorrar()
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={actionLoading}
+            >
+              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Borrar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
