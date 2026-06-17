@@ -438,6 +438,38 @@ export async function confirmFundsHeld(sessionId: string) {
   return confirmarPagoEscrow(sessionId)
 }
 
+// Helper: dado el id de una transacción escrow, devuelve el id del trabajo.
+async function trabajoIdDesdeEscrow(escrowId: string): Promise<string | null> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from("transacciones_escrow")
+    .select("trabajo_id")
+    .eq("id", escrowId)
+    .maybeSingle()
+  return data?.trabajo_id ?? null
+}
+
+// Aliases de compatibilidad usados por components/escrow-status-card.tsx,
+// que opera con el id de la transacción escrow en lugar del id del trabajo.
+export async function deliverWork(escrowId: string) {
+  const trabajoId = await trabajoIdDesdeEscrow(escrowId)
+  if (!trabajoId) return { error: "Transacción escrow no encontrada" }
+  const { marcarTrabajoEntregado } = await import("./trabajos")
+  return marcarTrabajoEntregado(trabajoId)
+}
+
+export async function releaseEscrowFunds(escrowId: string) {
+  const trabajoId = await trabajoIdDesdeEscrow(escrowId)
+  if (!trabajoId) return { error: "Transacción escrow no encontrada" }
+  return liberarFondosEscrow(trabajoId)
+}
+
+export async function refundEscrow(escrowId: string, motivo: string) {
+  const trabajoId = await trabajoIdDesdeEscrow(escrowId)
+  if (!trabajoId) return { error: "Transacción escrow no encontrada" }
+  return rechazarTrabajoYReembolsar(trabajoId, motivo)
+}
+
 export async function openDispute(escrowId: string, descripcion: string) {
   const supabase = await createClient()
 

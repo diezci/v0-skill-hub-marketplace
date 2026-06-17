@@ -1,15 +1,15 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
-import PerfilProfesional from "@/components/perfil-profesional"
+import PerfilProfesionalPublico from "@/components/perfil-profesional-publico"
 import { obtenerProfesionalPorId } from "@/app/actions/profiles"
 
 export async function generateStaticParams() {
   return []
 }
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   try {
-    const { id } = params
+    const { id } = await params
     const result = await obtenerProfesionalPorId(id)
 
     if (!result.data) {
@@ -28,8 +28,8 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   }
 }
 
-export default async function ProfilePage({ params }: { params: { id: string } }) {
-  const { id } = params
+export default async function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
 
   let result: Awaited<ReturnType<typeof obtenerProfesionalPorId>> | undefined
 
@@ -59,7 +59,7 @@ export default async function ProfilePage({ params }: { params: { id: string } }
     rating: profile.rating_promedio || 0,
     total_reviews: profile.total_reviews || 0,
     proyectos_completados: profile.proyectos_completados || 0,
-    anos_experiencia: profile.anos_experiencia || 0,
+    anos_experiencia: profile["años_experiencia"] ?? profile.anos_experiencia ?? 0,
     tarifa_hora: profile.tarifa_por_hora || 0,
     tiempo_respuesta: profile.tiempo_respuesta || "24 horas",
     nivel: profile.verificado ? "Experto Verificado" : "Profesional",
@@ -97,7 +97,7 @@ export default async function ProfilePage({ params }: { params: { id: string } }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <PerfilProfesional editable={false} perfil={mappedProfile} />
+      <PerfilProfesionalPublico perfil={mappedProfile} />
     </div>
   )
 }

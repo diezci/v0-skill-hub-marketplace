@@ -18,6 +18,7 @@ import {
   Banknote, ShieldCheck, Timer, TrendingUp, User, Building, Eye
 } from "lucide-react"
 import { obtenerSolicitudesPorUsuario } from "@/app/actions/solicitudes"
+import { aceptarOferta } from "@/app/actions/ofertas"
 import { crearTransaccionEscrow, liberarFondosEscrow, rechazarTrabajoYReembolsar } from "@/app/actions/escrow"
 import { obtenerMisTrabajos, actualizarProgresoTrabajo, marcarTrabajoEntregado, confirmarTrabajoCompletado } from "@/app/actions/trabajos"
 import { crearResena } from "@/app/actions/reviews"
@@ -218,11 +219,22 @@ export default function MisSolicitudes() {
   const handleAceptarOferta = async (oferta: any, solicitud: any) => {
     toast({
       title: "Procesando...",
-      description: "Creando transacción de pago seguro",
+      description: "Creando el trabajo y preparando el pago seguro",
     })
-    
-    // In real implementation, this would create the escrow and redirect to payment
-    router.push(`/pago?oferta=${oferta.id}`)
+
+    // Crear el trabajo a partir de la oferta y redirigir a la pasarela de pago escrow.
+    const result = await aceptarOferta(oferta.id)
+
+    if (result.error || !result.data?.id) {
+      toast({
+        title: "No se pudo aceptar la oferta",
+        description: result.error || "Inténtalo de nuevo.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    router.push(`/pago/${result.data.id}`)
   }
 
   const handleConfirmarTrabajo = async (trabajo: any) => {
@@ -237,9 +249,9 @@ export default function MisSolicitudes() {
       })
       setActionLoading(false)
     } else {
-      // Release escrow funds
+      // Release escrow funds (liberarFondosEscrow espera el id del trabajo)
       if (trabajo.escrow?.id) {
-        await liberarFondosEscrow(trabajo.escrow.id)
+        await liberarFondosEscrow(trabajo.id)
       }
       
       toast({
@@ -276,10 +288,9 @@ export default function MisSolicitudes() {
         variant: "destructive",
       })
     } else {
-      const reembolso = result.data
       toast({
         title: "Trabajo rechazado",
-        description: `Se te reembolsaran ${reembolso?.monto_reembolsado?.toFixed(2) || ""}EUR. La comision de la plataforma (${PLATFORM_CONFIG.comisionClientePorcentaje}%) no es reembolsable.`,
+        description: `Se te reembolsaran ${result.reembolso?.toFixed(2) || ""}EUR. La comision de la plataforma (${PLATFORM_CONFIG.comisionClientePorcentaje}%) no es reembolsable.`,
       })
       setShowRejectDialog(false)
       setSelectedTrabajo(null)
@@ -940,7 +951,7 @@ export default function MisSolicitudes() {
                 <div className="flex justify-between font-semibold">
                   <span>Reembolso estimado</span>
                   <span className="text-emerald-600">
-                    {calcularReembolsoCliente(selectedTrabajo.precio_acordado).reembolsoCliente.toFixed(2)} EUR
+                    {calcularReembolsoCliente(selectedTrabajo.precio_acordado).reembolso.toFixed(2)} EUR
                   </span>
                 </div>
               </div>

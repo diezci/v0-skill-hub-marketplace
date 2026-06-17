@@ -314,11 +314,12 @@ export default function DemandasServicios() {
 
       const result = await crearOferta({
         solicitud_id: demandaSeleccionada.id,
-        precio_propuesto: Number.parseFloat(formData.precio),
-        tiempo_estimado: `${formData.duracion} ${formData.unidadTiempo}`,
+        precio: Number.parseFloat(formData.precio),
+        tiempo_estimado: Number.parseInt(formData.duracion, 10),
+        unidad_tiempo: formData.unidadTiempo,
         descripcion: formData.descripcion,
-        incluye_materiales: formData.materiales === "si",
-        archivos_adjuntos: successfulUploads,
+        materiales_incluidos: formData.materiales,
+        archivos: successfulUploads,
       })
 
       if (result.error) {
