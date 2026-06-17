@@ -14,27 +14,14 @@ export async function obtenerProfesionales(filtros?: {
     return { error: "Base de datos no disponible", data: [] }
   }
 
+  // Todos los que tienen ficha de profesional (perfil profesional creado).
   let query = supabase
     .from("profesionales")
     .select(`
       *,
-      perfil:profiles(nombre, apellido, ubicacion, foto_perfil),
-      categoria:categorias(nombre, icono)
+      perfil:profiles(nombre, apellido, ubicacion, foto_perfil, bio, verificado)
     `)
-    .eq("verificado", true)
     .order("rating_promedio", { ascending: false })
-
-  if (filtros?.categoria) {
-    const { data: categoria } = await supabase.from("categorias").select("id").eq("nombre", filtros.categoria).single()
-
-    if (categoria) {
-      query = query.eq("categoria_id", categoria.id)
-    }
-  }
-
-  if (filtros?.ubicacion) {
-    query = query.eq("perfil.ubicacion", filtros.ubicacion)
-  }
 
   if (filtros?.rating_min) {
     query = query.gte("rating_promedio", filtros.rating_min)
@@ -43,10 +30,10 @@ export async function obtenerProfesionales(filtros?: {
   const { data, error } = await query
 
   if (error) {
-    return { error: error.message }
+    return { error: error.message, data: [] }
   }
 
-  return { data }
+  return { data: data || [] }
 }
 
 export async function obtenerProfesionalPorId(id: string) {
@@ -177,13 +164,15 @@ export async function actualizarPerfil(formData: {
           id: user.id,
           ...profData,
           disponible: true,
-          verificado: false,
           rating_promedio: 0,
           total_reseñas: 0,
         })
         if (createError) {
           return { error: createError.message }
         }
+        // Al crear ficha profesional, marcar al usuario como profesional para
+        // que aparezca en la sección "Profesionales".
+        await supabase.from("profiles").update({ tipo_usuario: "profesional" }).eq("id", user.id)
       }
     }
   }
