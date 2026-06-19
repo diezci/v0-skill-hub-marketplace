@@ -136,26 +136,25 @@ const Navbar = () => {
             <ThemeToggle />
             {isAuthenticated ? (
               <DropdownMenu>
-                <div className="flex items-center rounded-lg hover:bg-muted transition-colors">
-                  {/* El nombre/avatar lleva directamente a Mi Perfil */}
+                <div className="flex items-center rounded-lg border border-border hover:bg-muted transition-colors">
+                  {/* Botón "Mi Perfil": acceso directo al perfil */}
                   <Link
                     href="/mi-perfil"
-                    title="Ver mi perfil"
-                    className="flex items-center gap-2 pl-1.5 pr-2 py-1.5 rounded-l-lg"
+                    title="Ir a Mi Perfil"
+                    className="flex items-center gap-2 pl-1.5 pr-2.5 py-1.5 rounded-l-lg"
                   >
                     <span className="h-7 w-7 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-sm font-semibold uppercase">
                       {userEmail?.charAt(0) ?? <User className="h-4 w-4" />}
                     </span>
-                    <span className="hidden lg:block max-w-[120px] truncate text-sm font-medium">
-                      {userEmail?.split("@")[0] ?? "Mi cuenta"}
-                    </span>
+                    <span className="text-sm font-medium">Mi Perfil</span>
                   </Link>
+                  {/* Desplegable con Cerrar sesión debajo del botón */}
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 rounded-l-none"
-                      aria-label="Menú de usuario"
+                      className="h-8 w-8 rounded-l-none border-l border-border"
+                      aria-label="Más opciones de cuenta"
                     >
                       <ChevronDown className="h-4 w-4 text-muted-foreground" />
                     </Button>
@@ -180,7 +179,7 @@ const Navbar = () => {
                   <DropdownMenuItem asChild>
                     <Link href="/mi-cuenta" className="cursor-pointer">
                       <Settings className="mr-2 h-4 w-4" />
-                      Configuracion
+                      Configuración
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -189,7 +188,7 @@ const Navbar = () => {
                     className="cursor-pointer text-red-600 focus:text-red-600"
                   >
                     <LogOut className="mr-2 h-4 w-4" />
-                    Cerrar Sesion
+                    Cerrar sesión
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

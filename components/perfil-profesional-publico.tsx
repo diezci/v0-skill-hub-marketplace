@@ -1,5 +1,7 @@
 "use client"
 
+import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,14 +19,57 @@ import {
   Languages,
   Award,
   Euro,
+  Loader2,
 } from "lucide-react"
+import { crearConversacion } from "@/app/actions/messages"
+import { createClient } from "@/lib/supabase/client"
+import { useToast } from "@/hooks/use-toast"
 
 interface PerfilPublicoProps {
   perfil: any
 }
 
 export default function PerfilProfesionalPublico({ perfil }: PerfilPublicoProps) {
+  const router = useRouter()
+  const { toast } = useToast()
+  const [contactando, setContactando] = useState(false)
   const nombreCompleto = `${perfil.nombre || ""} ${perfil.apellido || ""}`.trim() || "Profesional"
+
+  const handleEnviarMensaje = async () => {
+    setContactando(true)
+    try {
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        router.push("/auth/login")
+        return
+      }
+      if (user.id === perfil.id) {
+        toast({ title: "Es tu propio perfil", description: "No puedes enviarte un mensaje a ti mismo." })
+        return
+      }
+      const result = await crearConversacion({ otroUsuarioId: perfil.id })
+      if (result.error) {
+        toast({ title: "Error", description: result.error, variant: "destructive" })
+      } else {
+        router.push("/mensajes")
+      }
+    } catch (e) {
+      toast({ title: "Error", description: "No se pudo abrir el chat.", variant: "destructive" })
+    } finally {
+      setContactando(false)
+    }
+  }
+
+  const handleLlamar = () => {
+    if (!perfil.telefono) {
+      toast({ title: "Sin teléfono", description: "Este profesional no ha publicado un teléfono de contacto." })
+      return
+    }
+    window.location.href = `tel:${String(perfil.telefono).replace(/\s+/g, "")}`
+  }
   const habilidades: string[] = Array.isArray(perfil.habilidades) ? perfil.habilidades : []
   const certificaciones: string[] = Array.isArray(perfil.certificaciones) ? perfil.certificaciones : []
   const idiomas: string[] = Array.isArray(perfil.idiomas) ? perfil.idiomas : []
@@ -79,10 +124,11 @@ export default function PerfilProfesionalPublico({ perfil }: PerfilPublicoProps)
           </div>
 
           <div className="flex gap-3 mt-5">
-            <Button className="flex-1 sm:flex-none">
-              <MessageSquare className="h-4 w-4 mr-2" /> Enviar mensaje
+            <Button className="flex-1 sm:flex-none" onClick={handleEnviarMensaje} disabled={contactando}>
+              {contactando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MessageSquare className="h-4 w-4 mr-2" />}
+              Enviar mensaje
             </Button>
-            <Button variant="outline" className="flex-1 sm:flex-none bg-transparent">
+            <Button variant="outline" className="flex-1 sm:flex-none bg-transparent" onClick={handleLlamar}>
               <Phone className="h-4 w-4 mr-2" /> Contactar
             </Button>
           </div>

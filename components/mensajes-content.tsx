@@ -837,7 +837,13 @@ export default function MensajesContent() {
 
               {/* Input de mensaje */}
               <div className="p-4 border-t border-border shrink-0">
-                <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    handleSendMessage()
+                  }}
+                  className="flex items-center gap-2"
+                >
                   <input ref={fileInputRef} type="file" className="hidden" accept="image/*,.pdf,.doc,.docx" />
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

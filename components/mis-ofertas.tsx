@@ -1,13 +1,36 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { formatearPrecioEuros } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Clock, CheckCircle2, XCircle, MessageSquare, MapPin, Calendar, Phone, FileText, Loader2 } from "lucide-react"
-import { obtenerOfertasPorProfesional } from "@/app/actions/ofertas"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { Clock, CheckCircle2, XCircle, MessageSquare, MapPin, Calendar, Phone, FileText, Loader2, Pencil, Trash2, Check } from "lucide-react"
+import { obtenerOfertasPorProfesional, actualizarOferta, eliminarOferta } from "@/app/actions/ofertas"
+import { crearConversacion } from "@/app/actions/messages"
+import { useToast } from "@/hooks/use-toast"
 
 type OfertaEstado = "enviada" | "aceptada" | "rechazada" | "en-negociacion"
 
@@ -100,20 +123,85 @@ export default function MisOfertas() {
   const [filtroEstado, setFiltroEstado] = useState<OfertaEstado | "todas">("todas")
   const [ofertas, setOfertas] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [editOferta, setEditOferta] = useState<any>(null)
+  const [editForm, setEditForm] = useState({ precio: "", tiempo_estimado: "", unidad_tiempo: "dias", descripcion: "" })
+  const [deleteOferta, setDeleteOferta] = useState<any>(null)
+  const [actionLoading, setActionLoading] = useState(false)
+  const router = useRouter()
+  const { toast } = useToast()
+
+  async function cargarOfertas() {
+    setLoading(true)
+    const result = await obtenerOfertasPorProfesional()
+    if (result.data && result.data.length > 0) {
+      setOfertas(result.data)
+    } else {
+      setOfertas(MOCK_OFERTAS)
+    }
+    setLoading(false)
+  }
 
   useEffect(() => {
-    async function cargarOfertas() {
-      setLoading(true)
-      const result = await obtenerOfertasPorProfesional()
-      if (result.data && result.data.length > 0) {
-        setOfertas(result.data)
-      } else {
-        setOfertas(MOCK_OFERTAS)
-      }
-      setLoading(false)
-    }
     cargarOfertas()
   }, [])
+
+  const esReal = (oferta: any) => !String(oferta.id).startsWith("oferta-mock")
+
+  const abrirEditar = (oferta: any) => {
+    setEditForm({
+      precio: oferta.precio?.toString() || "",
+      tiempo_estimado: oferta.tiempo_estimado?.toString() || "",
+      unidad_tiempo: oferta.unidad_tiempo || "dias",
+      descripcion: oferta.descripcion || "",
+    })
+    setEditOferta(oferta)
+  }
+
+  const handleGuardarEdicion = async () => {
+    if (!editOferta) return
+    setActionLoading(true)
+    const result = await actualizarOferta(editOferta.id, {
+      precio: editForm.precio ? Number.parseFloat(editForm.precio) : undefined,
+      tiempo_estimado: editForm.tiempo_estimado ? Number.parseInt(editForm.tiempo_estimado, 10) : undefined,
+      unidad_tiempo: editForm.unidad_tiempo,
+      descripcion: editForm.descripcion,
+    })
+    if (result.error) {
+      toast({ title: "Error", description: result.error, variant: "destructive" })
+    } else {
+      toast({ title: "Oferta actualizada", description: "Los cambios se han guardado." })
+      setEditOferta(null)
+      await cargarOfertas()
+    }
+    setActionLoading(false)
+  }
+
+  const handleEliminar = async () => {
+    if (!deleteOferta) return
+    setActionLoading(true)
+    const result = await eliminarOferta(deleteOferta.id)
+    if (result.error) {
+      toast({ title: "Error", description: result.error, variant: "destructive" })
+    } else {
+      toast({ title: "Oferta eliminada", description: "Tu oferta se ha retirado." })
+      setDeleteOferta(null)
+      await cargarOfertas()
+    }
+    setActionLoading(false)
+  }
+
+  const handleContactarCliente = async (clienteId?: string, solicitudId?: string) => {
+    if (!clienteId) {
+      toast({ title: "No disponible", description: "No se pudo identificar al cliente.", variant: "destructive" })
+      return
+    }
+    const result = await crearConversacion({ otroUsuarioId: clienteId, solicitudId })
+    if (result.error) {
+      toast({ title: "Error", description: result.error, variant: "destructive" })
+    } else {
+      router.push("/mensajes")
+    }
+  }
 
   const ofertasFiltradas = filtroEstado === "todas" ? ofertas : ofertas.filter((o) => o.estado === filtroEstado)
 
@@ -246,40 +334,42 @@ export default function MisOfertas() {
                           </div>
                         )}
 
-                        <div className="flex gap-2 pt-2">
-                          {oferta.estado === "enviada" && (
+                        <div className="flex flex-wrap gap-2 pt-2">
+                          {oferta.estado !== "rechazada" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 bg-transparent"
+                              onClick={() => handleContactarCliente(oferta.solicitud?.cliente_id, oferta.solicitud?.id)}
+                            >
+                              <MessageSquare className="h-4 w-4 mr-2" />
+                              Contactar Cliente
+                            </Button>
+                          )}
+
+                          {oferta.estado !== "aceptada" && oferta.estado !== "rechazada" && esReal(oferta) && (
                             <>
-                              <Button variant="outline" size="sm" className="flex-1 bg-transparent">
-                                <MessageSquare className="h-4 w-4 mr-2" />
-                                Contactar Cliente
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 bg-transparent"
+                                onClick={() => abrirEditar(oferta)}
+                              >
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Editar oferta
                               </Button>
-                              <Button variant="outline" size="sm" className="flex-1 bg-transparent">
-                                Modificar Oferta
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 bg-transparent text-destructive border-destructive/40 hover:bg-destructive/10"
+                                onClick={() => setDeleteOferta(oferta)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Eliminar
                               </Button>
                             </>
                           )}
-                          {oferta.estado === "en-negociacion" && (
-                            <>
-                              <Button size="sm" className="flex-1">
-                                <MessageSquare className="h-4 w-4 mr-2" />
-                                Continuar Negociación
-                              </Button>
-                              <Button variant="outline" size="sm" className="flex-1 bg-transparent">
-                                Actualizar Precio
-                              </Button>
-                            </>
-                          )}
-                          {oferta.estado === "aceptada" && (
-                            <>
-                              <Button size="sm" className="flex-1">
-                                <Phone className="h-4 w-4 mr-2" />
-                                Contactar Cliente
-                              </Button>
-                              <Button variant="outline" size="sm" className="flex-1 bg-transparent">
-                                Ver Detalles del Proyecto
-                              </Button>
-                            </>
-                          )}
+
                           {oferta.estado === "rechazada" && (
                             <Button variant="outline" size="sm" className="flex-1 bg-transparent" disabled>
                               Oferta Rechazada
@@ -295,6 +385,91 @@ export default function MisOfertas() {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Editar oferta */}
+      <Dialog open={!!editOferta} onOpenChange={(o) => !o && setEditOferta(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar oferta</DialogTitle>
+            <DialogDescription>Puedes modificar tu oferta mientras no haya sido aceptada.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Precio (€)</label>
+                <Input
+                  type="number"
+                  value={editForm.precio}
+                  onChange={(e) => setEditForm({ ...editForm, precio: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Tiempo estimado</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    className="w-20"
+                    value={editForm.tiempo_estimado}
+                    onChange={(e) => setEditForm({ ...editForm, tiempo_estimado: e.target.value })}
+                  />
+                  <select
+                    className="flex-1 h-9 rounded-md border border-input bg-background px-2 text-sm"
+                    value={editForm.unidad_tiempo}
+                    onChange={(e) => setEditForm({ ...editForm, unidad_tiempo: e.target.value })}
+                  >
+                    <option value="horas">Horas</option>
+                    <option value="dias">Días</option>
+                    <option value="semanas">Semanas</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Descripción</label>
+              <Textarea
+                rows={4}
+                value={editForm.descripcion}
+                onChange={(e) => setEditForm({ ...editForm, descripcion: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" className="bg-transparent" onClick={() => setEditOferta(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleGuardarEdicion} disabled={actionLoading}>
+              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+              Guardar cambios
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmar eliminación */}
+      <AlertDialog open={!!deleteOferta} onOpenChange={(o) => !o && setDeleteOferta(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar esta oferta?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se retirará tu oferta de "{deleteOferta?.solicitud?.titulo}". Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleEliminar()
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={actionLoading}
+            >
+              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

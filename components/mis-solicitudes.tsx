@@ -20,6 +20,7 @@ import {
 } from "lucide-react"
 import { obtenerSolicitudesPorUsuario, actualizarSolicitud, eliminarSolicitud } from "@/app/actions/solicitudes"
 import { aceptarOferta } from "@/app/actions/ofertas"
+import { crearConversacion } from "@/app/actions/messages"
 import { crearTransaccionEscrow, liberarFondosEscrow, rechazarTrabajoYReembolsar } from "@/app/actions/escrow"
 import { obtenerMisTrabajos, actualizarProgresoTrabajo, marcarTrabajoEntregado, confirmarTrabajoCompletado } from "@/app/actions/trabajos"
 import { crearResena } from "@/app/actions/reviews"
@@ -239,6 +240,17 @@ export default function MisSolicitudes() {
       await refrescarSolicitudes()
     }
     setActionLoading(false)
+  }
+
+  const handleContactar = async (otroUsuarioId: string, solicitudId?: string) => {
+    if (!otroUsuarioId) return
+    toast({ title: "Abriendo chat...", description: "Preparando la conversación." })
+    const result = await crearConversacion({ otroUsuarioId, solicitudId })
+    if (result.error) {
+      toast({ title: "Error", description: result.error, variant: "destructive" })
+    } else {
+      router.push("/mensajes")
+    }
   }
 
   const handleBorrar = async () => {
@@ -638,11 +650,16 @@ export default function MisSolicitudes() {
                                       <Check className="h-4 w-4 mr-1" />
                                       Aceptar Oferta
                                     </Button>
-                                    <Button size="sm" variant="outline" className="bg-transparent">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="bg-transparent"
+                                      onClick={() => handleContactar(oferta.profesional_id, solicitud.id)}
+                                    >
                                       <MessageSquare className="h-4 w-4 mr-1" />
                                       Contactar
                                     </Button>
-                                    <Button size="sm" variant="ghost">
+                                    <Button size="sm" variant="ghost" onClick={() => router.push(`/profesional/${oferta.profesional_id}`)}>
                                       <Eye className="h-4 w-4 mr-1" />
                                       Ver Perfil
                                     </Button>
