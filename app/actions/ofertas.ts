@@ -123,6 +123,7 @@ export async function obtenerMisOfertas() {
             solicitud: {
               ...oferta.solicitud,
               cliente,
+              cliente_id: solicitudFull.cliente_id,
             },
           }
         }
@@ -136,6 +137,81 @@ export async function obtenerMisOfertas() {
 
 export async function obtenerOfertasPorProfesional() {
   return obtenerMisOfertas()
+}
+
+export async function actualizarOferta(
+  ofertaId: string,
+  campos: { precio?: number; tiempo_estimado?: number; unidad_tiempo?: string; descripcion?: string },
+) {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  // Solo el profesional dueño y mientras la oferta no esté aceptada.
+  const { data: oferta } = await supabase
+    .from("ofertas")
+    .select("profesional_id, estado")
+    .eq("id", ofertaId)
+    .maybeSingle()
+
+  if (!oferta || oferta.profesional_id !== user.id) {
+    return { error: "No tienes permiso para editar esta oferta." }
+  }
+  if (oferta.estado === "aceptada") {
+    return { error: "No puedes editar una oferta que ya ha sido aceptada." }
+  }
+
+  const { data, error } = await supabase
+    .from("ofertas")
+    .update({
+      precio: campos.precio,
+      tiempo_estimado: campos.tiempo_estimado,
+      unidad_tiempo: campos.unidad_tiempo,
+      descripcion: campos.descripcion,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", ofertaId)
+    .eq("profesional_id", user.id)
+    .select()
+    .single()
+
+  if (error) return { error: error.message }
+
+  revalidatePath("/mis-trabajos")
+  revalidatePath("/demandas")
+  return { data }
+}
+
+export async function eliminarOferta(ofertaId: string) {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: oferta } = await supabase
+    .from("ofertas")
+    .select("profesional_id, estado, solicitud_id")
+    .eq("id", ofertaId)
+    .maybeSingle()
+
+  if (!oferta || oferta.profesional_id !== user.id) {
+    return { error: "No tienes permiso para eliminar esta oferta." }
+  }
+  if (oferta.estado === "aceptada") {
+    return { error: "No puedes eliminar una oferta que ya ha sido aceptada." }
+  }
+
+  const { error } = await supabase.from("ofertas").delete().eq("id", ofertaId).eq("profesional_id", user.id)
+  if (error) return { error: error.message }
+
+  revalidatePath("/mis-trabajos")
+  revalidatePath("/demandas")
+  return { success: true }
 }
 
 export async function aceptarOferta(ofertaId: string) {
