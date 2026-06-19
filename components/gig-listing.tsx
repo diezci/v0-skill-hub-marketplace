@@ -1,6 +1,7 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
+import { obtenerProfesionales } from "@/app/actions/profiles"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -237,13 +238,52 @@ interface GigListingProps {
   filtros?: ProfesionalesFiltros
 }
 
+const FALLBACK_IMG =
+  "https://images.unsplash.com/photo-1504307651254-35680f356dfd?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80"
+
 const GigListing = ({ filtros }: GigListingProps) => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [sortBy, setSortBy] = useState("recommended")
+  const [realGigs, setRealGigs] = useState<typeof gigs>([])
+
+  useEffect(() => {
+    async function cargar() {
+      const result = await obtenerProfesionales()
+      if (!result.data) return
+      const mapped = result.data.map((p: any) => {
+        const nombre = `${p.perfil?.nombre || ""} ${p.perfil?.apellido || ""}`.trim() || "Profesional"
+        const habilidades = Array.isArray(p.habilidades) ? p.habilidades : []
+        return {
+          id: p.id,
+          title: p.titulo || nombre,
+          description: p.perfil?.bio || p.titulo || "Profesional verificado en Diime",
+          price: Number(p.tarifa_por_hora) || 0,
+          category: habilidades[0] || "",
+          provincia: p.perfil?.ubicacion || "",
+          image: p.perfil?.foto_perfil || FALLBACK_IMG,
+          rating: Number(p.rating_promedio) || 0,
+          reviews: p.total_reseñas || 0,
+          freelancer: {
+            name: nombre,
+            avatar: p.perfil?.foto_perfil || "",
+            level: p.perfil?.verificado ? "Experto Verificado" : "Profesional",
+          },
+        }
+      })
+      setRealGigs(mapped as any)
+    }
+    cargar()
+  }, [])
+
+  // Profesionales reales primero; los de ejemplo se mantienen para dar volumen.
+  const todos = useMemo(() => {
+    const idsReales = new Set(realGigs.map((g) => String(g.id)))
+    return [...realGigs, ...gigs.filter((g) => !idsReales.has(String(g.id)))]
+  }, [realGigs])
 
   const filtered = useMemo(() => {
-    if (!filtros) return gigs
-    let list = gigs.filter((g) => {
+    if (!filtros) return todos
+    let list = todos.filter((g) => {
       // Provincia
       if (filtros.provincia && g.provincia.toLowerCase() !== filtros.provincia.toLowerCase()) {
         return false
@@ -283,11 +323,11 @@ const GigListing = ({ filtros }: GigListingProps) => {
         list = [...list].sort((a, b) => b.rating - a.rating)
         break
       case "newest":
-        list = [...list].sort((a, b) => b.id - a.id)
+        list = [...list].sort((a, b) => String(b.id).localeCompare(String(a.id)))
         break
     }
     return list
-  }, [filtros, sortBy])
+  }, [filtros, sortBy, todos])
 
   return (
     <div className="space-y-6">
