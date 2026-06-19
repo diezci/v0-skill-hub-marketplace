@@ -1,14 +1,13 @@
 import type { Metadata } from "next"
 import MisSolicitudes from "@/components/mis-solicitudes"
 import MisOfertas from "@/components/mis-ofertas"
-import MisTrabajos from "@/components/mis-trabajos"
 import EditarPerfil from "@/components/editar-perfil"
 import PortfolioManager from "@/components/portfolio-manager"
 import LogoutButton from "@/components/logout-button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { User, FileText, Settings, Briefcase, Hammer, MessageSquare } from "lucide-react"
+import { User, FileText, Settings, Briefcase, MessageSquare } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 
@@ -39,7 +38,7 @@ export default async function MiCuentaPage() {
       </div>
 
       <Tabs defaultValue="solicitudes" className="space-y-6">
-        <TabsList className={`grid w-full ${isProfesional ? "grid-cols-6" : "grid-cols-4"} lg:w-auto`}>
+        <TabsList className={`grid w-full ${isProfesional ? "grid-cols-5" : "grid-cols-3"} lg:w-auto`}>
           <TabsTrigger value="solicitudes" className="gap-2">
             <FileText className="h-4 w-4" />
             <span className="hidden sm:inline">Solicitudes</span>
@@ -52,11 +51,6 @@ export default async function MiCuentaPage() {
               <span className="sm:hidden">Ofertas</span>
             </TabsTrigger>
           )}
-          <TabsTrigger value="trabajos" className="gap-2">
-            <Hammer className="h-4 w-4" />
-            <span className="hidden sm:inline">Trabajos</span>
-            <span className="sm:hidden">Trabajos</span>
-          </TabsTrigger>
           <TabsTrigger value="perfil" className="gap-2">
             <User className="h-4 w-4" />
             <span className="hidden sm:inline">Perfil</span>
@@ -85,10 +79,6 @@ export default async function MiCuentaPage() {
             <MisOfertas />
           </TabsContent>
         )}
-
-        <TabsContent value="trabajos" className="space-y-4">
-          <MisTrabajos />
-        </TabsContent>
 
         <TabsContent value="perfil" className="space-y-4">
           <EditarPerfil />
