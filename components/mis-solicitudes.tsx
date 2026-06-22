@@ -22,7 +22,7 @@ import { obtenerSolicitudesPorUsuario, actualizarSolicitud, eliminarSolicitud } 
 import { aceptarOferta } from "@/app/actions/ofertas"
 import { crearConversacion } from "@/app/actions/messages"
 import { crearTransaccionEscrow, liberarFondosEscrow, rechazarTrabajoYReembolsar } from "@/app/actions/escrow"
-import { obtenerMisTrabajos, actualizarProgresoTrabajo, marcarTrabajoEntregado, confirmarTrabajoCompletado } from "@/app/actions/trabajos"
+import { obtenerMisTrabajos, actualizarProgresoTrabajo, marcarTrabajoEntregado, confirmarTrabajoCompletado, cancelarTrabajo } from "@/app/actions/trabajos"
 import { crearResena } from "@/app/actions/reviews"
 import { calcularTotalCliente, calcularReembolsoCliente, PLATFORM_CONFIG } from "@/lib/comisiones"
 import { useToast } from "@/hooks/use-toast"
@@ -197,6 +197,7 @@ export default function MisSolicitudes() {
     urgencia: "media",
   })
   const [deleteSolicitud, setDeleteSolicitud] = useState<any>(null)
+  const [cancelTrabajo, setCancelTrabajo] = useState<any>(null)
   const { toast } = useToast()
   const router = useRouter()
 
@@ -242,15 +243,32 @@ export default function MisSolicitudes() {
     setActionLoading(false)
   }
 
-  const handleContactar = async (otroUsuarioId: string, solicitudId?: string) => {
-    if (!otroUsuarioId) return
+  const handleContactar = async (otroUsuarioId: string, solicitudId?: string, trabajoId?: string) => {
+    if (!otroUsuarioId) {
+      toast({ title: "No disponible", description: "No se pudo identificar al destinatario.", variant: "destructive" })
+      return
+    }
     toast({ title: "Abriendo chat...", description: "Preparando la conversación." })
-    const result = await crearConversacion({ otroUsuarioId, solicitudId })
+    const result = await crearConversacion({ otroUsuarioId, solicitudId, trabajoId })
     if (result.error) {
       toast({ title: "Error", description: result.error, variant: "destructive" })
     } else {
-      router.push("/mensajes")
+      router.push(result.data?.id ? `/mensajes?c=${result.data.id}` : "/mensajes")
     }
+  }
+
+  const handleCancelarTrabajo = async () => {
+    if (!cancelTrabajo) return
+    setActionLoading(true)
+    const result = await cancelarTrabajo(cancelTrabajo.id, "Cancelación de común acuerdo")
+    if (result.error) {
+      toast({ title: "Error", description: result.error, variant: "destructive" })
+    } else {
+      toast({ title: "Trabajo cancelado", description: "El trabajo ha sido cancelado." })
+      setCancelTrabajo(null)
+      await refrescarSolicitudes()
+    }
+    setActionLoading(false)
   }
 
   const handleBorrar = async () => {
@@ -751,11 +769,31 @@ export default function MisSolicitudes() {
                           <span>{trabajo?.profesional?.rating}</span>
                         </div>
                       </div>
-                      <Button variant="outline" size="sm" className="bg-transparent">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="bg-transparent"
+                        onClick={() => handleContactar(trabajo?.profesional_id, solicitud.id, trabajo?.id)}
+                      >
                         <MessageSquare className="h-4 w-4 mr-1" />
                         Mensaje
                       </Button>
                     </div>
+
+                    {/* Cancelar trabajo (mientras no se haya pagado, de común acuerdo) */}
+                    {trabajo?.estado === "pendiente_pago" && (
+                      <div className="flex justify-end">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-transparent text-destructive border-destructive/40 hover:bg-destructive/10"
+                          onClick={() => setCancelTrabajo(trabajo)}
+                        >
+                          <XCircle className="h-4 w-4 mr-1" />
+                          Cancelar trabajo
+                        </Button>
+                      </div>
+                    )}
 
                     {/* Progress Section */}
                     <div className="space-y-3">
@@ -1175,6 +1213,33 @@ export default function MisSolicitudes() {
             >
               {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
               Borrar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmar cancelación de trabajo */}
+      <AlertDialog open={!!cancelTrabajo} onOpenChange={(o) => !o && setCancelTrabajo(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Cancelar el trabajo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se cancelará "{cancelTrabajo?.titulo}" y la solicitud volverá a estar abierta. Como aún no se ha
+              realizado el pago, no hay cargos. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Volver</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleCancelarTrabajo()
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={actionLoading}
+            >
+              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
+              Cancelar trabajo
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
