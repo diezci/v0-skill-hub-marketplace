@@ -54,7 +54,7 @@ export default function PerfilProfesionalPublico({ perfil }: PerfilPublicoProps)
       if (result.error) {
         toast({ title: "Error", description: result.error, variant: "destructive" })
       } else {
-        router.push("/mensajes")
+        router.push(result.data?.id ? `/mensajes?c=${result.data.id}` : "/mensajes")
       }
     } catch (e) {
       toast({ title: "Error", description: "No se pudo abrir el chat.", variant: "destructive" })
