@@ -39,7 +39,19 @@ import {
   obtenerMisTrabajos,
   actualizarProgresoTrabajo,
   marcarTrabajoEntregado,
+  cancelarTrabajo,
 } from "@/app/actions/trabajos"
+import { crearConversacion } from "@/app/actions/messages"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import {
@@ -158,6 +170,7 @@ export default function MisTrabajosPage() {
   const [deliveryMessage, setDeliveryMessage] = useState("")
   const [updating, setUpdating] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [cancelTrabajoObj, setCancelTrabajoObj] = useState<any>(null)
   const { toast } = useToast()
   const router = useRouter()
 
@@ -243,6 +256,33 @@ export default function MisTrabajosPage() {
   const openDeliveryDialog = (trabajo: any) => {
     setSelectedTrabajo(trabajo)
     setDeliveryDialogOpen(true)
+  }
+
+  const handleContactarCliente = async (trabajo: any) => {
+    if (!trabajo?.cliente_id) {
+      toast({ title: "No disponible", description: "No se pudo identificar al cliente.", variant: "destructive" })
+      return
+    }
+    const result = await crearConversacion({ otroUsuarioId: trabajo.cliente_id, trabajoId: trabajo.id })
+    if (result.error) {
+      toast({ title: "Error", description: result.error, variant: "destructive" })
+    } else {
+      router.push(result.data?.id ? `/mensajes?c=${result.data.id}` : "/mensajes")
+    }
+  }
+
+  const handleCancelarTrabajo = async () => {
+    if (!cancelTrabajoObj) return
+    setUpdating(true)
+    const result = await cancelarTrabajo(cancelTrabajoObj.id, "Cancelación de común acuerdo")
+    if (result.error) {
+      toast({ title: "Error", description: result.error, variant: "destructive" })
+    } else {
+      toast({ title: "Trabajo cancelado", description: "El trabajo ha sido cancelado." })
+      setCancelTrabajoObj(null)
+      loadTrabajos()
+    }
+    setUpdating(false)
   }
 
   const formatDate = (date: string) => {
@@ -396,6 +436,8 @@ export default function MisTrabajosPage() {
                   trabajo={trabajo}
                   onUpdateProgress={() => openUpdateDialog(trabajo)}
                   onMarkDelivered={() => openDeliveryDialog(trabajo)}
+                  onContactar={() => handleContactarCliente(trabajo)}
+                  onCancelar={() => setCancelTrabajoObj(trabajo)}
                   formatDate={formatDate}
                   formatCurrency={formatCurrency}
                   getDaysRemaining={getDaysRemaining}
@@ -419,6 +461,7 @@ export default function MisTrabajosPage() {
                 <TrabajoCard
                   key={trabajo.id}
                   trabajo={trabajo}
+                  onContactar={() => handleContactarCliente(trabajo)}
                   formatDate={formatDate}
                   formatCurrency={formatCurrency}
                   getDaysRemaining={getDaysRemaining}
@@ -443,6 +486,7 @@ export default function MisTrabajosPage() {
                 <TrabajoCard
                   key={trabajo.id}
                   trabajo={trabajo}
+                  onContactar={() => handleContactarCliente(trabajo)}
                   formatDate={formatDate}
                   formatCurrency={formatCurrency}
                   getDaysRemaining={getDaysRemaining}
@@ -612,6 +656,33 @@ export default function MisTrabajosPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Confirmar cancelación de trabajo */}
+        <AlertDialog open={!!cancelTrabajoObj} onOpenChange={(o) => !o && setCancelTrabajoObj(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Cancelar el trabajo?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Se cancelará "{cancelTrabajoObj?.titulo}". Como el cliente aún no ha realizado el pago, no hay cargos.
+                Esta acción no se puede deshacer.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Volver</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault()
+                  handleCancelarTrabajo()
+                }}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={updating}
+              >
+                {updating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
+                Cancelar trabajo
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   )
@@ -621,6 +692,8 @@ function TrabajoCard({
   trabajo,
   onUpdateProgress,
   onMarkDelivered,
+  onContactar,
+  onCancelar,
   formatDate,
   formatCurrency,
   getDaysRemaining,
@@ -630,6 +703,8 @@ function TrabajoCard({
   trabajo: any
   onUpdateProgress?: () => void
   onMarkDelivered?: () => void
+  onContactar?: () => void
+  onCancelar?: () => void
   formatDate: (date: string) => string
   formatCurrency: (amount: number) => string
   getDaysRemaining: (date: string) => number
@@ -746,7 +821,7 @@ function TrabajoCard({
           </div>
 
           {/* Actions Sidebar */}
-          {(onUpdateProgress || onMarkDelivered || showPendingConfirmation) && (
+          {(onUpdateProgress || onMarkDelivered || onContactar || showPendingConfirmation) && (
             <div className="lg:w-56 p-6 bg-muted/30 border-t lg:border-t-0 lg:border-l flex flex-col gap-3">
               {trabajo.estado === "en_progreso" && onUpdateProgress && (
                 <>
@@ -763,11 +838,22 @@ function TrabajoCard({
                 </>
               )}
               {trabajo.estado === "pendiente_pago" && (
-                <div className="text-center py-4">
+                <div className="text-center py-4 space-y-3">
                   <CreditCard className="h-8 w-8 mx-auto text-amber-500 mb-2" />
                   <p className="text-sm text-muted-foreground">
                     El proyecto iniciará cuando el cliente realice el pago
                   </p>
+                  {onCancelar && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full bg-transparent text-destructive border-destructive/40 hover:bg-destructive/10"
+                      onClick={onCancelar}
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Cancelar trabajo
+                    </Button>
+                  )}
                 </div>
               )}
               {showPendingConfirmation && (
@@ -781,7 +867,7 @@ function TrabajoCard({
                   </p>
                 </div>
               )}
-              <Button variant="ghost" size="sm" className="w-full">
+              <Button variant="ghost" size="sm" className="w-full" onClick={onContactar}>
                 <MessageSquare className="h-4 w-4 mr-2" />
                 Contactar Cliente
               </Button>

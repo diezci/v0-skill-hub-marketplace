@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -205,6 +206,8 @@ export default function MensajesContent() {
   const [loadingMessages, setLoadingMessages] = useState(true) // Added state for message loading
   const [newMessage, setNewMessage] = useState("") // State for new message input
   const [sendingMessage, setSendingMessage] = useState(false) // State for sending message indicator
+  const searchParams = useSearchParams()
+  const [autoSelectDone, setAutoSelectDone] = useState(false)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -259,13 +262,30 @@ export default function MensajesContent() {
     setShowMobileChat(true)
     setLoadingMessages(true) // Set loading state before fetching messages
     const result = await obtenerMensajes(conv.id)
-    if (result.data && result.data.length > 0) {
+    // Mostrar los mensajes reales (aunque sean 0: conversación nueva sin mensajes).
+    // Solo usar datos de ejemplo si es una conversación de ejemplo (id no-UUID).
+    if (result.data) {
       setMessages(result.data as Message[])
-    } else {
+    } else if (String(conv.id).startsWith("conv-")) {
       setMessages(MOCK_MESSAGES)
+    } else {
+      setMessages([])
     }
     setLoadingMessages(false) // Set loading state to false after fetching messages
   }
+
+  // Si llegamos con ?c=<id>, abrir esa conversación automáticamente.
+  useEffect(() => {
+    if (autoSelectDone || loading) return
+    const convId = searchParams?.get("c")
+    if (!convId) return
+    const target = conversations.find((c) => String(c.id) === convId)
+    if (target) {
+      handleSelectConversation(target)
+      setAutoSelectDone(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversations, loading, searchParams, autoSelectDone])
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation) return
