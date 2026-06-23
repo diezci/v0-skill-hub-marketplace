@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Menu, X, User, Search, Megaphone, Inbox, MessageSquare, FolderKanban, LogOut, Settings, UserCircle, ChevronDown } from "lucide-react"
+import { Menu, X, User, Search, Megaphone, Inbox, MessageSquare, FolderKanban, LogOut, Settings, UserCircle, ChevronDown, Scale } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import {
@@ -22,6 +22,7 @@ const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
 
@@ -41,20 +42,34 @@ const Navbar = () => {
       return
     }
 
+    const aplicarSesion = async (user: { id: string; email?: string } | null) => {
+      setIsAuthenticated(!!user)
+      setUserEmail(user?.email ?? null)
+      if (!user) {
+        setIsAdmin(false)
+        return
+      }
+      // Comprobar si el usuario es empleado de Diime para mostrar el acceso al panel.
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("es_admin")
+        .eq("id", user.id)
+        .maybeSingle()
+      setIsAdmin(!!profile?.es_admin)
+    }
+
     const checkAuth = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession()
-      setIsAuthenticated(!!session?.user)
-      setUserEmail(session?.user?.email ?? null)
+      aplicarSesion(session?.user ?? null)
     }
     checkAuth()
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(!!session?.user)
-      setUserEmail(session?.user?.email ?? null)
+      aplicarSesion(session?.user ?? null)
     })
 
     return () => subscription.unsubscribe()
@@ -69,6 +84,7 @@ const Navbar = () => {
     }
     setIsAuthenticated(false)
     setUserEmail(null)
+    setIsAdmin(false)
     setIsOpen(false)
     router.push("/")
     router.refresh()
@@ -170,6 +186,20 @@ const Navbar = () => {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link
+                          href="/admin/disputas"
+                          className="cursor-pointer text-amber-600 focus:text-amber-600 font-medium"
+                        >
+                          <Scale className="mr-2 h-4 w-4" />
+                          Panel de disputas
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
                   <DropdownMenuItem asChild>
                     <Link href="/mi-perfil" className="cursor-pointer">
                       <UserCircle className="mr-2 h-4 w-4" />
@@ -255,6 +285,16 @@ const Navbar = () => {
                     <p className="px-4 pb-2 text-xs text-muted-foreground truncate">
                       {userEmail}
                     </p>
+                  )}
+                  {isAdmin && (
+                    <Link
+                      href="/admin/disputas"
+                      onClick={() => setIsOpen(false)}
+                      className="px-4 py-3 rounded-lg text-sm font-medium text-amber-600 hover:bg-amber-500/10 flex items-center gap-3"
+                    >
+                      <Scale className="h-5 w-5 shrink-0" />
+                      Panel de disputas
+                    </Link>
                   )}
                   <Link
                     href="/mi-perfil"
