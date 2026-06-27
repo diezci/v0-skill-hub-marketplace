@@ -34,6 +34,7 @@ import {
   Briefcase,
   DollarSign,
   CheckCheck,
+  Scale,
 } from "lucide-react"
 import {
   obtenerMisTrabajos,
@@ -63,8 +64,9 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { createClient } from "@/lib/supabase/client"
+import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
 
-type EstadoTrabajo = "pendiente_pago" | "en_progreso" | "entregado" | "completado" | "cancelado"
+type EstadoTrabajo = "pendiente_pago" | "en_progreso" | "entregado" | "completado" | "cancelado" | "en_disputa"
 
 const estadoTrabajoConfig: Record<
   EstadoTrabajo,
@@ -99,6 +101,12 @@ const estadoTrabajoConfig: Record<
     color: "bg-red-500",
     icon: XCircle,
     description: "Trabajo cancelado",
+  },
+  en_disputa: {
+    label: "En disputa",
+    color: "bg-amber-500",
+    icon: Scale,
+    description: "En revisión por el equipo de Diime",
   },
 }
 
@@ -310,7 +318,8 @@ export default function MisTrabajosPage() {
   }
 
   const trabajosPendientePago = trabajos.filter((t) => t.estado === "pendiente_pago")
-  const trabajosEnProgreso = trabajos.filter((t) => t.estado === "en_progreso")
+  // Los trabajos en disputa se muestran junto a los activos para que no desaparezcan de la vista.
+  const trabajosEnProgreso = trabajos.filter((t) => t.estado === "en_progreso" || t.estado === "en_disputa")
   const trabajosEntregados = trabajos.filter((t) => t.estado === "entregado")
   const trabajosCompletados = trabajos.filter((t) => t.estado === "completado")
 
@@ -867,10 +876,36 @@ function TrabajoCard({
                   </p>
                 </div>
               )}
+              {trabajo.estado === "en_disputa" && (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-center">
+                  <Scale className="h-7 w-7 mx-auto text-amber-600 mb-1.5" />
+                  <p className="text-sm font-medium text-amber-700 dark:text-amber-400">Trabajo en disputa</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    El equipo de Diime lo está revisando. El pago queda retenido hasta la resolución.
+                  </p>
+                </div>
+              )}
               <Button variant="ghost" size="sm" className="w-full" onClick={onContactar}>
                 <MessageSquare className="h-4 w-4 mr-2" />
                 Contactar Cliente
               </Button>
+              {/* El proveedor puede abrir disputa cuando ya entregó y el cliente no confirma. */}
+              {trabajo.estado === "entregado" && (
+                <AbrirDisputaDialog
+                  trabajoId={trabajo.id}
+                  rol="proveedor"
+                  trigger={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full bg-transparent text-amber-600 border-amber-500/40 hover:bg-amber-500/10"
+                    >
+                      <Scale className="h-4 w-4 mr-2" />
+                      Abrir disputa
+                    </Button>
+                  }
+                />
+              )}
             </div>
           )}
 
