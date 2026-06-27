@@ -16,7 +16,7 @@ import { Separator } from "@/components/ui/separator"
 import { 
   Clock, CheckCircle2, XCircle, Loader2, Calendar, MapPin, Euro, MessageSquare, FileText,
   CreditCard, AlertCircle, Send, Check, Star, ChevronRight, ArrowRight, Package,
-  Banknote, ShieldCheck, Timer, TrendingUp, User, Building, Eye, Pencil, Trash2
+  Banknote, ShieldCheck, Timer, TrendingUp, User, Building, Eye, Pencil, Trash2, Scale
 } from "lucide-react"
 import { obtenerSolicitudesPorUsuario, actualizarSolicitud, eliminarSolicitud } from "@/app/actions/solicitudes"
 import { aceptarOferta } from "@/app/actions/ofertas"
@@ -24,6 +24,7 @@ import { crearConversacion } from "@/app/actions/messages"
 import { crearTransaccionEscrow, liberarFondosEscrow, rechazarTrabajoYReembolsar } from "@/app/actions/escrow"
 import { obtenerMisTrabajos, actualizarProgresoTrabajo, marcarTrabajoEntregado, confirmarTrabajoCompletado, cancelarTrabajo } from "@/app/actions/trabajos"
 import { crearResena } from "@/app/actions/reviews"
+import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
 import { calcularTotalCliente, calcularReembolsoCliente, PLATFORM_CONFIG } from "@/lib/comisiones"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
@@ -795,6 +796,20 @@ export default function MisSolicitudes() {
                       </div>
                     )}
 
+                    {/* Trabajo en disputa: en revisión por el equipo */}
+                    {trabajo?.estado === "en_disputa" && (
+                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 flex items-start gap-3">
+                        <Scale className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="font-semibold text-amber-700 dark:text-amber-400">Trabajo en disputa</p>
+                          <p className="text-sm text-muted-foreground">
+                            El equipo de Diime está revisando el caso. El pago queda retenido hasta que se resuelva
+                            (reembolso al cliente o liberación al profesional).
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Progress Section */}
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
@@ -863,6 +878,13 @@ export default function MisSolicitudes() {
                       </div>
                     )}
 
+                    {/* Abrir disputa mientras el trabajo está en curso (servicio no realizado o va mal) */}
+                    {trabajo?.estado === "en_progreso" && (
+                      <div className="flex justify-end">
+                        <AbrirDisputaDialog trabajoId={trabajo.id} rol="cliente" />
+                      </div>
+                    )}
+
                     {/* Action Buttons */}
                     {esEntregado && (
                       <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4 space-y-3">
@@ -903,8 +925,8 @@ export default function MisSolicitudes() {
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             className="bg-transparent text-destructive border-destructive/50 hover:bg-destructive/10"
                             onClick={() => {
                               setSelectedTrabajo(trabajo)
@@ -914,6 +936,19 @@ export default function MisSolicitudes() {
                             <XCircle className="h-4 w-4 mr-1" />
                             Rechazar y Solicitar Reembolso
                           </Button>
+                        </div>
+                        <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground pt-1">
+                          <span>¿No llegáis a un acuerdo?</span>
+                          <AbrirDisputaDialog
+                            trabajoId={trabajo.id}
+                            rol="cliente"
+                            trigger={
+                              <button type="button" className="font-medium text-amber-600 hover:underline inline-flex items-center gap-1">
+                                <Scale className="h-3.5 w-3.5" />
+                                Abrir disputa
+                              </button>
+                            }
+                          />
                         </div>
                       </div>
                     )}

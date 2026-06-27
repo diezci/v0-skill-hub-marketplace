@@ -21,6 +21,10 @@ async function requireAdmin(supabase: any) {
   return { user }
 }
 
+// Estados de trabajo en los que tiene sentido abrir una disputa: el pago ya
+// está retenido en el escrow (cliente pagó) y el trabajo aún no se ha cerrado.
+const ESTADOS_DISPUTABLES = ["en_progreso", "entregado"] as const
+
 export async function crearDisputa(data: {
   trabajo_id: string
   motivo: string
@@ -30,6 +34,9 @@ export async function crearDisputa(data: {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { error: "No autenticado" }
+
+  const motivo = data.motivo?.trim()
+  if (!motivo) return { error: "Describe el motivo de la disputa." }
 
   const { data: trabajo } = await supabase
     .from("trabajos")
@@ -41,6 +48,29 @@ export async function crearDisputa(data: {
     return { error: "No tienes permiso para crear una disputa en este trabajo" }
   }
 
+  // Solo cuando hay dinero retenido y el trabajo sigue activo.
+  if (trabajo.estado === "en_disputa") {
+    return { error: "Ya hay una disputa abierta para este trabajo." }
+  }
+  if (trabajo.estado === "pendiente_pago") {
+    return {
+      error:
+        "Aún no se ha realizado el pago, así que no hay fondos en custodia. Si el cliente no paga, cancela el trabajo en su lugar.",
+    }
+  }
+  if (!ESTADOS_DISPUTABLES.includes(trabajo.estado)) {
+    return { error: "Este trabajo ya está cerrado y no admite disputas." }
+  }
+
+  // Evitar disputas duplicadas para el mismo trabajo.
+  const { data: existente } = await supabase
+    .from("disputas")
+    .select("id")
+    .eq("trabajo_id", data.trabajo_id)
+    .eq("estado", "abierta")
+    .maybeSingle()
+  if (existente) return { error: "Ya hay una disputa abierta para este trabajo." }
+
   const tipo = trabajo.cliente_id === user.id ? "cliente" : "proveedor"
 
   const { data: disputa, error } = await supabase
@@ -50,7 +80,7 @@ export async function crearDisputa(data: {
       cliente_id: trabajo.cliente_id,
       profesional_id: trabajo.profesional_id,
       tipo,
-      motivo: data.motivo,
+      motivo,
       estado: "abierta",
     })
     .select()
@@ -58,11 +88,13 @@ export async function crearDisputa(data: {
 
   if (error) return { error: error.message }
 
-  // Marcar el trabajo y el escrow como en disputa.
+  // Marcar el trabajo y el escrow como en disputa (congela los fondos).
   await supabase.from("trabajos").update({ estado: "en_disputa" }).eq("id", data.trabajo_id)
   await supabase.from("transacciones_escrow").update({ estado: "disputa" }).eq("trabajo_id", data.trabajo_id)
 
   revalidatePath("/admin/disputas")
+  revalidatePath("/mis-trabajos")
+  revalidatePath("/mis-solicitudes")
   return { data: disputa }
 }
 
