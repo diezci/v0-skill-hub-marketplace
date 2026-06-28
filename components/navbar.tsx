@@ -75,6 +75,14 @@ const Navbar = () => {
     return () => subscription.unsubscribe()
   }, [])
 
+  // Los admins solo deben ver el panel de administración: si están autenticados
+  // como admin y navegan a una página de usuario, se les lleva a /admin.
+  useEffect(() => {
+    if (isAdmin && pathname && !pathname.startsWith("/admin") && !pathname.startsWith("/auth")) {
+      router.replace("/admin")
+    }
+  }, [isAdmin, pathname, router])
+
   const handleLogout = async () => {
     try {
       const supabase = createClient()
@@ -107,6 +115,10 @@ const Navbar = () => {
     },
     { name: "Mensajes", path: "/mensajes", icon: MessageSquare, shortName: "Mensajes" },
   ]
+
+  // Los perfiles admin no ven el navbar público (el panel /admin tiene su propia
+  // navegación). Así su experiencia es exclusivamente la vista de administración.
+  if (isAdmin) return null
 
   return (
     <header
