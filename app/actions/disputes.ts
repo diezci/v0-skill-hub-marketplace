@@ -40,7 +40,7 @@ export async function crearDisputa(data: {
 
   const { data: trabajo } = await supabase
     .from("trabajos")
-    .select("cliente_id, profesional_id, estado")
+    .select("cliente_id, profesional_id, estado, cancelacion_estado, cancelacion_solicitada_por")
     .eq("id", data.trabajo_id)
     .maybeSingle()
 
@@ -48,18 +48,27 @@ export async function crearDisputa(data: {
     return { error: "No tienes permiso para crear una disputa en este trabajo" }
   }
 
-  // Solo cuando hay dinero retenido y el trabajo sigue activo.
+  // Caso especial: el solicitante de una cancelación que ha sido RECHAZADA puede
+  // abrir disputa aunque el trabajo siga en 'pendiente_pago' (mediación sin dinero).
+  const esDisputaPorCancelacion =
+    trabajo.estado === "pendiente_pago" &&
+    trabajo.cancelacion_estado === "rechazada" &&
+    trabajo.cancelacion_solicitada_por === user.id
+
   if (trabajo.estado === "en_disputa") {
     return { error: "Ya hay una disputa abierta para este trabajo." }
   }
-  if (trabajo.estado === "pendiente_pago") {
-    return {
-      error:
-        "Aún no se ha realizado el pago, así que no hay fondos en custodia. Si el cliente no paga, cancela el trabajo en su lugar.",
+  if (!esDisputaPorCancelacion) {
+    // Resto de casos: solo cuando hay dinero retenido y el trabajo sigue activo.
+    if (trabajo.estado === "pendiente_pago") {
+      return {
+        error:
+          "Aún no se ha realizado el pago, así que no hay fondos en custodia. Si el cliente no paga, cancela el trabajo en su lugar.",
+      }
     }
-  }
-  if (!ESTADOS_DISPUTABLES.includes(trabajo.estado)) {
-    return { error: "Este trabajo ya está cerrado y no admite disputas." }
+    if (!ESTADOS_DISPUTABLES.includes(trabajo.estado)) {
+      return { error: "Este trabajo ya está cerrado y no admite disputas." }
+    }
   }
 
   // Evitar disputas duplicadas para el mismo trabajo.
