@@ -584,7 +584,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="tarifa">Tarifa por hora (â¬)</Label>
+                        <Label htmlFor="tarifa">Tarifa por hora (€)</Label>
                         <Input
                           id="tarifa"
                           type="number"
