@@ -1,15 +1,19 @@
 "use client"
 
 import { useMemo, useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { obtenerProfesionales } from "@/app/actions/profiles"
+import { crearConversacion } from "@/app/actions/messages"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Star, Grid3X3, List, MapPin } from "lucide-react"
+import { Star, Grid3X3, List, MapPin, MessageSquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+import { createClient } from "@/lib/supabase/client"
+import { useToast } from "@/hooks/use-toast"
 import type { ProfesionalesFiltros } from "@/components/profesionales-content"
 
 const gigs = [
@@ -245,6 +249,39 @@ const GigListing = ({ filtros }: GigListingProps) => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [sortBy, setSortBy] = useState("recommended")
   const [realGigs, setRealGigs] = useState<typeof gigs>([])
+  const [enviando, setEnviando] = useState<string | null>(null)
+  const router = useRouter()
+  const { toast } = useToast()
+
+  // Escribir directamente a un profesional real desde la tarjeta.
+  const handleMensaje = async (e: React.MouseEvent, profesionalId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setEnviando(profesionalId)
+    try {
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        toast({ title: "Inicia sesión", description: "Necesitas una cuenta para escribir a un profesional." })
+        router.push("/auth/login")
+        return
+      }
+      if (user.id === profesionalId) {
+        toast({ title: "Eres tú", description: "No puedes escribirte a ti mismo." })
+        return
+      }
+      const res = await crearConversacion({ otroUsuarioId: profesionalId })
+      if (res.error || !res.data?.id) {
+        toast({ title: "Error", description: res.error || "No se pudo abrir el chat.", variant: "destructive" })
+        return
+      }
+      router.push(`/mensajes?c=${res.data.id}`)
+    } finally {
+      setEnviando(null)
+    }
+  }
 
   useEffect(() => {
     async function cargar() {
@@ -263,6 +300,7 @@ const GigListing = ({ filtros }: GigListingProps) => {
           image: p.perfil?.foto_perfil || FALLBACK_IMG,
           rating: Number(p.rating_promedio) || 0,
           reviews: p.total_reseñas || 0,
+          esReal: true,
           freelancer: {
             name: nombre,
             avatar: p.perfil?.foto_perfil || "",
@@ -429,9 +467,23 @@ const GigListing = ({ filtros }: GigListingProps) => {
                     </span>
                   </div>
                 </CardContent>
-                <CardFooter className="p-6 pt-0 border-t flex justify-between items-center">
-                  <p className="text-sm text-muted-foreground">Desde</p>
-                  <p className="text-xl font-bold">€{gig.price}</p>
+                <CardFooter className="p-6 pt-0 border-t flex justify-between items-center gap-2">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Desde</p>
+                    <p className="text-xl font-bold">€{gig.price}</p>
+                  </div>
+                  {(gig as any).esReal && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="bg-transparent"
+                      disabled={enviando === String(gig.id)}
+                      onClick={(e) => handleMensaje(e, String(gig.id))}
+                    >
+                      <MessageSquare className="h-4 w-4 mr-1.5" />
+                      Mensaje
+                    </Button>
+                  )}
                 </CardFooter>
               </Card>
             </Link>
@@ -480,7 +532,20 @@ const GigListing = ({ filtros }: GigListingProps) => {
                         <p className="text-sm text-muted-foreground">Desde</p>
                         <p className="text-xl font-bold">€{gig.price}</p>
                       </div>
-                      <Button>Ver Detalles</Button>
+                      <div className="flex items-center gap-2">
+                        {(gig as any).esReal && (
+                          <Button
+                            variant="outline"
+                            className="bg-transparent"
+                            disabled={enviando === String(gig.id)}
+                            onClick={(e) => handleMensaje(e, String(gig.id))}
+                          >
+                            <MessageSquare className="h-4 w-4 mr-1.5" />
+                            Mensaje
+                          </Button>
+                        )}
+                        <Button>Ver Detalles</Button>
+                      </div>
                     </div>
                   </div>
                 </div>
