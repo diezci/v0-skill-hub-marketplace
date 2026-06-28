@@ -40,7 +40,6 @@ import {
   obtenerMisTrabajos,
   actualizarProgresoTrabajo,
   marcarTrabajoEntregado,
-  cancelarTrabajo,
 } from "@/app/actions/trabajos"
 import { crearConversacion } from "@/app/actions/messages"
 import {
@@ -65,6 +64,7 @@ import {
 } from "@/components/ui/dialog"
 import { createClient } from "@/lib/supabase/client"
 import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
+import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
 
 type EstadoTrabajo = "pendiente_pago" | "en_progreso" | "entregado" | "completado" | "cancelado" | "en_disputa"
 
@@ -178,7 +178,6 @@ export default function MisTrabajosPage() {
   const [deliveryMessage, setDeliveryMessage] = useState("")
   const [updating, setUpdating] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
-  const [cancelTrabajoObj, setCancelTrabajoObj] = useState<any>(null)
   const { toast } = useToast()
   const router = useRouter()
 
@@ -279,19 +278,6 @@ export default function MisTrabajosPage() {
     }
   }
 
-  const handleCancelarTrabajo = async () => {
-    if (!cancelTrabajoObj) return
-    setUpdating(true)
-    const result = await cancelarTrabajo(cancelTrabajoObj.id, "Cancelación de común acuerdo")
-    if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" })
-    } else {
-      toast({ title: "Trabajo cancelado", description: "El trabajo ha sido cancelado." })
-      setCancelTrabajoObj(null)
-      loadTrabajos()
-    }
-    setUpdating(false)
-  }
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString("es-ES", {
@@ -446,7 +432,7 @@ export default function MisTrabajosPage() {
                   onUpdateProgress={() => openUpdateDialog(trabajo)}
                   onMarkDelivered={() => openDeliveryDialog(trabajo)}
                   onContactar={() => handleContactarCliente(trabajo)}
-                  onCancelar={() => setCancelTrabajoObj(trabajo)}
+                  onRefresh={loadTrabajos}
                   formatDate={formatDate}
                   formatCurrency={formatCurrency}
                   getDaysRemaining={getDaysRemaining}
@@ -666,32 +652,6 @@ export default function MisTrabajosPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Confirmar cancelación de trabajo */}
-        <AlertDialog open={!!cancelTrabajoObj} onOpenChange={(o) => !o && setCancelTrabajoObj(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>¿Cancelar el trabajo?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Se cancelará "{cancelTrabajoObj?.titulo}". Como el cliente aún no ha realizado el pago, no hay cargos.
-                Esta acción no se puede deshacer.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Volver</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={(e) => {
-                  e.preventDefault()
-                  handleCancelarTrabajo()
-                }}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                disabled={updating}
-              >
-                {updating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
-                Cancelar trabajo
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
     </div>
   )
@@ -702,7 +662,7 @@ function TrabajoCard({
   onUpdateProgress,
   onMarkDelivered,
   onContactar,
-  onCancelar,
+  onRefresh,
   formatDate,
   formatCurrency,
   getDaysRemaining,
@@ -713,7 +673,7 @@ function TrabajoCard({
   onUpdateProgress?: () => void
   onMarkDelivered?: () => void
   onContactar?: () => void
-  onCancelar?: () => void
+  onRefresh?: () => void
   formatDate: (date: string) => string
   formatCurrency: (amount: number) => string
   getDaysRemaining: (date: string) => number
@@ -847,22 +807,14 @@ function TrabajoCard({
                 </>
               )}
               {trabajo.estado === "pendiente_pago" && (
-                <div className="text-center py-4 space-y-3">
-                  <CreditCard className="h-8 w-8 mx-auto text-amber-500 mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    El proyecto iniciará cuando el cliente realice el pago
-                  </p>
-                  {onCancelar && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full bg-transparent text-destructive border-destructive/40 hover:bg-destructive/10"
-                      onClick={onCancelar}
-                    >
-                      <XCircle className="h-4 w-4 mr-2" />
-                      Cancelar trabajo
-                    </Button>
-                  )}
+                <div className="py-4 space-y-3">
+                  <div className="text-center">
+                    <CreditCard className="h-8 w-8 mx-auto text-amber-500 mb-2" />
+                    <p className="text-sm text-muted-foreground">
+                      El proyecto iniciará cuando el cliente realice el pago
+                    </p>
+                  </div>
+                  <CancelacionTrabajo trabajo={trabajo} onChange={onRefresh} />
                 </div>
               )}
               {showPendingConfirmation && (
