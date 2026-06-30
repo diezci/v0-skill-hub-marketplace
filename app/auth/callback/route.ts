@@ -34,5 +34,7 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.redirect(new URL("/mi-cuenta", request.url))
+  // Tras el login (incluido Google), aterrizar en el homepage como el login normal.
+  // Los admins se redirigen a /admin desde el navbar.
+  return NextResponse.redirect(new URL("/", request.url))
 }
