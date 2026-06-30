@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -207,7 +207,9 @@ export default function MensajesContent() {
   const [newMessage, setNewMessage] = useState("") // State for new message input
   const [sendingMessage, setSendingMessage] = useState(false) // State for sending message indicator
   const searchParams = useSearchParams()
+  const router = useRouter()
   const [autoSelectDone, setAutoSelectDone] = useState(false)
+  const [uploading, setUploading] = useState(false)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -309,6 +311,33 @@ export default function MensajesContent() {
 
     setNewMessage("")
     setSendingMessage(false)
+  }
+
+  const getOtherUserId = (conv: Conversation) =>
+    currentUserId === conv.participante_1 ? conv.participante_2 : conv.participante_1
+
+  // Subir un archivo adjunto y enviarlo como mensaje.
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = "" // permitir re-seleccionar el mismo archivo
+    if (!file || !selectedConversation) return
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      const res = await fetch("/api/upload", { method: "POST", body: formData })
+      if (!res.ok) throw new Error("upload failed")
+      const { url, filename, type } = await res.json()
+      const tipo: "imagen" | "archivo" = type?.startsWith("image/") ? "imagen" : "archivo"
+      const result = await enviarMensaje(selectedConversation.id, "", { tipo, url, nombre: filename })
+      if (result.data) {
+        setMessages((prev) => [...prev, result.data as Message])
+      }
+    } catch {
+      // Falla silenciosa; el usuario puede reintentar.
+    } finally {
+      setUploading(false)
+    }
   }
 
   const formatTime = (dateString?: string) => {
@@ -864,16 +893,23 @@ export default function MensajesContent() {
                   }}
                   className="flex items-center gap-2"
                 >
-                  <input ref={fileInputRef} type="file" className="hidden" accept="image/*,.pdf,.doc,.docx" />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept="image/*,.pdf,.doc,.docx"
+                    onChange={handleFileChange}
+                  />
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
+                        disabled={uploading}
                         className="shrink-0 h-10 w-10 text-muted-foreground"
                       >
-                        <Paperclip className="h-5 w-5" />
+                        {uploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start">
@@ -968,10 +1004,20 @@ export default function MensajesContent() {
 
                 {/* Acciones rápidas */}
                 <div className="grid grid-cols-2 gap-2">
-                  <Button variant="outline" size="sm" className="text-xs">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => router.push(`/profesional/${getOtherUserId(selectedConversation)}`)}
+                  >
                     Ver perfil
                   </Button>
-                  <Button variant="outline" size="sm" className="text-xs">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => router.push(`/profesional/${getOtherUserId(selectedConversation)}?valorar=1`)}
+                  >
                     Valorar
                   </Button>
                 </div>
