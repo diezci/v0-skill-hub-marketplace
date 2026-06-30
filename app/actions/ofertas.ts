@@ -66,6 +66,23 @@ export async function crearOferta(formData: {
   // Update total_ofertas in solicitud
   await supabase.rpc("increment_total_ofertas", { solicitud_uuid: formData.solicitud_id })
 
+  // Notificar al cliente dueño de la demanda.
+  const { data: solicitud } = await supabase
+    .from("solicitudes")
+    .select("cliente_id, titulo")
+    .eq("id", formData.solicitud_id)
+    .maybeSingle()
+  if (solicitud?.cliente_id) {
+    const { crearNotificacion } = await import("./notificaciones")
+    await crearNotificacion({
+      usuarioId: solicitud.cliente_id,
+      tipo: "oferta_nueva",
+      titulo: "Nueva oferta en tu demanda",
+      mensaje: `Has recibido una oferta en "${solicitud.titulo}".`,
+      link: "/mis-solicitudes",
+    })
+  }
+
   revalidatePath("/demandas")
   revalidatePath("/mis-solicitudes")
   return { data }
@@ -251,6 +268,16 @@ export async function aceptarOferta(ofertaId: string) {
   if (trabajoResult.error) {
     return { error: trabajoResult.error }
   }
+
+  // Notificar al profesional que su oferta ha sido aceptada.
+  const { crearNotificacion } = await import("./notificaciones")
+  await crearNotificacion({
+    usuarioId: oferta.profesional_id,
+    tipo: "oferta_aceptada",
+    titulo: "Han aceptado tu oferta",
+    mensaje: `Tu oferta para "${oferta.solicitud?.titulo ?? "una demanda"}" ha sido aceptada. Revisa el trabajo en Gestión de proyectos.`,
+    link: "/mis-trabajos",
+  })
 
   return { data: trabajoResult.data }
 }

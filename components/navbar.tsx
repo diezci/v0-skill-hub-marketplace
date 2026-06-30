@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Menu, X, User, Search, Megaphone, Inbox, MessageSquare, FolderKanban, LogOut, Settings, UserCircle, ChevronDown, Scale } from "lucide-react"
+import { Menu, X, Search, Megaphone, Inbox, MessageSquare, FolderKanban, LogOut, Settings, UserCircle, Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ThemeToggle } from "@/components/theme-toggle"
 import {
   DropdownMenu,
@@ -16,13 +17,19 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
+import { obtenerResumenNotificaciones, marcarNotificacionesLeidas } from "@/app/actions/notificaciones"
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [userName, setUserName] = useState<string | null>(null)
+  const [userPhoto, setUserPhoto] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0)
+  const [notifs, setNotifs] = useState<any[]>([])
+  const [noLeidas, setNoLeidas] = useState(0)
   const pathname = usePathname()
   const router = useRouter()
 
@@ -47,15 +54,20 @@ const Navbar = () => {
       setUserEmail(user?.email ?? null)
       if (!user) {
         setIsAdmin(false)
+        setUserName(null)
+        setUserPhoto(null)
         return
       }
-      // Comprobar si el usuario es empleado de Diime para mostrar el acceso al panel.
+      // Datos del perfil para el avatar + comprobación de admin.
       const { data: profile } = await supabase
         .from("profiles")
-        .select("es_admin")
+        .select("es_admin, nombre, apellido, foto_perfil")
         .eq("id", user.id)
         .maybeSingle()
       setIsAdmin(!!profile?.es_admin)
+      const nombreCompleto = `${profile?.nombre ?? ""} ${profile?.apellido ?? ""}`.trim()
+      setUserName(nombreCompleto || null)
+      setUserPhoto(profile?.foto_perfil ?? null)
     }
 
     const checkAuth = async () => {
@@ -83,6 +95,43 @@ const Navbar = () => {
     }
   }, [isAdmin, pathname, router])
 
+  // Cargar contadores de notificaciones y mensajes sin leer para los badges del navbar.
+  useEffect(() => {
+    if (!isAuthenticated || isAdmin) {
+      setMensajesNoLeidos(0)
+      setNotifs([])
+      setNoLeidas(0)
+      return
+    }
+    let activo = true
+    const cargar = async () => {
+      try {
+        const r = await obtenerResumenNotificaciones()
+        if (!activo) return
+        setNotifs(r.notificaciones || [])
+        setNoLeidas(r.noLeidas || 0)
+        setMensajesNoLeidos(r.mensajesNoLeidos || 0)
+      } catch {
+        // silencioso: los badges son secundarios
+      }
+    }
+    cargar()
+    const id = setInterval(cargar, 45000)
+    return () => {
+      activo = false
+      clearInterval(id)
+    }
+  }, [isAuthenticated, isAdmin, pathname])
+
+  // Al abrir la campana, marcar como leídas.
+  const handleAbrirNotifs = async (open: boolean) => {
+    if (open && noLeidas > 0) {
+      setNoLeidas(0)
+      setNotifs((prev) => prev.map((n) => ({ ...n, leida: true })))
+      await marcarNotificacionesLeidas()
+    }
+  }
+
   const handleLogout = async () => {
     try {
       const supabase = createClient()
@@ -92,11 +141,24 @@ const Navbar = () => {
     }
     setIsAuthenticated(false)
     setUserEmail(null)
+    setUserName(null)
+    setUserPhoto(null)
     setIsAdmin(false)
     setIsOpen(false)
     router.push("/")
     router.refresh()
   }
+
+  // Iniciales para el avatar: del nombre si existe, si no del email.
+  const iniciales = (
+    userName
+      ? userName
+          .split(" ")
+          .map((p) => p[0])
+          .slice(0, 2)
+          .join("")
+      : userEmail?.[0] ?? "U"
+  ).toUpperCase()
 
   const navLinks = [
     { name: "Profesionales", path: "/profesionales", icon: Search, shortName: "Profesionales" },
@@ -155,6 +217,11 @@ const Navbar = () => {
                 >
                   <Icon className="h-4 w-4 shrink-0" />
                   <span>{link.shortName}</span>
+                  {link.path === "/mensajes" && mensajesNoLeidos > 0 && (
+                    <span className="ml-0.5 h-4 min-w-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                      {mensajesNoLeidos > 9 ? "9+" : mensajesNoLeidos}
+                    </span>
+                  )}
                 </Link>
               )
             })}
@@ -162,56 +229,70 @@ const Navbar = () => {
 
           <div className="hidden md:flex items-center gap-2">
             <ThemeToggle />
+            {isAuthenticated && (
+              <DropdownMenu onOpenChange={handleAbrirNotifs}>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="relative" aria-label="Notificaciones">
+                    <Bell className="h-5 w-5" />
+                    {noLeidas > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                        {noLeidas > 9 ? "9+" : noLeidas}
+                      </span>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-80">
+                  <DropdownMenuLabel>Notificaciones</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {notifs.length === 0 ? (
+                    <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                      No tienes notificaciones
+                    </div>
+                  ) : (
+                    notifs.slice(0, 10).map((n) => (
+                      <DropdownMenuItem key={n.id} asChild>
+                        <Link href={n.link || "#"} className="cursor-pointer flex flex-col items-start gap-0.5 py-2">
+                          <span className="text-sm font-medium">{n.titulo}</span>
+                          {n.mensaje && (
+                            <span className="text-xs text-muted-foreground whitespace-normal">{n.mensaje}</span>
+                          )}
+                        </Link>
+                      </DropdownMenuItem>
+                    ))
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             {isAuthenticated ? (
               <DropdownMenu>
-                <div className="flex items-center rounded-lg border border-border hover:bg-muted transition-colors">
-                  {/* Botón "Mi Perfil": acceso directo al perfil */}
-                  <Link
-                    href="/mi-perfil"
-                    title="Ir a Mi Perfil"
-                    className="flex items-center gap-2 pl-1.5 pr-2.5 py-1.5 rounded-l-lg"
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Cuenta"
+                    className="rounded-full outline-none ring-offset-2 ring-offset-background focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                   >
-                    <span className="h-7 w-7 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-sm font-semibold uppercase">
-                      {userEmail?.charAt(0) ?? <User className="h-4 w-4" />}
-                    </span>
-                    <span className="text-sm font-medium">Mi Perfil</span>
-                  </Link>
-                  {/* Desplegable con Cerrar sesión debajo del botón */}
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 rounded-l-none border-l border-border"
-                      aria-label="Más opciones de cuenta"
-                    >
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                </div>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium">Mi Cuenta</p>
-                      {userEmail && (
-                        <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
-                      )}
+                    <Avatar className="h-9 w-9 border border-border transition-opacity hover:opacity-90">
+                      <AvatarImage src={userPhoto || undefined} alt={userName || "Perfil"} />
+                      <AvatarFallback className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-sm font-semibold">
+                        {iniciales}
+                      </AvatarFallback>
+                    </Avatar>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-60">
+                  <DropdownMenuLabel className="flex items-center gap-3 py-2 font-normal">
+                    <Avatar className="h-9 w-9">
+                      <AvatarImage src={userPhoto || undefined} alt={userName || "Perfil"} />
+                      <AvatarFallback className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-sm font-semibold">
+                        {iniciales}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{userName || "Mi cuenta"}</p>
+                      {userEmail && <p className="text-xs text-muted-foreground truncate">{userEmail}</p>}
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {isAdmin && (
-                    <>
-                      <DropdownMenuItem asChild>
-                        <Link
-                          href="/admin/disputas"
-                          className="cursor-pointer text-amber-600 focus:text-amber-600 font-medium"
-                        >
-                          <Scale className="mr-2 h-4 w-4" />
-                          Panel de disputas
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                    </>
-                  )}
                   <DropdownMenuItem asChild>
                     <Link href="/mi-perfil" className="cursor-pointer">
                       <UserCircle className="mr-2 h-4 w-4" />
@@ -277,6 +358,11 @@ const Navbar = () => {
                   >
                     <Icon className="h-5 w-5 shrink-0" />
                     <span>{link.name}</span>
+                    {link.path === "/mensajes" && mensajesNoLeidos > 0 && (
+                      <span className="ml-auto h-5 min-w-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
+                        {mensajesNoLeidos > 9 ? "9+" : mensajesNoLeidos}
+                      </span>
+                    )}
                   </Link>
                 )
               })}
@@ -297,16 +383,6 @@ const Navbar = () => {
                     <p className="px-4 pb-2 text-xs text-muted-foreground truncate">
                       {userEmail}
                     </p>
-                  )}
-                  {isAdmin && (
-                    <Link
-                      href="/admin/disputas"
-                      onClick={() => setIsOpen(false)}
-                      className="px-4 py-3 rounded-lg text-sm font-medium text-amber-600 hover:bg-amber-500/10 flex items-center gap-3"
-                    >
-                      <Scale className="h-5 w-5 shrink-0" />
-                      Panel de disputas
-                    </Link>
                   )}
                   <Link
                     href="/mi-perfil"
