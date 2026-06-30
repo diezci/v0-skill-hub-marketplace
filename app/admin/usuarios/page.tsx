@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { createClient } from "@/lib/supabase/client"
-import { Search, Users, Briefcase, Building2, Loader2, Mail, Phone, MapPin, Calendar } from "lucide-react"
+import { Search, Users, Briefcase, Loader2, Mail, Phone, MapPin, Calendar } from "lucide-react"
 import { formatearFecha } from "@/lib/utils"
 
 interface Usuario {
@@ -34,16 +34,13 @@ interface Usuario {
   ubicacion: string | null
   foto_perfil: string | null
   tipo_usuario: string
-  rol: string
+  es_admin?: boolean
+  verificado?: boolean
   created_at: string
   profesional?: {
     titulo: string | null
-    verificado: boolean
     rating_promedio: number
     total_reseñas: number
-  } | null
-  empresa?: {
-    nombre: string | null
   } | null
 }
 
@@ -66,22 +63,19 @@ export default function AdminUsuariosPage() {
   const cargarUsuarios = async () => {
     setLoading(true)
     try {
+      // Nota: 'verificado' vive en profiles (no en profesionales) y no hay relación
+      // FK profiles<->empresas, así que esos embeds rompían la consulta entera.
       const { data, error } = await supabase
         .from("profiles")
-        .select(`
-          *,
-          profesional:profesionales(titulo, verificado, rating_promedio, total_reseñas),
-          empresa:empresas(nombre)
-        `)
+        .select("*, profesional:profesionales(titulo, rating_promedio, total_reseñas)")
         .order("created_at", { ascending: false })
 
       if (error) throw error
 
       // Transform the data to handle the array/single object difference
-      const transformedData = (data || []).map(user => ({
+      const transformedData = ((data as any[]) || []).map((user: any) => ({
         ...user,
         profesional: Array.isArray(user.profesional) ? user.profesional[0] : user.profesional,
-        empresa: Array.isArray(user.empresa) ? user.empresa[0] : user.empresa,
       }))
 
       setUsuarios(transformedData)
@@ -111,12 +105,10 @@ export default function AdminUsuariosPage() {
     if (tipoFilter !== "todos") {
       if (tipoFilter === "profesional") {
         filtered = filtered.filter((u) => u.profesional)
-      } else if (tipoFilter === "empresa") {
-        filtered = filtered.filter((u) => u.empresa)
       } else if (tipoFilter === "cliente") {
-        filtered = filtered.filter((u) => !u.profesional && !u.empresa && u.rol !== "admin")
+        filtered = filtered.filter((u) => !u.profesional && !u.es_admin)
       } else if (tipoFilter === "admin") {
-        filtered = filtered.filter((u) => u.rol === "admin")
+        filtered = filtered.filter((u) => u.es_admin)
       }
     }
 
@@ -128,19 +120,16 @@ export default function AdminUsuariosPage() {
   }
 
   const getTipoBadge = (usuario: Usuario) => {
-    if (usuario.rol === "admin") {
+    if (usuario.es_admin) {
       return <Badge className="bg-purple-500/10 text-purple-600 border-purple-500/30">Admin</Badge>
     }
     if (usuario.profesional) {
       return (
         <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
           Profesional
-          {usuario.profesional.verificado && " (Verificado)"}
+          {usuario.verificado && " (Verificado)"}
         </Badge>
       )
-    }
-    if (usuario.empresa) {
-      return <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/30">Empresa</Badge>
     }
     return <Badge variant="secondary">Cliente</Badge>
   }
@@ -148,8 +137,7 @@ export default function AdminUsuariosPage() {
   const stats = {
     total: usuarios.length,
     profesionales: usuarios.filter((u) => u.profesional).length,
-    empresas: usuarios.filter((u) => u.empresa).length,
-    clientes: usuarios.filter((u) => !u.profesional && !u.empresa && u.rol !== "admin").length,
+    clientes: usuarios.filter((u) => !u.profesional && !u.es_admin).length,
   }
 
   return (
@@ -166,7 +154,7 @@ export default function AdminUsuariosPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total</CardTitle>
@@ -183,16 +171,6 @@ export default function AdminUsuariosPage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-emerald-600">{stats.profesionales}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Building2 className="h-4 w-4" /> Empresas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-blue-600">{stats.empresas}</p>
           </CardContent>
         </Card>
         <Card>
@@ -227,7 +205,6 @@ export default function AdminUsuariosPage() {
               <SelectContent>
                 <SelectItem value="todos">Todos los usuarios</SelectItem>
                 <SelectItem value="profesional">Profesionales</SelectItem>
-                <SelectItem value="empresa">Empresas</SelectItem>
                 <SelectItem value="cliente">Clientes</SelectItem>
                 <SelectItem value="admin">Administradores</SelectItem>
               </SelectContent>
@@ -276,11 +253,6 @@ export default function AdminUsuariosPage() {
                           {usuario.profesional?.titulo && (
                             <p className="text-sm text-muted-foreground">
                               {usuario.profesional.titulo}
-                            </p>
-                          )}
-                          {usuario.empresa?.nombre && (
-                            <p className="text-sm text-muted-foreground">
-                              {usuario.empresa.nombre}
                             </p>
                           )}
                         </div>

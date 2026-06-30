@@ -13,33 +13,31 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { createClient } from "@/lib/supabase/client"
-import { CreditCard, Clock, CheckCircle2, XCircle, AlertCircle, Loader2, ArrowUpRight, ArrowDownRight } from "lucide-react"
+import { CreditCard, Clock, CheckCircle2, AlertCircle, Loader2, ArrowUpRight, ArrowDownRight } from "lucide-react"
 import { formatearFecha } from "@/lib/utils"
 
 interface Transaccion {
   id: string
-  trabajo_id: string
-  monto: number
-  comision_plataforma: number
-  monto_profesional: number
+  trabajo_id: string | null
+  cliente_id: string | null
+  profesional_id: string | null
+  monto: number | null
+  monto_base: number | null
+  retencion_plataforma: number | null
+  pago_neto_proveedor: number | null
+  monto_reembolsado: number | null
   estado: string
   stripe_payment_intent_id: string | null
   created_at: string
-  updated_at: string
-  trabajo?: {
-    titulo: string
-    cliente?: {
-      nombre: string
-      apellido: string
-    }
-    profesional?: {
-      profile?: {
-        nombre: string
-        apellido: string
-      }
-    }
-  }
+  trabajo?: { titulo: string | null } | null
+  cliente?: { nombre: string | null; apellido: string | null } | null
+  profesional?: { nombre: string | null; apellido: string | null } | null
 }
+
+const eur = (v: number | null | undefined) => `${(v ?? 0).toFixed(2)} EUR`
+// Comisión de la plataforma: la retención si está calculada, si no monto - neto.
+const comisionDe = (t: Transaccion) =>
+  t.retencion_plataforma ?? Math.max(0, (t.monto ?? 0) - (t.pago_neto_proveedor ?? 0))
 
 export default function AdminPagosPage() {
   const [transacciones, setTransacciones] = useState<Transaccion[]>([])
@@ -55,21 +53,38 @@ export default function AdminPagosPage() {
     try {
       const { data, error } = await supabase
         .from("transacciones_escrow")
-        .select(`
-          *,
-          trabajo:trabajos(
-            titulo,
-            cliente:profiles!trabajos_cliente_id_fkey(nombre, apellido),
-            profesional:profesionales!trabajos_profesional_id_fkey(
-              profile:profiles(nombre, apellido)
-            )
-          )
-        `)
+        .select("*")
         .order("created_at", { ascending: false })
 
       if (error) throw error
 
-      setTransacciones(data || [])
+      const rows = (data as any[]) || []
+
+      // Enriquecer con título del trabajo y nombres de las partes (consultas
+      // separadas para no depender de relaciones Fk frágiles en el embed).
+      const trabajoIds = [...new Set(rows.map((r) => r.trabajo_id).filter(Boolean))]
+      const userIds = [...new Set(rows.flatMap((r) => [r.cliente_id, r.profesional_id]).filter(Boolean))]
+
+      const [trabajosRes, profilesRes] = await Promise.all([
+        trabajoIds.length
+          ? supabase.from("trabajos").select("id, titulo").in("id", trabajoIds)
+          : Promise.resolve({ data: [] as any[] }),
+        userIds.length
+          ? supabase.from("profiles").select("id, nombre, apellido").in("id", userIds)
+          : Promise.resolve({ data: [] as any[] }),
+      ])
+
+      const trabajoMap = new Map((trabajosRes.data || []).map((t: any) => [t.id, t]))
+      const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.id, p]))
+
+      const enriquecidas: Transaccion[] = rows.map((r) => ({
+        ...r,
+        trabajo: r.trabajo_id ? { titulo: trabajoMap.get(r.trabajo_id)?.titulo ?? null } : null,
+        cliente: r.cliente_id ? profileMap.get(r.cliente_id) ?? null : null,
+        profesional: r.profesional_id ? profileMap.get(r.profesional_id) ?? null : null,
+      }))
+
+      setTransacciones(enriquecidas)
     } catch (error) {
       console.error("Error loading transactions:", error)
     } finally {
@@ -79,14 +94,14 @@ export default function AdminPagosPage() {
 
   const getEstadoBadge = (estado: string) => {
     switch (estado) {
-      case "retenido":
+      case "fondos_retenidos":
         return (
           <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/30">
             <Clock className="h-3 w-3 mr-1" />
-            Retenido
+            En custodia
           </Badge>
         )
-      case "liberado":
+      case "completado":
         return (
           <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
             <CheckCircle2 className="h-3 w-3 mr-1" />
@@ -100,11 +115,18 @@ export default function AdminPagosPage() {
             Reembolsado
           </Badge>
         )
-      case "disputado":
+      case "disputa":
         return (
           <Badge className="bg-red-500/10 text-red-600 border-red-500/30">
             <AlertCircle className="h-3 w-3 mr-1" />
-            Disputado
+            En disputa
+          </Badge>
+        )
+      case "pendiente":
+        return (
+          <Badge className="bg-muted text-muted-foreground">
+            <Clock className="h-3 w-3 mr-1" />
+            Pendiente de pago
           </Badge>
         )
       default:
@@ -112,15 +134,18 @@ export default function AdminPagosPage() {
     }
   }
 
-  const retenidas = transacciones.filter((t) => t.estado === "retenido")
-  const liberadas = transacciones.filter((t) => t.estado === "liberado")
+  const retenidas = transacciones.filter((t) => t.estado === "fondos_retenidos")
+  const liberadas = transacciones.filter((t) => t.estado === "completado")
   const reembolsadas = transacciones.filter((t) => t.estado === "reembolsado")
-  const disputadas = transacciones.filter((t) => t.estado === "disputado")
+  const disputadas = transacciones.filter((t) => t.estado === "disputa")
 
-  const totalRetenido = retenidas.reduce((sum, t) => sum + t.monto, 0)
-  const totalLiberado = liberadas.reduce((sum, t) => sum + t.monto, 0)
-  const totalComisiones = liberadas.reduce((sum, t) => sum + t.comision_plataforma, 0)
-  const totalReembolsado = reembolsadas.reduce((sum, t) => sum + t.monto, 0)
+  const totalRetenido = retenidas.reduce((sum, t) => sum + (t.monto ?? 0), 0)
+  const totalLiberado = liberadas.reduce((sum, t) => sum + (t.monto ?? 0), 0)
+  const totalComisiones = liberadas.reduce((sum, t) => sum + comisionDe(t), 0)
+  const totalReembolsado = reembolsadas.reduce((sum, t) => sum + (t.monto_reembolsado ?? t.monto ?? 0), 0)
+
+  const nombre = (p?: { nombre: string | null; apellido: string | null } | null) =>
+    p ? `${p.nombre ?? ""} ${p.apellido ?? ""}`.trim() || "-" : "-"
 
   const renderTransaccionesTable = (lista: Transaccion[]) => (
     <Table>
@@ -149,24 +174,12 @@ export default function AdminPagosPage() {
               <TableCell className="font-medium max-w-[200px] truncate">
                 {transaccion.trabajo?.titulo || "Trabajo eliminado"}
               </TableCell>
-              <TableCell>
-                {transaccion.trabajo?.cliente
-                  ? `${transaccion.trabajo.cliente.nombre} ${transaccion.trabajo.cliente.apellido}`
-                  : "-"}
-              </TableCell>
-              <TableCell>
-                {transaccion.trabajo?.profesional?.profile
-                  ? `${transaccion.trabajo.profesional.profile.nombre} ${transaccion.trabajo.profesional.profile.apellido}`
-                  : "-"}
-              </TableCell>
-              <TableCell className="text-right font-medium">
-                {transaccion.monto.toFixed(2)} EUR
-              </TableCell>
-              <TableCell className="text-right text-muted-foreground">
-                {transaccion.comision_plataforma.toFixed(2)} EUR
-              </TableCell>
+              <TableCell>{nombre(transaccion.cliente)}</TableCell>
+              <TableCell>{nombre(transaccion.profesional)}</TableCell>
+              <TableCell className="text-right font-medium">{eur(transaccion.monto)}</TableCell>
+              <TableCell className="text-right text-muted-foreground">{eur(comisionDe(transaccion))}</TableCell>
               <TableCell className="text-right text-emerald-600 font-medium">
-                {transaccion.monto_profesional.toFixed(2)} EUR
+                {eur(transaccion.pago_neto_proveedor)}
               </TableCell>
               <TableCell>{getEstadoBadge(transaccion.estado)}</TableCell>
               <TableCell className="text-muted-foreground text-sm">
@@ -202,7 +215,7 @@ export default function AdminPagosPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-amber-600">{totalRetenido.toFixed(2)} EUR</p>
+            <p className="text-2xl font-bold text-amber-600">{eur(totalRetenido)}</p>
             <p className="text-xs text-muted-foreground mt-1">{retenidas.length} transacciones</p>
           </CardContent>
         </Card>
@@ -215,7 +228,7 @@ export default function AdminPagosPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-emerald-600">{totalLiberado.toFixed(2)} EUR</p>
+            <p className="text-2xl font-bold text-emerald-600">{eur(totalLiberado)}</p>
             <p className="text-xs text-muted-foreground mt-1">{liberadas.length} transacciones</p>
           </CardContent>
         </Card>
@@ -228,7 +241,7 @@ export default function AdminPagosPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-violet-600">{totalComisiones.toFixed(2)} EUR</p>
+            <p className="text-2xl font-bold text-violet-600">{eur(totalComisiones)}</p>
             <p className="text-xs text-muted-foreground mt-1">Total ganado</p>
           </CardContent>
         </Card>
@@ -241,7 +254,7 @@ export default function AdminPagosPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-blue-600">{totalReembolsado.toFixed(2)} EUR</p>
+            <p className="text-2xl font-bold text-blue-600">{eur(totalReembolsado)}</p>
             <p className="text-xs text-muted-foreground mt-1">{reembolsadas.length} reembolsos</p>
           </CardContent>
         </Card>
@@ -252,21 +265,11 @@ export default function AdminPagosPage() {
         <Tabs defaultValue="todas" className="w-full">
           <CardHeader>
             <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="todas">
-                Todas ({transacciones.length})
-              </TabsTrigger>
-              <TabsTrigger value="retenidas">
-                Retenidas ({retenidas.length})
-              </TabsTrigger>
-              <TabsTrigger value="liberadas">
-                Liberadas ({liberadas.length})
-              </TabsTrigger>
-              <TabsTrigger value="disputadas">
-                Disputadas ({disputadas.length})
-              </TabsTrigger>
-              <TabsTrigger value="reembolsadas">
-                Reembolsadas ({reembolsadas.length})
-              </TabsTrigger>
+              <TabsTrigger value="todas">Todas ({transacciones.length})</TabsTrigger>
+              <TabsTrigger value="retenidas">En custodia ({retenidas.length})</TabsTrigger>
+              <TabsTrigger value="liberadas">Liberadas ({liberadas.length})</TabsTrigger>
+              <TabsTrigger value="disputadas">En disputa ({disputadas.length})</TabsTrigger>
+              <TabsTrigger value="reembolsadas">Reembolsadas ({reembolsadas.length})</TabsTrigger>
             </TabsList>
           </CardHeader>
 
