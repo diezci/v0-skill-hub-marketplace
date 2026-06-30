@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Menu, X, User, Search, Megaphone, Inbox, MessageSquare, FolderKanban, LogOut, Settings, UserCircle, ChevronDown, Scale } from "lucide-react"
+import { Menu, X, User, Search, Megaphone, Inbox, MessageSquare, FolderKanban, LogOut, Settings, UserCircle, ChevronDown, Scale, Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import {
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
+import { obtenerResumenNotificaciones, marcarNotificacionesLeidas } from "@/app/actions/notificaciones"
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false)
@@ -23,6 +24,9 @@ const Navbar = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0)
+  const [notifs, setNotifs] = useState<any[]>([])
+  const [noLeidas, setNoLeidas] = useState(0)
   const pathname = usePathname()
   const router = useRouter()
 
@@ -82,6 +86,43 @@ const Navbar = () => {
       router.replace("/admin")
     }
   }, [isAdmin, pathname, router])
+
+  // Cargar contadores de notificaciones y mensajes sin leer para los badges del navbar.
+  useEffect(() => {
+    if (!isAuthenticated || isAdmin) {
+      setMensajesNoLeidos(0)
+      setNotifs([])
+      setNoLeidas(0)
+      return
+    }
+    let activo = true
+    const cargar = async () => {
+      try {
+        const r = await obtenerResumenNotificaciones()
+        if (!activo) return
+        setNotifs(r.notificaciones || [])
+        setNoLeidas(r.noLeidas || 0)
+        setMensajesNoLeidos(r.mensajesNoLeidos || 0)
+      } catch {
+        // silencioso: los badges son secundarios
+      }
+    }
+    cargar()
+    const id = setInterval(cargar, 45000)
+    return () => {
+      activo = false
+      clearInterval(id)
+    }
+  }, [isAuthenticated, isAdmin, pathname])
+
+  // Al abrir la campana, marcar como leídas.
+  const handleAbrirNotifs = async (open: boolean) => {
+    if (open && noLeidas > 0) {
+      setNoLeidas(0)
+      setNotifs((prev) => prev.map((n) => ({ ...n, leida: true })))
+      await marcarNotificacionesLeidas()
+    }
+  }
 
   const handleLogout = async () => {
     try {
@@ -155,6 +196,11 @@ const Navbar = () => {
                 >
                   <Icon className="h-4 w-4 shrink-0" />
                   <span>{link.shortName}</span>
+                  {link.path === "/mensajes" && mensajesNoLeidos > 0 && (
+                    <span className="ml-0.5 h-4 min-w-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                      {mensajesNoLeidos > 9 ? "9+" : mensajesNoLeidos}
+                    </span>
+                  )}
                 </Link>
               )
             })}
@@ -162,6 +208,40 @@ const Navbar = () => {
 
           <div className="hidden md:flex items-center gap-2">
             <ThemeToggle />
+            {isAuthenticated && (
+              <DropdownMenu onOpenChange={handleAbrirNotifs}>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="relative" aria-label="Notificaciones">
+                    <Bell className="h-5 w-5" />
+                    {noLeidas > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                        {noLeidas > 9 ? "9+" : noLeidas}
+                      </span>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-80">
+                  <DropdownMenuLabel>Notificaciones</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {notifs.length === 0 ? (
+                    <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                      No tienes notificaciones
+                    </div>
+                  ) : (
+                    notifs.slice(0, 10).map((n) => (
+                      <DropdownMenuItem key={n.id} asChild>
+                        <Link href={n.link || "#"} className="cursor-pointer flex flex-col items-start gap-0.5 py-2">
+                          <span className="text-sm font-medium">{n.titulo}</span>
+                          {n.mensaje && (
+                            <span className="text-xs text-muted-foreground whitespace-normal">{n.mensaje}</span>
+                          )}
+                        </Link>
+                      </DropdownMenuItem>
+                    ))
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             {isAuthenticated ? (
               <DropdownMenu>
                 <div className="flex items-center rounded-lg border border-border hover:bg-muted transition-colors">
@@ -277,6 +357,11 @@ const Navbar = () => {
                   >
                     <Icon className="h-5 w-5 shrink-0" />
                     <span>{link.name}</span>
+                    {link.path === "/mensajes" && mensajesNoLeidos > 0 && (
+                      <span className="ml-auto h-5 min-w-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
+                        {mensajesNoLeidos > 9 ? "9+" : mensajesNoLeidos}
+                      </span>
+                    )}
                   </Link>
                 )
               })}
