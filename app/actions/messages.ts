@@ -99,8 +99,27 @@ export async function obtenerConversaciones() {
         .eq("leido", false)
         .neq("remitente_id", user.id)
 
+      // Último mensaje real, para el preview de la lista (el campo denormalizado
+      // de la conversación puede no estar actualizado).
+      const { data: ultimoMsg } = await supabase
+        .from("mensajes")
+        .select("contenido, tipo, created_at")
+        .eq("conversacion_id", conv.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      const previewMsg = ultimoMsg
+        ? ultimoMsg.tipo === "imagen"
+          ? "📷 Imagen"
+          : ultimoMsg.tipo === "archivo"
+            ? "📎 Archivo"
+            : ultimoMsg.contenido
+        : conv.ultimo_mensaje
+
       return {
         ...conv,
+        ultimo_mensaje: previewMsg ?? conv.ultimo_mensaje,
+        fecha_ultimo_mensaje: ultimoMsg?.created_at ?? conv.fecha_ultimo_mensaje,
         participante1: p1,
         participante2: p2,
         participante_otro: otherProfile,
@@ -157,13 +176,17 @@ export async function obtenerMensajes(conversacionId: string) {
   return { data: mensajes }
 }
 
-export async function enviarMensaje(conversacionId: string, contenido: string, archivo?: string) {
+export async function enviarMensaje(
+  conversacionId: string,
+  contenido: string,
+  adjunto?: { tipo: "imagen" | "archivo"; url: string; nombre: string },
+) {
   const supabase = await createClient()
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  
+
   if (!user) {
     return { error: "No autenticado" }
   }
@@ -186,6 +209,9 @@ export async function enviarMensaje(conversacionId: string, contenido: string, a
       remitente_id: user.id,
       contenido,
       leido: false,
+      tipo: adjunto ? adjunto.tipo : "texto",
+      archivo_url: adjunto?.url ?? null,
+      archivo_nombre: adjunto?.nombre ?? null,
     })
     .select()
     .single()
@@ -195,10 +221,11 @@ export async function enviarMensaje(conversacionId: string, contenido: string, a
   }
 
   // Update conversation's last message
+  const preview = adjunto ? (adjunto.tipo === "imagen" ? "📷 Imagen" : "📎 Archivo") : contenido
   await supabase
     .from("conversaciones")
     .update({
-      ultimo_mensaje: contenido,
+      ultimo_mensaje: preview,
       fecha_ultimo_mensaje: new Date().toISOString(),
     })
     .eq("id", conversacionId)
