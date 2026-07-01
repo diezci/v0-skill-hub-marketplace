@@ -3,9 +3,11 @@ import { notFound } from "next/navigation"
 import PerfilProfesionalPublico from "@/components/perfil-profesional-publico"
 import { obtenerProfesionalPorId } from "@/app/actions/profiles"
 
-export async function generateStaticParams() {
-  return []
-}
+// Esta página lee la sesión (cookies) para personalizar acciones; debe
+// renderizarse siempre en el servidor por request, nunca como shell estático
+// (un `generateStaticParams` vacío aquí causaba "static to dynamic at runtime"
+// y un 500 en cada visita).
+export const dynamic = "force-dynamic"
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   try {
