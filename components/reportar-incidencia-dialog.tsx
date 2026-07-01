@@ -22,13 +22,23 @@ interface ReportarIncidenciaDialogProps {
   trabajoId?: string
   usuarioReportadoId?: string
   trigger?: React.ReactNode
+  asuntoInicial?: string
+  categoriaInicial?: IncidenciaCategoria
+  descripcionPlaceholder?: string
 }
 
-export function ReportarIncidenciaDialog({ trabajoId, usuarioReportadoId, trigger }: ReportarIncidenciaDialogProps) {
+export function ReportarIncidenciaDialog({
+  trabajoId,
+  usuarioReportadoId,
+  trigger,
+  asuntoInicial = "",
+  categoriaInicial = "otro",
+  descripcionPlaceholder = "Cuéntanos qué ha ocurrido, cuándo y con qué usuarios o trabajo está relacionado...",
+}: ReportarIncidenciaDialogProps) {
   const [open, setOpen] = useState(false)
-  const [asunto, setAsunto] = useState("")
+  const [asunto, setAsunto] = useState(asuntoInicial)
   const [descripcion, setDescripcion] = useState("")
-  const [categoria, setCategoria] = useState<IncidenciaCategoria>("otro")
+  const [categoria, setCategoria] = useState<IncidenciaCategoria>(categoriaInicial)
   const [prioridad, setPrioridad] = useState<IncidenciaPrioridad>("media")
   const [submitting, setSubmitting] = useState(false)
   const { toast } = useToast()
@@ -55,9 +65,9 @@ export function ReportarIncidenciaDialog({ trabajoId, usuarioReportadoId, trigge
         description: "Nuestro equipo la revisará lo antes posible.",
       })
       setOpen(false)
-      setAsunto("")
+      setAsunto(asuntoInicial)
       setDescripcion("")
-      setCategoria("otro")
+      setCategoria(categoriaInicial)
       setPrioridad("media")
     }
     setSubmitting(false)
@@ -131,7 +141,7 @@ export function ReportarIncidenciaDialog({ trabajoId, usuarioReportadoId, trigge
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Descripción</label>
             <Textarea
-              placeholder="Cuéntanos qué ha ocurrido, cuándo y con qué usuarios o trabajo está relacionado..."
+              placeholder={descripcionPlaceholder}
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
               rows={5}
