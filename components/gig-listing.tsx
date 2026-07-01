@@ -15,6 +15,7 @@ import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import type { ProfesionalesFiltros } from "@/components/profesionales-content"
+import { CATEGORIAS_SERVICIO } from "@/lib/categorias"
 
 const gigs = [
   {
@@ -22,7 +23,7 @@ const gigs = [
     title: "Reforma Integral de Viviendas",
     description: "Realizo reformas completas de pisos y casas con más de 15 años de experiencia",
     price: 3500,
-    category: "Albañilería",
+    category: "Albañil",
     provincia: "Madrid",
     image:
       "https://images.unsplash.com/photo-1504307651254-35680f356dfd?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
@@ -39,7 +40,7 @@ const gigs = [
     title: "Instalación de Fontanería Completa",
     description: "Instalación y reparación de sistemas de agua, calefacción y gas certificado",
     price: 450,
-    category: "Fontanería",
+    category: "Fontanero",
     provincia: "Barcelona",
     image:
       "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
@@ -56,7 +57,7 @@ const gigs = [
     title: "Instalaciones Eléctricas Certificadas",
     description: "Electricista certificado para instalaciones residenciales y comerciales",
     price: 380,
-    category: "Electricidad",
+    category: "Electricista",
     provincia: "Valencia",
     image:
       "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
@@ -73,7 +74,7 @@ const gigs = [
     title: "Pintura Profesional Interior y Exterior",
     description: "Servicio de pintura con acabados de alta calidad y garantía de 2 años",
     price: 850,
-    category: "Pintura",
+    category: "Pintor",
     provincia: "Sevilla",
     image:
       "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
@@ -90,7 +91,7 @@ const gigs = [
     title: "Carpintería a Medida",
     description: "Diseño y fabricación de muebles personalizados, armarios empotrados y cocinas",
     price: 1200,
-    category: "Carpintería",
+    category: "Carpintero",
     provincia: "Madrid",
     image:
       "https://images.unsplash.com/photo-1617806118233-18e1de247200?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
@@ -124,7 +125,7 @@ const gigs = [
     title: "Diseño de Jardines y Paisajismo",
     description: "Diseño, instalación y mantenimiento de jardines residenciales y comerciales",
     price: 950,
-    category: "Jardinería",
+    category: "Jardinero",
     provincia: "Barcelona",
     image: "https://images.unsplash.com/photo-1558904541-efa843a96f01?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
     rating: 4.7,
@@ -140,7 +141,7 @@ const gigs = [
     title: "Instalación de Puertas Blindadas",
     description: "Cerrajero profesional especializado en seguridad del hogar",
     price: 420,
-    category: "Cerrajería",
+    category: "Cerrajero",
     provincia: "Zaragoza",
     image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
     rating: 4.9,
@@ -156,7 +157,7 @@ const gigs = [
     title: "Proyectos Arquitectónicos Completos",
     description: "Arquitecto colegiado para diseño de viviendas, reformas y dirección de obra",
     price: 2500,
-    category: "Arquitectura",
+    category: "Arquitecto",
     provincia: "Madrid",
     image: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
     rating: 4.9,
@@ -172,7 +173,7 @@ const gigs = [
     title: "Instalación de Suelos y Alicatados",
     description: "Especialista en instalación de parquet, tarima, gres y cerámica",
     price: 720,
-    category: "Albañilería",
+    category: "Instalador de Suelos",
     provincia: "Valencia",
     image:
       "https://images.unsplash.com/photo-1581858726788-75bc0f6a952d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
@@ -189,7 +190,7 @@ const gigs = [
     title: "Diseño de Interiores Personalizado",
     description: "Interiorista profesional para proyectos residenciales y comerciales",
     price: 1800,
-    category: "Arquitectura",
+    category: "Diseñador de Interiores",
     provincia: "Bizkaia",
     image:
       "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
@@ -206,7 +207,7 @@ const gigs = [
     title: "Reparación de Electrodomésticos",
     description: "Técnico especializado en reparación de lavadoras, frigoríficos y hornos",
     price: 85,
-    category: "Electricidad",
+    category: "Electricista",
     provincia: "Sevilla",
     image: "https://images.unsplash.com/photo-1556911220-bff31c812dba?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
     rating: 4.6,
@@ -219,17 +220,9 @@ const gigs = [
   },
 ]
 
-const CATEGORIA_ID_TO_LABEL: Record<string, string> = {
-  albanileria: "Albañilería",
-  fontaneria: "Fontanería",
-  electricidad: "Electricidad",
-  pintura: "Pintura",
-  carpinteria: "Carpintería",
-  climatizacion: "Climatización",
-  jardineria: "Jardinería",
-  cerrajeria: "Cerrajería",
-  arquitectura: "Arquitectura",
-}
+const CATEGORIA_ID_TO_LABEL: Record<string, string> = Object.fromEntries(
+  CATEGORIAS_SERVICIO.map((c) => [c.id, c.label]),
+)
 
 const NIVEL_ID_TOKENS: Record<string, string[]> = {
   any: [],
