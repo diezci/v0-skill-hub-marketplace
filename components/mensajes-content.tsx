@@ -36,6 +36,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { obtenerConversaciones, obtenerMensajes, enviarMensaje } from "@/app/actions/messages"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
+import { useToast } from "@/hooks/use-toast"
 
 interface Message {
   id: string
@@ -210,6 +211,7 @@ export default function MensajesContent() {
   const router = useRouter()
   const [autoSelectDone, setAutoSelectDone] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const { toast } = useToast()
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -330,11 +332,17 @@ export default function MensajesContent() {
       const { url, filename, type } = await res.json()
       const tipo: "imagen" | "archivo" = type?.startsWith("image/") ? "imagen" : "archivo"
       const result = await enviarMensaje(selectedConversation.id, "", { tipo, url, nombre: filename })
-      if (result.data) {
+      if (result.error) {
+        toast({ title: "Error", description: result.error, variant: "destructive" })
+      } else if (result.data) {
         setMessages((prev) => [...prev, result.data as Message])
       }
     } catch {
-      // Falla silenciosa; el usuario puede reintentar.
+      toast({
+        title: "No se pudo subir el archivo",
+        description: "Inténtalo de nuevo en unos segundos.",
+        variant: "destructive",
+      })
     } finally {
       setUploading(false)
     }
@@ -913,11 +921,24 @@ export default function MensajesContent() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start">
-                      <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                      <DropdownMenuItem
+                        onSelect={(e) => {
+                          // Evitar que el cierre del menú (foco/portal) se coma el
+                          // click nativo del input file: prevenir el foco por
+                          // defecto y diferir el .click() a la siguiente tarea.
+                          e.preventDefault()
+                          setTimeout(() => fileInputRef.current?.click(), 0)
+                        }}
+                      >
                         <ImageIcon className="h-4 w-4 mr-2" />
                         Imagen
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                      <DropdownMenuItem
+                        onSelect={(e) => {
+                          e.preventDefault()
+                          setTimeout(() => fileInputRef.current?.click(), 0)
+                        }}
+                      >
                         <FileText className="h-4 w-4 mr-2" />
                         Documento
                       </DropdownMenuItem>
