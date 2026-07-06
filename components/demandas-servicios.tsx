@@ -39,6 +39,7 @@ import { toast } from "@/hooks/use-toast"
 import { crearOferta } from "@/app/actions/ofertas"
 import { obtenerSolicitudesAbiertas } from "@/app/actions/solicitudes"
 import { cn } from "@/lib/utils"
+import { PROVINCIAS_ES } from "@/lib/provincias"
 
 type Demanda = {
   id: string
@@ -78,7 +79,7 @@ const CATEGORIAS = [
   "Arquitecto",
 ]
 
-const UBICACIONES = ["Toda España", "Madrid", "Barcelona", "Valencia", "Sevilla", "Málaga", "Bilbao", "Zaragoza"]
+const UBICACIONES = ["Toda España", ...PROVINCIAS_ES]
 
 const MOCK_DEMANDAS: Demanda[] = [
   {
