@@ -283,6 +283,20 @@ export async function solicitarCancelacion(trabajoId: string, razon: string) {
     `🚫 Ha solicitado cancelar el trabajo "${trabajo.titulo}".${razon?.trim() ? ` Motivo: ${razon.trim()}` : ""} La otra parte puede aceptar o rechazar la cancelación desde la ficha del trabajo.`,
   )
 
+  // Notificar a la otra parte para que acepte o rechace.
+  {
+    const otroId = trabajo.cliente_id === user.id ? trabajo.profesional_id : trabajo.cliente_id
+    const otroEsCliente = otroId === trabajo.cliente_id
+    const { crearNotificacion } = await import("./notificaciones")
+    await crearNotificacion({
+      usuarioId: otroId,
+      tipo: "cancelacion_solicitada",
+      titulo: "Solicitud de cancelación",
+      mensaje: `La otra parte quiere cancelar "${trabajo.titulo}". Acepta o rechaza la cancelación desde la ficha del trabajo.`,
+      link: otroEsCliente ? "/mis-solicitudes" : "/mis-trabajos",
+    })
+  }
+
   revalidatePath("/mis-solicitudes")
   revalidatePath("/mis-trabajos")
   revalidatePath("/mensajes")
@@ -350,6 +364,21 @@ export async function responderCancelacion(trabajoId: string, aceptar: boolean) 
     )
   }
 
+  // Notificar al solicitante el resultado de su petición de cancelación.
+  {
+    const solicitanteEsCliente = trabajo.cancelacion_solicitada_por === trabajo.cliente_id
+    const { crearNotificacion } = await import("./notificaciones")
+    await crearNotificacion({
+      usuarioId: trabajo.cancelacion_solicitada_por,
+      tipo: aceptar ? "cancelacion_aceptada" : "cancelacion_rechazada",
+      titulo: aceptar ? "Cancelación aceptada" : "Cancelación rechazada",
+      mensaje: aceptar
+        ? `La otra parte ha aceptado cancelar "${trabajo.titulo}". El trabajo queda cancelado.`
+        : `La otra parte ha rechazado cancelar "${trabajo.titulo}". Si no hay acuerdo, puedes abrir una disputa desde la ficha del trabajo.`,
+      link: solicitanteEsCliente ? "/mis-solicitudes" : "/mis-trabajos",
+    })
+  }
+
   revalidatePath("/mis-solicitudes")
   revalidatePath("/mis-trabajos")
   revalidatePath("/mensajes")
@@ -405,6 +434,18 @@ export async function actualizarProgresoTrabajo(trabajoId: string, progreso: num
     })
   }
 
+  // Avisar al cliente del avance.
+  if (trabajo.cliente_id) {
+    const { crearNotificacion } = await import("./notificaciones")
+    await crearNotificacion({
+      usuarioId: trabajo.cliente_id,
+      tipo: "progreso_trabajo",
+      titulo: `Progreso actualizado: ${Math.min(100, Math.max(0, progreso))}%`,
+      mensaje: mensaje || `El profesional ha actualizado el progreso de "${data?.titulo ?? "tu trabajo"}".`,
+      link: "/mis-solicitudes",
+    })
+  }
+
   revalidatePath("/mis-solicitudes")
   return { data }
 }
@@ -423,7 +464,7 @@ export async function marcarTrabajoEntregado(trabajoId: string, mensaje?: string
   // Verify user is the professional
   const { data: trabajo } = await supabase
     .from("trabajos")
-    .select("profesional_id")
+    .select("profesional_id, cliente_id, titulo")
     .eq("id", trabajoId)
     .single()
 
@@ -455,6 +496,18 @@ export async function marcarTrabajoEntregado(trabajoId: string, mensaje?: string
     mensaje: mensaje || "El trabajo ha sido entregado y está pendiente de confirmación del cliente.",
     progreso: 100,
   })
+
+  // Avisar al cliente: debe revisar y confirmar (o rechazar) la entrega.
+  if (trabajo.cliente_id) {
+    const { crearNotificacion } = await import("./notificaciones")
+    await crearNotificacion({
+      usuarioId: trabajo.cliente_id,
+      tipo: "trabajo_entregado",
+      titulo: "Trabajo entregado",
+      mensaje: `El profesional ha entregado "${trabajo.titulo ?? "tu trabajo"}". Revísalo y confirma la finalización para liberar el pago.`,
+      link: "/mis-solicitudes",
+    })
+  }
 
   revalidatePath("/mis-solicitudes")
   return { data }

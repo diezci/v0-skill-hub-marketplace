@@ -76,24 +76,39 @@ export async function crearPagoEscrow(data: {
       },
     })
 
-    // Create escrow record in database
-    const { data: escrow, error: escrowError } = await supabase
+    // Reutilizar el escrow pendiente del trabajo si existe (cada visita a la
+    // página de pago creaba una fila nueva y se acumulaban duplicados).
+    const { data: escrowPrevio } = await supabase
       .from("transacciones_escrow")
-      .insert({
-        trabajo_id: trabajo.id,
-        cliente_id: user.id,
-        profesional_id: trabajo.profesional_id,
-        monto: totalCliente,
-        monto_base: precioBase,
-        comision_cliente: comisionCliente,
-        comision_proveedor: comisionProveedor,
-        pago_neto_proveedor: pagoNeto,
-        estado: "pendiente",
-        stripe_session_id: session.id,
-        stripe_payment_intent_id: session.payment_intent as string || null,
-      })
-      .select()
-      .single()
+      .select("id")
+      .eq("trabajo_id", trabajo.id)
+      .eq("estado", "pendiente")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const camposEscrow = {
+      trabajo_id: trabajo.id,
+      cliente_id: user.id,
+      profesional_id: trabajo.profesional_id,
+      monto: totalCliente,
+      monto_base: precioBase,
+      comision_cliente: comisionCliente,
+      comision_proveedor: comisionProveedor,
+      pago_neto_proveedor: pagoNeto,
+      estado: "pendiente",
+      stripe_session_id: session.id,
+      stripe_payment_intent_id: (session.payment_intent as string) || null,
+    }
+
+    const { data: escrow, error: escrowError } = escrowPrevio
+      ? await supabase
+          .from("transacciones_escrow")
+          .update(camposEscrow)
+          .eq("id", escrowPrevio.id)
+          .select()
+          .single()
+      : await supabase.from("transacciones_escrow").insert(camposEscrow).select().single()
 
     if (escrowError) {
       return { error: escrowError.message }
@@ -155,10 +170,25 @@ export async function confirmarPagoEscrow(sessionId: string) {
     }
 
     // Update trabajo to en_progreso
-    await supabase.from("trabajos").update({ 
+    await supabase.from("trabajos").update({
       estado: "en_progreso",
       updated_at: new Date().toISOString(),
     }).eq("id", escrow.trabajo_id)
+
+    // Avisar al proveedor de que el pago está en custodia y puede empezar.
+    const { data: trabajoPagado } = await supabase
+      .from("trabajos")
+      .select("titulo")
+      .eq("id", escrow.trabajo_id)
+      .maybeSingle()
+    const { crearNotificacion } = await import("./notificaciones")
+    await crearNotificacion({
+      usuarioId: escrow.profesional_id,
+      tipo: "pago_recibido",
+      titulo: "El cliente ha pagado: puedes empezar",
+      mensaje: `El pago de "${trabajoPagado?.titulo ?? "un trabajo"}" ya está retenido en custodia. El trabajo pasa a En Progreso.`,
+      link: "/mis-trabajos",
+    })
 
     revalidatePath("/mis-solicitudes")
     revalidatePath("/mis-trabajos")
@@ -242,6 +272,24 @@ export async function liberarFondosEscrow(trabajoId: string) {
       mensaje: `Pago liberado. El proveedor recibira ${escrow.pago_neto_proveedor?.toFixed(2) || escrow.monto_base?.toFixed(2)}EUR.`,
       progreso: 100,
     })
+
+    // Avisar al proveedor de que su pago ha sido liberado.
+    {
+      const { data: trabajoInfo } = await supabase
+        .from("trabajos")
+        .select("titulo")
+        .eq("id", trabajoId)
+        .maybeSingle()
+      const neto = Number(escrow.pago_neto_proveedor ?? escrow.monto_base ?? 0)
+      const { crearNotificacion } = await import("./notificaciones")
+      await crearNotificacion({
+        usuarioId: escrow.profesional_id,
+        tipo: "pago_liberado",
+        titulo: "Pago liberado",
+        mensaje: `El cliente ha confirmado "${trabajoInfo?.titulo ?? "el trabajo"}". Se te libera el pago de ${neto.toFixed(2)}€.`,
+        link: "/mis-trabajos",
+      })
+    }
 
     revalidatePath("/mis-solicitudes")
     revalidatePath("/mis-trabajos")
@@ -347,6 +395,25 @@ export async function rechazarTrabajoYReembolsar(trabajoId: string, motivo: stri
       mensaje: `Trabajo rechazado. Motivo: ${motivo}. Reembolso: ${reembolso.toFixed(2)}EUR (se retiene ${retencionPlataforma.toFixed(2)}EUR de comision de plataforma).`,
       progreso: 0,
     })
+
+    // Avisar al proveedor del rechazo y el reembolso al cliente.
+    {
+      const { data: trabajoInfo } = await supabase
+        .from("trabajos")
+        .select("titulo, profesional_id")
+        .eq("id", trabajoId)
+        .maybeSingle()
+      if (trabajoInfo?.profesional_id) {
+        const { crearNotificacion } = await import("./notificaciones")
+        await crearNotificacion({
+          usuarioId: trabajoInfo.profesional_id,
+          tipo: "trabajo_rechazado",
+          titulo: "Entrega rechazada",
+          mensaje: `El cliente ha rechazado "${trabajoInfo.titulo ?? "el trabajo"}" y se le ha reembolsado el pago. Motivo: ${motivo}`,
+          link: "/mis-trabajos",
+        })
+      }
+    }
 
     revalidatePath("/mis-solicitudes")
     revalidatePath("/mis-trabajos")
