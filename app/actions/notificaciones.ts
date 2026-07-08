@@ -31,14 +31,14 @@ export async function crearNotificacion(params: {
   })
 }
 
-// Resumen para el navbar: últimas notificaciones, cuántas sin leer y cuántos
-// mensajes de chat sin leer.
+// Resumen para el navbar: últimas notificaciones, cuántas sin leer (total y por
+// sección, agrupadas por el link de destino) y cuántos mensajes de chat sin leer.
 export async function obtenerResumenNotificaciones() {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { notificaciones: [], noLeidas: 0, mensajesNoLeidos: 0 }
+  if (!user) return { notificaciones: [], noLeidas: 0, mensajesNoLeidos: 0, porSeccion: {} as Record<string, number> }
 
   const { data: notificaciones } = await supabase
     .from("notificaciones")
@@ -48,6 +48,18 @@ export async function obtenerResumenNotificaciones() {
     .limit(20)
 
   const noLeidas = (notificaciones || []).filter((n: any) => !n.leida).length
+
+  // Contadores por sección para los badges del navbar: cada notificación apunta
+  // (vía link) a la sección donde se resuelve.
+  const porSeccion: Record<string, number> = {}
+  const { data: pendientes } = await supabase
+    .from("notificaciones")
+    .select("link")
+    .eq("usuario_id", user.id)
+    .eq("leida", false)
+  for (const n of pendientes || []) {
+    if (n.link) porSeccion[n.link] = (porSeccion[n.link] || 0) + 1
+  }
 
   // Mensajes de chat sin leer (en conversaciones donde participo, no enviados por mí).
   const { data: convs } = await supabase
@@ -67,7 +79,26 @@ export async function obtenerResumenNotificaciones() {
     mensajesNoLeidos = count || 0
   }
 
-  return { notificaciones: notificaciones || [], noLeidas, mensajesNoLeidos }
+  return { notificaciones: notificaciones || [], noLeidas, mensajesNoLeidos, porSeccion }
+}
+
+// Marca como leídas las notificaciones cuyo destino es la sección visitada
+// (los badges del navbar se apagan al entrar en la sección).
+export async function marcarNotificacionesLeidasPorLink(link: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { error } = await supabase
+    .from("notificaciones")
+    .update({ leida: true })
+    .eq("usuario_id", user.id)
+    .eq("leida", false)
+    .eq("link", link)
+  if (error) return { error: error.message }
+  return { success: true }
 }
 
 // Marca todas mis notificaciones como leídas (al abrir la campana).

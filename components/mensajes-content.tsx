@@ -872,42 +872,20 @@ export default function MensajesContent() {
                     accept="image/*,.pdf,.doc,.docx"
                     onChange={handleFileChange}
                   />
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        disabled={uploading}
-                        className="shrink-0 h-10 w-10 text-muted-foreground"
-                      >
-                        {uploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                      <DropdownMenuItem
-                        onSelect={(e) => {
-                          // Evitar que el cierre del menú (foco/portal) se coma el
-                          // click nativo del input file: prevenir el foco por
-                          // defecto y diferir el .click() a la siguiente tarea.
-                          e.preventDefault()
-                          setTimeout(() => fileInputRef.current?.click(), 0)
-                        }}
-                      >
-                        <ImageIcon className="h-4 w-4 mr-2" />
-                        Imagen
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={(e) => {
-                          e.preventDefault()
-                          setTimeout(() => fileInputRef.current?.click(), 0)
-                        }}
-                      >
-                        <FileText className="h-4 w-4 mr-2" />
-                        Documento
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  {/* El clip abre el selector directamente en el onClick: pasar
+                      por un menú intermedio rompía la activación de usuario y
+                      Safari/iOS bloqueaba el selector de archivos. */}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    disabled={uploading}
+                    aria-label="Adjuntar archivo"
+                    className="shrink-0 h-10 w-10 text-muted-foreground"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {uploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
+                  </Button>
 
                   <div className="flex-1">
                     <Input

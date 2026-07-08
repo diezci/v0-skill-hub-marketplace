@@ -541,7 +541,7 @@ export default function MisSolicitudes() {
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="solicitudes" className="gap-2">
             <FileText className="h-4 w-4" />
-            Mis Solicitudes
+            Mis Demandas
           </TabsTrigger>
           <TabsTrigger value="en-progreso" className="gap-2">
             <Loader2 className="h-4 w-4" />
@@ -659,6 +659,38 @@ export default function MisSolicitudes() {
                                     </div>
                                   </div>
                                   <p className="text-sm mt-2 text-muted-foreground">{oferta.descripcion}</p>
+                                  {Array.isArray(oferta.archivos) && oferta.archivos.length > 0 && (
+                                    <div className="mt-3">
+                                      <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
+                                        <FileText className="h-3.5 w-3.5" /> Archivos adjuntos ({oferta.archivos.length})
+                                      </p>
+                                      <div className="flex flex-wrap gap-2">
+                                        {oferta.archivos.map((url: string, i: number) =>
+                                          /\.(png|jpe?g|gif|webp)(\?|$)/i.test(url) ? (
+                                            <a key={i} href={url} target="_blank" rel="noreferrer">
+                                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                                              <img
+                                                src={url}
+                                                alt={`Adjunto ${i + 1}`}
+                                                className="h-16 w-16 rounded-md object-cover border hover:opacity-80 transition"
+                                              />
+                                            </a>
+                                          ) : (
+                                            <a
+                                              key={i}
+                                              href={url}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted transition"
+                                            >
+                                              <FileText className="h-3.5 w-3.5" />
+                                              {decodeURIComponent(url.split("/").pop()?.split("?")[0] || `Archivo ${i + 1}`)}
+                                            </a>
+                                          ),
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
                                   <div className="flex gap-2 mt-3">
                                     <Button 
                                       size="sm" 

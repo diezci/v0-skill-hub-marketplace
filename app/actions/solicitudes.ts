@@ -269,7 +269,7 @@ export async function obtenerMisSolicitudes() {
     (data || []).map(async (s: any) => {
       const { data: ofertas } = await supabase
         .from("ofertas")
-        .select("id, precio, tiempo_estimado, unidad_tiempo, descripcion, estado, created_at, profesional_id")
+        .select("id, precio, tiempo_estimado, unidad_tiempo, descripcion, estado, created_at, profesional_id, archivos")
         .eq("solicitud_id", s.id)
       return {
         ...s,
@@ -369,7 +369,8 @@ export async function obtenerSolicitudesPorUsuario() {
           descripcion,
           estado,
           created_at,
-          profesional_id
+          profesional_id,
+          archivos
         `)
         .eq("solicitud_id", solicitud.id)
 
