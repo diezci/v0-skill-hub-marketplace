@@ -170,7 +170,7 @@ export async function actualizarOferta(
   // Solo el profesional dueño y mientras la oferta no esté aceptada.
   const { data: oferta } = await supabase
     .from("ofertas")
-    .select("profesional_id, estado")
+    .select("profesional_id, estado, solicitud_id")
     .eq("id", ofertaId)
     .maybeSingle()
 
@@ -196,6 +196,27 @@ export async function actualizarOferta(
     .single()
 
   if (error) return { error: error.message }
+
+  // Avisar al cliente dueño de la demanda de que la oferta ha cambiado.
+  if (oferta.solicitud_id) {
+    const { data: solicitud } = await supabase
+      .from("solicitudes")
+      .select("cliente_id, titulo")
+      .eq("id", oferta.solicitud_id)
+      .maybeSingle()
+    if (solicitud?.cliente_id) {
+      const { crearNotificacion } = await import("./notificaciones")
+      await crearNotificacion({
+        usuarioId: solicitud.cliente_id,
+        tipo: "oferta_actualizada",
+        titulo: "Una oferta ha sido actualizada",
+        mensaje: `El profesional ha modificado su oferta en "${solicitud.titulo}"${
+          campos.precio != null ? ` (nuevo precio: ${campos.precio}€)` : ""
+        }. Revísala en Mis Solicitudes.`,
+        link: "/mis-solicitudes",
+      })
+    }
+  }
 
   revalidatePath("/mis-trabajos")
   revalidatePath("/demandas")
