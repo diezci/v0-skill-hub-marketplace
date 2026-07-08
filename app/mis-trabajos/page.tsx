@@ -65,7 +65,6 @@ import {
 import { createClient } from "@/lib/supabase/client"
 import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
 import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
-import MisOfertas from "@/components/mis-ofertas"
 
 type EstadoTrabajo = "pendiente_pago" | "en_progreso" | "entregado" | "completado" | "cancelado" | "en_disputa"
 
@@ -410,10 +409,6 @@ export default function MisTrabajosPage() {
                 <CheckCircle2 className="h-4 w-4" />
                 Completados ({trabajosCompletados.length})
               </TabsTrigger>
-              <TabsTrigger value="ofertas" className="gap-2">
-                <FileText className="h-4 w-4" />
-                Ofertas enviadas
-              </TabsTrigger>
             </TabsList>
 
           {/* Active Jobs */}
@@ -494,11 +489,6 @@ export default function MisTrabajosPage() {
                 />
               ))
             )}
-          </TabsContent>
-
-          {/* Ofertas enviadas: seguimiento y edición de ofertas aún no aceptadas */}
-          <TabsContent value="ofertas" className="space-y-4">
-            <MisOfertas />
           </TabsContent>
           </Tabs>
 
