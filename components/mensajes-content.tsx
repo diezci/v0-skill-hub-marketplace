@@ -214,7 +214,11 @@ export default function MensajesContent() {
   const { toast } = useToast()
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    // Desplazar solo el panel de mensajes (viewport del ScrollArea), nunca la
+    // página: scrollIntoView movía también el scroll del documento y al abrir
+    // /mensajes la vista saltaba hasta abajo.
+    const viewport = messagesEndRef.current?.closest("[data-radix-scroll-area-viewport]")
+    if (viewport) viewport.scrollTop = viewport.scrollHeight
   }
 
   useEffect(() => {
