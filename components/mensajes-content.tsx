@@ -211,10 +211,6 @@ export default function MensajesContent() {
   }
 
   useEffect(() => {
-    scrollToBottom()
-  }, [messages])
-
-  useEffect(() => {
     if (selectedConversation) {
       const timer = setTimeout(() => {
         setIsTyping(true)
@@ -229,7 +225,7 @@ export default function MensajesContent() {
       setLoading(true)
       const supabase = createClient()
       if (!supabase) {
-        setConversations(MOCK_CONVERSATIONS)
+        setConversations([])
         setLoading(false)
         return
       }
@@ -241,13 +237,9 @@ export default function MensajesContent() {
       if (user) {
         setCurrentUserId(user.id)
         const result = await obtenerConversaciones()
-        if (result.data && result.data.length > 0) {
-          setConversations(result.data as Conversation[])
-        } else {
-          setConversations(MOCK_CONVERSATIONS)
-        }
+        setConversations((result.data || []) as Conversation[])
       } else {
-        setConversations(MOCK_CONVERSATIONS)
+        setConversations([])
       }
       setLoading(false)
     }
@@ -259,11 +251,7 @@ export default function MensajesContent() {
     setShowMobileChat(true)
     setLoadingMessages(true) // Set loading state before fetching messages
     const result = await obtenerMensajes(conv.id)
-    if (result.data && result.data.length > 0) {
-      setMessages(result.data as Message[])
-    } else {
-      setMessages(MOCK_MESSAGES)
-    }
+    setMessages((result.data || []) as Message[])
     setLoadingMessages(false) // Set loading state to false after fetching messages
   }
 

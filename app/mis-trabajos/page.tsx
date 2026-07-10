@@ -172,12 +172,11 @@ export default function MisTrabajosPage() {
     setCurrentUserId(user?.id || null)
 
     const result = await obtenerMisTrabajos()
-    if (result.data && result.data.length > 0) {
-      // Filter to show only where user is the professional
-      const misTrabajos = result.data.filter((t: any) => t.profesional_id === user?.id)
-      setTrabajos(misTrabajos)
+    if (result.data) {
+      // This provider workspace only shows projects assigned to the signed-in professional.
+      setTrabajos(result.data.filter((t: any) => t.profesional_id === user?.id))
     } else {
-      setTrabajos(MOCK_TRABAJOS)
+      setTrabajos([])
     }
     setLoading(false)
   }

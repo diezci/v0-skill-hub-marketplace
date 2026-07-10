@@ -1,300 +1,106 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useEffect, useState } from "react"
+import Link from "next/link"
+import { Calendar, CheckCircle2, Clock, FileText, Loader2, MapPin, MessageSquare, XCircle } from "lucide-react"
+import { obtenerOfertasPorProfesional, retirarOferta } from "@/app/actions/ofertas"
 import { Badge } from "@/components/ui/badge"
-import { formatearPrecioEuros } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Clock, CheckCircle2, XCircle, MessageSquare, MapPin, Calendar, Phone, FileText, Loader2 } from "lucide-react"
-import { obtenerOfertasPorProfesional } from "@/app/actions/ofertas"
+import { useToast } from "@/hooks/use-toast"
+import { formatearPrecioEuros } from "@/lib/utils"
 
-type OfertaEstado = "enviada" | "aceptada" | "rechazada" | "en-negociacion"
+type Estado = "pendiente" | "aceptada" | "rechazada" | "retirada"
 
-const estadoConfig = {
-  enviada: {
-    label: "Enviada",
-    icon: Clock,
-    variant: "secondary" as const,
-    color: "text-blue-600",
-  },
-  aceptada: {
-    label: "Aceptada",
-    icon: CheckCircle2,
-    variant: "default" as const,
-    color: "text-green-600",
-  },
-  rechazada: {
-    label: "Rechazada",
-    icon: XCircle,
-    variant: "destructive" as const,
-    color: "text-red-600",
-  },
-  "en-negociacion": {
-    label: "En Negociación",
-    icon: MessageSquare,
-    variant: "outline" as const,
-    color: "text-orange-600",
-  },
+const estados: Record<Estado, { label: string; icon: typeof Clock; variant: "secondary" | "default" | "destructive" | "outline" }> = {
+  pendiente: { label: "Pendiente", icon: Clock, variant: "secondary" },
+  aceptada: { label: "Aceptada", icon: CheckCircle2, variant: "default" },
+  rechazada: { label: "Rechazada", icon: XCircle, variant: "destructive" },
+  retirada: { label: "Retirada", icon: XCircle, variant: "outline" },
 }
 
-const MOCK_OFERTAS = [
-  {
-    id: "oferta-mock-1",
-    precio: 4200,
-    tiempo_estimado: 15,
-    descripcion:
-      "Reforma completa con materiales de primera calidad. Incluyo desmontaje, obra nueva, fontanería completa y acabados profesionales.",
-    estado: "enviada",
-    created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    solicitud: {
-      titulo: "Reforma completa de baño",
-      ubicacion: "Madrid, España",
-      cliente: { nombre: "María", apellido: "González" },
-    },
-  },
-  {
-    id: "oferta-mock-2",
-    precio: 2800,
-    tiempo_estimado: 2,
-    descripcion:
-      "Instalación profesional de 3 splits con equipos Mitsubishi de alta eficiencia. Incluye todo el material necesario y garantía de 3 años.",
-    estado: "aceptada",
-    created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    solicitud: {
-      titulo: "Instalación de aire acondicionado",
-      ubicacion: "Barcelona, España",
-      cliente: { nombre: "Carlos", apellido: "Martínez" },
-    },
-    notas: "Cliente muy satisfecho, proyecto comenzado",
-  },
-  {
-    id: "oferta-mock-3",
-    precio: 1200,
-    tiempo_estimado: 3,
-    descripcion: "Reparación urgente de fuga en tubería principal con garantía de 2 años. Disponibilidad inmediata.",
-    estado: "en-negociacion",
-    created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-    solicitud: {
-      titulo: "Fuga urgente en cocina",
-      ubicacion: "Valencia, España",
-      cliente: { nombre: "Laura", apellido: "Sánchez" },
-    },
-  },
-  {
-    id: "oferta-mock-4",
-    precio: 3500,
-    tiempo_estimado: 10,
-    descripcion: "Instalación de suelo laminado en 60m² con rodapié incluido.",
-    estado: "rechazada",
-    created_at: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
-    solicitud: {
-      titulo: "Instalación de suelo laminado",
-      ubicacion: "Sevilla, España",
-      cliente: { nombre: "Jorge", apellido: "Ruiz" },
-    },
-  },
-]
-
 export default function MisOfertas() {
-  const [filtroEstado, setFiltroEstado] = useState<OfertaEstado | "todas">("todas")
+  const [filtro, setFiltro] = useState<Estado | "todas">("todas")
   const [ofertas, setOfertas] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [retirando, setRetirando] = useState<string | null>(null)
+  const { toast } = useToast()
 
-  useEffect(() => {
-    async function cargarOfertas() {
-      setLoading(true)
-      const result = await obtenerOfertasPorProfesional()
-      if (result.data && result.data.length > 0) {
-        setOfertas(result.data)
-      } else {
-        setOfertas(MOCK_OFERTAS)
-      }
-      setLoading(false)
+  async function cargar() {
+    setLoading(true)
+    const result = await obtenerOfertasPorProfesional()
+    setOfertas(result.data || [])
+    if (result.error) toast({ title: "No se pudieron cargar los presupuestos", description: result.error, variant: "destructive" })
+    setLoading(false)
+  }
+
+  useEffect(() => { void cargar() }, [])
+
+  async function handleRetirar(id: string) {
+    setRetirando(id)
+    const result = await retirarOferta(id)
+    if (result.error) {
+      toast({ title: "No se pudo retirar", description: result.error, variant: "destructive" })
+    } else {
+      toast({ title: "Presupuesto retirado", description: "El cliente ya no podrá aceptarlo." })
+      await cargar()
     }
-    cargarOfertas()
-  }, [])
-
-  const ofertasFiltradas = filtroEstado === "todas" ? ofertas : ofertas.filter((o) => o.estado === filtroEstado)
-
-  const contadores = {
-    todas: ofertas.length,
-    enviada: ofertas.filter((o) => o.estado === "enviada").length,
-    "en-negociacion": ofertas.filter((o) => o.estado === "en-negociacion").length,
-    aceptada: ofertas.filter((o) => o.estado === "aceptada").length,
+    setRetirando(null)
   }
 
-  if (loading) {
-    return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
-    )
-  }
+  const visibles = filtro === "todas" ? ofertas : ofertas.filter((oferta) => oferta.estado === filtro)
+  const total = (estado: Estado) => ofertas.filter((oferta) => oferta.estado === estado).length
+
+  if (loading) return <Card><CardContent className="flex items-center justify-center py-16"><Loader2 className="size-8 animate-spin text-muted-foreground" /></CardContent></Card>
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Total Ofertas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{contadores.todas}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Enviadas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{contadores.enviada}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">En Negociación</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{contadores["en-negociacion"]}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Aceptadas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{contadores.aceptada}</div>
-          </CardContent>
-        </Card>
+    <div className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-balance text-3xl font-bold">Presupuestos enviados</h1>
+        <p className="text-pretty text-muted-foreground">Consulta el estado de las ofertas que has enviado a clientes.</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Mis Ofertas de Servicio</CardTitle>
-          <CardDescription>Gestiona y da seguimiento a todas tus ofertas enviadas</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={filtroEstado} onValueChange={(v) => setFiltroEstado(v as OfertaEstado | "todas")}>
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="todas">Todas ({contadores.todas})</TabsTrigger>
-              <TabsTrigger value="enviada">Enviadas ({contadores.enviada})</TabsTrigger>
-              <TabsTrigger value="en-negociacion">En Negociación ({contadores["en-negociacion"]})</TabsTrigger>
-              <TabsTrigger value="aceptada">Aceptadas ({contadores.aceptada})</TabsTrigger>
-            </TabsList>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {(["pendiente", "aceptada", "rechazada", "retirada"] as Estado[]).map((estado) => (
+          <Card key={estado}><CardContent className="flex items-center justify-between p-4"><span className="text-sm text-muted-foreground">{estados[estado].label}</span><strong className="text-xl">{total(estado)}</strong></CardContent></Card>
+        ))}
+      </div>
 
-            <TabsContent value={filtroEstado} className="space-y-4 mt-6">
-              {ofertasFiltradas.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No hay ofertas en esta categoría</p>
-                </div>
-              ) : (
-                ofertasFiltradas.map((oferta) => {
-                  const config = estadoConfig[oferta.estado as OfertaEstado]
-                  const IconoEstado = config.icon
-
-                  return (
-                    <Card key={oferta.id} className="hover:shadow-md transition-shadow">
-                      <CardHeader>
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <CardTitle className="text-xl">{oferta.solicitud?.titulo || "Servicio"}</CardTitle>
-                              <Badge variant={config.variant} className="gap-1">
-                                <IconoEstado className="h-3 w-3" />
-                                {config.label}
-                              </Badge>
-                            </div>
-                            <CardDescription className="text-base">
-                              {oferta.solicitud?.cliente?.nombre} {oferta.solicitud?.cliente?.apellido}
-                            </CardDescription>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-2xl font-bold text-primary">{formatearPrecioEuros(oferta.precio)}</div>
-                            <p className="text-sm text-muted-foreground">Precio ofertado</p>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="grid gap-3 text-sm">
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <Calendar className="h-4 w-4" />
-                            <span>Enviada el {new Date(oferta.created_at).toLocaleDateString("es-ES")}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <MapPin className="h-4 w-4" />
-                            <span>{oferta.solicitud?.ubicacion || "Ubicación no especificada"}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <Clock className="h-4 w-4" />
-                            <span>{oferta.tiempo_estimado} días estimados</span>
-                          </div>
-                        </div>
-
-                        <div className="pt-3 border-t">
-                          <p className="text-sm font-medium mb-2">Descripción del Servicio:</p>
-                          <p className="text-sm text-muted-foreground">{oferta.descripcion}</p>
-                        </div>
-
-                        {oferta.notas && (
-                          <div className="pt-3 border-t bg-muted/50 -mx-6 px-6 py-3">
-                            <p className="text-sm font-medium mb-1">Notas:</p>
-                            <p className="text-sm text-muted-foreground">{oferta.notas}</p>
-                          </div>
-                        )}
-
-                        <div className="flex gap-2 pt-2">
-                          {oferta.estado === "enviada" && (
-                            <>
-                              <Button variant="outline" size="sm" className="flex-1 bg-transparent">
-                                <MessageSquare className="h-4 w-4 mr-2" />
-                                Contactar Cliente
-                              </Button>
-                              <Button variant="outline" size="sm" className="flex-1 bg-transparent">
-                                Modificar Oferta
-                              </Button>
-                            </>
-                          )}
-                          {oferta.estado === "en-negociacion" && (
-                            <>
-                              <Button size="sm" className="flex-1">
-                                <MessageSquare className="h-4 w-4 mr-2" />
-                                Continuar Negociación
-                              </Button>
-                              <Button variant="outline" size="sm" className="flex-1 bg-transparent">
-                                Actualizar Precio
-                              </Button>
-                            </>
-                          )}
-                          {oferta.estado === "aceptada" && (
-                            <>
-                              <Button size="sm" className="flex-1">
-                                <Phone className="h-4 w-4 mr-2" />
-                                Contactar Cliente
-                              </Button>
-                              <Button variant="outline" size="sm" className="flex-1 bg-transparent">
-                                Ver Detalles del Proyecto
-                              </Button>
-                            </>
-                          )}
-                          {oferta.estado === "rechazada" && (
-                            <Button variant="outline" size="sm" className="flex-1 bg-transparent" disabled>
-                              Oferta Rechazada
-                            </Button>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })
-              )}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+      <Tabs value={filtro} onValueChange={(value) => setFiltro(value as Estado | "todas")}>
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 p-1">
+          <TabsTrigger value="todas">Todos ({ofertas.length})</TabsTrigger>
+          <TabsTrigger value="pendiente">Pendientes ({total("pendiente")})</TabsTrigger>
+          <TabsTrigger value="aceptada">Aceptados ({total("aceptada")})</TabsTrigger>
+          <TabsTrigger value="rechazada">Rechazados ({total("rechazada")})</TabsTrigger>
+          <TabsTrigger value="retirada">Retirados ({total("retirada")})</TabsTrigger>
+        </TabsList>
+        <TabsContent value={filtro} className="mt-5 flex flex-col gap-4">
+          {visibles.length === 0 ? (
+            <Card><CardContent className="flex flex-col items-center gap-3 py-16 text-center"><FileText className="size-10 text-muted-foreground" /><div><p className="font-medium">No hay presupuestos aquí</p><p className="text-sm text-muted-foreground">Cuando envíes uno desde una demanda aparecerá en esta sección.</p></div><Button asChild><Link href="/demandas">Ver demandas</Link></Button></CardContent></Card>
+          ) : visibles.map((oferta) => {
+            const config = estados[(oferta.estado as Estado)] || estados.pendiente
+            const Icon = config.icon
+            return (
+              <Card key={oferta.id}>
+                <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex min-w-0 flex-col gap-2"><div className="flex flex-wrap items-center gap-2"><CardTitle className="text-lg">{oferta.solicitud?.titulo || "Servicio"}</CardTitle><Badge variant={config.variant}><Icon className="mr-1 size-3" />{config.label}</Badge></div><CardDescription>{oferta.solicitud?.cliente ? `${oferta.solicitud.cliente.nombre || ""} ${oferta.solicitud.cliente.apellido || ""}` : "Cliente"}</CardDescription></div>
+                  <div className="shrink-0 sm:text-right"><p className="text-2xl font-bold text-primary">{formatearPrecioEuros(oferta.precio)}</p><p className="text-xs text-muted-foreground">Presupuesto enviado</p></div>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-4">
+                  <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground"><span className="flex items-center gap-2"><Calendar className="size-4" />{new Date(oferta.created_at).toLocaleDateString("es-ES")}</span><span className="flex items-center gap-2"><MapPin className="size-4" />{oferta.solicitud?.ubicacion || "Sin ubicación"}</span><span className="flex items-center gap-2"><Clock className="size-4" />{oferta.tiempo_estimado} {oferta.unidad_tiempo || "días"}</span></div>
+                  <p className="text-sm leading-relaxed text-muted-foreground">{oferta.descripcion}</p>
+                  <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row">
+                    <Button asChild variant="outline" className="sm:flex-1"><Link href={`/demandas?solicitud=${oferta.solicitud_id}`}><FileText className="mr-2 size-4" />Ver demanda</Link></Button>
+                    {oferta.estado === "aceptada" && <Button asChild className="sm:flex-1"><Link href="/mis-trabajos"><MessageSquare className="mr-2 size-4" />Ver proyecto</Link></Button>}
+                    {oferta.estado === "pendiente" && <Button variant="destructive" className="sm:flex-1" disabled={retirando === oferta.id} onClick={() => void handleRetirar(oferta.id)}>{retirando === oferta.id && <Loader2 className="mr-2 size-4 animate-spin" />}Retirar presupuesto</Button>}
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
