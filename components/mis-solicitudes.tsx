@@ -196,15 +196,8 @@ export default function MisSolicitudes() {
         obtenerMisTrabajos()
       ])
       
-      // Always show real data (even if empty) so the user sees their own solicitudes.
-      // Only fall back to mock data on actual error.
-      if (solicitudesResult.data) {
-        setSolicitudes(solicitudesResult.data)
-      } else if (solicitudesResult.error) {
-        setSolicitudes(MOCK_SOLICITUDES)
-      } else {
-        setSolicitudes([])
-      }
+      // Private areas must only show the authenticated user's real data.
+      setSolicitudes(solicitudesResult.data || [])
       
       if (trabajosResult.data) {
         setTrabajos(trabajosResult.data)

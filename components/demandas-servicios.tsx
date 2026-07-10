@@ -324,11 +324,12 @@ export default function DemandasServicios() {
 
       const result = await crearOferta({
         solicitud_id: demandaSeleccionada.id,
-        precio_propuesto: Number.parseFloat(formData.precio),
-        tiempo_estimado: `${formData.duracion} ${formData.unidadTiempo}`,
+        precio: Number.parseFloat(formData.precio),
+        tiempo_estimado: Number.parseInt(formData.duracion, 10) || 1,
+        unidad_tiempo: formData.unidadTiempo,
         descripcion: formData.descripcion,
-        incluye_materiales: formData.materiales === "si",
-        archivos_adjuntos: successfulUploads,
+        materiales_incluidos: formData.materiales === "si" ? "si" : "no",
+        archivos: successfulUploads,
       })
 
       if (result.error) {
@@ -640,8 +641,8 @@ export default function DemandasServicios() {
             <div className="flex items-center gap-2 mb-2">
               <Badge variant="outline">{demandaSeleccionada?.categoria?.nombre}</Badge>
               {demandaSeleccionada && (
-                <Badge variant="outline" className={urgenciaConfig[demandaSeleccionada.urgencia].color}>
-                  {urgenciaConfig[demandaSeleccionada.urgencia].label}
+                <Badge variant="outline" className={getUrgencia(demandaSeleccionada.urgencia).color}>
+                  {getUrgencia(demandaSeleccionada.urgencia).label}
                 </Badge>
               )}
             </div>

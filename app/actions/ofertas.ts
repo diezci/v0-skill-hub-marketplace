@@ -23,7 +23,7 @@ export async function crearOferta(formData: {
     return { error: "No autenticado. Por favor inicia sesión." }
   }
 
-  const { data: profesional } = await supabase.from("profesionales").select("id").eq("id", user.id).single()
+  const { data: profesional } = await supabase.from("profesionales").select("id").eq("id", user.id).maybeSingle()
 
   if (!profesional) {
     return { error: "Debes crear un perfil profesional antes de enviar ofertas. Ve a 'Mi Perfil' para configurarlo." }
@@ -35,7 +35,7 @@ export async function crearOferta(formData: {
     .select("id")
     .eq("solicitud_id", formData.solicitud_id)
     .eq("profesional_id", user.id)
-    .single()
+    .maybeSingle()
 
   if (existingOffer) {
     return { error: "Ya has enviado una oferta para esta solicitud." }
@@ -136,6 +136,31 @@ export async function obtenerMisOfertas() {
 
 export async function obtenerOfertasPorProfesional() {
   return obtenerMisOfertas()
+}
+
+export async function retirarOferta(ofertaId: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return { error: "No autenticado" }
+
+  const { data, error } = await supabase
+    .from("ofertas")
+    .update({ estado: "retirada", retirada_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq("id", ofertaId)
+    .eq("profesional_id", user.id)
+    .eq("estado", "pendiente")
+    .select()
+    .maybeSingle()
+
+  if (error) return { error: error.message }
+  if (!data) return { error: "Solo puedes retirar presupuestos pendientes" }
+
+  revalidatePath("/presupuestos-enviados")
+  revalidatePath("/mi-cuenta")
+  return { data }
 }
 
 export async function aceptarOferta(ofertaId: string) {

@@ -148,7 +148,7 @@ export async function actualizarPerfil(formData: {
   }
 
   // Check if professional profile exists
-  const { data: profesional } = await supabase.from("profesionales").select("id").eq("id", user.id).single()
+  const { data: profesional } = await supabase.from("profesionales").select("id").eq("id", user.id).maybeSingle()
 
   // Prepare professional data (bio is in profiles, not profesionales)
   const profData: any = {}
@@ -181,7 +181,6 @@ export async function actualizarPerfil(formData: {
           id: user.id,
           ...profData,
           disponible: true,
-          verificado: false,
           rating_promedio: 0,
           total_reseñas: 0,
         })
