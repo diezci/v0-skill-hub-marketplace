@@ -17,208 +17,6 @@ import { useToast } from "@/hooks/use-toast"
 import type { ProfesionalesFiltros } from "@/components/profesionales-content"
 import { CATEGORIAS_SERVICIO } from "@/lib/categorias"
 
-const gigs = [
-  {
-    id: 1,
-    title: "Reforma Integral de Viviendas",
-    description: "Realizo reformas completas de pisos y casas con más de 15 años de experiencia",
-    price: 3500,
-    category: "Albañil",
-    provincia: "Madrid",
-    image:
-      "https://images.unsplash.com/photo-1504307651254-35680f356dfd?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
-    rating: 4.9,
-    reviews: 87,
-    freelancer: {
-      name: "Carlos Rodríguez",
-      avatar: "https://randomuser.me/api/portraits/men/32.jpg",
-      level: "Profesional Certificado",
-    },
-  },
-  {
-    id: 2,
-    title: "Instalación de Fontanería Completa",
-    description: "Instalación y reparación de sistemas de agua, calefacción y gas certificado",
-    price: 450,
-    category: "Fontanero",
-    provincia: "Barcelona",
-    image:
-      "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
-    rating: 4.8,
-    reviews: 124,
-    freelancer: {
-      name: "Miguel Ángel Torres",
-      avatar: "https://randomuser.me/api/portraits/men/45.jpg",
-      level: "Experto Verificado",
-    },
-  },
-  {
-    id: 3,
-    title: "Instalaciones Eléctricas Certificadas",
-    description: "Electricista certificado para instalaciones residenciales y comerciales",
-    price: 380,
-    category: "Electricista",
-    provincia: "Valencia",
-    image:
-      "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
-    rating: 4.9,
-    reviews: 156,
-    freelancer: {
-      name: "Javier Martínez",
-      avatar: "https://randomuser.me/api/portraits/men/22.jpg",
-      level: "Experto Verificado",
-    },
-  },
-  {
-    id: 4,
-    title: "Pintura Profesional Interior y Exterior",
-    description: "Servicio de pintura con acabados de alta calidad y garantía de 2 años",
-    price: 850,
-    category: "Pintor",
-    provincia: "Sevilla",
-    image:
-      "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
-    rating: 4.7,
-    reviews: 93,
-    freelancer: {
-      name: "Antonio López",
-      avatar: "https://randomuser.me/api/portraits/men/56.jpg",
-      level: "Profesional Certificado",
-    },
-  },
-  {
-    id: 5,
-    title: "Carpintería a Medida",
-    description: "Diseño y fabricación de muebles personalizados, armarios empotrados y cocinas",
-    price: 1200,
-    category: "Carpintero",
-    provincia: "Madrid",
-    image:
-      "https://images.unsplash.com/photo-1617806118233-18e1de247200?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
-    rating: 4.9,
-    reviews: 78,
-    freelancer: {
-      name: "Francisco Gómez",
-      avatar: "https://randomuser.me/api/portraits/men/76.jpg",
-      level: "Maestro Artesano",
-    },
-  },
-  {
-    id: 6,
-    title: "Instalación de Aire Acondicionado",
-    description: "Instalación y mantenimiento de sistemas de climatización con garantía oficial",
-    price: 680,
-    category: "Climatización",
-    provincia: "Málaga",
-    image:
-      "https://images.unsplash.com/photo-1631545806609-c2ce1e6e4e0c?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
-    rating: 4.8,
-    reviews: 112,
-    freelancer: {
-      name: "Roberto Sánchez",
-      avatar: "https://randomuser.me/api/portraits/men/60.jpg",
-      level: "Técnico Certificado",
-    },
-  },
-  {
-    id: 7,
-    title: "Diseño de Jardines y Paisajismo",
-    description: "Diseño, instalación y mantenimiento de jardines residenciales y comerciales",
-    price: 950,
-    category: "Jardinero",
-    provincia: "Barcelona",
-    image: "https://images.unsplash.com/photo-1558904541-efa843a96f01?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
-    rating: 4.7,
-    reviews: 64,
-    freelancer: {
-      name: "Luis Fernández",
-      avatar: "https://randomuser.me/api/portraits/men/18.jpg",
-      level: "Especialista",
-    },
-  },
-  {
-    id: 8,
-    title: "Instalación de Puertas Blindadas",
-    description: "Cerrajero profesional especializado en seguridad del hogar",
-    price: 420,
-    category: "Cerrajero",
-    provincia: "Zaragoza",
-    image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
-    rating: 4.9,
-    reviews: 89,
-    freelancer: {
-      name: "Pedro Ramírez",
-      avatar: "https://randomuser.me/api/portraits/men/62.jpg",
-      level: "Experto Verificado",
-    },
-  },
-  {
-    id: 9,
-    title: "Proyectos Arquitectónicos Completos",
-    description: "Arquitecto colegiado para diseño de viviendas, reformas y dirección de obra",
-    price: 2500,
-    category: "Arquitecto",
-    provincia: "Madrid",
-    image: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
-    rating: 4.9,
-    reviews: 45,
-    freelancer: {
-      name: "Elena García",
-      avatar: "https://randomuser.me/api/portraits/women/28.jpg",
-      level: "Arquitecto Colegiado",
-    },
-  },
-  {
-    id: 10,
-    title: "Instalación de Suelos y Alicatados",
-    description: "Especialista en instalación de parquet, tarima, gres y cerámica",
-    price: 720,
-    category: "Instalador de Suelos",
-    provincia: "Valencia",
-    image:
-      "https://images.unsplash.com/photo-1581858726788-75bc0f6a952d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
-    rating: 4.8,
-    reviews: 102,
-    freelancer: {
-      name: "José Manuel Ruiz",
-      avatar: "https://randomuser.me/api/portraits/men/42.jpg",
-      level: "Profesional Certificado",
-    },
-  },
-  {
-    id: 11,
-    title: "Diseño de Interiores Personalizado",
-    description: "Interiorista profesional para proyectos residenciales y comerciales",
-    price: 1800,
-    category: "Diseñador de Interiores",
-    provincia: "Bizkaia",
-    image:
-      "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
-    rating: 4.9,
-    reviews: 67,
-    freelancer: {
-      name: "María Jiménez",
-      avatar: "https://randomuser.me/api/portraits/women/44.jpg",
-      level: "Diseñadora Profesional",
-    },
-  },
-  {
-    id: 12,
-    title: "Reparación de Electrodomésticos",
-    description: "Técnico especializado en reparación de lavadoras, frigoríficos y hornos",
-    price: 85,
-    category: "Electricista",
-    provincia: "Sevilla",
-    image: "https://images.unsplash.com/photo-1556911220-bff31c812dba?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
-    rating: 4.6,
-    reviews: 134,
-    freelancer: {
-      name: "David Moreno",
-      avatar: "https://randomuser.me/api/portraits/men/54.jpg",
-      level: "Técnico Certificado",
-    },
-  },
-]
 
 const CATEGORIA_ID_TO_LABEL: Record<string, string> = Object.fromEntries(
   CATEGORIAS_SERVICIO.map((c) => [c.id, c.label]),
@@ -241,7 +39,7 @@ const FALLBACK_IMG =
 const GigListing = ({ filtros }: GigListingProps) => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [sortBy, setSortBy] = useState("recommended")
-  const [realGigs, setRealGigs] = useState<typeof gigs>([])
+  const [realGigs, setRealGigs] = useState<any[]>([])
   const [enviando, setEnviando] = useState<string | null>(null)
   const router = useRouter()
   const { toast } = useToast()
@@ -306,11 +104,8 @@ const GigListing = ({ filtros }: GigListingProps) => {
     cargar()
   }, [])
 
-  // Profesionales reales primero; los de ejemplo se mantienen para dar volumen.
-  const todos = useMemo(() => {
-    const idsReales = new Set(realGigs.map((g) => String(g.id)))
-    return [...realGigs, ...gigs.filter((g) => !idsReales.has(String(g.id)))]
-  }, [realGigs])
+  // Solo profesionales reales de la base de datos: sin tarjetas de ejemplo.
+  const todos = realGigs
 
   const filtered = useMemo(() => {
     if (!filtros) return todos

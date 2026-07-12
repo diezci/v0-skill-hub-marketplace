@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { formatearPrecioEuros } from "@/lib/utils"
+import { formatearPrecioEuros, formatearRangoPresupuesto } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
@@ -25,7 +25,6 @@ import { crearTransaccionEscrow, liberarFondosEscrow, rechazarTrabajoYReembolsar
 import { obtenerMisTrabajos, actualizarProgresoTrabajo, marcarTrabajoEntregado, confirmarTrabajoCompletado } from "@/app/actions/trabajos"
 import { crearResena } from "@/app/actions/reviews"
 import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
-import { createClient } from "@/lib/supabase/client"
 import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
 import { calcularTotalCliente, calcularReembolsoCliente, PLATFORM_CONFIG } from "@/lib/comisiones"
 import { useToast } from "@/hooks/use-toast"
@@ -49,131 +48,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-
-// Mock data for demonstration
-const MOCK_SOLICITUDES = [
-  {
-    id: "mock-1",
-    titulo: "Mesa de mármol a medida",
-    descripcion: "Necesito una mesa de mármol blanco Carrara de 180x90cm para el salón. Preferiblemente con base de acero inoxidable.",
-    categoria: { nombre: "Marmolista" },
-    ubicacion: "Madrid, España",
-    presupuesto_min: 2000,
-    presupuesto_max: 4000,
-    created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    urgencia: "media",
-    estado: "pendiente",
-    ofertas: [
-      {
-        id: "oferta-1",
-        profesional_id: "prof-1",
-        profesional: {
-          nombre: "Antonio",
-          apellido: "García",
-          foto_perfil: "/professional-man-construction.jpg",
-          rating: 4.9,
-          trabajos_completados: 127,
-        },
-        precio: 3200,
-        tiempo_estimado: 21,
-        unidad_tiempo: "días",
-        descripcion: "Mesa de mármol Carrara de primera calidad con acabado pulido mate. Base de acero inoxidable cepillado. Incluye transporte e instalación.",
-        estado: "pendiente",
-        created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: "oferta-2",
-        profesional_id: "prof-2",
-        profesional: {
-          nombre: "María",
-          apellido: "López",
-          foto_perfil: "/professional-woman.png",
-          rating: 4.7,
-          trabajos_completados: 89,
-        },
-        precio: 2800,
-        tiempo_estimado: 18,
-        unidad_tiempo: "días",
-        descripcion: "Fabricación artesanal con mármol Carrara importado. Estructura de acero con acabado negro mate. 2 años de garantía.",
-        estado: "pendiente",
-        created_at: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-      },
-    ],
-  },
-  {
-    id: "mock-2",
-    titulo: "Reforma completa de baño",
-    descripcion: "Reforma integral del baño principal: cambio de azulejos, sanitarios, plato de ducha y mampara. Superficie aproximada 6m².",
-    categoria: { nombre: "Albañil" },
-    ubicacion: "Barcelona, España",
-    presupuesto_min: 4000,
-    presupuesto_max: 6000,
-    created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-    urgencia: "alta",
-    estado: "en-progreso",
-    trabajo: {
-      id: "trabajo-1",
-      estado: "en_progreso",
-      progreso: 65,
-      precio_acordado: 5200,
-      fecha_inicio: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
-      fecha_estimada_fin: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
-      profesional: {
-        nombre: "Carlos",
-        apellido: "Martínez",
-        foto_perfil: "/contractor-man.jpg",
-        rating: 4.8,
-      },
-      escrow: {
-        estado: "fondos_retenidos",
-        monto: 5200,
-      },
-      actualizaciones: [
-        { fecha: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(), mensaje: "Demolición completada", progreso: 20 },
-        { fecha: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(), mensaje: "Fontanería nueva instalada", progreso: 40 },
-        { fecha: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), mensaje: "Azulejos colocados al 80%", progreso: 65 },
-      ]
-    },
-    ofertas: [],
-  },
-  {
-    id: "mock-3",
-    titulo: "Instalación de aire acondicionado",
-    descripcion: "Instalar 2 splits de aire acondicionado en salón y dormitorio principal.",
-    categoria: { nombre: "Instalador" },
-    ubicacion: "Valencia, España",
-    presupuesto_min: 1500,
-    presupuesto_max: 2500,
-    created_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-    urgencia: "baja",
-    estado: "en-progreso",
-    trabajo: {
-      id: "trabajo-2",
-      estado: "entregado",
-      progreso: 100,
-      precio_acordado: 1800,
-      fecha_inicio: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-      fecha_estimada_fin: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      fecha_entrega: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      profesional: {
-        nombre: "Pedro",
-        apellido: "Sánchez",
-        foto_perfil: "/electrician-man.jpg",
-        rating: 4.6,
-      },
-      escrow: {
-        id: "escrow-2",
-        estado: "fondos_retenidos",
-        monto: 1800,
-      },
-      actualizaciones: [
-        { fecha: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), mensaje: "Equipos instalados", progreso: 80 },
-        { fecha: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), mensaje: "Trabajo completado. Equipos funcionando correctamente.", progreso: 100 },
-      ]
-    },
-    ofertas: [],
-  },
-]
 
 export default function MisSolicitudes() {
   const [activeTab, setActiveTab] = useState("solicitudes")
@@ -277,31 +151,13 @@ export default function MisSolicitudes() {
     async function cargarDatos() {
       setLoading(true)
 
-      let hayUsuario = false
-      try {
-        const supabase = createClient()
-        const {
-          data: { user },
-        } = await supabase.auth.getUser()
-        hayUsuario = !!user
-      } catch {
-        // sin cliente supabase: tratar como visitante
-      }
-
       const [solicitudesResult, trabajosResult] = await Promise.all([
         obtenerSolicitudesPorUsuario(),
         obtenerMisTrabajos()
       ])
 
-      // Usuarios reales ven sus datos reales (aunque estén vacíos o falle la
-      // carga); los datos de ejemplo quedan solo como demo para visitantes.
-      if (solicitudesResult.data) {
-        setSolicitudes(solicitudesResult.data)
-      } else if (!hayUsuario) {
-        setSolicitudes(MOCK_SOLICITUDES)
-      } else {
-        setSolicitudes([])
-      }
+      // Solo datos reales (aunque estén vacíos): nada de datos de ejemplo.
+      setSolicitudes(solicitudesResult.data || [])
       
       if (trabajosResult.data) {
         setTrabajos(trabajosResult.data)
@@ -591,7 +447,7 @@ export default function MisSolicitudes() {
                         {solicitud.categoria?.nombre}
                       </Badge>
                       <p className="text-lg font-semibold text-primary">
-                        {formatearPrecioEuros(solicitud.presupuesto_min)} - {formatearPrecioEuros(solicitud.presupuesto_max)}
+                        {formatearRangoPresupuesto(solicitud.presupuesto_min, solicitud.presupuesto_max)}
                       </p>
                     </div>
                   </div>

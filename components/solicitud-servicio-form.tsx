@@ -74,8 +74,9 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
         titulo: values.title,
         descripcion: values.description,
         ubicacion: values.location,
-        presupuesto_min: Number.parseInt(values.budget.split("-")[0]),
-        presupuesto_max: values.budget.includes("+") ? 10000 : Number.parseInt(values.budget.split("-")[1]),
+        // "0-500" → hasta 500€; "5000+" → más de 5.000€ (sin inventar un tope).
+        presupuesto_min: Number.parseInt(values.budget.split("-")[0]) || undefined,
+        presupuesto_max: values.budget.includes("+") ? undefined : Number.parseInt(values.budget.split("-")[1]),
         urgencia: values.urgency,
         archivos_adjuntos: successfulUploads,
       })
