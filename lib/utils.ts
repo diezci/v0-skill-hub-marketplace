@@ -52,3 +52,23 @@ export function formatearPrecioEuros(
   }).format(num)
   return `${formatted}€`
 }
+
+/**
+ * Formatea el rango de presupuesto de una demanda de forma fiel a lo que el
+ * cliente eligió: "Hasta 500€" (sin mínimo), "Más de 5.000€" (sin máximo),
+ * "900€ - 1.500€" (rango completo) o "A convenir" (sin presupuesto).
+ */
+export function formatearRangoPresupuesto(
+  min: number | string | null | undefined,
+  max: number | string | null | undefined,
+): string {
+  const nMin = min === null || min === undefined || min === "" ? null : Number(min)
+  const nMax = max === null || max === undefined || max === "" ? null : Number(max)
+  const hayMin = nMin !== null && !Number.isNaN(nMin) && nMin > 0
+  const hayMax = nMax !== null && !Number.isNaN(nMax) && nMax > 0
+
+  if (hayMin && hayMax) return `${formatearPrecioEuros(nMin)} - ${formatearPrecioEuros(nMax)}`
+  if (!hayMin && hayMax) return `Hasta ${formatearPrecioEuros(nMax)}`
+  if (hayMin && !hayMax) return `Más de ${formatearPrecioEuros(nMin)}`
+  return "A convenir"
+}

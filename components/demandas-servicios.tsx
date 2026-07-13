@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { formatearPrecioEuros } from "@/lib/utils"
+import { formatearPrecioEuros, formatearRangoPresupuesto } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -81,110 +81,6 @@ const CATEGORIAS = [
 
 const UBICACIONES = ["Toda España", ...PROVINCIAS_ES]
 
-const MOCK_DEMANDAS: Demanda[] = [
-  {
-    id: "demanda-mock-1",
-    titulo: "Reforma completa de baño",
-    descripcion:
-      "Necesito una reforma completa del baño principal incluyendo cambio de azulejos, sanitarios, plato de ducha y mampara. El baño tiene aproximadamente 6m². Busco profesional con experiencia demostrable en este tipo de reformas.",
-    categoria: { nombre: "Albañil" },
-    cliente: { nombre: "María", apellido: "González", foto_perfil: "/professional-woman.png" },
-    ubicacion: "Madrid, España",
-    presupuesto_min: 3000,
-    presupuesto_max: 5000,
-    created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    urgencia: "media",
-    estado: "abierta",
-    telefono: "+34 600 123 456",
-    email: "maria.gonzalez@email.com",
-    total_ofertas: 2,
-  },
-  {
-    id: "demanda-mock-2",
-    titulo: "Instalación de 3 splits de aire acondicionado",
-    descripcion:
-      "Necesito instalar 3 splits de aire acondicionado en mi vivienda: salón (35m²), dormitorio principal (20m²) y dormitorio secundario (15m²). Preferiblemente marca Mitsubishi o Daikin.",
-    categoria: { nombre: "Climatización" },
-    cliente: { nombre: "Carlos", apellido: "Martínez", foto_perfil: "/business-man.png" },
-    ubicacion: "Barcelona, España",
-    presupuesto_min: 2000,
-    presupuesto_max: 3500,
-    created_at: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-    urgencia: "alta",
-    estado: "abierta",
-    telefono: "+34 611 234 567",
-    email: "carlos.martinez@email.com",
-    total_ofertas: 5,
-  },
-  {
-    id: "demanda-mock-3",
-    titulo: "Reparación urgente de fuga en cocina",
-    descripcion:
-      "Tengo una fuga de agua importante en la tubería de la cocina que necesita reparación urgente. El agua está saliendo por debajo del fregadero y está afectando al armario.",
-    categoria: { nombre: "Fontanero" },
-    cliente: { nombre: "Laura", apellido: "Sánchez", foto_perfil: "/woman-young.jpg" },
-    ubicacion: "Valencia, España",
-    presupuesto_min: 150,
-    presupuesto_max: 400,
-    created_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-    urgencia: "alta",
-    estado: "abierta",
-    telefono: "+34 622 345 678",
-    email: "laura.sanchez@email.com",
-    total_ofertas: 8,
-  },
-  {
-    id: "demanda-mock-4",
-    titulo: "Pintura interior vivienda 90m²",
-    descripcion:
-      "Pintar 90m² de vivienda incluyendo salón, 3 habitaciones, pasillo y techos. Las paredes están en buen estado, solo necesitan preparación básica y dos manos de pintura blanca mate.",
-    categoria: { nombre: "Pintor" },
-    cliente: { nombre: "Ana", apellido: "López", foto_perfil: "/woman-middle-age.jpg" },
-    ubicacion: "Sevilla, España",
-    presupuesto_min: 1500,
-    presupuesto_max: 2500,
-    created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    urgencia: "baja",
-    estado: "abierta",
-    telefono: "+34 633 456 789",
-    email: "ana.lopez@email.com",
-    total_ofertas: 3,
-  },
-  {
-    id: "demanda-mock-5",
-    titulo: "Instalación suelo laminado 60m²",
-    descripcion:
-      "Quiero instalar suelo laminado en 60m² (salón y pasillo). Necesito incluir rodapié y desmontaje del suelo antiguo de terrazo. Tengo el material comprado.",
-    categoria: { nombre: "Instalador de suelos" },
-    cliente: { nombre: "Jorge", apellido: "Ruiz", foto_perfil: "/casual-man.png" },
-    ubicacion: "Málaga, España",
-    presupuesto_min: 800,
-    presupuesto_max: 1200,
-    created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    urgencia: "media",
-    estado: "abierta",
-    telefono: "+34 644 567 890",
-    email: "jorge.ruiz@email.com",
-    total_ofertas: 1,
-  },
-  {
-    id: "demanda-mock-6",
-    titulo: "Instalación cuadro eléctrico nuevo",
-    descripcion:
-      "Necesito actualizar el cuadro eléctrico de mi vivienda antigua. Actualmente tiene fusibles y quiero cambiar a magnetotérmicos y diferencial. Boletín incluido.",
-    categoria: { nombre: "Electricista" },
-    cliente: { nombre: "Pedro", apellido: "Fernández", foto_perfil: "/man-elderly.jpg" },
-    ubicacion: "Bilbao, España",
-    presupuesto_min: 400,
-    presupuesto_max: 700,
-    created_at: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-    urgencia: "baja",
-    estado: "abierta",
-    telefono: "+34 655 678 901",
-    email: "pedro.fernandez@email.com",
-    total_ofertas: 4,
-  },
-]
 
 function formatTimeAgo(dateString: string): string {
   const date = new Date(dateString)
@@ -232,15 +128,8 @@ export default function DemandasServicios() {
     async function cargarDemandas() {
       setLoading(true)
       const result = await obtenerSolicitudesAbiertas()
-      // Always show mock demandas for demo/discovery purposes,
-      // and prepend any real demandas the user (or others) have published.
-      if (result.data && result.data.length > 0) {
-        // Real demandas first (most recent), then mock as additional examples
-        setDemandas([...result.data, ...MOCK_DEMANDAS])
-      } else {
-        // No real demandas yet (or RLS issue) - show only mocks
-        setDemandas(MOCK_DEMANDAS)
-      }
+      // Solo demandas reales: nada de datos de ejemplo.
+      setDemandas(result.data || [])
       setLoading(false)
     }
     cargarDemandas()
@@ -544,7 +433,7 @@ export default function DemandasServicios() {
                         <div className="text-right shrink-0">
                           <p className="text-xs text-muted-foreground">Presupuesto</p>
                           <p className="font-bold text-lg text-primary">
-                            {formatearPrecioEuros(demanda.presupuesto_min)} - {formatearPrecioEuros(demanda.presupuesto_max)}
+                            {formatearRangoPresupuesto(demanda.presupuesto_min, demanda.presupuesto_max)}
                           </p>
                         </div>
                       </div>
@@ -671,7 +560,7 @@ export default function DemandasServicios() {
               <div className="text-right">
                 <p className="text-sm text-muted-foreground">Presupuesto</p>
                 <p className="font-bold text-primary">
-                  {demandaSeleccionada?.presupuesto_min}EUR - {demandaSeleccionada?.presupuesto_max}EUR
+                  {formatearRangoPresupuesto(demandaSeleccionada?.presupuesto_min, demandaSeleccionada?.presupuesto_max)}
                 </p>
               </div>
             </button>

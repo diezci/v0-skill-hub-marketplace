@@ -110,63 +110,6 @@ const estadoTrabajoConfig: Record<
   },
 }
 
-// Mock data for demonstration
-const MOCK_TRABAJOS = [
-  {
-    id: "trabajo-1",
-    titulo: "Mesa de mármol a medida",
-    descripcion: "Fabricación de mesa de mármol Carrara 180x90cm con base de acero negro",
-    cliente: { nombre: "Laura", apellido: "Martínez", foto_perfil: "/woman-young.jpg" },
-    precio_acordado: 2800,
-    estado: "en_progreso" as EstadoTrabajo,
-    progreso: 65,
-    fecha_inicio: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-    fecha_estimada_fin: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-    ubicacion: "Madrid",
-    transaccion_escrow: { estado: "retenido", monto: 2800 },
-  },
-  {
-    id: "trabajo-2",
-    titulo: "Encimera cocina mármol",
-    descripcion: "Instalación de encimera de mármol en cocina con fregadero integrado",
-    cliente: { nombre: "Carlos", apellido: "García", foto_perfil: "/business-man.png" },
-    precio_acordado: 1500,
-    estado: "pendiente_pago" as EstadoTrabajo,
-    progreso: 0,
-    fecha_inicio: new Date().toISOString(),
-    fecha_estimada_fin: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
-    ubicacion: "Barcelona",
-    transaccion_escrow: null,
-  },
-  {
-    id: "trabajo-3",
-    titulo: "Lápida memorial personalizada",
-    descripcion: "Lápida de granito negro con grabado personalizado y letras doradas",
-    cliente: { nombre: "Ana", apellido: "López", foto_perfil: "/woman-middle-age.jpg" },
-    precio_acordado: 950,
-    estado: "entregado" as EstadoTrabajo,
-    progreso: 100,
-    fecha_inicio: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-    fecha_estimada_fin: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    fecha_entrega: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    ubicacion: "Valencia",
-    transaccion_escrow: { estado: "retenido", monto: 950 },
-  },
-  {
-    id: "trabajo-4",
-    titulo: "Chimenea de mármol clásica",
-    descripcion: "Restauración y montaje de chimenea de mármol estilo Luis XV",
-    cliente: { nombre: "Roberto", apellido: "Fernández", foto_perfil: "/man-elderly.jpg" },
-    precio_acordado: 3200,
-    estado: "completado" as EstadoTrabajo,
-    progreso: 100,
-    fecha_inicio: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
-    fecha_fin: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-    ubicacion: "Sevilla",
-    transaccion_escrow: { estado: "liberado", monto: 3200, fecha_liberacion: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString() },
-  },
-]
-
 export default function MisTrabajosPage() {
   const [trabajos, setTrabajos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -192,13 +135,10 @@ export default function MisTrabajosPage() {
     setCurrentUserId(user?.id || null)
 
     const result = await obtenerMisTrabajos()
+    // Solo datos reales (aunque estén vacíos): nada de datos de ejemplo.
     if (user && result.data) {
-      // Usuarios reales ven sus trabajos reales (aunque no tengan ninguno);
-      // los datos de ejemplo quedan solo como demo para visitantes sin sesión.
       const misTrabajos = result.data.filter((t: any) => t.profesional_id === user.id)
       setTrabajos(misTrabajos)
-    } else if (!user) {
-      setTrabajos(MOCK_TRABAJOS)
     } else {
       setTrabajos([])
     }
@@ -330,14 +270,14 @@ export default function MisTrabajosPage() {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Gestión de Proyectos</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2">Gestión de Proyectos</h1>
           <p className="text-muted-foreground">
             Cronograma editable, lista de proyectos y eventos personalizados en un solo lugar
           </p>
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
           <Card className="border-amber-500/20 bg-amber-500/5">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -399,7 +339,7 @@ export default function MisTrabajosPage() {
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-6">
           {/* Left column: Tabs with job lists */}
           <Tabs defaultValue="activos" className="space-y-6">
-            <TabsList className="bg-muted/50 flex-wrap h-auto">
+            <TabsList className="bg-muted/50 grid w-full grid-cols-3 h-auto">
               <TabsTrigger value="activos" className="gap-2">
                 <Briefcase className="h-4 w-4" />
                 Activos ({trabajosEnProgreso.length + trabajosPendientePago.length})

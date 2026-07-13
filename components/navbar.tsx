@@ -17,7 +17,11 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
-import { obtenerResumenNotificaciones, marcarNotificacionesLeidas } from "@/app/actions/notificaciones"
+import {
+  obtenerResumenNotificaciones,
+  marcarNotificacionesLeidas,
+  marcarNotificacionesLeidasPorLink,
+} from "@/app/actions/notificaciones"
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false)
@@ -28,6 +32,7 @@ const Navbar = () => {
   const [userPhoto, setUserPhoto] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0)
+  const [porSeccion, setPorSeccion] = useState<Record<string, number>>({})
   const [notifs, setNotifs] = useState<any[]>([])
   const [noLeidas, setNoLeidas] = useState(0)
   const pathname = usePathname()
@@ -101,6 +106,7 @@ const Navbar = () => {
       setMensajesNoLeidos(0)
       setNotifs([])
       setNoLeidas(0)
+      setPorSeccion({})
       return
     }
     let activo = true
@@ -111,6 +117,7 @@ const Navbar = () => {
         setNotifs(r.notificaciones || [])
         setNoLeidas(r.noLeidas || 0)
         setMensajesNoLeidos(r.mensajesNoLeidos || 0)
+        setPorSeccion(r.porSeccion || {})
       } catch {
         // silencioso: los badges son secundarios
       }
@@ -122,6 +129,15 @@ const Navbar = () => {
       clearInterval(id)
     }
   }, [isAuthenticated, isAdmin, pathname])
+
+  // Al entrar en una sección, sus notificaciones se dan por vistas y el badge se apaga.
+  useEffect(() => {
+    if (!pathname || !(porSeccion[pathname] > 0)) return
+    setPorSeccion((prev) => ({ ...prev, [pathname]: 0 }))
+    setNoLeidas((prev) => Math.max(0, prev - (porSeccion[pathname] || 0)))
+    marcarNotificacionesLeidasPorLink(pathname).catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, porSeccion])
 
   // Al abrir la campana, marcar como leídas.
   const handleAbrirNotifs = async (open: boolean) => {
@@ -168,7 +184,7 @@ const Navbar = () => {
       icon: Megaphone,
       shortName: "Demandas",
     },
-    { name: "Mis Solicitudes", path: "/mis-solicitudes", icon: Inbox, shortName: "Mis Solicitudes" },
+    { name: "Mis Demandas", path: "/mis-solicitudes", icon: Inbox, shortName: "Mis Demandas" },
     { name: "Mis ofertas enviadas", path: "/mis-ofertas", icon: FileText, shortName: "Mis Ofertas" },
     {
       name: "Gestión de proyectos",
@@ -178,6 +194,11 @@ const Navbar = () => {
     },
     { name: "Mensajes", path: "/mensajes", icon: MessageSquare, shortName: "Mensajes" },
   ]
+
+  // Badge de cada sección: sus notificaciones sin leer (en Mensajes, además,
+  // los mensajes de chat sin leer).
+  const badgeDe = (path: string) =>
+    (porSeccion[path] || 0) + (path === "/mensajes" ? mensajesNoLeidos : 0)
 
   // Los perfiles admin no ven el navbar público (el panel /admin tiene su propia
   // navegación). Así su experiencia es exclusivamente la vista de administración.
@@ -218,9 +239,9 @@ const Navbar = () => {
                 >
                   <Icon className="h-4 w-4 shrink-0" />
                   <span>{link.shortName}</span>
-                  {link.path === "/mensajes" && mensajesNoLeidos > 0 && (
+                  {badgeDe(link.path) > 0 && (
                     <span className="ml-0.5 h-4 min-w-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                      {mensajesNoLeidos > 9 ? "9+" : mensajesNoLeidos}
+                      {badgeDe(link.path) > 9 ? "9+" : badgeDe(link.path)}
                     </span>
                   )}
                 </Link>
@@ -359,9 +380,9 @@ const Navbar = () => {
                   >
                     <Icon className="h-5 w-5 shrink-0" />
                     <span>{link.name}</span>
-                    {link.path === "/mensajes" && mensajesNoLeidos > 0 && (
+                    {badgeDe(link.path) > 0 && (
                       <span className="ml-auto h-5 min-w-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
-                        {mensajesNoLeidos > 9 ? "9+" : mensajesNoLeidos}
+                        {badgeDe(link.path) > 9 ? "9+" : badgeDe(link.path)}
                       </span>
                     )}
                   </Link>
