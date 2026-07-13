@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { Menu, X, Search, Megaphone, Inbox, MessageSquare, FolderKanban, LogOut, Settings, UserCircle, FileText } from "lucide-react"
@@ -22,6 +22,8 @@ import {
   marcarNotificacionesLeidasPorLink,
 } from "@/app/actions/notificaciones"
 import { CelebracionNotificacion } from "@/components/celebracion-notificacion"
+import { useToast } from "@/hooks/use-toast"
+import { ToastAction } from "@/components/ui/toast"
 
 // Notificaciones que merecen celebración a pantalla completa (con sonido):
 // recibir una entrega (cliente) y cobrar un trabajo (profesional).
@@ -41,6 +43,7 @@ const Navbar = () => {
   const [celebracion, setCelebracion] = useState<any>(null)
   const pathname = usePathname()
   const router = useRouter()
+  const { toast } = useToast()
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 10)
@@ -118,6 +121,25 @@ const Navbar = () => {
         if (!activo) return
         setMensajesNoLeidos(r.mensajesNoLeidos || 0)
         setPorSeccion(r.porSeccion || {})
+
+        // Popup con preview del último mensaje de chat sin leer (fuera de
+        // /mensajes y una sola vez por mensaje en esta sesión del navegador).
+        const um: any = (r as any).ultimoMensajeNoLeido
+        if (um && !(pathname ?? "").startsWith("/mensajes")) {
+          const yaAvisado = sessionStorage.getItem("diime_ultimo_msg_avisado")
+          if (yaAvisado !== um.id) {
+            sessionStorage.setItem("diime_ultimo_msg_avisado", um.id)
+            toast({
+              title: `💬 ${um.remitente}`,
+              description: um.preview,
+              action: (
+                <ToastAction altText="Abrir chat" onClick={() => router.push(`/mensajes?c=${um.conversacion_id}`)}>
+                  Abrir
+                </ToastAction>
+              ),
+            })
+          }
+        }
 
         // Celebración a pantalla completa para entregas recibidas y pagos
         // cobrados: una sola vez por notificación (registro en localStorage)

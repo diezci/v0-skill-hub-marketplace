@@ -428,6 +428,49 @@ export async function rechazarTrabajoYReembolsar(trabajoId: string, motivo: stri
 }
 
 /**
+ * Reembolso íntegro al cliente cuando un trabajo pagado se cancela de mutuo
+ * acuerdo: al haber acuerdo entre las partes se devuelve todo lo pagado
+ * (incluida la comisión), a diferencia del rechazo de una entrega.
+ * Devuelve el importe reembolsado, o 0 si no había fondos retenidos.
+ */
+export async function reembolsarPorCancelacion(trabajoId: string) {
+  const supabase = await createClient()
+
+  const { data: escrow } = await supabase
+    .from("transacciones_escrow")
+    .select("*")
+    .eq("trabajo_id", trabajoId)
+    .eq("estado", "fondos_retenidos")
+    .maybeSingle()
+
+  if (!escrow) return { reembolso: 0 }
+
+  try {
+    if (escrow.stripe_payment_intent_id) {
+      await stripe.refunds.create({
+        payment_intent: escrow.stripe_payment_intent_id,
+        reason: "requested_by_customer",
+      })
+    }
+
+    await supabase
+      .from("transacciones_escrow")
+      .update({
+        estado: "reembolsado",
+        monto_reembolsado: escrow.monto,
+        retencion_plataforma: 0,
+        fecha_reembolso: new Date().toISOString(),
+        notas: "Cancelación de mutuo acuerdo: reembolso íntegro al cliente.",
+      })
+      .eq("id", escrow.id)
+
+    return { reembolso: Number(escrow.monto || 0) }
+  } catch (error: any) {
+    return { error: error.message }
+  }
+}
+
+/**
  * Get escrow details for a trabajo
  */
 export async function obtenerEscrowPorTrabajo(trabajoId: string) {

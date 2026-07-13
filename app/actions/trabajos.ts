@@ -98,7 +98,7 @@ export async function obtenerMisTrabajos() {
     .select(`
       *,
       solicitud:solicitudes(titulo, descripcion, urgencia),
-      oferta:ofertas(precio, tiempo_estimado, unidad_tiempo)
+      oferta:ofertas(precio, tiempo_estimado, unidad_tiempo, archivos, materiales_incluidos, condiciones_pago)
     `)
     .or(`cliente_id.eq.${user.id},profesional_id.eq.${user.id}`)
     .order("created_at", { ascending: false })
@@ -258,8 +258,10 @@ export async function solicitarCancelacion(trabajoId: string, razon: string) {
   if (!trabajo || (trabajo.cliente_id !== user.id && trabajo.profesional_id !== user.id)) {
     return { error: "No tienes permiso sobre este trabajo" }
   }
-  if (trabajo.estado !== "pendiente_pago") {
-    return { error: "Solo puedes cancelar de mutuo acuerdo un trabajo que aún no se ha pagado." }
+  // Cancelación de mutuo acuerdo: antes del pago o con el trabajo en curso.
+  // Si ya está pagado y se acepta, el cliente recibe el reembolso íntegro.
+  if (!["pendiente_pago", "en_progreso"].includes(trabajo.estado)) {
+    return { error: "Este trabajo ya no admite cancelación de mutuo acuerdo (usa la disputa si hay un problema)." }
   }
   if (trabajo.cancelacion_estado === "pendiente") {
     return { error: "Ya hay una solicitud de cancelación pendiente para este trabajo." }
@@ -333,6 +335,14 @@ export async function responderCancelacion(trabajoId: string, aceptar: boolean) 
   }
 
   if (aceptar) {
+    // Si el cliente ya había pagado, se le devuelve TODO automáticamente
+    // (cancelación de mutuo acuerdo = reembolso íntegro, comisión incluida).
+    const { reembolsarPorCancelacion } = await import("./escrow")
+    const reembolsoResult = await reembolsarPorCancelacion(trabajoId)
+    if (reembolsoResult.error) {
+      return { error: `No se pudo emitir el reembolso al cliente: ${reembolsoResult.error}` }
+    }
+
     const { error } = await supabase
       .from("trabajos")
       .update({
@@ -343,6 +353,17 @@ export async function responderCancelacion(trabajoId: string, aceptar: boolean) 
       })
       .eq("id", trabajoId)
     if (error) return { error: error.message }
+
+    if ((reembolsoResult.reembolso ?? 0) > 0) {
+      const { crearNotificacion } = await import("./notificaciones")
+      await crearNotificacion({
+        usuarioId: trabajo.cliente_id,
+        tipo: "reembolso_emitido",
+        titulo: "Reembolso emitido",
+        mensaje: `"${trabajo.titulo}" se ha cancelado de mutuo acuerdo y te hemos devuelto ${reembolsoResult.reembolso!.toFixed(2)}€ íntegros a tu método de pago.`,
+        link: "/mis-solicitudes",
+      })
+    }
     if (trabajo.solicitud_id) {
       // La demanda vuelve a estar abierta y utilizable de verdad:
       await supabase.from("solicitudes").update({ estado: "abierta" }).eq("id", trabajo.solicitud_id)
@@ -368,30 +389,51 @@ export async function responderCancelacion(trabajoId: string, aceptar: boolean) 
       `✅ Ha aceptado la cancelación. El trabajo "${trabajo.titulo}" queda cancelado.`,
     )
   } else {
+    // Rechazar la cancelación abre AUTOMÁTICAMENTE una disputa: el equipo de
+    // Diime la resolverá según los términos de la contratación (en caso de
+    // duda, a favor del cliente).
     const { error } = await supabase
       .from("trabajos")
-      .update({ cancelacion_estado: "rechazada", updated_at: new Date().toISOString() })
+      .update({
+        estado: "en_disputa",
+        cancelacion_estado: "rechazada",
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", trabajoId)
     if (error) return { error: error.message }
+
+    const tipoDisputa = trabajo.cancelacion_solicitada_por === trabajo.cliente_id ? "cliente" : "proveedor"
+    await supabase.from("disputas").insert({
+      trabajo_id: trabajoId,
+      cliente_id: trabajo.cliente_id,
+      profesional_id: trabajo.profesional_id,
+      tipo: tipoDisputa,
+      motivo: `Cancelación solicitada y rechazada. Motivo original de la cancelación: ${
+        (trabajo as any).cancelacion_razon || "no indicado"
+      }.`,
+      estado: "abierta",
+    })
+    await supabase.from("transacciones_escrow").update({ estado: "disputa" }).eq("trabajo_id", trabajoId)
+
     await postMensajeTrabajo(
       supabase,
       user.id,
       trabajo,
-      `❌ Ha rechazado la cancelación del trabajo "${trabajo.titulo}". Si no hay acuerdo, la otra parte puede abrir una disputa.`,
+      `❌ Ha rechazado la cancelación del trabajo "${trabajo.titulo}". Se abre una disputa que resolverá el equipo de Diime según los términos de la contratación (en caso de duda, a favor del cliente).`,
     )
   }
 
-  // Notificar al solicitante el resultado de su petición de cancelación.
+  // Notificar el resultado a ambas partes.
   {
     const solicitanteEsCliente = trabajo.cancelacion_solicitada_por === trabajo.cliente_id
     const { crearNotificacion } = await import("./notificaciones")
     await crearNotificacion({
       usuarioId: trabajo.cancelacion_solicitada_por,
-      tipo: aceptar ? "cancelacion_aceptada" : "cancelacion_rechazada",
-      titulo: aceptar ? "Cancelación aceptada" : "Cancelación rechazada",
+      tipo: aceptar ? "cancelacion_aceptada" : "disputa_abierta",
+      titulo: aceptar ? "Cancelación aceptada" : "Cancelación rechazada: disputa abierta",
       mensaje: aceptar
         ? `La otra parte ha aceptado cancelar "${trabajo.titulo}". El trabajo queda cancelado.`
-        : `La otra parte ha rechazado cancelar "${trabajo.titulo}". Si no hay acuerdo, puedes abrir una disputa desde la ficha del trabajo.`,
+        : `La otra parte ha rechazado cancelar "${trabajo.titulo}". Se ha abierto una disputa que resolverá el equipo de Diime según los términos de la contratación (en caso de duda, a favor del cliente).`,
       link: solicitanteEsCliente ? "/mis-solicitudes" : "/mis-trabajos",
     })
   }
@@ -515,13 +557,20 @@ export async function marcarTrabajoEntregado(trabajoId: string, mensaje?: string
   })
 
   // Avisar al cliente: debe revisar y confirmar (o rechazar) la entrega.
+  // El aviso nombra el trabajo y al profesional que lo entrega.
   if (trabajo.cliente_id) {
+    const { data: perfilPro } = await supabase
+      .from("profiles")
+      .select("nombre, apellido")
+      .eq("id", user.id)
+      .maybeSingle()
+    const nombrePro = `${perfilPro?.nombre ?? ""} ${perfilPro?.apellido ?? ""}`.trim() || "El profesional"
     const { crearNotificacion } = await import("./notificaciones")
     await crearNotificacion({
       usuarioId: trabajo.cliente_id,
       tipo: "trabajo_entregado",
-      titulo: "Trabajo entregado",
-      mensaje: `El profesional ha entregado "${trabajo.titulo ?? "tu trabajo"}". Revísalo y confirma la finalización para liberar el pago.`,
+      titulo: `Entrega: ${trabajo.titulo ?? "tu trabajo"}`,
+      mensaje: `${nombrePro} te ha entregado "${trabajo.titulo ?? "tu trabajo"}". Revísalo y confirma la finalización para liberar el pago.`,
       link: "/mis-solicitudes",
     })
   }
@@ -609,4 +658,26 @@ export async function obtenerActualizacionesTrabajo(trabajoId: string) {
   }
 
   return { data }
+}
+
+// Todos los trabajos (actuales e históricos) entre el usuario actual y otro
+// usuario, en cualquier dirección cliente/proveedor. Para el panel del chat.
+export async function obtenerTrabajosConUsuario(otroUsuarioId: string) {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado", data: [] }
+
+  const { data, error } = await supabase
+    .from("trabajos")
+    .select("id, titulo, estado, precio_acordado, created_at, fecha_fin, cliente_id, profesional_id")
+    .or(
+      `and(cliente_id.eq.${user.id},profesional_id.eq.${otroUsuarioId}),and(cliente_id.eq.${otroUsuarioId},profesional_id.eq.${user.id})`,
+    )
+    .order("created_at", { ascending: false })
+
+  if (error) return { error: error.message, data: [] }
+  return { data: data || [] }
 }
