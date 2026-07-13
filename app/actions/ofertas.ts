@@ -303,6 +303,63 @@ export async function aceptarOferta(ofertaId: string) {
   return { data: trabajoResult.data }
 }
 
+export async function rechazarOferta(ofertaId: string) {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    return { error: "No autenticado" }
+  }
+
+  const { data: oferta } = await supabase
+    .from("ofertas")
+    .select("estado, profesional_id, solicitud_id")
+    .eq("id", ofertaId)
+    .maybeSingle()
+
+  if (!oferta) {
+    return { error: "Oferta no encontrada." }
+  }
+
+  const { data: solicitud } = await supabase
+    .from("solicitudes")
+    .select("cliente_id, titulo")
+    .eq("id", oferta.solicitud_id)
+    .maybeSingle()
+
+  // Solo el cliente dueño de la demanda puede rechazar la oferta.
+  if (!solicitud || solicitud.cliente_id !== user.id) {
+    return { error: "No tienes permiso para rechazar esta oferta." }
+  }
+  if (["aceptada", "rechazada", "retirada"].includes(oferta.estado)) {
+    return { error: "Esta oferta ya no está pendiente de respuesta." }
+  }
+
+  const { error } = await supabase
+    .from("ofertas")
+    .update({ estado: "rechazada", updated_at: new Date().toISOString() })
+    .eq("id", ofertaId)
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  const { crearNotificacion } = await import("./notificaciones")
+  await crearNotificacion({
+    usuarioId: oferta.profesional_id,
+    tipo: "oferta_rechazada",
+    titulo: "Han rechazado tu oferta",
+    mensaje: `Tu oferta para "${solicitud.titulo}" ha sido rechazada.`,
+    link: "/mis-ofertas",
+  })
+
+  revalidatePath("/mis-solicitudes")
+  revalidatePath("/mis-ofertas")
+  return { success: true }
+}
+
 export async function actualizarEstadoOferta(ofertaId: string, estado: string) {
   const supabase = await createClient()
 

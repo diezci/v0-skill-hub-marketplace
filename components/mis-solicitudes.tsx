@@ -19,7 +19,7 @@ import {
   Banknote, ShieldCheck, Timer, TrendingUp, User, Building, Eye, Pencil, Trash2, Scale
 } from "lucide-react"
 import { obtenerSolicitudesPorUsuario, actualizarSolicitud, eliminarSolicitud } from "@/app/actions/solicitudes"
-import { aceptarOferta } from "@/app/actions/ofertas"
+import { aceptarOferta, rechazarOferta } from "@/app/actions/ofertas"
 import { crearConversacion } from "@/app/actions/messages"
 import { crearTransaccionEscrow, liberarFondosEscrow, rechazarTrabajoYReembolsar } from "@/app/actions/escrow"
 import { obtenerMisTrabajos, actualizarProgresoTrabajo, marcarTrabajoEntregado, confirmarTrabajoCompletado } from "@/app/actions/trabajos"
@@ -74,6 +74,7 @@ export default function MisSolicitudes() {
     urgencia: "media",
   })
   const [deleteSolicitud, setDeleteSolicitud] = useState<any>(null)
+  const [rejectOfertaTarget, setRejectOfertaTarget] = useState<any>(null)
   const { toast } = useToast()
   const router = useRouter()
 
@@ -187,6 +188,20 @@ export default function MisSolicitudes() {
     }
 
     router.push(`/pago/${result.data.id}`)
+  }
+
+  const handleRechazarOferta = async () => {
+    if (!rejectOfertaTarget) return
+    setActionLoading(true)
+    const result = await rechazarOferta(rejectOfertaTarget.id)
+    if (result.error) {
+      toast({ title: "Error", description: result.error, variant: "destructive" })
+    } else {
+      toast({ title: "Oferta rechazada", description: "El profesional ha sido notificado." })
+      setRejectOfertaTarget(null)
+      await refrescarSolicitudes()
+    }
+    setActionLoading(false)
   }
 
   const handleConfirmarTrabajo = async (trabajo: any) => {
@@ -425,7 +440,14 @@ export default function MisSolicitudes() {
               </CardContent>
             </Card>
           ) : (
-            solicitudesPendientes.map((solicitud) => (
+            solicitudesPendientes.map((solicitud) => {
+              // Solo mostramos ofertas pendientes de respuesta: las rechazadas
+              // desaparecen de la vista y las aceptadas pasan a "En Progreso".
+              // (mismo criterio que usa mis-ofertas.tsx del lado profesional)
+              const ofertasPendientes = (solicitud.ofertas || []).filter(
+                (o: any) => !["aceptada", "rechazada", "retirada"].includes(o.estado),
+              )
+              return (
               <Card key={solicitud.id} className="overflow-hidden">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
@@ -472,39 +494,40 @@ export default function MisSolicitudes() {
                   </div>
 
                   {/* Ofertas recibidas */}
-                  {solicitud.ofertas && solicitud.ofertas.length > 0 ? (
+                  {ofertasPendientes.length > 0 ? (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <h4 className="font-semibold flex items-center gap-2">
                           <MessageSquare className="h-4 w-4" />
-                          {solicitud.ofertas.length} oferta{solicitud.ofertas.length !== 1 ? "s" : ""} recibida{solicitud.ofertas.length !== 1 ? "s" : ""}
+                          {ofertasPendientes.length} oferta{ofertasPendientes.length !== 1 ? "s" : ""} recibida{ofertasPendientes.length !== 1 ? "s" : ""}
                         </h4>
                       </div>
-                      
+
                       <div className="grid gap-3">
-                        {solicitud.ofertas.map((oferta: any) => (
+                        {ofertasPendientes.map((oferta: any) => (
                           <Card key={oferta.id} className="bg-muted/50">
                             <CardContent className="p-4">
                               <div className="flex items-start gap-4">
                                 <Avatar className="h-12 w-12">
-                                  <AvatarImage src={oferta.profesional?.foto_perfil || "/placeholder.svg"} />
+                                  <AvatarImage src={oferta.profesional?.profiles?.foto_perfil || "/placeholder.svg"} />
                                   <AvatarFallback>
-                                    {oferta.profesional?.nombre?.[0]}{oferta.profesional?.apellido?.[0]}
+                                    {oferta.profesional?.profiles?.nombre?.[0]}{oferta.profesional?.profiles?.apellido?.[0]}
                                   </AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-start justify-between gap-2">
                                     <div>
                                       <p className="font-semibold">
-                                        {oferta.profesional?.nombre} {oferta.profesional?.apellido}
+                                        {oferta.profesional?.profiles?.nombre} {oferta.profesional?.profiles?.apellido}
                                       </p>
                                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                        <span className="flex items-center gap-1">
-                                          <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
-                                          {oferta.profesional?.rating || 4.5}
-                                        </span>
-                                        <span>•</span>
-                                        <span>{oferta.profesional?.trabajos_completados || 50} trabajos</span>
+                                        {oferta.profesional?.rating_promedio != null && (
+                                          <span className="flex items-center gap-1">
+                                            <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
+                                            {Number(oferta.profesional.rating_promedio).toFixed(1)}
+                                          </span>
+                                        )}
+                                        {oferta.profesional?.titulo && <span>{oferta.profesional.titulo}</span>}
                                       </div>
                                     </div>
                                     <div className="text-right">
@@ -547,13 +570,22 @@ export default function MisSolicitudes() {
                                       </div>
                                     </div>
                                   )}
-                                  <div className="flex gap-2 mt-3">
-                                    <Button 
-                                      size="sm" 
+                                  <div className="flex flex-wrap gap-2 mt-3">
+                                    <Button
+                                      size="sm"
                                       onClick={() => handleAceptarOferta(oferta, solicitud)}
                                     >
                                       <Check className="h-4 w-4 mr-1" />
                                       Aceptar Oferta
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="bg-transparent text-destructive border-destructive/40 hover:bg-destructive/10"
+                                      onClick={() => setRejectOfertaTarget(oferta)}
+                                    >
+                                      <XCircle className="h-4 w-4 mr-1" />
+                                      Rechazar
                                     </Button>
                                     <Button
                                       size="sm"
@@ -586,7 +618,8 @@ export default function MisSolicitudes() {
                   )}
                 </CardContent>
               </Card>
-            ))
+              )
+            })
           )}
         </TabsContent>
 
@@ -1102,6 +1135,33 @@ export default function MisSolicitudes() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmar rechazo de oferta */}
+      <AlertDialog open={!!rejectOfertaTarget} onOpenChange={(o) => !o && setRejectOfertaTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Rechazar esta oferta?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se rechazará la oferta de {formatearPrecioEuros(rejectOfertaTarget?.precio)}. El profesional será
+              notificado y no podrás deshacer esta acción.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleRechazarOferta()
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={actionLoading}
+            >
+              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
+              Rechazar oferta
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Confirmar borrado */}
       <AlertDialog open={!!deleteSolicitud} onOpenChange={(o) => !o && setDeleteSolicitud(null)}>
