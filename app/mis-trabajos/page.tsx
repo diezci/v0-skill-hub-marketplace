@@ -767,7 +767,8 @@ function TrabajoCard({
                     Esperando confirmación del cliente
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    El pago se liberará automáticamente
+                    Cuando confirme la entrega, el pago se liberará a tu favor. Si no responde, puedes abrir una
+                    disputa y el equipo de Diime revisará la entrega para liberarte el pago.
                   </p>
                 </div>
               )}
