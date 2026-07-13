@@ -21,6 +21,12 @@ import {
   obtenerResumenNotificaciones,
   marcarNotificacionesLeidasPorLink,
 } from "@/app/actions/notificaciones"
+import { CelebracionNotificacion } from "@/components/celebracion-notificacion"
+
+// Notificaciones que merecen celebración a pantalla completa (con sonido):
+// recibir una entrega (cliente) y cobrar un trabajo (profesional).
+const TIPOS_CELEBRABLES = ["trabajo_entregado", "pago_liberado"]
+const CELEBRADAS_KEY = "diime_notifs_celebradas"
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false)
@@ -32,6 +38,7 @@ const Navbar = () => {
   const [isAdmin, setIsAdmin] = useState(false)
   const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0)
   const [porSeccion, setPorSeccion] = useState<Record<string, number>>({})
+  const [celebracion, setCelebracion] = useState<any>(null)
   const pathname = usePathname()
   const router = useRouter()
 
@@ -111,6 +118,27 @@ const Navbar = () => {
         if (!activo) return
         setMensajesNoLeidos(r.mensajesNoLeidos || 0)
         setPorSeccion(r.porSeccion || {})
+
+        // Celebración a pantalla completa para entregas recibidas y pagos
+        // cobrados: una sola vez por notificación (registro en localStorage)
+        // y solo si es reciente, para no celebrar historial antiguo.
+        const candidatas = (r.notificaciones || []).filter(
+          (n: any) =>
+            !n.leida &&
+            TIPOS_CELEBRABLES.includes(n.tipo) &&
+            Date.now() - new Date(n.created_at).getTime() < 48 * 60 * 60 * 1000,
+        )
+        if (candidatas.length > 0) {
+          let celebradas: string[] = []
+          try {
+            celebradas = JSON.parse(localStorage.getItem(CELEBRADAS_KEY) || "[]")
+          } catch {}
+          const nueva = candidatas.find((n: any) => !celebradas.includes(n.id))
+          if (nueva) {
+            localStorage.setItem(CELEBRADAS_KEY, JSON.stringify([...celebradas, nueva.id].slice(-50)))
+            setCelebracion(nueva)
+          }
+        }
       } catch {
         // silencioso: los badges son secundarios
       }
@@ -188,6 +216,10 @@ const Navbar = () => {
   if (isAdmin) return null
 
   return (
+    <>
+    {celebracion && (
+      <CelebracionNotificacion notificacion={celebracion} onClose={() => setCelebracion(null)} />
+    )}
     <header
       className={cn(
         "fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300",
@@ -386,6 +418,7 @@ const Navbar = () => {
         )}
       </div>
     </header>
+    </>
   )
 }
 

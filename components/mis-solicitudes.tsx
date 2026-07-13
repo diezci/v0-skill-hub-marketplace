@@ -325,12 +325,14 @@ export default function MisSolicitudes() {
   }
 
   // DB statuses: "abierta" | "en_progreso" | "completada" | "cerrada"
-  // Mock data uses "pendiente" | "en-progreso" | "completado" — accept both.
   const solicitudesPendientes = solicitudes.filter(
     (s) => s.estado === "abierta" || s.estado === "pendiente",
   )
+  // Entregados y a la espera de que el cliente confirme: pestaña propia.
+  const solicitudesPorConfirmar = solicitudes.filter((s) => s.trabajo?.estado === "entregado")
   const solicitudesEnProgreso = solicitudes.filter(
-    (s) => s.estado === "en_progreso" || s.estado === "en-progreso",
+    (s) =>
+      (s.estado === "en_progreso" || s.estado === "en-progreso") && s.trabajo?.estado !== "entregado",
   )
   const solicitudesCompletadas = solicitudes.filter(
     (s) => s.estado === "completado" || s.estado === "completada" || s.estado === "cerrada",
@@ -395,9 +397,7 @@ export default function MisSolicitudes() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Pendiente confirmar</p>
-                <p className="text-3xl font-bold">
-                  {solicitudes.filter(s => s.trabajo?.estado === "entregado").length}
-                </p>
+                <p className="text-3xl font-bold">{solicitudesPorConfirmar.length}</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-purple-500/20 flex items-center justify-center">
                 <Package className="h-6 w-6 text-purple-500" />
@@ -409,14 +409,23 @@ export default function MisSolicitudes() {
 
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto">
           <TabsTrigger value="solicitudes" className="gap-2">
             <FileText className="h-4 w-4" />
-            Mis Demandas
+            Abiertas
           </TabsTrigger>
           <TabsTrigger value="en-progreso" className="gap-2">
             <Loader2 className="h-4 w-4" />
             En Progreso
+          </TabsTrigger>
+          <TabsTrigger value="por-confirmar" className="gap-2">
+            <Package className="h-4 w-4" />
+            Por Confirmar
+            {solicitudesPorConfirmar.length > 0 && (
+              <span className="h-4 min-w-4 px-1 rounded-full bg-purple-500 text-white text-[10px] font-bold flex items-center justify-center">
+                {solicitudesPorConfirmar.length}
+              </span>
+            )}
           </TabsTrigger>
           <TabsTrigger value="historial" className="gap-2">
             <CheckCircle2 className="h-4 w-4" />
@@ -623,20 +632,34 @@ export default function MisSolicitudes() {
           )}
         </TabsContent>
 
-        {/* En Progreso Tab */}
-        <TabsContent value="en-progreso" className="space-y-4">
-          {solicitudesEnProgreso.length === 0 ? (
+        {/* Pestañas "En Progreso" y "Por Confirmar": comparten la misma tarjeta
+            de proyecto, cambian la lista y el estado vacío. */}
+        {(["en-progreso", "por-confirmar"] as const).map((tab) => {
+          const lista = tab === "en-progreso" ? solicitudesEnProgreso : solicitudesPorConfirmar
+          return (
+        <TabsContent key={tab} value={tab} className="space-y-4">
+          {lista.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
-                <Loader2 className="h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-lg font-medium">No tienes proyectos en progreso</p>
+                {tab === "en-progreso" ? (
+                  <Loader2 className="h-12 w-12 text-muted-foreground mb-4" />
+                ) : (
+                  <Package className="h-12 w-12 text-muted-foreground mb-4" />
+                )}
+                <p className="text-lg font-medium">
+                  {tab === "en-progreso"
+                    ? "No tienes proyectos en progreso"
+                    : "No tienes entregas pendientes de confirmar"}
+                </p>
                 <p className="text-muted-foreground text-center mt-1">
-                  Cuando aceptes una oferta, el proyecto aparecerá aquí
+                  {tab === "en-progreso"
+                    ? "Cuando aceptes una oferta, el proyecto aparecerá aquí"
+                    : "Cuando un profesional te entregue un trabajo, aquí podrás confirmarlo y liberar el pago"}
                 </p>
               </CardContent>
             </Card>
           ) : (
-            solicitudesEnProgreso.map((solicitud) => {
+            lista.map((solicitud) => {
               const trabajo = solicitud.trabajo
               const diasRestantes = trabajo?.fecha_estimada_fin 
                 ? calcularDiasRestantes(trabajo.fecha_estimada_fin)
@@ -867,6 +890,8 @@ export default function MisSolicitudes() {
             })
           )}
         </TabsContent>
+          )
+        })}
 
         {/* Historial Tab */}
         <TabsContent value="historial" className="space-y-4">
