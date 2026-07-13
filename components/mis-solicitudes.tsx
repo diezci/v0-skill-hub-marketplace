@@ -149,8 +149,8 @@ export default function MisSolicitudes() {
   }
 
   useEffect(() => {
-    async function cargarDatos() {
-      setLoading(true)
+    async function cargarDatos(inicial: boolean) {
+      if (inicial) setLoading(true)
 
       const [solicitudesResult, trabajosResult] = await Promise.all([
         obtenerSolicitudesPorUsuario(),
@@ -159,14 +159,22 @@ export default function MisSolicitudes() {
 
       // Solo datos reales (aunque estén vacíos): nada de datos de ejemplo.
       setSolicitudes(solicitudesResult.data || [])
-      
+
       if (trabajosResult.data) {
         setTrabajos(trabajosResult.data)
       }
-      
-      setLoading(false)
+
+      if (inicial) setLoading(false)
     }
-    cargarDatos()
+    cargarDatos(true)
+
+    // Refresco en vivo: las ofertas nuevas y los cambios de estado (entregas,
+    // cancelaciones...) aparecen sin recargar la página.
+    const id = setInterval(() => {
+      if (document.visibilityState !== "visible") return
+      cargarDatos(false)
+    }, 15000)
+    return () => clearInterval(id)
   }, [])
 
   const handleAceptarOferta = async (oferta: any, solicitud: any) => {

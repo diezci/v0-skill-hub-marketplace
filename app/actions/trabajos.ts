@@ -292,7 +292,9 @@ export async function solicitarCancelacion(trabajoId: string, razon: string) {
       usuarioId: otroId,
       tipo: "cancelacion_solicitada",
       titulo: "Solicitud de cancelación",
-      mensaje: `La otra parte quiere cancelar "${trabajo.titulo}". Acepta o rechaza la cancelación desde la ficha del trabajo.`,
+      mensaje: `La otra parte quiere cancelar "${trabajo.titulo}". Acepta o rechaza la cancelación en ${
+        otroEsCliente ? "Mis Demandas (pestaña En Progreso)" : "Gestión de proyectos (pestaña Activos)"
+      }.`,
       link: otroEsCliente ? "/mis-solicitudes" : "/mis-trabajos",
     })
   }
@@ -315,7 +317,7 @@ export async function responderCancelacion(trabajoId: string, aceptar: boolean) 
   const { data: trabajo } = await supabase
     .from("trabajos")
     .select(
-      "id, cliente_id, profesional_id, estado, cancelacion_estado, cancelacion_solicitada_por, solicitud_id, titulo",
+      "id, cliente_id, profesional_id, estado, cancelacion_estado, cancelacion_solicitada_por, solicitud_id, oferta_id, titulo",
     )
     .eq("id", trabajoId)
     .maybeSingle()
@@ -342,7 +344,22 @@ export async function responderCancelacion(trabajoId: string, aceptar: boolean) 
       .eq("id", trabajoId)
     if (error) return { error: error.message }
     if (trabajo.solicitud_id) {
+      // La demanda vuelve a estar abierta y utilizable de verdad:
       await supabase.from("solicitudes").update({ estado: "abierta" }).eq("id", trabajo.solicitud_id)
+      // - la oferta del trabajo cancelado se retira (así el profesional puede
+      //   volver a ofertar más adelante si quiere)...
+      if (trabajo.oferta_id) {
+        await supabase.from("ofertas").update({ estado: "retirada" }).eq("id", trabajo.oferta_id)
+      }
+      // - ...y las demás ofertas, que se auto-rechazaron al aceptar esta,
+      //   vuelven a estar pendientes para que el cliente pueda elegir otra.
+      //   (Si responde el profesional, la RLS solo le deja tocar las suyas y
+      //   este paso no revive nada: es un mejor-esfuerzo.)
+      await supabase
+        .from("ofertas")
+        .update({ estado: "pendiente" })
+        .eq("solicitud_id", trabajo.solicitud_id)
+        .eq("estado", "rechazada")
     }
     await postMensajeTrabajo(
       supabase,
