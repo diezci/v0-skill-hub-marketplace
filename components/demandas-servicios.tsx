@@ -198,6 +198,15 @@ export default function DemandasServicios() {
   const handleSubmitOferta = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!demandaSeleccionada) return
+    // Nada de importes ni tiempos negativos o cero.
+    if (!(Number.parseFloat(formData.precio) > 0)) {
+      toast({ title: "Precio no válido", description: "El precio propuesto debe ser mayor que 0.", variant: "destructive" })
+      return
+    }
+    if (!(Number.parseInt(formData.duracion, 10) > 0)) {
+      toast({ title: "Tiempo no válido", description: "El tiempo estimado debe ser mayor que 0.", variant: "destructive" })
+      return
+    }
     setIsSubmitting(true)
 
     try {
@@ -824,6 +833,8 @@ export default function DemandasServicios() {
                 <Label>Precio propuesto (€)</Label>
                 <Input
                   type="number"
+                  min={1}
+                  step="0.01"
                   value={formData.precio}
                   onChange={(e) => setFormData({ ...formData, precio: e.target.value })}
                   placeholder="0"
@@ -835,6 +846,8 @@ export default function DemandasServicios() {
                 <div className="flex gap-2">
                   <Input
                     type="number"
+                    min={1}
+                    step={1}
                     value={formData.duracion}
                     onChange={(e) => setFormData({ ...formData, duracion: e.target.value })}
                     placeholder="0"

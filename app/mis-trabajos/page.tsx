@@ -65,6 +65,7 @@ import {
 import { createClient } from "@/lib/supabase/client"
 import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
 import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
+import { calcularPagoProveedor, PLATFORM_CONFIG } from "@/lib/comisiones"
 
 type EstadoTrabajo = "pendiente_pago" | "en_progreso" | "entregado" | "completado" | "cancelado" | "en_disputa"
 
@@ -261,10 +262,14 @@ export default function MisTrabajosPage() {
   const trabajosEntregados = trabajos.filter((t) => t.estado === "entregado")
   const trabajosCompletados = trabajos.filter((t) => t.estado === "completado")
 
-  const totalPendienteCobro = trabajosEntregados.reduce((sum, t) => sum + (t.precio_acordado || 0), 0)
+  // Importes NETOS para el proveedor (tras la comisión del 5% de la plataforma).
+  const netoDe = (t: any) =>
+    Number(t.transaccion_escrow?.pago_neto_proveedor ?? calcularPagoProveedor(t.precio_acordado || 0).pagoNeto)
+  const totalPendienteCobro = trabajosEntregados.reduce((sum, t) => sum + netoDe(t), 0)
+  // Histórico cobrado: escrows con el pago ya liberado (estado "completado").
   const totalCobrado = trabajosCompletados
-    .filter((t) => t.transaccion_escrow?.estado === "liberado")
-    .reduce((sum, t) => sum + (t.precio_acordado || 0), 0)
+    .filter((t) => t.transaccion_escrow?.estado === "completado")
+    .reduce((sum, t) => sum + netoDe(t), 0)
 
   if (loading) {
     return (
@@ -635,8 +640,19 @@ function TrabajoCard({
   const config = estadoTrabajoConfig[trabajo.estado as EstadoTrabajo]
   const Icon = config?.icon || Clock
   const daysRemaining = trabajo.fecha_estimada_fin ? getDaysRemaining(trabajo.fecha_estimada_fin) : null
-  const isPaid = trabajo.transaccion_escrow?.estado === "retenido" || trabajo.transaccion_escrow?.estado === "liberado"
-  const isPaymentReleased = trabajo.transaccion_escrow?.estado === "liberado"
+  // Estados reales del escrow: "fondos_retenidos" (pagado, en custodia) y
+  // "completado" (pago liberado al proveedor).
+  const escrowEstado = trabajo.transaccion_escrow?.estado
+  const isPaid = escrowEstado === "fondos_retenidos" || escrowEstado === "completado"
+  const isPaymentReleased = escrowEstado === "completado"
+  const pagoNeto = Number(
+    trabajo.transaccion_escrow?.pago_neto_proveedor ?? calcularPagoProveedor(trabajo.precio_acordado || 0).pagoNeto,
+  )
+  const comisionProveedor = Number(
+    trabajo.transaccion_escrow?.comision_proveedor ??
+      calcularPagoProveedor(trabajo.precio_acordado || 0).comisionProveedor,
+  )
+  const archivosOferta: string[] = Array.isArray(trabajo.oferta?.archivos) ? trabajo.oferta.archivos : []
 
   return (
     <Card className="overflow-hidden hover:shadow-md transition-shadow">
@@ -710,6 +726,40 @@ function TrabajoCard({
               )}
             </div>
 
+            {/* Adjuntos de la oferta con la que se contrató este trabajo */}
+            {archivosOferta.length > 0 && (
+              <div className="mt-4 pt-4 border-t">
+                <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
+                  <FileText className="h-3.5 w-3.5" /> Archivos de tu oferta ({archivosOferta.length})
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {archivosOferta.map((url: string, i: number) =>
+                    /\.(png|jpe?g|gif|webp)(\?|$)/i.test(url) ? (
+                      <a key={i} href={url} target="_blank" rel="noreferrer">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={url}
+                          alt={`Adjunto ${i + 1}`}
+                          className="h-14 w-14 rounded-md object-cover border hover:opacity-80 transition"
+                        />
+                      </a>
+                    ) : (
+                      <a
+                        key={i}
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted transition"
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                        {decodeURIComponent(url.split("/").pop()?.split("?")[0] || `Archivo ${i + 1}`)}
+                      </a>
+                    ),
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Payment Status for Provider */}
             <div className="mt-4 pt-4 border-t">
               <div className="flex items-center justify-between">
@@ -719,9 +769,11 @@ function TrabajoCard({
                       <ShieldCheck className="h-5 w-5 text-emerald-500" />
                       <span className="text-sm">
                         {isPaymentReleased ? (
-                          <span className="text-emerald-600 font-medium">Pago recibido</span>
+                          <span className="text-emerald-600 font-medium">
+                            Pago recibido: {formatCurrency(pagoNeto)} netos
+                          </span>
                         ) : (
-                          <span className="text-blue-600">Pago retenido en escrow</span>
+                          <span className="text-blue-600">Pago retenido en custodia: cobrarás {formatCurrency(pagoNeto)}</span>
                         )}
                       </span>
                     </>
@@ -736,6 +788,29 @@ function TrabajoCard({
                   <span className="text-xs text-muted-foreground">
                     Liberado el {formatDate(trabajo.transaccion_escrow.fecha_liberacion)}
                   </span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Precio acordado {formatCurrency(trabajo.precio_acordado || 0)} − comisión Diime{" "}
+                {PLATFORM_CONFIG.comisionProveedorPorcentaje}% ({formatCurrency(comisionProveedor)}) ={" "}
+                <span className="font-medium text-foreground">{formatCurrency(pagoNeto)} netos</span>
+              </p>
+              <div className="flex gap-3 mt-2">
+                <a
+                  href={`/trabajos/${trabajo.id}/contrato`}
+                  target="_blank"
+                  className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  <FileText className="h-3 w-3" /> Ver contrato
+                </a>
+                {isPaid && (
+                  <a
+                    href={`/trabajos/${trabajo.id}/factura`}
+                    target="_blank"
+                    className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+                  >
+                    <FileText className="h-3 w-3" /> Ver factura
+                  </a>
                 )}
               </div>
             </div>
@@ -756,6 +831,9 @@ function TrabajoCard({
                       Entregar Trabajo
                     </Button>
                   )}
+                  {/* Cancelación de mutuo acuerdo también con el trabajo en curso:
+                      si el cliente acepta, se le reembolsa íntegramente. */}
+                  <CancelacionTrabajo trabajo={trabajo} onChange={onRefresh} />
                 </>
               )}
               {trabajo.estado === "pendiente_pago" && (

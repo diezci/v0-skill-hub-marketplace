@@ -185,7 +185,52 @@ export default function MisOfertas() {
                   <div className="pt-3 border-t">
                     <p className="text-sm font-medium mb-2">Descripción del Servicio:</p>
                     <p className="text-sm text-muted-foreground">{oferta.descripcion}</p>
+                    {oferta.materiales_incluidos && (
+                      <p className="text-sm text-muted-foreground mt-1.5">
+                        <span className="font-medium text-foreground">Materiales:</span>{" "}
+                        {oferta.materiales_incluidos === "si"
+                          ? "incluidos"
+                          : oferta.materiales_incluidos === "no"
+                            ? "no incluidos"
+                            : oferta.materiales_incluidos === "parcial"
+                              ? "parcialmente incluidos"
+                              : oferta.materiales_incluidos}
+                      </p>
+                    )}
                   </div>
+
+                  {Array.isArray(oferta.archivos) && oferta.archivos.length > 0 && (
+                    <div className="pt-1">
+                      <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
+                        <FileText className="h-3.5 w-3.5" /> Archivos adjuntos ({oferta.archivos.length})
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {oferta.archivos.map((url: string, i: number) =>
+                          /\.(png|jpe?g|gif|webp)(\?|$)/i.test(url) ? (
+                            <a key={i} href={url} target="_blank" rel="noreferrer">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={url}
+                                alt={`Adjunto ${i + 1}`}
+                                className="h-14 w-14 rounded-md object-cover border hover:opacity-80 transition"
+                              />
+                            </a>
+                          ) : (
+                            <a
+                              key={i}
+                              href={url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted transition"
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                              {decodeURIComponent(url.split("/").pop()?.split("?")[0] || `Archivo ${i + 1}`)}
+                            </a>
+                          ),
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="flex flex-wrap gap-2 pt-2">
                     <Button

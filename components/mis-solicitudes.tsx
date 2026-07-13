@@ -555,6 +555,18 @@ export default function MisSolicitudes() {
                                     </div>
                                   </div>
                                   <p className="text-sm mt-2 text-muted-foreground">{oferta.descripcion}</p>
+                                  {oferta.materiales_incluidos && (
+                                    <p className="text-sm text-muted-foreground mt-1">
+                                      <span className="font-medium text-foreground">Materiales:</span>{" "}
+                                      {oferta.materiales_incluidos === "si"
+                                        ? "incluidos"
+                                        : oferta.materiales_incluidos === "no"
+                                          ? "no incluidos"
+                                          : oferta.materiales_incluidos === "parcial"
+                                            ? "parcialmente incluidos"
+                                            : oferta.materiales_incluidos}
+                                    </p>
+                                  )}
                                   {Array.isArray(oferta.archivos) && oferta.archivos.length > 0 && (
                                     <div className="mt-3">
                                       <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
@@ -693,12 +705,21 @@ export default function MisSolicitudes() {
                       </div>
                       <div className="text-right">
                         <p className="text-2xl font-bold">{formatearPrecioEuros(trabajo?.precio_acordado)}</p>
-                        {pagado && (
+                        {pagado ? (
                           <Badge variant="outline" className="bg-transparent text-emerald-500 border-emerald-500/50">
                             <ShieldCheck className="h-3 w-3 mr-1" />
-                            Pago Protegido
+                            Pagado · Protegido
                           </Badge>
-                        )}
+                        ) : trabajo?.estado === "pendiente_pago" ? (
+                          <Badge variant="outline" className="bg-transparent text-amber-500 border-amber-500/50">
+                            <CreditCard className="h-3 w-3 mr-1" />
+                            Pendiente de pago
+                          </Badge>
+                        ) : trabajo?.escrow?.estado === "reembolsado" ? (
+                          <Badge variant="outline" className="bg-transparent text-blue-500 border-blue-500/50">
+                            Reembolsado
+                          </Badge>
+                        ) : null}
                       </div>
                     </div>
                   </CardHeader>
@@ -731,9 +752,96 @@ export default function MisSolicitudes() {
                       </Button>
                     </div>
 
-                    {/* Cancelación de mutuo acuerdo (solo antes del pago) */}
+                    {/* Trabajo sin pagar (p. ej. el cliente abandonó la pasarela):
+                        siempre debe poder retomar el pago desde aquí. */}
                     {trabajo?.estado === "pendiente_pago" && (
+                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+                        <div className="flex items-start gap-3">
+                          <CreditCard className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                          <div>
+                            <p className="font-semibold text-amber-700 dark:text-amber-400">Pago pendiente</p>
+                            <p className="text-sm text-muted-foreground">
+                              El trabajo no empezará hasta que completes el pago protegido.
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          className="bg-emerald-600 hover:bg-emerald-700 shrink-0"
+                          onClick={() => router.push(`/pago/${trabajo.id}`)}
+                        >
+                          <CreditCard className="h-4 w-4 mr-2" />
+                          Pagar ahora
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Cancelación de mutuo acuerdo (antes del pago o en curso) */}
+                    {["pendiente_pago", "en_progreso"].includes(trabajo?.estado) && (
                       <CancelacionTrabajo trabajo={trabajo} onChange={refrescarSolicitudes} />
+                    )}
+
+                    {/* Condiciones y adjuntos de la oferta aceptada + documentos */}
+                    {trabajo && (
+                      <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
+                        <p className="text-sm font-medium">Contratación</p>
+                        {trabajo.oferta?.materiales_incluidos && (
+                          <p className="text-sm text-muted-foreground">
+                            Materiales:{" "}
+                            {trabajo.oferta.materiales_incluidos === "si"
+                              ? "incluidos"
+                              : trabajo.oferta.materiales_incluidos === "no"
+                                ? "no incluidos"
+                                : trabajo.oferta.materiales_incluidos === "parcial"
+                                  ? "parcialmente incluidos"
+                                  : trabajo.oferta.materiales_incluidos}
+                          </p>
+                        )}
+                        {Array.isArray(trabajo.oferta?.archivos) && trabajo.oferta.archivos.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {trabajo.oferta.archivos.map((url: string, i: number) =>
+                              /\.(png|jpe?g|gif|webp)(\?|$)/i.test(url) ? (
+                                <a key={i} href={url} target="_blank" rel="noreferrer">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={url}
+                                    alt={`Adjunto ${i + 1}`}
+                                    className="h-14 w-14 rounded-md object-cover border hover:opacity-80 transition"
+                                  />
+                                </a>
+                              ) : (
+                                <a
+                                  key={i}
+                                  href={url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted transition"
+                                >
+                                  <FileText className="h-3.5 w-3.5" />
+                                  {decodeURIComponent(url.split("/").pop()?.split("?")[0] || `Archivo ${i + 1}`)}
+                                </a>
+                              ),
+                            )}
+                          </div>
+                        )}
+                        <div className="flex gap-3 pt-1">
+                          <a
+                            href={`/trabajos/${trabajo.id}/contrato`}
+                            target="_blank"
+                            className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+                          >
+                            <FileText className="h-3 w-3" /> Ver contrato
+                          </a>
+                          {pagado && (
+                            <a
+                              href={`/trabajos/${trabajo.id}/factura`}
+                              target="_blank"
+                              className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+                            >
+                              <FileText className="h-3 w-3" /> Ver factura
+                            </a>
+                          )}
+                        </div>
+                      </div>
                     )}
 
                     {/* Trabajo en disputa: en revisión por el equipo */}

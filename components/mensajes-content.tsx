@@ -45,6 +45,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { obtenerConversaciones, obtenerMensajes, enviarMensaje } from "@/app/actions/messages"
 import { crearResena, obtenerTrabajoValorable } from "@/app/actions/reviews"
+import { obtenerTrabajosConUsuario } from "@/app/actions/trabajos"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
@@ -106,6 +107,8 @@ export default function MensajesContent() {
   const [reviewHover, setReviewHover] = useState(0)
   const [reviewComentario, setReviewComentario] = useState("")
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
+  // Todos los trabajos (actuales e históricos) con el usuario de la conversación.
+  const [proyectosCompartidos, setProyectosCompartidos] = useState<any[]>([])
   const { toast } = useToast()
 
   const scrollToBottom = () => {
@@ -155,6 +158,11 @@ export default function MensajesContent() {
     const result = await obtenerMensajes(conv.id)
     setMessages(result.data ? (result.data as Message[]) : [])
     setLoadingMessages(false) // Set loading state to false after fetching messages
+
+    // Historial completo de trabajos con este usuario para el panel lateral.
+    setProyectosCompartidos([])
+    const otroId = currentUserId === conv.participante_1 ? conv.participante_2 : conv.participante_1
+    obtenerTrabajosConUsuario(otroId).then((r) => setProyectosCompartidos(r.data || []))
   }
 
   // Chat en vivo: refrescar la conversación abierta cada pocos segundos (y la
@@ -1029,6 +1037,45 @@ export default function MensajesContent() {
                       >
                         Ver detalles del proyecto
                       </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Todos los proyectos con este usuario (actuales e históricos) */}
+                {proyectosCompartidos.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Proyectos con este usuario ({proyectosCompartidos.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {proyectosCompartidos.map((p) => {
+                        const estados: Record<string, { label: string; cls: string }> = {
+                          pendiente_pago: { label: "Esperando pago", cls: "border-amber-500/50 text-amber-600" },
+                          en_progreso: { label: "En progreso", cls: "border-blue-500/50 text-blue-600" },
+                          entregado: { label: "Entregado", cls: "border-purple-500/50 text-purple-600" },
+                          completado: { label: "Completado", cls: "border-emerald-500/50 text-emerald-600" },
+                          cancelado: { label: "Cancelado", cls: "border-muted-foreground/50 text-muted-foreground" },
+                          rechazado: { label: "Rechazado", cls: "border-red-500/50 text-red-600" },
+                          en_disputa: { label: "En disputa", cls: "border-amber-500/50 text-amber-600" },
+                        }
+                        const e = estados[p.estado] || { label: p.estado, cls: "" }
+                        return (
+                          <div key={p.id} className="rounded-md border border-border bg-background p-2.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-xs font-medium truncate">{p.titulo}</p>
+                              <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-4 shrink-0", e.cls)}>
+                                {e.label}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center justify-between mt-1 text-[11px] text-muted-foreground">
+                              <span>{new Date(p.created_at).toLocaleDateString("es-ES", { month: "short", year: "numeric" })}</span>
+                              <span className="font-medium text-foreground">
+                                {Number(p.precio_acordado || 0).toLocaleString("es-ES")}€
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 )}
