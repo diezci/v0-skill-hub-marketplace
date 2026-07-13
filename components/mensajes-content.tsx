@@ -24,7 +24,17 @@ import {
   Archive,
   Pin,
   Trash2,
+  Star,
 } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,6 +44,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { obtenerConversaciones, obtenerMensajes, enviarMensaje } from "@/app/actions/messages"
+import { crearResena, obtenerTrabajoValorable } from "@/app/actions/reviews"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
@@ -89,6 +100,12 @@ export default function MensajesContent() {
   const router = useRouter()
   const [autoSelectDone, setAutoSelectDone] = useState(false)
   const [uploading, setUploading] = useState(false)
+  // Valorar desde el chat: trabajo completado pendiente de reseña con el otro usuario.
+  const [reviewTrabajo, setReviewTrabajo] = useState<{ id: string; titulo?: string } | null>(null)
+  const [reviewRating, setReviewRating] = useState(5)
+  const [reviewHover, setReviewHover] = useState(0)
+  const [reviewComentario, setReviewComentario] = useState("")
+  const [reviewSubmitting, setReviewSubmitting] = useState(false)
   const { toast } = useToast()
 
   const scrollToBottom = () => {
@@ -99,9 +116,13 @@ export default function MensajesContent() {
     if (viewport) viewport.scrollTop = viewport.scrollHeight
   }
 
+  // Solo bajar el scroll cuando llega un mensaje nuevo, no en cada refresco en
+  // vivo (si el usuario está leyendo mensajes antiguos no hay que moverle).
+  const ultimoMensajeId = messages.length > 0 ? messages[messages.length - 1].id : null
   useEffect(() => {
     scrollToBottom()
-  }, [messages])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ultimoMensajeId])
 
   useEffect(() => {
     async function loadData() {
@@ -134,6 +155,65 @@ export default function MensajesContent() {
     const result = await obtenerMensajes(conv.id)
     setMessages(result.data ? (result.data as Message[]) : [])
     setLoadingMessages(false) // Set loading state to false after fetching messages
+  }
+
+  // Chat en vivo: refrescar la conversación abierta cada pocos segundos (y la
+  // lista de conversaciones con menos frecuencia) sin que el usuario recargue.
+  useEffect(() => {
+    const convId = selectedConversation?.id
+    if (!convId) return
+    const id = setInterval(async () => {
+      if (document.visibilityState !== "visible") return
+      const result = await obtenerMensajes(convId)
+      if (result.data) setMessages(result.data as Message[])
+    }, 4000)
+    return () => clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedConversation?.id])
+
+  useEffect(() => {
+    const id = setInterval(async () => {
+      if (document.visibilityState !== "visible") return
+      try {
+        const result = await obtenerConversaciones()
+        if (result.data) setConversations(result.data as Conversation[])
+      } catch {
+        // silencioso: el siguiente tick lo reintenta
+      }
+    }, 20000)
+    return () => clearInterval(id)
+  }, [])
+
+  // "Valorar": busca un trabajo completado sin reseña con el otro usuario y
+  // abre el diálogo de valoración; si no lo hay, explica por qué no se puede.
+  const handleValorar = async () => {
+    if (!selectedConversation) return
+    const result = await obtenerTrabajoValorable(getOtherUserId(selectedConversation))
+    if (result.error || !result.data) {
+      toast({ title: "No se puede valorar todavía", description: result.error })
+      return
+    }
+    setReviewRating(5)
+    setReviewComentario("")
+    setReviewTrabajo(result.data)
+  }
+
+  const handleEnviarValoracion = async () => {
+    if (!reviewTrabajo || !selectedConversation) return
+    setReviewSubmitting(true)
+    const result = await crearResena({
+      trabajo_id: reviewTrabajo.id,
+      profesional_id: getOtherUserId(selectedConversation),
+      rating: reviewRating,
+      comentario: reviewComentario,
+    })
+    if (result.error) {
+      toast({ title: "Error", description: result.error, variant: "destructive" })
+    } else {
+      toast({ title: "Valoración enviada", description: "Gracias por valorar a este profesional." })
+      setReviewTrabajo(null)
+    }
+    setReviewSubmitting(false)
   }
 
   // Si llegamos con ?c=<id>, abrir esa conversación automáticamente.
@@ -630,11 +710,14 @@ export default function MensajesContent() {
                               {!isOwn && !showAvatar && <div className="w-8 shrink-0" />}
 
                               <div className={cn("max-w-[70%]", isOwn ? "items-end" : "items-start")}>
-                                {/* Image message */}
+                                {/* Image message: abre la imagen a tamaño completo */}
                                 {msg.tipo === "imagen" && msg.archivo_url && (
-                                  <div
+                                  <a
+                                    href={msg.archivo_url}
+                                    target="_blank"
+                                    rel="noreferrer"
                                     className={cn(
-                                      "rounded-2xl overflow-hidden shadow-sm mb-1",
+                                      "block rounded-2xl overflow-hidden shadow-sm mb-1 hover:opacity-90 transition",
                                       isOwn ? "rounded-br-md" : "rounded-bl-md",
                                     )}
                                   >
@@ -643,17 +726,21 @@ export default function MensajesContent() {
                                       alt={msg.archivo_nombre}
                                       className="max-w-full h-auto max-h-64 object-cover"
                                     />
-                                  </div>
+                                  </a>
                                 )}
 
-                                {/* File message */}
+                                {/* File message: enlaza al archivo real para verlo/descargarlo */}
                                 {msg.tipo === "archivo" && msg.archivo_nombre && (
-                                  <div
+                                  <a
+                                    href={msg.archivo_url || "#"}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    download={msg.archivo_nombre}
                                     className={cn(
-                                      "rounded-2xl px-4 py-3 shadow-sm mb-1 flex items-center gap-3",
+                                      "rounded-2xl px-4 py-3 shadow-sm mb-1 flex items-center gap-3 transition hover:opacity-90",
                                       isOwn
                                         ? "bg-primary text-primary-foreground rounded-br-md"
-                                        : "bg-card border rounded-bl-md",
+                                        : "bg-card border rounded-bl-md hover:bg-muted/50",
                                     )}
                                   >
                                     <div
@@ -672,10 +759,11 @@ export default function MensajesContent() {
                                           isOwn ? "text-primary-foreground/70" : "text-muted-foreground",
                                         )}
                                       >
-                                        PDF • Haz clic para descargar
+                                        {(msg.archivo_nombre.split(".").pop() || "archivo").toUpperCase()} • Haz clic
+                                        para abrir
                                       </p>
                                     </div>
-                                  </div>
+                                  </a>
                                 )}
 
                                 {/* Text message */}
@@ -847,12 +935,8 @@ export default function MensajesContent() {
                   >
                     Ver perfil
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-xs"
-                    onClick={() => router.push(`/profesional/${getOtherUserId(selectedConversation)}?valorar=1`)}
-                  >
+                  <Button variant="outline" size="sm" className="text-xs" onClick={handleValorar}>
+                    <Star className="h-3.5 w-3.5 mr-1" />
                     Valorar
                   </Button>
                 </div>
@@ -962,9 +1046,12 @@ export default function MensajesContent() {
                       .filter((m) => m.tipo === "archivo" || m.tipo === "imagen")
                       .slice(0, 3)
                       .map((m) => (
-                        <div
+                        <a
                           key={m.id}
-                          className="flex items-center gap-2 p-2 rounded-md border border-border bg-background hover:bg-muted/50 transition-colors cursor-pointer"
+                          href={m.archivo_url || "#"}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-2 p-2 rounded-md border border-border bg-background hover:bg-muted/50 transition-colors"
                         >
                           <div className="h-8 w-8 rounded bg-muted flex items-center justify-center shrink-0">
                             {m.tipo === "imagen" ? (
@@ -981,7 +1068,7 @@ export default function MensajesContent() {
                               {formatMessageTime(m.created_at)}
                             </p>
                           </div>
-                        </div>
+                        </a>
                       ))}
                     {messages.filter((m) => m.tipo === "archivo" || m.tipo === "imagen").length === 0 && (
                       <p className="text-xs text-muted-foreground text-center py-3">
@@ -995,6 +1082,62 @@ export default function MensajesContent() {
           </aside>
         )}
       </div>
+
+      {/* Valorar al profesional desde el chat */}
+      <Dialog open={!!reviewTrabajo} onOpenChange={(o) => !o && setReviewTrabajo(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Valorar al profesional</DialogTitle>
+            <DialogDescription>
+              Valora el trabajo "{reviewTrabajo?.titulo || "completado"}". Tu opinión ayuda a otros clientes.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Puntuación</label>
+              <div className="flex items-center justify-center gap-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onMouseEnter={() => setReviewHover(star)}
+                    onMouseLeave={() => setReviewHover(0)}
+                    onClick={() => setReviewRating(star)}
+                    className="transition-transform hover:scale-110"
+                  >
+                    <Star
+                      className={cn(
+                        "h-8 w-8 transition-colors",
+                        star <= (reviewHover || reviewRating)
+                          ? "fill-amber-500 text-amber-500"
+                          : "text-muted-foreground",
+                      )}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Comentario</label>
+              <Textarea
+                placeholder="Describe tu experiencia con este profesional..."
+                value={reviewComentario}
+                onChange={(e) => setReviewComentario(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" className="bg-transparent" onClick={() => setReviewTrabajo(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleEnviarValoracion} disabled={reviewSubmitting || !reviewComentario.trim()}>
+              {reviewSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+              Enviar valoración
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
