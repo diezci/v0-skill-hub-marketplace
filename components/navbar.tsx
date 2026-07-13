@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Menu, X, Search, Megaphone, Inbox, MessageSquare, FolderKanban, LogOut, Settings, UserCircle, Bell } from "lucide-react"
+import { Menu, X, Search, Megaphone, Inbox, MessageSquare, FolderKanban, LogOut, Settings, UserCircle, Bell, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -169,6 +169,7 @@ const Navbar = () => {
       shortName: "Demandas",
     },
     { name: "Mis Solicitudes", path: "/mis-solicitudes", icon: Inbox, shortName: "Mis Solicitudes" },
+    { name: "Mis ofertas enviadas", path: "/mis-ofertas", icon: FileText, shortName: "Mis Ofertas" },
     {
       name: "Gestión de proyectos",
       path: "/mis-trabajos",
