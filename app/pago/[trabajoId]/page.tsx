@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { loadStripe } from "@stripe/stripe-js"
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js"
-import { crearPagoEscrow } from "@/app/actions/escrow"
+import { crearPagoEscrow, confirmarPagoEscrow } from "@/app/actions/escrow"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -19,9 +19,10 @@ export default function PagoPage() {
   const router = useRouter()
   const trabajoId = params.trabajoId as string
 
-  const [status, setStatus] = useState<"loading" | "ready" | "complete" | "error">("loading")
+  const [status, setStatus] = useState<"loading" | "ready" | "confirming" | "complete" | "error">("loading")
   const [error, setError] = useState<string | null>(null)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
+  const [sessionId, setSessionId] = useState<string | null>(null)
   const [desglose, setDesglose] = useState<{
     precioBase: number
     comisionCliente: number
@@ -42,6 +43,7 @@ export default function PagoPage() {
 
       if (result.clientSecret) {
         setClientSecret(result.clientSecret)
+        setSessionId(result.escrow?.stripe_session_id ?? null)
         setStatus("ready")
       }
 
@@ -53,12 +55,27 @@ export default function PagoPage() {
     initCheckout()
   }, [trabajoId])
 
-  const handleComplete = useCallback(() => {
+  const handleComplete = useCallback(async () => {
+    // Stripe ya cobró: confirmar en nuestra base de datos (escrow →
+    // fondos_retenidos, trabajo → en_progreso y aviso al proveedor). Sin esta
+    // llamada el pago quedaba cobrado pero el trabajo seguía "pendiente de pago".
+    setStatus("confirming")
+    if (sessionId) {
+      const result = await confirmarPagoEscrow(sessionId)
+      if (result.error) {
+        setError(
+          `Tu pago se ha realizado, pero no se pudo registrar la confirmación (${result.error}). ` +
+            "Recarga la página o contacta con soporte: no se te cobrará dos veces.",
+        )
+        setStatus("error")
+        return
+      }
+    }
     setStatus("complete")
     setTimeout(() => {
       router.push("/mis-solicitudes")
     }, 3000)
-  }, [router])
+  }, [router, sessionId])
 
   if (status === "error") {
     return (
@@ -78,6 +95,20 @@ export default function PagoPage() {
     )
   }
 
+  if (status === "confirming") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-6 text-center">
+            <Loader2 className="h-12 w-12 text-primary mx-auto mb-4 animate-spin" />
+            <h2 className="text-xl font-semibold mb-2">Confirmando el pago...</h2>
+            <p className="text-muted-foreground">No cierres esta ventana.</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   if (status === "complete") {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -88,7 +119,7 @@ export default function PagoPage() {
             <p className="text-muted-foreground mb-2">
               Los fondos quedan retenidos de forma segura hasta que confirmes la finalizacion del trabajo.
             </p>
-            <p className="text-sm text-muted-foreground">Redirigiendo a Mis Solicitudes...</p>
+            <p className="text-sm text-muted-foreground">Redirigiendo a Mis Demandas...</p>
           </CardContent>
         </Card>
       </div>

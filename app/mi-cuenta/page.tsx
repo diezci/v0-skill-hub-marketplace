@@ -117,7 +117,7 @@ export default async function MiCuentaPage() {
               <Link href="/mis-solicitudes">
                 <span className="flex items-center gap-2">
                   <Inbox className="h-4 w-4" />
-                  Mis Solicitudes
+                  Mis Demandas
                 </span>
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </Link>

@@ -69,128 +69,6 @@ interface Conversation {
   rol_otro?: "cliente" | "proveedor"
 }
 
-const MOCK_CONVERSATIONS: Conversation[] = [
-  {
-    id: "conv-1",
-    participante_1: "user-1",
-    participante_2: "user-2",
-    ultimo_mensaje: "Perfecto, mañana a las 10h paso a ver el trabajo",
-    fecha_ultimo_mensaje: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-    participante_otro: { nombre: "Carlos", apellido: "Rodríguez", foto_perfil: "/professional-man.png" },
-    participante1: { nombre: "Carlos", apellido: "Rodríguez", foto_perfil: "/professional-man.png" },
-    participante2: { nombre: "María", apellido: "García", foto_perfil: "/professional-woman.png" },
-    unread_count: 2,
-    proyecto: { titulo: "Reforma de baño completo", estado: "en_progreso", progreso: 65 },
-    trabajo_id: "trabajo-1",
-    pinned: true,
-    mi_rol: "cliente",
-    rol_otro: "proveedor",
-  },
-  {
-    id: "conv-2",
-    participante_1: "user-1",
-    participante_2: "user-3",
-    ultimo_mensaje: "¿Puede enviarme fotos del estado actual?",
-    fecha_ultimo_mensaje: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    participante1: { nombre: "Pedro", apellido: "Martínez", foto_perfil: "/electrician-man.jpg" },
-    participante2: { nombre: "Ana", apellido: "López", foto_perfil: "/woman-client.png" },
-    unread_count: 0,
-    proyecto: { titulo: "Instalación eléctrica cocina", estado: "pendiente" },
-    mi_rol: "proveedor",
-    rol_otro: "cliente",
-  },
-  {
-    id: "conv-3",
-    participante_1: "user-1",
-    participante_2: "user-4",
-    ultimo_mensaje: "El presupuesto incluye materiales y mano de obra",
-    fecha_ultimo_mensaje: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    participante1: { nombre: "Luis", apellido: "Fernández", foto_perfil: "/plumber-man.jpg" },
-    participante2: { nombre: "Carmen", apellido: "Ruiz", foto_perfil: "/woman-homeowner.png" },
-    unread_count: 0,
-    proyecto: { titulo: "Pintura interior vivienda", estado: "completado" },
-    mi_rol: "cliente",
-    rol_otro: "proveedor",
-  },
-  {
-    id: "conv-4",
-    participante_1: "user-1",
-    participante_2: "user-5",
-    ultimo_mensaje: "Gracias por el excelente trabajo realizado",
-    fecha_ultimo_mensaje: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    participante1: { nombre: "Roberto", apellido: "Sánchez", foto_perfil: "/contractor-man.jpg" },
-    participante2: { nombre: "Elena", apellido: "Navarro", foto_perfil: "/business-woman.png" },
-    unread_count: 0,
-    proyecto: { titulo: "Montaje de muebles IKEA", estado: "completado" },
-    mi_rol: "proveedor",
-    rol_otro: "cliente",
-  },
-]
-
-const MOCK_MESSAGES: Message[] = [
-  {
-    id: "msg-1",
-    remitente_id: "user-2",
-    contenido: "Hola, he visto tu solicitud de reforma de baño y me interesa mucho el proyecto",
-    created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    leido: true,
-    tipo: "texto",
-  },
-  {
-    id: "msg-2",
-    remitente_id: "user-1",
-    contenido: "¡Hola! Sí, necesito reformar el baño completo. Es de unos 6m² aproximadamente",
-    created_at: new Date(Date.now() - 1.5 * 60 * 60 * 1000).toISOString(),
-    leido: true,
-    tipo: "texto",
-  },
-  {
-    id: "msg-3",
-    remitente_id: "user-2",
-    contenido: "foto_baño_actual.jpg",
-    created_at: new Date(Date.now() - 1.2 * 60 * 60 * 1000).toISOString(),
-    leido: true,
-    tipo: "imagen",
-    archivo_url: "/pre-renovation-bathroom.png",
-    archivo_nombre: "foto_baño_actual.jpg",
-  },
-  {
-    id: "msg-4",
-    remitente_id: "user-2",
-    contenido:
-      "Perfecto, tengo disponibilidad la próxima semana para ver el trabajo y hacer una valoración más precisa. Adjunto mi presupuesto inicial.",
-    created_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-    leido: true,
-    tipo: "texto",
-  },
-  {
-    id: "msg-5",
-    remitente_id: "user-2",
-    contenido: "presupuesto_reforma.pdf",
-    created_at: new Date(Date.now() - 58 * 60 * 1000).toISOString(),
-    leido: true,
-    tipo: "archivo",
-    archivo_url: "#",
-    archivo_nombre: "presupuesto_reforma.pdf",
-  },
-  {
-    id: "msg-6",
-    remitente_id: "user-1",
-    contenido: "Genial, ¿qué día te vendría mejor? Yo tengo flexibilidad por las mañanas",
-    created_at: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-    leido: true,
-    tipo: "texto",
-  },
-  {
-    id: "msg-7",
-    remitente_id: "user-2",
-    contenido: "Perfecto, mañana a las 10h paso a ver el trabajo",
-    created_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-    leido: false,
-    tipo: "texto",
-  },
-]
-
 export default function MensajesContent() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
@@ -228,25 +106,21 @@ export default function MensajesContent() {
   useEffect(() => {
     async function loadData() {
       setLoading(true)
-      const supabase = createClient()
-      if (!supabase) {
-        setConversations(MOCK_CONVERSATIONS)
-        setLoading(false)
-        return
-      }
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (user) {
-        setCurrentUserId(user.id)
-        const result = await obtenerConversaciones()
-        // Usuarios reales ven sus datos reales, aunque estén vacíos; los datos
-        // de ejemplo quedan solo como demo para visitantes sin sesión.
-        setConversations((result.data as Conversation[]) || [])
-      } else {
-        setConversations(MOCK_CONVERSATIONS)
+      // Solo datos reales: sin sesión (o sin cliente supabase) la lista queda vacía.
+      try {
+        const supabase = createClient()
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+        if (user) {
+          setCurrentUserId(user.id)
+          const result = await obtenerConversaciones()
+          setConversations((result.data as Conversation[]) || [])
+        } else {
+          setConversations([])
+        }
+      } catch {
+        setConversations([])
       }
       setLoading(false)
     }
@@ -258,15 +132,7 @@ export default function MensajesContent() {
     setShowMobileChat(true)
     setLoadingMessages(true) // Set loading state before fetching messages
     const result = await obtenerMensajes(conv.id)
-    // Mostrar los mensajes reales (aunque sean 0: conversación nueva sin mensajes).
-    // Solo usar datos de ejemplo si es una conversación de ejemplo (id no-UUID).
-    if (result.data) {
-      setMessages(result.data as Message[])
-    } else if (String(conv.id).startsWith("conv-")) {
-      setMessages(MOCK_MESSAGES)
-    } else {
-      setMessages([])
-    }
+    setMessages(result.data ? (result.data as Message[]) : [])
     setLoadingMessages(false) // Set loading state to false after fetching messages
   }
 
@@ -872,42 +738,20 @@ export default function MensajesContent() {
                     accept="image/*,.pdf,.doc,.docx"
                     onChange={handleFileChange}
                   />
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        disabled={uploading}
-                        className="shrink-0 h-10 w-10 text-muted-foreground"
-                      >
-                        {uploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                      <DropdownMenuItem
-                        onSelect={(e) => {
-                          // Evitar que el cierre del menú (foco/portal) se coma el
-                          // click nativo del input file: prevenir el foco por
-                          // defecto y diferir el .click() a la siguiente tarea.
-                          e.preventDefault()
-                          setTimeout(() => fileInputRef.current?.click(), 0)
-                        }}
-                      >
-                        <ImageIcon className="h-4 w-4 mr-2" />
-                        Imagen
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={(e) => {
-                          e.preventDefault()
-                          setTimeout(() => fileInputRef.current?.click(), 0)
-                        }}
-                      >
-                        <FileText className="h-4 w-4 mr-2" />
-                        Documento
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  {/* El clip abre el selector directamente en el onClick: pasar
+                      por un menú intermedio rompía la activación de usuario y
+                      Safari/iOS bloqueaba el selector de archivos. */}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    disabled={uploading}
+                    aria-label="Adjuntar archivo"
+                    className="shrink-0 h-10 w-10 text-muted-foreground"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {uploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
+                  </Button>
 
                   <div className="flex-1">
                     <Input
