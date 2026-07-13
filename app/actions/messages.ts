@@ -42,15 +42,23 @@ export async function obtenerConversaciones() {
       // Get both participants' profiles (the chat UI uses participante1/2).
       const { data: p1 } = await supabase
         .from("profiles")
-        .select("nombre, apellido, foto_perfil")
+        .select("nombre, apellido, foto_perfil, ubicacion, created_at")
         .eq("id", conv.participante_1)
         .maybeSingle()
       const { data: p2 } = await supabase
         .from("profiles")
-        .select("nombre, apellido, foto_perfil")
+        .select("nombre, apellido, foto_perfil, ubicacion, created_at")
         .eq("id", conv.participante_2)
         .maybeSingle()
       const otherProfile = conv.participante_1 === user.id ? p2 : p1
+
+      // Ficha profesional del otro participante (si la tiene), para mostrar
+      // rating/reseñas/idiomas reales en el panel lateral del chat.
+      const { data: otroProfesional } = await supabase
+        .from("profesionales")
+        .select("rating_promedio, total_reseñas, idiomas")
+        .eq("id", otherParticipantId)
+        .maybeSingle()
 
       // Get solicitud info if linked
       let solicitud = null
@@ -123,6 +131,7 @@ export async function obtenerConversaciones() {
         participante1: p1,
         participante2: p2,
         participante_otro: otherProfile,
+        otro_profesional: otroProfesional || null,
         proyecto: trabajo || solicitud,
         mi_rol: miRol,
         rol_otro: rolOtro,

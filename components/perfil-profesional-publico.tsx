@@ -27,9 +27,11 @@ import { useToast } from "@/hooks/use-toast"
 
 interface PerfilPublicoProps {
   perfil: any
+  // Pestaña abierta al cargar (p. ej. "valoraciones" cuando se llega desde "Valorar").
+  tabInicial?: "sobre" | "portfolio" | "valoraciones"
 }
 
-export default function PerfilProfesionalPublico({ perfil }: PerfilPublicoProps) {
+export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" }: PerfilPublicoProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [contactando, setContactando] = useState(false)
@@ -160,7 +162,7 @@ export default function PerfilProfesionalPublico({ perfil }: PerfilPublicoProps)
         </Card>
       </div>
 
-      <Tabs defaultValue="sobre" className="w-full">
+      <Tabs defaultValue={tabInicial} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="sobre">Sobre mí</TabsTrigger>
           <TabsTrigger value="portfolio">Portfolio</TabsTrigger>

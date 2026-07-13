@@ -192,12 +192,15 @@ export default function MisTrabajosPage() {
     setCurrentUserId(user?.id || null)
 
     const result = await obtenerMisTrabajos()
-    if (result.data && result.data.length > 0) {
-      // Filter to show only where user is the professional
-      const misTrabajos = result.data.filter((t: any) => t.profesional_id === user?.id)
+    if (user && result.data) {
+      // Usuarios reales ven sus trabajos reales (aunque no tengan ninguno);
+      // los datos de ejemplo quedan solo como demo para visitantes sin sesión.
+      const misTrabajos = result.data.filter((t: any) => t.profesional_id === user.id)
       setTrabajos(misTrabajos)
-    } else {
+    } else if (!user) {
       setTrabajos(MOCK_TRABAJOS)
+    } else {
+      setTrabajos([])
     }
     setLoading(false)
   }

@@ -25,6 +25,7 @@ import { crearTransaccionEscrow, liberarFondosEscrow, rechazarTrabajoYReembolsar
 import { obtenerMisTrabajos, actualizarProgresoTrabajo, marcarTrabajoEntregado, confirmarTrabajoCompletado } from "@/app/actions/trabajos"
 import { crearResena } from "@/app/actions/reviews"
 import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
+import { createClient } from "@/lib/supabase/client"
 import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
 import { calcularTotalCliente, calcularReembolsoCliente, PLATFORM_CONFIG } from "@/lib/comisiones"
 import { useToast } from "@/hooks/use-toast"
@@ -275,17 +276,28 @@ export default function MisSolicitudes() {
   useEffect(() => {
     async function cargarDatos() {
       setLoading(true)
-      
+
+      let hayUsuario = false
+      try {
+        const supabase = createClient()
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+        hayUsuario = !!user
+      } catch {
+        // sin cliente supabase: tratar como visitante
+      }
+
       const [solicitudesResult, trabajosResult] = await Promise.all([
         obtenerSolicitudesPorUsuario(),
         obtenerMisTrabajos()
       ])
-      
-      // Always show real data (even if empty) so the user sees their own solicitudes.
-      // Only fall back to mock data on actual error.
+
+      // Usuarios reales ven sus datos reales (aunque estén vacíos o falle la
+      // carga); los datos de ejemplo quedan solo como demo para visitantes.
       if (solicitudesResult.data) {
         setSolicitudes(solicitudesResult.data)
-      } else if (solicitudesResult.error) {
+      } else if (!hayUsuario) {
         setSolicitudes(MOCK_SOLICITUDES)
       } else {
         setSolicitudes([])

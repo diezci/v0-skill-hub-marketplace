@@ -30,8 +30,17 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   }
 }
 
-export default async function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ProfilePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ valorar?: string }>
+}) {
   const { id } = await params
+  // Llegar con ?valorar=1 (p. ej. desde el botón "Valorar" del chat) abre
+  // directamente la pestaña de valoraciones.
+  const { valorar } = await searchParams
 
   let result: Awaited<ReturnType<typeof obtenerProfesionalPorId>> | undefined
 
@@ -99,7 +108,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <PerfilProfesionalPublico perfil={mappedProfile} />
+      <PerfilProfesionalPublico perfil={mappedProfile} tabInicial={valorar ? "valoraciones" : "sobre"} />
     </div>
   )
 }
