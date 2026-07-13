@@ -126,10 +126,19 @@ export default function MisTrabajosPage() {
 
   useEffect(() => {
     loadTrabajos()
+
+    // Refresco en vivo: cancelaciones, pagos y confirmaciones del cliente
+    // aparecen sin recargar la página.
+    const id = setInterval(() => {
+      if (document.visibilityState !== "visible") return
+      loadTrabajos(false)
+    }, 15000)
+    return () => clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const loadTrabajos = async () => {
-    setLoading(true)
+  const loadTrabajos = async (inicial = true) => {
+    if (inicial) setLoading(true)
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     setCurrentUserId(user?.id || null)
@@ -142,7 +151,7 @@ export default function MisTrabajosPage() {
     } else {
       setTrabajos([])
     }
-    setLoading(false)
+    if (inicial) setLoading(false)
   }
 
   const handleUpdateProgress = async () => {
