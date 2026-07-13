@@ -32,13 +32,18 @@ export async function crearOferta(formData: {
   // Check if already sent an offer for this solicitud
   const { data: existingOffer } = await supabase
     .from("ofertas")
-    .select("id")
+    .select("id, estado")
     .eq("solicitud_id", formData.solicitud_id)
     .eq("profesional_id", user.id)
-    .single()
+    .maybeSingle()
 
-  if (existingOffer) {
+  if (existingOffer && !["retirada", "rechazada"].includes(existingOffer.estado)) {
     return { error: "Ya has enviado una oferta para esta solicitud." }
+  }
+  // Una oferta previa retirada o rechazada (p. ej. tras cancelar el trabajo de
+  // mutuo acuerdo) no bloquea: se elimina y se envía la nueva en su lugar.
+  if (existingOffer) {
+    await supabase.from("ofertas").delete().eq("id", existingOffer.id).eq("profesional_id", user.id)
   }
 
   const { data, error } = await supabase

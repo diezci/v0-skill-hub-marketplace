@@ -33,6 +33,7 @@ import {
   Briefcase,
   Calendar,
   User,
+  FileText,
 } from "lucide-react"
 import { uploadFile } from "@/lib/upload-helpers"
 import { toast } from "@/hooks/use-toast"
@@ -56,6 +57,8 @@ type Demanda = {
   telefono: string
   email: string
   total_ofertas: number
+  // Archivos que el cliente adjuntó al publicar la demanda (fotos, PDFs...).
+  archivos?: string[]
 }
 
 const urgenciaConfig: Record<string, { label: string; color: string }> = {
@@ -440,6 +443,13 @@ export default function DemandasServicios() {
 
                       {/* Description */}
                       <p className="text-sm text-muted-foreground line-clamp-2">{demanda.descripcion}</p>
+                      {Array.isArray(demanda.archivos) && demanda.archivos.length > 0 && (
+                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                          <Paperclip className="h-3 w-3" />
+                          {demanda.archivos.length} archivo{demanda.archivos.length !== 1 ? "s" : ""} adjunto
+                          {demanda.archivos.length !== 1 ? "s" : ""}
+                        </p>
+                      )}
 
                       {/* Meta Info */}
                       <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
@@ -569,6 +579,41 @@ export default function DemandasServicios() {
               <h4 className="font-medium mb-2">Descripción del proyecto</h4>
               <p className="text-muted-foreground">{demandaSeleccionada?.descripcion}</p>
             </div>
+
+            {/* Archivos adjuntados por el cliente al publicar la demanda */}
+            {Array.isArray(demandaSeleccionada?.archivos) && demandaSeleccionada.archivos.length > 0 && (
+              <div>
+                <h4 className="font-medium mb-2 flex items-center gap-1.5">
+                  <FileText className="h-4 w-4" />
+                  Archivos adjuntos ({demandaSeleccionada.archivos.length})
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {demandaSeleccionada.archivos.map((url: string, i: number) =>
+                    /\.(png|jpe?g|gif|webp)(\?|$)/i.test(url) ? (
+                      <a key={i} href={url} target="_blank" rel="noreferrer">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={url}
+                          alt={`Adjunto ${i + 1}`}
+                          className="h-20 w-20 rounded-md object-cover border hover:opacity-80 transition"
+                        />
+                      </a>
+                    ) : (
+                      <a
+                        key={i}
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted transition"
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                        {decodeURIComponent(url.split("/").pop()?.split("?")[0] || `Archivo ${i + 1}`)}
+                      </a>
+                    ),
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div className="flex items-center gap-2 text-sm">

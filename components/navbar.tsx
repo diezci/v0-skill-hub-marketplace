@@ -144,7 +144,8 @@ const Navbar = () => {
       }
     }
     cargar()
-    const id = setInterval(cargar, 45000)
+    // 15s para que el badge aparezca poco después de recibir una oferta/aviso.
+    const id = setInterval(cargar, 15000)
     return () => {
       activo = false
       clearInterval(id)
