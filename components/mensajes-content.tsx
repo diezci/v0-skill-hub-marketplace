@@ -55,9 +55,10 @@ interface Conversation {
   participante_2: string
   ultimo_mensaje?: string
   fecha_ultimo_mensaje?: string
-  participante_otro?: { nombre: string; apellido: string; foto_perfil?: string }
-  participante1?: { nombre: string; apellido: string; foto_perfil?: string }
-  participante2?: { nombre: string; apellido: string; foto_perfil?: string }
+  participante_otro?: { nombre: string; apellido: string; foto_perfil?: string; ubicacion?: string; created_at?: string }
+  participante1?: { nombre: string; apellido: string; foto_perfil?: string; ubicacion?: string; created_at?: string }
+  participante2?: { nombre: string; apellido: string; foto_perfil?: string; ubicacion?: string; created_at?: string }
+  otro_profesional?: { rating_promedio?: number; total_reseñas?: number; idiomas?: string[] } | null
   unread_count?: number
   proyecto?: { titulo: string; estado: string; progreso?: number }
   solicitud_id?: string
@@ -201,7 +202,6 @@ export default function MensajesContent() {
   const [searchQuery, setSearchQuery] = useState("")
   const [showMobileChat, setShowMobileChat] = useState(false)
   const [activeTab, setActiveTab] = useState<"all" | "unread" | "archived">("all")
-  const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [loadingMessages, setLoadingMessages] = useState(true) // Added state for message loading
@@ -214,22 +214,16 @@ export default function MensajesContent() {
   const { toast } = useToast()
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    // Desplazar solo el panel de mensajes (viewport del ScrollArea), nunca la
+    // página: scrollIntoView movía también el scroll del documento y al abrir
+    // /mensajes la vista saltaba hasta abajo.
+    const viewport = messagesEndRef.current?.closest("[data-radix-scroll-area-viewport]")
+    if (viewport) viewport.scrollTop = viewport.scrollHeight
   }
 
   useEffect(() => {
     scrollToBottom()
   }, [messages])
-
-  useEffect(() => {
-    if (selectedConversation) {
-      const timer = setTimeout(() => {
-        setIsTyping(true)
-        setTimeout(() => setIsTyping(false), 3000)
-      }, 5000)
-      return () => clearTimeout(timer)
-    }
-  }, [selectedConversation])
 
   useEffect(() => {
     async function loadData() {
@@ -248,11 +242,9 @@ export default function MensajesContent() {
       if (user) {
         setCurrentUserId(user.id)
         const result = await obtenerConversaciones()
-        if (result.data && result.data.length > 0) {
-          setConversations(result.data as Conversation[])
-        } else {
-          setConversations(MOCK_CONVERSATIONS)
-        }
+        // Usuarios reales ven sus datos reales, aunque estén vacíos; los datos
+        // de ejemplo quedan solo como demo para visitantes sin sesión.
+        setConversations((result.data as Conversation[]) || [])
       } else {
         setConversations(MOCK_CONVERSATIONS)
       }
@@ -857,34 +849,6 @@ export default function MensajesContent() {
                         )
                       })}
 
-                      {/* Typing indicator */}
-                      {isTyping && (
-                        <div className="flex gap-2 justify-start">
-                          <Avatar className="h-8 w-8 mt-auto shrink-0">
-                            <AvatarImage src={getOtherUser(selectedConversation)?.foto_perfil || "/placeholder.svg"} />
-                            <AvatarFallback className="text-xs bg-muted">
-                              {getOtherUser(selectedConversation)?.nombre?.[0]}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="bg-card border rounded-2xl rounded-bl-md px-4 py-3">
-                            <div className="flex gap-1">
-                              <span
-                                className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce"
-                                style={{ animationDelay: "0ms" }}
-                              />
-                              <span
-                                className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce"
-                                style={{ animationDelay: "150ms" }}
-                              />
-                              <span
-                                className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce"
-                                style={{ animationDelay: "300ms" }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
                       <div ref={messagesEndRef} />
                     </>
                   )}
@@ -1016,11 +980,17 @@ export default function MensajesContent() {
                       {selectedConversation.rol_otro === "proveedor" ? "Proveedor" : "Cliente"}
                     </Badge>
                   )}
-                  <div className="flex items-center gap-1 mt-3 text-sm">
-                    <span className="text-amber-500">★</span>
-                    <span className="font-medium">4.9</span>
-                    <span className="text-muted-foreground">(127 reseñas)</span>
-                  </div>
+                  {selectedConversation.otro_profesional && (
+                    <div className="flex items-center gap-1 mt-3 text-sm">
+                      <span className="text-amber-500">★</span>
+                      <span className="font-medium">
+                        {Number(selectedConversation.otro_profesional.rating_promedio || 0).toFixed(1)}
+                      </span>
+                      <span className="text-muted-foreground">
+                        ({selectedConversation.otro_profesional.total_reseñas || 0} reseñas)
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Acciones rápidas */}
@@ -1049,22 +1019,31 @@ export default function MensajesContent() {
                     Acerca de
                   </h4>
                   <dl className="space-y-2.5 text-sm">
-                    <div className="flex items-center justify-between">
-                      <dt className="text-muted-foreground">Desde</dt>
-                      <dd className="font-medium">España</dd>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <dt className="text-muted-foreground">Miembro desde</dt>
-                      <dd className="font-medium">Mar 2024</dd>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <dt className="text-muted-foreground">Tiempo respuesta</dt>
-                      <dd className="font-medium">~ 1 hora</dd>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <dt className="text-muted-foreground">Idiomas</dt>
-                      <dd className="font-medium">Español, Inglés</dd>
-                    </div>
+                    {getOtherUser(selectedConversation)?.ubicacion && (
+                      <div className="flex items-center justify-between">
+                        <dt className="text-muted-foreground">Ubicación</dt>
+                        <dd className="font-medium">{getOtherUser(selectedConversation)?.ubicacion}</dd>
+                      </div>
+                    )}
+                    {getOtherUser(selectedConversation)?.created_at && (
+                      <div className="flex items-center justify-between">
+                        <dt className="text-muted-foreground">Miembro desde</dt>
+                        <dd className="font-medium">
+                          {new Date(getOtherUser(selectedConversation)!.created_at!).toLocaleDateString("es-ES", {
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </dd>
+                      </div>
+                    )}
+                    {(selectedConversation.otro_profesional?.idiomas?.length ?? 0) > 0 && (
+                      <div className="flex items-center justify-between">
+                        <dt className="text-muted-foreground">Idiomas</dt>
+                        <dd className="font-medium">
+                          {selectedConversation.otro_profesional!.idiomas!.join(", ")}
+                        </dd>
+                      </div>
+                    )}
                   </dl>
                 </div>
 
@@ -1113,7 +1092,13 @@ export default function MensajesContent() {
                         </div>
                       )}
 
-                      <Button size="sm" className="w-full text-xs h-8">
+                      <Button
+                        size="sm"
+                        className="w-full text-xs h-8"
+                        onClick={() =>
+                          router.push(selectedConversation.mi_rol === "proveedor" ? "/mis-trabajos" : "/mis-solicitudes")
+                        }
+                      >
                         Ver detalles del proyecto
                       </Button>
                     </div>
