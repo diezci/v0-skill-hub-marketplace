@@ -49,6 +49,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
+// Tarjeta-resumen clicable: hover y anillo cuando su pestaña está activa.
+const cnCard = (base: string, activa: boolean) =>
+  `${base} w-full transition hover:shadow-md ${activa ? "ring-2 ring-primary/50" : ""}`
+
 export default function MisSolicitudes() {
   const [activeTab, setActiveTab] = useState("solicitudes")
   const [solicitudes, setSolicitudes] = useState<any[]>([])
@@ -356,28 +360,44 @@ export default function MisSolicitudes() {
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
+      {/* Summary Cards: mismos estados (y orden) que las pestañas, y clicables
+          para saltar directamente a la pestaña correspondiente. */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border-amber-500/20">
+        <button type="button" className="text-left" onClick={() => setActiveTab("solicitudes")}>
+        <Card
+          className={cnCard(
+            "bg-gradient-to-br from-amber-500/10 to-amber-600/5 border-amber-500/20",
+            activeTab === "solicitudes",
+          )}
+        >
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Esperando ofertas</p>
+                <p className="text-sm text-muted-foreground">Abiertas</p>
                 <p className="text-3xl font-bold">{solicitudesPendientes.length}</p>
+                <p className="text-xs text-muted-foreground">esperando ofertas</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-amber-500/20 flex items-center justify-center">
-                <Clock className="h-6 w-6 text-amber-500" />
+                <FileText className="h-6 w-6 text-amber-500" />
               </div>
             </div>
           </CardContent>
         </Card>
-        
-        <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20">
+        </button>
+
+        <button type="button" className="text-left" onClick={() => setActiveTab("en-progreso")}>
+        <Card
+          className={cnCard(
+            "bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20",
+            activeTab === "en-progreso",
+          )}
+        >
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">En progreso</p>
+                <p className="text-sm text-muted-foreground">En Progreso</p>
                 <p className="text-3xl font-bold">{solicitudesEnProgreso.length}</p>
+                <p className="text-xs text-muted-foreground">trabajos en curso</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-blue-500/20 flex items-center justify-center">
                 <TrendingUp className="h-6 w-6 text-blue-500" />
@@ -385,27 +405,21 @@ export default function MisSolicitudes() {
             </div>
           </CardContent>
         </Card>
-        
-        <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border-emerald-500/20">
+        </button>
+
+        <button type="button" className="text-left" onClick={() => setActiveTab("por-confirmar")}>
+        <Card
+          className={cnCard(
+            "bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20",
+            activeTab === "por-confirmar",
+          )}
+        >
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Completados</p>
-                <p className="text-3xl font-bold">{solicitudesCompletadas.length}</p>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                <CheckCircle2 className="h-6 w-6 text-emerald-500" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Pendiente confirmar</p>
+                <p className="text-sm text-muted-foreground">Por Confirmar</p>
                 <p className="text-3xl font-bold">{solicitudesPorConfirmar.length}</p>
+                <p className="text-xs text-muted-foreground">entregas por revisar</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-purple-500/20 flex items-center justify-center">
                 <Package className="h-6 w-6 text-purple-500" />
@@ -413,6 +427,29 @@ export default function MisSolicitudes() {
             </div>
           </CardContent>
         </Card>
+        </button>
+
+        <button type="button" className="text-left" onClick={() => setActiveTab("historial")}>
+        <Card
+          className={cnCard(
+            "bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border-emerald-500/20",
+            activeTab === "historial",
+          )}
+        >
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Historial</p>
+                <p className="text-3xl font-bold">{solicitudesCompletadas.length}</p>
+                <p className="text-xs text-muted-foreground">completados</p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        </button>
       </div>
 
       {/* Main Content */}
