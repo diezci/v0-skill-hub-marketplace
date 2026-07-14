@@ -114,6 +114,8 @@ const estadoTrabajoConfig: Record<
 export default function MisTrabajosPage() {
   const [trabajos, setTrabajos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  // Pestaña activa controlada: las tarjetas-resumen también la seleccionan.
+  const [activeTab, setActiveTab] = useState("activos")
   const [selectedTrabajo, setSelectedTrabajo] = useState<any>(null)
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false)
   const [deliveryDialogOpen, setDeliveryDialogOpen] = useState(false)
@@ -290,69 +292,87 @@ export default function MisTrabajosPage() {
           </p>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
-          <Card className="border-amber-500/20 bg-amber-500/5">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-amber-500/10">
-                  <CreditCard className="h-5 w-5 text-amber-500" />
+        {/* Summary Cards: mismos estados (y orden) que las pestañas de abajo,
+            y clicables para saltar a la pestaña correspondiente. */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-8">
+          <button type="button" className="text-left" onClick={() => setActiveTab("activos")}>
+            <Card
+              className={`w-full border-blue-500/20 bg-blue-500/5 transition hover:shadow-md ${
+                activeTab === "activos" ? "ring-2 ring-primary/50" : ""
+              }`}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-blue-500/10">
+                    <Briefcase className="h-5 w-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Activos</p>
+                    <p className="text-2xl font-bold">
+                      {trabajosEnProgreso.length + trabajosPendientePago.length}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {trabajosPendientePago.length > 0
+                        ? `${trabajosPendientePago.length} esperando pago`
+                        : "en curso"}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Esperando pago</p>
-                  <p className="text-2xl font-bold">{trabajosPendientePago.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </button>
 
-          <Card className="border-blue-500/20 bg-blue-500/5">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/10">
-                  <Loader2 className="h-5 w-5 text-blue-500" />
+          <button type="button" className="text-left" onClick={() => setActiveTab("entregados")}>
+            <Card
+              className={`w-full border-purple-500/20 bg-purple-500/5 transition hover:shadow-md ${
+                activeTab === "entregados" ? "ring-2 ring-primary/50" : ""
+              }`}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-purple-500/10">
+                    <Banknote className="h-5 w-5 text-purple-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Entregados</p>
+                    <p className="text-2xl font-bold">{trabajosEntregados.length}</p>
+                    <p className="text-xs text-muted-foreground">
+                      pendiente de cobro: {formatCurrency(totalPendienteCobro)}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">En progreso</p>
-                  <p className="text-2xl font-bold">{trabajosEnProgreso.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </button>
 
-          <Card className="border-purple-500/20 bg-purple-500/5">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-purple-500/10">
-                  <Banknote className="h-5 w-5 text-purple-500" />
+          <button type="button" className="text-left" onClick={() => setActiveTab("completados")}>
+            <Card
+              className={`w-full border-emerald-500/20 bg-emerald-500/5 transition hover:shadow-md ${
+                activeTab === "completados" ? "ring-2 ring-primary/50" : ""
+              }`}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-emerald-500/10">
+                    <DollarSign className="h-5 w-5 text-emerald-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Completados</p>
+                    <p className="text-2xl font-bold">{trabajosCompletados.length}</p>
+                    <p className="text-xs text-muted-foreground">
+                      total cobrado: {formatCurrency(totalCobrado)}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Pendiente de cobro</p>
-                  <p className="text-2xl font-bold">{formatCurrency(totalPendienteCobro)}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-emerald-500/20 bg-emerald-500/5">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-emerald-500/10">
-                  <DollarSign className="h-5 w-5 text-emerald-500" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total cobrado</p>
-                  <p className="text-2xl font-bold">{formatCurrency(totalCobrado)}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </button>
         </div>
 
         {/* Two-column layout: jobs list on left, calendar on right */}
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-6">
           {/* Left column: Tabs with job lists */}
-          <Tabs defaultValue="activos" className="space-y-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList className="bg-muted/50 grid w-full grid-cols-3 h-auto">
               <TabsTrigger value="activos" className="gap-2">
                 <Briefcase className="h-4 w-4" />
