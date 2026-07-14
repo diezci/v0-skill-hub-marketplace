@@ -166,7 +166,7 @@ export default function PagoPage() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">
-                          Comision plataforma ({PLATFORM_CONFIG.comisionClientePorcentaje}%)
+                          Gastos de servicio Diime ({PLATFORM_CONFIG.comisionClientePorcentaje}%)
                         </span>
                         <span>{formatearPrecio(desglose.comisionCliente)}</span>
                       </div>

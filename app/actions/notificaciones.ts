@@ -69,6 +69,13 @@ export async function obtenerResumenNotificaciones() {
   const convIds = (convs || []).map((c: any) => c.id)
 
   let mensajesNoLeidos = 0
+  let ultimoMensajeNoLeido: {
+    id: string
+    conversacion_id: string
+    preview: string
+    remitente: string
+    created_at: string
+  } | null = null
   if (convIds.length > 0) {
     const { count } = await supabase
       .from("mensajes")
@@ -77,9 +84,41 @@ export async function obtenerResumenNotificaciones() {
       .eq("leido", false)
       .neq("remitente_id", user.id)
     mensajesNoLeidos = count || 0
+
+    // El más reciente sin leer, con nombre del remitente: para el popup del navbar.
+    if (mensajesNoLeidos > 0) {
+      const { data: ultimo } = await supabase
+        .from("mensajes")
+        .select("id, conversacion_id, contenido, tipo, remitente_id, created_at")
+        .in("conversacion_id", convIds)
+        .eq("leido", false)
+        .neq("remitente_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (ultimo) {
+        const { data: perfil } = await supabase
+          .from("profiles")
+          .select("nombre, apellido")
+          .eq("id", ultimo.remitente_id)
+          .maybeSingle()
+        ultimoMensajeNoLeido = {
+          id: ultimo.id,
+          conversacion_id: ultimo.conversacion_id,
+          preview:
+            ultimo.tipo === "imagen"
+              ? "📷 Imagen"
+              : ultimo.tipo === "archivo"
+                ? "📎 Archivo"
+                : String(ultimo.contenido || "").slice(0, 90),
+          remitente: `${perfil?.nombre ?? ""} ${perfil?.apellido ?? ""}`.trim() || "Nuevo mensaje",
+          created_at: ultimo.created_at,
+        }
+      }
+    }
   }
 
-  return { notificaciones: notificaciones || [], noLeidas, mensajesNoLeidos, porSeccion }
+  return { notificaciones: notificaciones || [], noLeidas, mensajesNoLeidos, porSeccion, ultimoMensajeNoLeido }
 }
 
 // Marca como leídas las notificaciones cuyo destino es la sección visitada

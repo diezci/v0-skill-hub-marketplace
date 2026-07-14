@@ -71,7 +71,7 @@ export async function obtenerTrabajosCalendario(): Promise<{
       )
     `)
     .eq("profesional_id", user.id)
-    .in("estado", ["en_progreso", "pendiente_pago", "completado"])
+    .in("estado", ["en_progreso", "pendiente_pago", "entregado", "completado"])
     .order("fecha_inicio", { ascending: true })
 
   if (error) {

@@ -269,7 +269,9 @@ export async function obtenerMisSolicitudes() {
     (data || []).map(async (s: any) => {
       const { data: ofertas } = await supabase
         .from("ofertas")
-        .select("id, precio, tiempo_estimado, unidad_tiempo, descripcion, estado, created_at, profesional_id, archivos")
+        .select(
+          "id, precio, tiempo_estimado, unidad_tiempo, descripcion, estado, created_at, profesional_id, archivos, materiales_incluidos, condiciones_pago",
+        )
         .eq("solicitud_id", s.id)
       return {
         ...s,
@@ -370,7 +372,9 @@ export async function obtenerSolicitudesPorUsuario() {
           estado,
           created_at,
           profesional_id,
-          archivos
+          archivos,
+          materiales_incluidos,
+          condiciones_pago
         `)
         .eq("solicitud_id", solicitud.id)
 
@@ -434,6 +438,16 @@ export async function obtenerSolicitudesPorUsuario() {
           .limit(1)
           .maybeSingle()
 
+        // La oferta aceptada del trabajo: sus adjuntos y condiciones deben
+        // seguir visibles para el cliente después de la contratación.
+        const { data: ofertaTrabajo } = trabajoRow.oferta_id
+          ? await supabase
+              .from("ofertas")
+              .select("archivos, materiales_incluidos, condiciones_pago, descripcion")
+              .eq("id", trabajoRow.oferta_id)
+              .maybeSingle()
+          : { data: null }
+
         const { data: profProfile } = await supabase
           .from("profiles")
           .select("nombre, apellido, foto_perfil")
@@ -455,6 +469,7 @@ export async function obtenerSolicitudesPorUsuario() {
         trabajo = {
           ...trabajoRow,
           escrow: escrow || null,
+          oferta: ofertaTrabajo || null,
           profesional: profProfile
             ? { ...profProfile, rating: profDatos?.rating_promedio ?? null }
             : null,
