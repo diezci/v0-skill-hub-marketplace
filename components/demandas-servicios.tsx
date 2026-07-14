@@ -38,6 +38,7 @@ import {
 import { uploadFile } from "@/lib/upload-helpers"
 import { toast } from "@/hooks/use-toast"
 import { calcularPagoProveedor, PLATFORM_CONFIG, formatearPrecio } from "@/lib/comisiones"
+import { Checkbox } from "@/components/ui/checkbox"
 import { crearOferta } from "@/app/actions/ofertas"
 import { obtenerSolicitudesAbiertas } from "@/app/actions/solicitudes"
 import { cn } from "@/lib/utils"
@@ -117,6 +118,8 @@ export default function DemandasServicios() {
   const [clienteSeleccionado, setClienteSeleccionado] = useState<any>(null)
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // Aceptación explícita de los gastos de servicio, requerida en cada oferta.
+  const [aceptaGastos, setAceptaGastos] = useState(false)
   const [demandas, setDemandas] = useState<Demanda[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -193,6 +196,8 @@ export default function DemandasServicios() {
 
   const handleEnviarOferta = (demanda: Demanda) => {
     setDemandaSeleccionada(demanda)
+    // La aceptación de gastos es por oferta: se pide de nuevo cada vez.
+    setAceptaGastos(false)
     setDialogAbierto(true)
   }
 
@@ -206,6 +211,14 @@ export default function DemandasServicios() {
     }
     if (!(Number.parseInt(formData.duracion, 10) > 0)) {
       toast({ title: "Tiempo no válido", description: "El tiempo estimado debe ser mayor que 0.", variant: "destructive" })
+      return
+    }
+    if (!aceptaGastos) {
+      toast({
+        title: "Falta aceptar los gastos de servicio",
+        description: "Debes aceptar los gastos de servicio de Diime antes de enviar la oferta.",
+        variant: "destructive",
+      })
       return
     }
     setIsSubmitting(true)
@@ -223,6 +236,7 @@ export default function DemandasServicios() {
         descripcion: formData.descripcion,
         materiales_incluidos: formData.materiales,
         archivos: successfulUploads,
+        acepta_gastos: aceptaGastos,
       })
 
       if (result.error) {
@@ -232,6 +246,7 @@ export default function DemandasServicios() {
         setDialogAbierto(false)
         setFormData({ precio: "", duracion: "", unidadTiempo: "dias", descripcion: "", materiales: "" })
         setAttachedFiles([])
+        setAceptaGastos(false)
       }
     } catch (error) {
       toast({ title: "Error", description: "No se pudo enviar la oferta", variant: "destructive" })
@@ -841,25 +856,6 @@ export default function DemandasServicios() {
                   placeholder="0"
                   required
                 />
-                {/* Información previa al envío: gastos de servicio del proveedor. */}
-                <p className="text-xs text-muted-foreground">
-                  {Number.parseFloat(formData.precio) > 0 ? (
-                    <>
-                      Si el cliente acepta, Diime descontará los gastos de servicio (
-                      {PLATFORM_CONFIG.comisionProveedorPorcentaje}%):{" "}
-                      <span className="font-medium text-foreground">
-                        recibirás {formatearPrecio(calcularPagoProveedor(Number.parseFloat(formData.precio)).pagoNeto)}{" "}
-                        netos
-                      </span>
-                      .
-                    </>
-                  ) : (
-                    <>
-                      Diime descuenta unos gastos de servicio del {PLATFORM_CONFIG.comisionProveedorPorcentaje}% del
-                      precio cuando el cliente paga.
-                    </>
-                  )}
-                </p>
               </div>
               <div className="space-y-2">
                 <Label>Tiempo estimado</Label>
@@ -940,6 +936,30 @@ export default function DemandasServicios() {
               </div>
             </div>
 
+            {/* Aceptación explícita de los gastos de servicio: obligatoria en
+                cada oferta antes de poder enviarla al cliente. */}
+            <label className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 p-3 cursor-pointer">
+              <Checkbox
+                checked={aceptaGastos}
+                onCheckedChange={(v) => setAceptaGastos(v === true)}
+                className="mt-0.5"
+              />
+              <span className="text-sm text-muted-foreground">
+                Acepto los gastos de servicio de Diime ({PLATFORM_CONFIG.comisionProveedorPorcentaje}% del precio,
+                mín. {formatearPrecio(PLATFORM_CONFIG.comision_minima)}).{" "}
+                {Number.parseFloat(formData.precio) > 0 && (
+                  <>
+                    Si el cliente acepta esta oferta de {formatearPrecio(Number.parseFloat(formData.precio))},{" "}
+                    <span className="font-medium text-foreground">
+                      recibiré {formatearPrecio(calcularPagoProveedor(Number.parseFloat(formData.precio)).pagoNeto)}{" "}
+                      netos
+                    </span>
+                    .
+                  </>
+                )}
+              </span>
+            </label>
+
             <div className="flex gap-3 pt-2">
               <Button
                 type="button"
@@ -949,7 +969,7 @@ export default function DemandasServicios() {
               >
                 Cancelar
               </Button>
-              <Button type="submit" className="flex-1" disabled={isSubmitting}>
+              <Button type="submit" className="flex-1" disabled={isSubmitting || !aceptaGastos}>
                 {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Enviar presupuesto
               </Button>
