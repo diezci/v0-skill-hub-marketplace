@@ -19,7 +19,7 @@ export default async function ContratoPage({ params }: { params: Promise<{ id: s
   const datos = await obtenerDatosContratacion(id)
   if (!datos) notFound()
 
-  const { trabajo, cliente, profesional, tituloProfesional, oferta, solicitud, escrow } = datos
+  const { trabajo, cliente, profesional, tituloProfesional, oferta, solicitud, escrow, esCliente, esProfesional, esAdmin } = datos
   const { comisionCliente, totalCliente } = calcularTotalCliente(trabajo.precio_acordado || 0)
   const { comisionProveedor, pagoNeto } = calcularPagoProveedor(trabajo.precio_acordado || 0)
   const numero = `TRB-${String(trabajo.id).slice(0, 8).toUpperCase()}`
@@ -75,22 +75,48 @@ export default async function ContratoPage({ params }: { params: Promise<{ id: s
           </div>
         </section>
 
-        {/* Objeto */}
-        <section className="text-sm space-y-2">
-          <h2 className="font-semibold text-base">2. Objeto del servicio</h2>
+        {/* Detalle del servicio: se genera a partir de la propuesta del
+            profesional y es exactamente lo que el cliente aceptó. */}
+        <section className="text-sm space-y-3">
+          <h2 className="font-semibold text-base">2. Detalle del servicio contratado</h2>
           <p className="font-medium">{trabajo.titulo}</p>
           {solicitud?.descripcion && (
             <p className="text-muted-foreground">
-              <span className="font-medium text-foreground">Necesidad del cliente: </span>
+              <span className="font-medium text-foreground">Necesidad publicada por el cliente: </span>
               {solicitud.descripcion}
             </p>
           )}
-          {(oferta?.descripcion || trabajo.descripcion) && (
-            <p className="text-muted-foreground">
-              <span className="font-medium text-foreground">Servicio ofertado por el profesional: </span>
-              {oferta?.descripcion || trabajo.descripcion}
+          <div className="rounded-lg border p-4 space-y-2 bg-muted/20">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Propuesta del profesional aceptada por el cliente
             </p>
-          )}
+            {(oferta?.descripcion || trabajo.descripcion) && (
+              <p>
+                <span className="font-medium">Servicio incluido: </span>
+                <span className="text-muted-foreground">{oferta?.descripcion || trabajo.descripcion}</span>
+              </p>
+            )}
+            <p>
+              <span className="font-medium">Materiales: </span>
+              <span className="text-muted-foreground">{etiquetaMateriales(oferta?.materiales_incluidos)}</span>
+            </p>
+            {oferta?.condiciones_pago && (
+              <p>
+                <span className="font-medium">Condiciones de pago propuestas: </span>
+                <span className="text-muted-foreground">{oferta.condiciones_pago}</span>
+              </p>
+            )}
+            {oferta?.notas && (
+              <p>
+                <span className="font-medium">Notas del profesional: </span>
+                <span className="text-muted-foreground">{oferta.notas}</span>
+              </p>
+            )}
+          </div>
+          <p className="text-muted-foreground">
+            Al aceptar la oferta, el cliente acepta este detalle del servicio tal y como lo propuso el
+            profesional. Todo lo no incluido expresamente en este detalle queda fuera del encargo.
+          </p>
         </section>
 
         {/* Condiciones */}
@@ -129,34 +155,50 @@ export default async function ContratoPage({ params }: { params: Promise<{ id: s
 
         {/* Importes */}
         <section className="text-sm">
-          <h2 className="font-semibold text-base mb-3">4. Precio y comisiones</h2>
+          <h2 className="font-semibold text-base mb-3">4. Precio del servicio</h2>
+          {/* Privacidad económica: cada parte ve únicamente su propio lado.
+              El cliente no conoce los gastos de servicio del profesional y
+              viceversa; a cada uno se le informó de los suyos antes de
+              contratar (al pagar / al enviar el presupuesto). */}
           <div className="rounded-lg border divide-y">
             <div className="flex justify-between px-4 py-2">
-              <span>Precio del servicio acordado</span>
+              <span>Precio del servicio acordado entre las partes</span>
               <span className="font-medium">{formatearEuros(trabajo.precio_acordado)}</span>
             </div>
-            <div className="flex justify-between px-4 py-2">
-              <span>
-                Comisión de plataforma del cliente ({PLATFORM_CONFIG.comisionClientePorcentaje}%, mín.{" "}
-                {formatearEuros(PLATFORM_CONFIG.comision_minima)})
-              </span>
-              <span className="font-medium">+{formatearEuros(escrow?.comision_cliente ?? comisionCliente)}</span>
-            </div>
-            <div className="flex justify-between px-4 py-2 bg-muted/40">
-              <span className="font-semibold">Total a pagar por el cliente</span>
-              <span className="font-semibold">{formatearEuros(escrow?.monto ?? totalCliente)}</span>
-            </div>
-            <div className="flex justify-between px-4 py-2">
-              <span>
-                Comisión de plataforma del profesional ({PLATFORM_CONFIG.comisionProveedorPorcentaje}%)
-              </span>
-              <span className="font-medium">−{formatearEuros(escrow?.comision_proveedor ?? comisionProveedor)}</span>
-            </div>
-            <div className="flex justify-between px-4 py-2 bg-muted/40">
-              <span className="font-semibold">Neto a percibir por el profesional</span>
-              <span className="font-semibold">{formatearEuros(escrow?.pago_neto_proveedor ?? pagoNeto)}</span>
-            </div>
+            {(esCliente || esAdmin) && (
+              <>
+                <div className="flex justify-between px-4 py-2">
+                  <span>
+                    Gastos de servicio de la plataforma ({PLATFORM_CONFIG.comisionClientePorcentaje}%, mín.{" "}
+                    {formatearEuros(PLATFORM_CONFIG.comision_minima)})
+                  </span>
+                  <span className="font-medium">+{formatearEuros(escrow?.comision_cliente ?? comisionCliente)}</span>
+                </div>
+                <div className="flex justify-between px-4 py-2 bg-muted/40">
+                  <span className="font-semibold">Total a pagar por el cliente</span>
+                  <span className="font-semibold">{formatearEuros(escrow?.monto ?? totalCliente)}</span>
+                </div>
+              </>
+            )}
+            {(esProfesional || esAdmin) && (
+              <>
+                <div className="flex justify-between px-4 py-2">
+                  <span>Gastos de servicio de la plataforma ({PLATFORM_CONFIG.comisionProveedorPorcentaje}%)</span>
+                  <span className="font-medium">
+                    −{formatearEuros(escrow?.comision_proveedor ?? comisionProveedor)}
+                  </span>
+                </div>
+                <div className="flex justify-between px-4 py-2 bg-muted/40">
+                  <span className="font-semibold">Neto a percibir por el profesional</span>
+                  <span className="font-semibold">{formatearEuros(escrow?.pago_neto_proveedor ?? pagoNeto)}</span>
+                </div>
+              </>
+            )}
           </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Los gastos de servicio de Diime aplicables a cada parte se comunican a cada una por separado antes de
+            la contratación y no forman parte del precio acordado entre las partes.
+          </p>
         </section>
 
         {/* Protección y resolución */}
@@ -178,8 +220,8 @@ export default async function ContratoPage({ params }: { params: Promise<{ id: s
               <span className="font-medium text-foreground">En caso de duda, se resolverá a favor del cliente.</span>
             </li>
             <li>
-              Si el cliente rechaza una entrega, se le reembolsa el importe pagado excepto la comisión de plataforma,
-              que no es reembolsable.
+              Si el cliente rechaza una entrega, se le reembolsa el importe pagado excepto los gastos de servicio
+              de la plataforma, que no son reembolsables.
             </li>
             <li>
               La conversación y los archivos intercambiados en Diime forman parte de la documentación del encargo y

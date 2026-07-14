@@ -36,6 +36,11 @@ export async function obtenerDatosContratacion(trabajoId: string) {
       .maybeSingle(),
   ])
 
+  // Rol del que consulta: condiciona qué información económica se muestra
+  // (cada parte solo ve su propia comisión; un admin lo ve todo).
+  const esCliente = trabajo.cliente_id === user.id
+  const esProfesional = trabajo.profesional_id === user.id
+
   return {
     trabajo,
     cliente: clienteR.data,
@@ -44,7 +49,9 @@ export async function obtenerDatosContratacion(trabajoId: string) {
     oferta: ofertaR.data,
     solicitud: solicitudR.data,
     escrow: escrowR.data,
-    esCliente: trabajo.cliente_id === user.id,
+    esCliente,
+    esProfesional,
+    esAdmin: !esCliente && !esProfesional,
   }
 }
 
