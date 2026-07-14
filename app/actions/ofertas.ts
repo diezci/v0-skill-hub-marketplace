@@ -13,6 +13,9 @@ export async function crearOferta(formData: {
   condiciones_pago?: string
   notas?: string
   archivos?: any[]
+  // El profesional debe aceptar explícitamente los gastos de servicio de la
+  // plataforma en CADA oferta que envía.
+  acepta_gastos?: boolean
 }) {
   const supabase = await createClient()
 
@@ -35,6 +38,9 @@ export async function crearOferta(formData: {
   }
   if (!Number.isFinite(formData.tiempo_estimado) || formData.tiempo_estimado <= 0) {
     return { error: "El tiempo estimado debe ser mayor que 0." }
+  }
+  if (!formData.acepta_gastos) {
+    return { error: "Debes aceptar los gastos de servicio de la plataforma para enviar la oferta." }
   }
 
   // Check if already sent an offer for this solicitud

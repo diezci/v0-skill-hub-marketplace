@@ -79,6 +79,9 @@ export default function MisSolicitudes() {
   })
   const [deleteSolicitud, setDeleteSolicitud] = useState<any>(null)
   const [rejectOfertaTarget, setRejectOfertaTarget] = useState<any>(null)
+  // Confirmación al aceptar una oferta: informa de los gastos de servicio
+  // de Diime antes de continuar al pago.
+  const [acceptOfertaTarget, setAcceptOfertaTarget] = useState<{ oferta: any; solicitud: any } | null>(null)
   const { toast } = useToast()
   const router = useRouter()
 
@@ -639,7 +642,7 @@ export default function MisSolicitudes() {
                                   <div className="flex flex-wrap gap-2 mt-3">
                                     <Button
                                       size="sm"
-                                      onClick={() => handleAceptarOferta(oferta, solicitud)}
+                                      onClick={() => setAcceptOfertaTarget({ oferta, solicitud })}
                                     >
                                       <Check className="h-4 w-4 mr-1" />
                                       Aceptar Oferta
@@ -1313,6 +1316,58 @@ export default function MisSolicitudes() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmar aceptación de oferta: informa de los gastos de servicio */}
+      <AlertDialog open={!!acceptOfertaTarget} onOpenChange={(o) => !o && setAcceptOfertaTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Aceptar oferta y continuar al pago</AlertDialogTitle>
+            <AlertDialogDescription>
+              Vas a aceptar la oferta de{" "}
+              {formatearPrecioEuros(acceptOfertaTarget?.oferta?.precio)} para "
+              {acceptOfertaTarget?.solicitud?.titulo}". Al pagar, Diime añadirá los gastos de servicio de la
+              plataforma ({PLATFORM_CONFIG.comisionClientePorcentaje}%, mín. 2€).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {acceptOfertaTarget?.oferta?.precio != null && (
+            <div className="rounded-lg border bg-muted/40 p-4 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Precio del servicio</span>
+                <span>{formatearPrecioEuros(acceptOfertaTarget.oferta.precio)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">
+                  Gastos de servicio Diime ({PLATFORM_CONFIG.comisionClientePorcentaje}%)
+                </span>
+                <span>
+                  {formatearPrecioEuros(calcularTotalCliente(acceptOfertaTarget.oferta.precio).comisionCliente)}
+                </span>
+              </div>
+              <Separator />
+              <div className="flex justify-between font-semibold">
+                <span>Total a pagar</span>
+                <span className="text-primary">
+                  {formatearPrecioEuros(calcularTotalCliente(acceptOfertaTarget.oferta.precio).totalCliente)}
+                </span>
+              </div>
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (acceptOfertaTarget) {
+                  handleAceptarOferta(acceptOfertaTarget.oferta, acceptOfertaTarget.solicitud)
+                  setAcceptOfertaTarget(null)
+                }
+              }}
+            >
+              <Check className="h-4 w-4 mr-2" />
+              Aceptar y pagar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Confirmar rechazo de oferta */}
       <AlertDialog open={!!rejectOfertaTarget} onOpenChange={(o) => !o && setRejectOfertaTarget(null)}>
