@@ -37,6 +37,7 @@ import {
 } from "lucide-react"
 import { uploadFile } from "@/lib/upload-helpers"
 import { toast } from "@/hooks/use-toast"
+import { calcularPagoProveedor, PLATFORM_CONFIG, formatearPrecio } from "@/lib/comisiones"
 import { crearOferta } from "@/app/actions/ofertas"
 import { obtenerSolicitudesAbiertas } from "@/app/actions/solicitudes"
 import { cn } from "@/lib/utils"
@@ -840,6 +841,25 @@ export default function DemandasServicios() {
                   placeholder="0"
                   required
                 />
+                {/* Información previa al envío: gastos de servicio del proveedor. */}
+                <p className="text-xs text-muted-foreground">
+                  {Number.parseFloat(formData.precio) > 0 ? (
+                    <>
+                      Si el cliente acepta, Diime descontará los gastos de servicio (
+                      {PLATFORM_CONFIG.comisionProveedorPorcentaje}%):{" "}
+                      <span className="font-medium text-foreground">
+                        recibirás {formatearPrecio(calcularPagoProveedor(Number.parseFloat(formData.precio)).pagoNeto)}{" "}
+                        netos
+                      </span>
+                      .
+                    </>
+                  ) : (
+                    <>
+                      Diime descuenta unos gastos de servicio del {PLATFORM_CONFIG.comisionProveedorPorcentaje}% del
+                      precio cuando el cliente paga.
+                    </>
+                  )}
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>Tiempo estimado</Label>

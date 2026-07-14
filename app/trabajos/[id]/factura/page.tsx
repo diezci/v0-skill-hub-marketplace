@@ -22,7 +22,7 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
   const datos = await obtenerDatosContratacion(id)
   if (!datos) notFound()
 
-  const { trabajo, cliente, profesional, escrow } = datos
+  const { trabajo, cliente, profesional, escrow, esCliente, esProfesional, esAdmin } = datos
   const { comisionCliente, totalCliente } = calcularTotalCliente(trabajo.precio_acordado || 0)
   const { comisionProveedor, pagoNeto } = calcularPagoProveedor(trabajo.precio_acordado || 0)
   const anio = new Date(escrow?.fecha_retencion || trabajo.created_at).getFullYear()
@@ -80,7 +80,9 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
 
-        {/* Concepto */}
+        {/* Concepto. Privacidad económica: los gastos de servicio del cliente
+            y su total solo los ve el cliente (y un admin); el profesional ve
+            su liquidación, nunca lo que Diime cobra al cliente. */}
         <section className="text-sm">
           <h2 className="font-semibold text-base mb-3">Concepto</h2>
           <div className="rounded-lg border divide-y">
@@ -94,52 +96,58 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
               </div>
               <span className="font-medium">{formatearEuros(escrow?.monto_base ?? trabajo.precio_acordado)}</span>
             </div>
-            <div className="grid grid-cols-[1fr_auto] gap-4 px-4 py-2.5">
-              <span>
-                Comisión de servicio Diime ({PLATFORM_CONFIG.comisionClientePorcentaje}%, mín.{" "}
-                {formatearEuros(PLATFORM_CONFIG.comision_minima)})
-              </span>
-              <span className="font-medium">{formatearEuros(escrow?.comision_cliente ?? comisionCliente)}</span>
-            </div>
-            <div className="grid grid-cols-[1fr_auto] gap-4 px-4 py-3 bg-muted/40">
-              <span className="font-semibold">Total pagado por el cliente</span>
-              <span className="font-bold text-lg">{formatearEuros(escrow?.monto ?? totalCliente)}</span>
-            </div>
+            {(esCliente || esAdmin) && (
+              <>
+                <div className="grid grid-cols-[1fr_auto] gap-4 px-4 py-2.5">
+                  <span>
+                    Gastos de servicio Diime ({PLATFORM_CONFIG.comisionClientePorcentaje}%, mín.{" "}
+                    {formatearEuros(PLATFORM_CONFIG.comision_minima)})
+                  </span>
+                  <span className="font-medium">{formatearEuros(escrow?.comision_cliente ?? comisionCliente)}</span>
+                </div>
+                <div className="grid grid-cols-[1fr_auto] gap-4 px-4 py-3 bg-muted/40">
+                  <span className="font-semibold">Total pagado por el cliente</span>
+                  <span className="font-bold text-lg">{formatearEuros(escrow?.monto ?? totalCliente)}</span>
+                </div>
+              </>
+            )}
           </div>
           <p className="text-xs text-muted-foreground mt-2">Impuestos incluidos en los importes cuando resulten aplicables.</p>
         </section>
 
-        {/* Liquidación del profesional */}
-        <section className="text-sm">
-          <h2 className="font-semibold text-base mb-3">Liquidación del profesional</h2>
-          <div className="rounded-lg border divide-y">
-            <div className="flex justify-between px-4 py-2.5">
-              <span>Precio del servicio</span>
-              <span className="font-medium">{formatearEuros(escrow?.monto_base ?? trabajo.precio_acordado)}</span>
+        {/* Liquidación del profesional: solo la ve el profesional (y un admin). */}
+        {(esProfesional || esAdmin) && (
+          <section className="text-sm">
+            <h2 className="font-semibold text-base mb-3">Liquidación del profesional</h2>
+            <div className="rounded-lg border divide-y">
+              <div className="flex justify-between px-4 py-2.5">
+                <span>Precio del servicio</span>
+                <span className="font-medium">{formatearEuros(escrow?.monto_base ?? trabajo.precio_acordado)}</span>
+              </div>
+              <div className="flex justify-between px-4 py-2.5">
+                <span>Gastos de servicio Diime ({PLATFORM_CONFIG.comisionProveedorPorcentaje}%)</span>
+                <span className="font-medium text-destructive">
+                  −{formatearEuros(escrow?.comision_proveedor ?? comisionProveedor)}
+                </span>
+              </div>
+              <div className="flex justify-between px-4 py-3 bg-muted/40">
+                <span className="font-semibold">Neto a percibir por el profesional</span>
+                <span className="font-bold">{formatearEuros(escrow?.pago_neto_proveedor ?? pagoNeto)}</span>
+              </div>
             </div>
-            <div className="flex justify-between px-4 py-2.5">
-              <span>Comisión de plataforma ({PLATFORM_CONFIG.comisionProveedorPorcentaje}%)</span>
-              <span className="font-medium text-destructive">
-                −{formatearEuros(escrow?.comision_proveedor ?? comisionProveedor)}
-              </span>
-            </div>
-            <div className="flex justify-between px-4 py-3 bg-muted/40">
-              <span className="font-semibold">Neto a percibir por el profesional</span>
-              <span className="font-bold">{formatearEuros(escrow?.pago_neto_proveedor ?? pagoNeto)}</span>
-            </div>
-          </div>
-          {escrow?.fecha_liberacion && (
-            <p className="text-xs text-muted-foreground mt-2">
-              Pago liberado al profesional el {formatearFechaLarga(escrow.fecha_liberacion)}.
-            </p>
-          )}
-          {escrow?.estado === "reembolsado" && (
-            <p className="text-xs text-muted-foreground mt-2">
-              Reembolsado al cliente: {formatearEuros(escrow.monto_reembolsado)} el{" "}
-              {formatearFechaLarga(escrow.fecha_reembolso)}.
-            </p>
-          )}
-        </section>
+            {escrow?.fecha_liberacion && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Pago liberado al profesional el {formatearFechaLarga(escrow.fecha_liberacion)}.
+              </p>
+            )}
+          </section>
+        )}
+        {escrow?.estado === "reembolsado" && (
+          <p className="text-xs text-muted-foreground">
+            Reembolsado al cliente: {formatearEuros(escrow.monto_reembolsado)} el{" "}
+            {formatearFechaLarga(escrow.fecha_reembolso)}.
+          </p>
+        )}
 
         <p className="text-xs text-muted-foreground border-t pt-4">
           Documento generado automáticamente por Diime (diime.es) como plataforma intermediaria del pago protegido.
