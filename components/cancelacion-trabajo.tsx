@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/dialog"
 import { Loader2, XCircle, Check, Ban } from "lucide-react"
 import { solicitarCancelacion, responderCancelacion } from "@/app/actions/trabajos"
-import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/lib/supabase/client"
 
@@ -78,17 +77,18 @@ export function CancelacionTrabajo({ trabajo, onChange }: CancelacionTrabajoProp
       toast({ title: "Error", description: res.error, variant: "destructive" })
     } else {
       toast({
-        title: aceptar ? "Cancelación aceptada" : "Cancelación rechazada",
+        title: aceptar ? "Cancelación aceptada" : "Cancelación rechazada: disputa abierta",
         description: aceptar
-          ? "El trabajo ha quedado cancelado."
-          : "La otra parte podrá abrir una disputa si no hay acuerdo.",
+          ? "El trabajo ha quedado cancelado. Si el cliente había pagado, se le reembolsa íntegramente."
+          : "El equipo de Diime resolverá la disputa según los términos de la contratación.",
       })
       refrescar()
     }
     setSubmitting(false)
   }
 
-  if (!userId || trabajo.estado !== "pendiente_pago") return null
+  // Cancelación de mutuo acuerdo: antes del pago o con el trabajo en curso.
+  if (!userId || !["pendiente_pago", "en_progreso"].includes(trabajo.estado ?? "")) return null
 
   const soyElSolicitante = trabajo.cancelacion_solicitada_por === userId
   const estadoCanc = trabajo.cancelacion_estado
@@ -107,7 +107,9 @@ export function CancelacionTrabajo({ trabajo, onChange }: CancelacionTrabajoProp
               <p className="text-sm text-muted-foreground mt-0.5">Motivo: {trabajo.cancelacion_razon}</p>
             )}
             <p className="text-sm text-muted-foreground">
-              Si aceptas, el trabajo se cancela. Si rechazas, la otra parte podrá abrir una disputa.
+              Si aceptas, el trabajo se cancela (y si el cliente ya pagó, se le reembolsa íntegramente). Si
+              rechazas, se abrirá una disputa automáticamente y la resolverá el equipo de Diime según los
+              términos de la contratación; en caso de duda, a favor del cliente.
             </p>
           </div>
         </div>
@@ -145,24 +147,14 @@ export function CancelacionTrabajo({ trabajo, onChange }: CancelacionTrabajoProp
     )
   }
 
-  // 3) Cancelación rechazada: el solicitante puede abrir disputa.
-  if (estadoCanc === "rechazada" && soyElSolicitante) {
+  // 3) Cancelación rechazada: la disputa ya se abrió automáticamente (el
+  //    trabajo pasa a "en_disputa" y este panel deja de renderizarse), pero si
+  //    quedara algún trabajo con el estado antiguo, se informa igualmente.
+  if (estadoCanc === "rechazada") {
     return (
-      <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 space-y-3">
-        <p className="text-sm">
-          Tu solicitud de cancelación fue <span className="font-medium">rechazada</span>. Si no llegáis a un acuerdo,
-          puedes abrir una disputa para que el equipo de Diime medie.
-        </p>
-        <AbrirDisputaDialog trabajoId={trabajo.id} onCreated={refrescar} />
-      </div>
-    )
-  }
-
-  // 4) Cancelación rechazada: la otra parte solo ve el estado.
-  if (estadoCanc === "rechazada" && !soyElSolicitante) {
-    return (
-      <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
-        Rechazaste la solicitud de cancelación. La otra parte podría abrir una disputa.
+      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-muted-foreground">
+        La solicitud de cancelación fue rechazada y el caso pasa a disputa: lo resolverá el equipo de Diime
+        según los términos de la contratación.
       </div>
     )
   }
@@ -184,8 +176,9 @@ export function CancelacionTrabajo({ trabajo, onChange }: CancelacionTrabajoProp
         <DialogHeader>
           <DialogTitle>Solicitar cancelación</DialogTitle>
           <DialogDescription>
-            La cancelación debe ser de mutuo acuerdo: la otra parte recibirá un aviso y deberá aceptarla o rechazarla.
-            Si la rechaza, podrás abrir una disputa.
+            La cancelación debe ser de mutuo acuerdo: la otra parte recibirá un aviso y deberá aceptarla o
+            rechazarla. Si la acepta y el trabajo ya estaba pagado, el cliente recibe el reembolso íntegro
+            automáticamente. Si la rechaza, se abrirá una disputa que resolverá el equipo de Diime.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-1.5 py-1">

@@ -29,6 +29,14 @@ export async function crearOferta(formData: {
     return { error: "Debes crear un perfil profesional antes de enviar ofertas. Ve a 'Mi Perfil' para configurarlo." }
   }
 
+  // Importes y tiempos siempre positivos.
+  if (!Number.isFinite(formData.precio) || formData.precio <= 0) {
+    return { error: "El precio propuesto debe ser mayor que 0." }
+  }
+  if (!Number.isFinite(formData.tiempo_estimado) || formData.tiempo_estimado <= 0) {
+    return { error: "El tiempo estimado debe ser mayor que 0." }
+  }
+
   // Check if already sent an offer for this solicitud
   const { data: existingOffer } = await supabase
     .from("ofertas")
@@ -184,6 +192,12 @@ export async function actualizarOferta(
   }
   if (oferta.estado === "aceptada") {
     return { error: "No puedes editar una oferta que ya ha sido aceptada." }
+  }
+  if (campos.precio != null && (!Number.isFinite(campos.precio) || campos.precio <= 0)) {
+    return { error: "El precio propuesto debe ser mayor que 0." }
+  }
+  if (campos.tiempo_estimado != null && (!Number.isFinite(campos.tiempo_estimado) || campos.tiempo_estimado <= 0)) {
+    return { error: "El tiempo estimado debe ser mayor que 0." }
   }
 
   const { data, error } = await supabase
