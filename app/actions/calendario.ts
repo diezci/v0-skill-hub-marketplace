@@ -51,7 +51,7 @@ export async function obtenerTrabajosCalendario(): Promise<{
       titulo,
       descripcion,
       estado,
-      monto,
+      monto:precio_acordado,
       fecha_inicio,
       fecha_estimada_fin,
       horas_estimadas,
@@ -66,8 +66,7 @@ export async function obtenerTrabajosCalendario(): Promise<{
       ),
       solicitud:solicitud_id (
         id,
-        titulo,
-        categoria
+        titulo
       )
     `)
     .eq("profesional_id", user.id)
@@ -174,7 +173,7 @@ export async function obtenerServiciosSolicitados(): Promise<{
       titulo,
       descripcion,
       estado,
-      monto,
+      monto:precio_acordado,
       fecha_inicio,
       fecha_estimada_fin,
       profesional:profesional_id (
@@ -185,8 +184,7 @@ export async function obtenerServiciosSolicitados(): Promise<{
       ),
       solicitud:solicitud_id (
         id,
-        titulo,
-        categoria
+        titulo
       )
     `)
     .eq("cliente_id", user.id)
