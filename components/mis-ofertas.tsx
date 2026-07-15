@@ -26,9 +26,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Clock, MessageSquare, MapPin, Calendar, FileText, Loader2, Pencil, Trash2, Check } from "lucide-react"
+import { Clock, MessageSquare, MapPin, Calendar, FileText, Loader2, Pencil, Trash2, Check, Paperclip, X } from "lucide-react"
 import { obtenerOfertasPorProfesional, actualizarOferta, eliminarOferta } from "@/app/actions/ofertas"
 import { crearConversacion } from "@/app/actions/messages"
+import { uploadFile } from "@/lib/upload-helpers"
 import { useToast } from "@/hooks/use-toast"
 
 // Aquí solo viven las ofertas pendientes de respuesta: las aceptadas se
@@ -41,6 +42,10 @@ export default function MisOfertas() {
   const [loading, setLoading] = useState(true)
   const [editOferta, setEditOferta] = useState<any>(null)
   const [editForm, setEditForm] = useState({ precio: "", tiempo_estimado: "", unidad_tiempo: "dias", descripcion: "" })
+  // Adjuntos en edición: URLs ya existentes + archivos nuevos por subir.
+  const [editArchivos, setEditArchivos] = useState<string[]>([])
+  const [editNuevos, setEditNuevos] = useState<File[]>([])
+  const [subiendo, setSubiendo] = useState(false)
   const [deleteOferta, setDeleteOferta] = useState<any>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const router = useRouter()
@@ -64,17 +69,28 @@ export default function MisOfertas() {
       unidad_tiempo: oferta.unidad_tiempo || "dias",
       descripcion: oferta.descripcion || "",
     })
+    setEditArchivos(Array.isArray(oferta.archivos) ? oferta.archivos : [])
+    setEditNuevos([])
     setEditOferta(oferta)
   }
 
   const handleGuardarEdicion = async () => {
     if (!editOferta) return
     setActionLoading(true)
+    // Subir los archivos nuevos y combinarlos con los que se conservan.
+    let archivosFinales = [...editArchivos]
+    if (editNuevos.length > 0) {
+      setSubiendo(true)
+      const subidas = await Promise.all(editNuevos.map((f) => uploadFile(f)))
+      archivosFinales = [...archivosFinales, ...subidas.filter((r) => r !== null).map((r) => r!.url)]
+      setSubiendo(false)
+    }
     const result = await actualizarOferta(editOferta.id, {
       precio: editForm.precio ? Number.parseFloat(editForm.precio) : undefined,
       tiempo_estimado: editForm.tiempo_estimado ? Number.parseInt(editForm.tiempo_estimado, 10) : undefined,
       unidad_tiempo: editForm.unidad_tiempo,
       descripcion: editForm.descripcion,
+      archivos: archivosFinales,
     })
     if (result.error) {
       toast({ title: "Error", description: result.error, variant: "destructive" })
@@ -311,14 +327,73 @@ export default function MisOfertas() {
                 onChange={(e) => setEditForm({ ...editForm, descripcion: e.target.value })}
               />
             </div>
+
+            {/* Adjuntos: conservar/borrar existentes y añadir nuevos */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Archivos adjuntos</label>
+              <div className="flex flex-wrap gap-2">
+                {editArchivos.map((url, i) => (
+                  <div
+                    key={`ex-${i}`}
+                    className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs bg-muted/40"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    <a href={url} target="_blank" rel="noreferrer" className="hover:underline max-w-[140px] truncate">
+                      {decodeURIComponent(url.split("/").pop()?.split("?")[0] || `Archivo ${i + 1}`)}
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => setEditArchivos(editArchivos.filter((_, j) => j !== i))}
+                      className="text-muted-foreground hover:text-destructive"
+                      aria-label="Quitar adjunto"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+                {editNuevos.map((f, i) => (
+                  <div
+                    key={`new-${i}`}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/40 px-2.5 py-1.5 text-xs bg-emerald-500/10"
+                  >
+                    <Paperclip className="h-3.5 w-3.5" />
+                    <span className="max-w-[140px] truncate">{f.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setEditNuevos(editNuevos.filter((_, j) => j !== i))}
+                      className="text-muted-foreground hover:text-destructive"
+                      aria-label="Quitar archivo nuevo"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+                <label className="inline-flex items-center gap-1.5 rounded-md border border-dashed px-2.5 py-1.5 text-xs cursor-pointer hover:bg-muted transition">
+                  <Paperclip className="h-3.5 w-3.5" /> Añadir
+                  <input
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files) setEditNuevos((prev) => [...prev, ...Array.from(e.target.files!)])
+                      e.target.value = ""
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" className="bg-transparent" onClick={() => setEditOferta(null)}>
               Cancelar
             </Button>
-            <Button onClick={handleGuardarEdicion} disabled={actionLoading}>
-              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
-              Guardar cambios
+            <Button onClick={handleGuardarEdicion} disabled={actionLoading || subiendo}>
+              {actionLoading || subiendo ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Check className="h-4 w-4 mr-2" />
+              )}
+              {subiendo ? "Subiendo..." : "Guardar cambios"}
             </Button>
           </DialogFooter>
         </DialogContent>

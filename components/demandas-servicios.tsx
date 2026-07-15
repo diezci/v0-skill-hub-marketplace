@@ -936,6 +936,19 @@ export default function DemandasServicios() {
               </div>
             </div>
 
+            {/* Garantía de cobro: la plataforma retiene el pago del cliente. */}
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
+              <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                <CheckCircle2 className="h-4 w-4" /> Cobro asegurado
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Cuando el cliente acepte tu puja y pague, Diime{" "}
+                <span className="font-medium text-foreground">retiene el importe en custodia</span> antes de que
+                empieces: así tienes la <span className="font-medium text-foreground">garantía del cobro</span>. El
+                pago se te libera automáticamente al completar el servicio y confirmarlo el cliente.
+              </p>
+            </div>
+
             {/* Aceptación explícita de los gastos de servicio: obligatoria en
                 cada oferta antes de poder enviarla al cliente. */}
             <label className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 p-3 cursor-pointer">

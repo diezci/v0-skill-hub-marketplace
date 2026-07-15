@@ -177,7 +177,13 @@ export async function obtenerOfertasPorProfesional() {
 
 export async function actualizarOferta(
   ofertaId: string,
-  campos: { precio?: number; tiempo_estimado?: number; unidad_tiempo?: string; descripcion?: string },
+  campos: {
+    precio?: number
+    tiempo_estimado?: number
+    unidad_tiempo?: string
+    descripcion?: string
+    archivos?: string[]
+  },
 ) {
   const supabase = await createClient()
 
@@ -213,6 +219,8 @@ export async function actualizarOferta(
       tiempo_estimado: campos.tiempo_estimado,
       unidad_tiempo: campos.unidad_tiempo,
       descripcion: campos.descripcion,
+      // Solo se sobreescriben los adjuntos si se envían (edición explícita).
+      ...(campos.archivos !== undefined ? { archivos: campos.archivos } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq("id", ofertaId)

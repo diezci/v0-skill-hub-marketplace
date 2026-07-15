@@ -149,10 +149,17 @@ export default function PagoPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Tu pago queda retenido de forma segura en nuestra plataforma. Solo se libera al profesional
-                  cuando confirmes que el trabajo se ha completado satisfactoriamente.
-                </p>
+                <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 space-y-2">
+                  <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                    <ShieldCheck className="h-4 w-4" /> Tu dinero está protegido
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    El importe <span className="font-medium text-foreground">no llega al profesional al pagar</span>:
+                    queda retenido por Diime y <span className="font-medium text-foreground">solo se libera cuando
+                    tú confirmes</span> que has recibido el servicio correctamente. Si no quedas satisfecho,{" "}
+                    <span className="font-medium text-foreground">se te reembolsa</span>.
+                  </p>
+                </div>
 
                 <Separator />
 
