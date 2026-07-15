@@ -243,6 +243,10 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
               La conversación y los archivos intercambiados en Diime forman parte de la documentación del encargo y
               podrán utilizarse como prueba en caso de disputa.
             </li>
+            <li>
+              La resolución de disputas por parte de Diime es una mediación privada entre las partes y no impide ni
+              sustituye cualquier otra acción legal que cada parte pueda emprender por su cuenta.
+            </li>
           </ul>
         </section>
 

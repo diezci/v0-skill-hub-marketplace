@@ -93,6 +93,11 @@ export function AbrirDisputaDialog({ trabajoId, rol, trigger, onCreated }: Abrir
           <p className="text-xs text-muted-foreground">
             Aporta el máximo detalle. Las fotos y mensajes del trabajo se incluyen automáticamente como pruebas.
           </p>
+          <p className="text-[11px] text-muted-foreground/80 leading-snug border-t pt-2 mt-1">
+            La resolución de Diime es una mediación privada entre las partes y{" "}
+            <span className="font-medium">no impide ni sustituye</span> cualquier otra acción legal que puedas
+            emprender por tu cuenta fuera de la plataforma.
+          </p>
         </div>
 
         <DialogFooter>
