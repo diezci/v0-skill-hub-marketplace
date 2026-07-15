@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { BotonImprimir } from "@/components/boton-imprimir"
 import { PLATFORM_CONFIG, calcularTotalCliente, calcularPagoProveedor } from "@/lib/comisiones"
-import { obtenerDatosContratacion, formatearEuros, formatearFechaLarga } from "../datos"
+import { obtenerDatosContratacion, formatearEuros, formatearFechaLarga, etiquetaMateriales } from "../datos"
 
 // Lee la sesión: siempre dinámico (nunca shell estático).
 export const dynamic = "force-dynamic"
@@ -22,12 +22,15 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
   const datos = await obtenerDatosContratacion(id)
   if (!datos) notFound()
 
-  const { trabajo, cliente, profesional, escrow, esCliente, esProfesional, esAdmin } = datos
+  const { trabajo, cliente, profesional, oferta, solicitud, escrow, esCliente, esProfesional, esAdmin } = datos
   const { comisionCliente, totalCliente } = calcularTotalCliente(trabajo.precio_acordado || 0)
   const { comisionProveedor, pagoNeto } = calcularPagoProveedor(trabajo.precio_acordado || 0)
   const anio = new Date(escrow?.fecha_retencion || trabajo.created_at).getFullYear()
   const numero = `FAC-${anio}-${String(trabajo.id).slice(0, 8).toUpperCase()}`
   const fechaEmision = escrow?.fecha_retencion || trabajo.created_at
+  const plazo = oferta?.tiempo_estimado
+    ? `${oferta.tiempo_estimado} ${oferta.unidad_tiempo || "días"} desde el inicio del trabajo`
+    : "Según lo acordado entre las partes"
 
   return (
     <div className="container mx-auto px-4 pt-24 pb-16 max-w-3xl">
@@ -80,11 +83,73 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
 
+        {/* Detalle del servicio contratado: la propuesta del profesional que el
+            cliente aceptó. La factura recoge también los términos del encargo. */}
+        <section className="text-sm space-y-3">
+          <h2 className="font-semibold text-base">Detalle del servicio contratado</h2>
+          <p className="font-medium">{trabajo.titulo}</p>
+          {solicitud?.descripcion && (
+            <p className="text-muted-foreground">
+              <span className="font-medium text-foreground">Necesidad publicada por el cliente: </span>
+              {solicitud.descripcion}
+            </p>
+          )}
+          <div className="rounded-lg border p-4 space-y-2 bg-muted/20">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Propuesta del profesional aceptada por el cliente
+            </p>
+            {(oferta?.descripcion || trabajo.descripcion) && (
+              <p>
+                <span className="font-medium">Servicio incluido: </span>
+                <span className="text-muted-foreground">{oferta?.descripcion || trabajo.descripcion}</span>
+              </p>
+            )}
+            <p>
+              <span className="font-medium">Materiales: </span>
+              <span className="text-muted-foreground">{etiquetaMateriales(oferta?.materiales_incluidos)}</span>
+            </p>
+            {oferta?.notas && (
+              <p>
+                <span className="font-medium">Notas del profesional: </span>
+                <span className="text-muted-foreground">{oferta.notas}</span>
+              </p>
+            )}
+          </div>
+          <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-2">
+            <div className="flex justify-between sm:block">
+              <dt className="text-muted-foreground">Lugar de realización / entrega</dt>
+              <dd className="font-medium">{trabajo.ubicacion || solicitud?.ubicacion || "A convenir"}</dd>
+            </div>
+            <div className="flex justify-between sm:block">
+              <dt className="text-muted-foreground">Plazo estimado</dt>
+              <dd className="font-medium">{plazo}</dd>
+            </div>
+            <div className="flex justify-between sm:block">
+              <dt className="text-muted-foreground">Fecha de inicio</dt>
+              <dd className="font-medium">{formatearFechaLarga(trabajo.fecha_inicio)}</dd>
+            </div>
+            <div className="flex justify-between sm:block">
+              <dt className="text-muted-foreground">Entrega estimada</dt>
+              <dd className="font-medium">{formatearFechaLarga(trabajo.fecha_estimada_fin)}</dd>
+            </div>
+            <div className="flex justify-between sm:block">
+              <dt className="text-muted-foreground">Condiciones de pago</dt>
+              <dd className="font-medium">
+                {oferta?.condiciones_pago || "Pago único por adelantado, retenido en custodia (escrow) por Diime"}
+              </dd>
+            </div>
+          </dl>
+          <p className="text-xs text-muted-foreground">
+            Al aceptar la puja, el cliente aceptó este detalle del servicio tal y como lo propuso el profesional.
+            Todo lo no incluido expresamente queda fuera del encargo.
+          </p>
+        </section>
+
         {/* Concepto. Privacidad económica: los gastos de servicio del cliente
             y su total solo los ve el cliente (y un admin); el profesional ve
             su liquidación, nunca lo que Diime cobra al cliente. */}
         <section className="text-sm">
-          <h2 className="font-semibold text-base mb-3">Concepto</h2>
+          <h2 className="font-semibold text-base mb-3">Importe</h2>
           <div className="rounded-lg border divide-y">
             <div className="grid grid-cols-[1fr_auto] gap-4 px-4 py-2.5">
               <div>
@@ -149,9 +214,42 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
           </p>
         )}
 
+        {/* Términos y condiciones del servicio (antes en un contrato aparte) */}
+        <section className="text-sm space-y-2 border-t pt-6">
+          <h2 className="font-semibold text-base">Términos y condiciones</h2>
+          <ul className="list-disc pl-5 space-y-1.5 text-muted-foreground">
+            <li>
+              El importe abonado por el cliente queda{" "}
+              <span className="font-medium text-foreground">retenido en custodia</span> por Diime y solo se libera
+              al profesional cuando el cliente confirma la entrega del trabajo.
+            </li>
+            <li>
+              Cualquiera de las partes puede solicitar la{" "}
+              <span className="font-medium text-foreground">cancelación de mutuo acuerdo</span> antes de la entrega.
+              Si la otra parte la acepta y el trabajo ya estaba pagado, el cliente recibe el{" "}
+              <span className="font-medium text-foreground">reembolso íntegro</span> automáticamente.
+            </li>
+            <li>
+              Si la cancelación se rechaza, se abre automáticamente una{" "}
+              <span className="font-medium text-foreground">disputa</span> que resuelve el equipo de Diime conforme
+              a estos términos.{" "}
+              <span className="font-medium text-foreground">En caso de duda, se resolverá a favor del cliente.</span>
+            </li>
+            <li>
+              Si el cliente rechaza una entrega, se le reembolsa el importe pagado excepto los gastos de servicio de
+              la plataforma, que no son reembolsables.
+            </li>
+            <li>
+              La conversación y los archivos intercambiados en Diime forman parte de la documentación del encargo y
+              podrán utilizarse como prueba en caso de disputa.
+            </li>
+          </ul>
+        </section>
+
         <p className="text-xs text-muted-foreground border-t pt-4">
           Documento generado automáticamente por Diime (diime.es) como plataforma intermediaria del pago protegido.
-          El pago se retiene en custodia y se libera al profesional cuando el cliente confirma la entrega.
+          Recoge el detalle del servicio contratado, los términos acordados y el importe. El pago se retiene en
+          custodia y se libera al profesional cuando el cliente confirma la entrega.
         </p>
       </div>
     </div>
