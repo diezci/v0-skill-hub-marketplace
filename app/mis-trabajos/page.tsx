@@ -509,7 +509,7 @@ export default function MisTrabajosPage() {
                   <Button variant="outline" size="sm" className="justify-start bg-transparent" asChild>
                     <a href="/mis-ofertas">
                       <FileText className="h-4 w-4 mr-2" />
-                      Ofertas enviadas
+                      Pujas enviadas
                     </a>
                   </Button>
                   <Button variant="outline" size="sm" className="justify-start bg-transparent" asChild>
@@ -817,21 +817,12 @@ function TrabajoCard({
               </p>
               <div className="flex gap-3 mt-2">
                 <a
-                  href={`/trabajos/${trabajo.id}/contrato`}
+                  href={`/trabajos/${trabajo.id}/factura`}
                   target="_blank"
                   className="text-xs text-primary hover:underline inline-flex items-center gap-1"
                 >
-                  <FileText className="h-3 w-3" /> Ver contrato
+                  <FileText className="h-3 w-3" /> Ver factura y términos
                 </a>
-                {isPaid && (
-                  <a
-                    href={`/trabajos/${trabajo.id}/factura`}
-                    target="_blank"
-                    className="text-xs text-primary hover:underline inline-flex items-center gap-1"
-                  >
-                    <FileText className="h-3 w-3" /> Ver factura
-                  </a>
-                )}
               </div>
             </div>
           </div>
@@ -841,12 +832,13 @@ function TrabajoCard({
             <div className="lg:w-56 p-6 bg-muted/30 border-t lg:border-t-0 lg:border-l flex flex-col gap-3">
               {trabajo.estado === "en_progreso" && onUpdateProgress && (
                 <>
-                  <Button onClick={onUpdateProgress} className="w-full bg-emerald-600 hover:bg-emerald-700">
+                  <Button onClick={onUpdateProgress} variant="outline" className="w-full bg-transparent">
                     <TrendingUp className="h-4 w-4 mr-2" />
                     Actualizar Progreso
                   </Button>
-                  {trabajo.progreso >= 90 && onMarkDelivered && (
-                    <Button onClick={onMarkDelivered} variant="outline" className="w-full bg-transparent">
+                  {/* Entregar en cualquier momento: no exige haber actualizado antes el progreso. */}
+                  {onMarkDelivered && (
+                    <Button onClick={onMarkDelivered} className="w-full bg-emerald-600 hover:bg-emerald-700">
                       <Package className="h-4 w-4 mr-2" />
                       Entregar Trabajo
                     </Button>

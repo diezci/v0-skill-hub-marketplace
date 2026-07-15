@@ -865,21 +865,12 @@ export default function MisSolicitudes() {
                         )}
                         <div className="flex gap-3 pt-1">
                           <a
-                            href={`/trabajos/${trabajo.id}/contrato`}
+                            href={`/trabajos/${trabajo.id}/factura`}
                             target="_blank"
                             className="text-xs text-primary hover:underline inline-flex items-center gap-1"
                           >
-                            <FileText className="h-3 w-3" /> Ver contrato
+                            <FileText className="h-3 w-3" /> Ver factura y términos
                           </a>
-                          {pagado && (
-                            <a
-                              href={`/trabajos/${trabajo.id}/factura`}
-                              target="_blank"
-                              className="text-xs text-primary hover:underline inline-flex items-center gap-1"
-                            >
-                              <FileText className="h-3 w-3" /> Ver factura
-                            </a>
-                          )}
                         </div>
                       </div>
                     )}
