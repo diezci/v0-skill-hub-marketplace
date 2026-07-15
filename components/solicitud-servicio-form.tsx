@@ -65,9 +65,19 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true)
     try {
-      const uploadPromises = attachedFiles.map((file) => uploadFile(file))
-      const uploadResults = await Promise.all(uploadPromises)
-      const successfulUploads = uploadResults.filter((r) => r !== null).map((r) => r!.url)
+      const uploadResults = await Promise.all(attachedFiles.map((file) => uploadFile(file)))
+      // Si falla una subida no se publica la demanda: los profesionales verían
+      // una demanda sin las fotos que creías haber adjuntado.
+      if (uploadResults.some((r) => r === null)) {
+        toast({
+          title: "No se pudieron subir los archivos",
+          description: "Tu demanda no se ha publicado. Inténtalo de nuevo o quita los adjuntos.",
+          variant: "destructive",
+        })
+        setIsSubmitting(false)
+        return
+      }
+      const successfulUploads = uploadResults.map((r) => r!.url)
 
       const result = await crearSolicitud({
         categoria_id: values.category,
