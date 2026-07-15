@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { stripe } from "@/lib/stripe"
+import { calcularPagoProveedor, formatearPrecio } from "@/lib/comisiones"
 import { revalidatePath } from "next/cache"
 
 // Comprueba que el usuario actual es un empleado de Diime (es_admin).
@@ -261,7 +262,7 @@ export async function resolverDisputa(data: {
 
   const { data: disputa } = await supabase
     .from("disputas")
-    .select("id, trabajo_id, estado")
+    .select("id, trabajo_id, estado, cliente_id, profesional_id")
     .eq("id", data.disputa_id)
     .maybeSingle()
   if (!disputa) return { error: "Disputa no encontrada" }
@@ -276,6 +277,8 @@ export async function resolverDisputa(data: {
     .maybeSingle()
 
   const base = Number(escrow?.monto_base ?? 0)
+  // Se declara fuera del try para poder contarlo en las notificaciones.
+  let montoReembolso = 0
 
   try {
     if (data.resolucion === "proveedor") {
@@ -292,7 +295,7 @@ export async function resolverDisputa(data: {
       if (t?.solicitud_id) await supabase.from("solicitudes").update({ estado: "completada" }).eq("id", t.solicitud_id)
     } else {
       // Reembolso al cliente (total o parcial).
-      const montoReembolso =
+      montoReembolso =
         data.resolucion === "parcial"
           ? Math.min(Math.max(Number(data.monto_reembolso ?? base / 2), 0), base)
           : base
@@ -333,9 +336,89 @@ export async function resolverDisputa(data: {
       .eq("id", data.disputa_id)
     if (updError) return { error: updError.message }
 
+    await notificarResolucionDisputa({
+      supabase,
+      disputa,
+      resolucion: data.resolucion,
+      nota: data.nota,
+      base,
+      montoReembolso,
+    })
+
     revalidatePath("/admin/disputas")
+    revalidatePath("/mis-trabajos")
+    revalidatePath("/mis-solicitudes")
     return { data: { ok: true } }
   } catch (error: any) {
     return { error: error.message || "Error al resolver la disputa" }
+  }
+}
+
+// Avisa a las dos partes de cómo ha quedado la disputa. Cada una recibe solo su
+// lado económico: el cliente nunca ve el neto del profesional (tras el 5%) ni el
+// profesional el total que pagó el cliente (con el 10%).
+async function notificarResolucionDisputa({
+  supabase,
+  disputa,
+  resolucion,
+  nota,
+  base,
+  montoReembolso,
+}: {
+  supabase: any
+  disputa: { trabajo_id: string; cliente_id: string | null; profesional_id: string | null }
+  resolucion: "cliente" | "proveedor" | "parcial"
+  nota: string
+  base: number
+  montoReembolso: number
+}) {
+  const { data: trabajo } = await supabase
+    .from("trabajos")
+    .select("titulo")
+    .eq("id", disputa.trabajo_id)
+    .maybeSingle()
+  const titulo = trabajo?.titulo ?? "el trabajo"
+  const motivo = nota?.trim() ? ` Motivo: ${nota.trim()}` : ""
+
+  let mensajeCliente: string
+  let mensajeProfesional: string
+
+  if (resolucion === "proveedor") {
+    mensajeCliente = `La disputa de "${titulo}" se ha resuelto a favor del profesional, así que se le ha liberado el pago y no hay reembolso.${motivo}`
+    mensajeProfesional = `La disputa de "${titulo}" se ha resuelto a tu favor: se ha liberado tu cobro de ${formatearPrecio(
+      calcularPagoProveedor(base).pagoNeto,
+    )} netos.${motivo}`
+  } else if (resolucion === "cliente") {
+    mensajeCliente = `La disputa de "${titulo}" se ha resuelto a tu favor: te hemos reembolsado ${formatearPrecio(
+      montoReembolso,
+    )}.${motivo}`
+    mensajeProfesional = `La disputa de "${titulo}" se ha resuelto a favor del cliente, así que se le ha reembolsado el importe y el trabajo no se abonará.${motivo}`
+  } else {
+    mensajeCliente = `La disputa de "${titulo}" se ha resuelto de forma parcial: te hemos reembolsado ${formatearPrecio(
+      montoReembolso,
+    )}.${motivo}`
+    mensajeProfesional = `La disputa de "${titulo}" se ha resuelto de forma parcial: se han reembolsado ${formatearPrecio(
+      montoReembolso,
+    )} al cliente sobre un precio acordado de ${formatearPrecio(base)}.${motivo}`
+  }
+
+  const { crearNotificacion } = await import("./notificaciones")
+  if (disputa.cliente_id) {
+    await crearNotificacion({
+      usuarioId: disputa.cliente_id,
+      tipo: "disputa_resuelta",
+      titulo: "Disputa resuelta",
+      mensaje: mensajeCliente,
+      link: "/mis-solicitudes",
+    })
+  }
+  if (disputa.profesional_id) {
+    await crearNotificacion({
+      usuarioId: disputa.profesional_id,
+      tipo: "disputa_resuelta",
+      titulo: "Disputa resuelta",
+      mensaje: mensajeProfesional,
+      link: "/mis-trabajos",
+    })
   }
 }
