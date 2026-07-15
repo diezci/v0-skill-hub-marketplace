@@ -82,8 +82,19 @@ export default function MisOfertas() {
     if (editNuevos.length > 0) {
       setSubiendo(true)
       const subidas = await Promise.all(editNuevos.map((f) => uploadFile(f)))
-      archivosFinales = [...archivosFinales, ...subidas.filter((r) => r !== null).map((r) => r!.url)]
       setSubiendo(false)
+      // Si falla una subida no se guarda nada: guardar sin los adjuntos nuevos
+      // los perdería sin avisar.
+      if (subidas.some((r) => r === null)) {
+        toast({
+          title: "No se pudieron subir los archivos",
+          description: "No se ha guardado ningún cambio. Inténtalo de nuevo o quita los adjuntos nuevos.",
+          variant: "destructive",
+        })
+        setActionLoading(false)
+        return
+      }
+      archivosFinales = [...archivosFinales, ...subidas.map((r) => r!.url)]
     }
     const result = await actualizarOferta(editOferta.id, {
       precio: editForm.precio ? Number.parseFloat(editForm.precio) : undefined,
