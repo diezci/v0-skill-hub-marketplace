@@ -33,19 +33,15 @@ DROP POLICY IF EXISTS "incidencias_select_own" ON incidencias;
 CREATE POLICY "incidencias_select_own" ON incidencias
   FOR SELECT USING (auth.uid() = reportado_por);
 
--- Los admins pueden ver todas las incidencias
+-- Los admins pueden ver todas las incidencias (columna es_admin vía is_admin())
 DROP POLICY IF EXISTS "incidencias_select_admin" ON incidencias;
 CREATE POLICY "incidencias_select_admin" ON incidencias
-  FOR SELECT USING (
-    EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.rol = 'admin')
-  );
+  FOR SELECT USING (public.is_admin());
 
 -- Los admins pueden actualizar
 DROP POLICY IF EXISTS "incidencias_update_admin" ON incidencias;
 CREATE POLICY "incidencias_update_admin" ON incidencias
-  FOR UPDATE USING (
-    EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.rol = 'admin')
-  );
+  FOR UPDATE USING (public.is_admin());
 
 -- Trigger para actualizar updated_at
 CREATE OR REPLACE FUNCTION update_incidencias_updated_at()

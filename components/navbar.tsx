@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Menu, X, Search, Megaphone, Inbox, MessageSquare, FolderKanban, LogOut, Settings, UserCircle, FileText } from "lucide-react"
+import { Menu, X, Search, Megaphone, Inbox, MessageSquare, FolderKanban, LogOut, Settings, UserCircle, FileText, ShieldAlert } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -326,6 +326,12 @@ const Navbar = () => {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
+                    <Link href="/incidencias" className="cursor-pointer">
+                      <ShieldAlert className="mr-2 h-4 w-4" />
+                      Incidencias
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link href="/mi-cuenta" className="cursor-pointer">
                       <Settings className="mr-2 h-4 w-4" />
                       Configuración
@@ -417,6 +423,14 @@ const Navbar = () => {
                   >
                     <UserCircle className="h-5 w-5 shrink-0" />
                     Mi Perfil
+                  </Link>
+                  <Link
+                    href="/incidencias"
+                    onClick={() => setIsOpen(false)}
+                    className="px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted flex items-center gap-3"
+                  >
+                    <ShieldAlert className="h-5 w-5 shrink-0" />
+                    Incidencias
                   </Link>
                   <Link
                     href="/mi-cuenta"
