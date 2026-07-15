@@ -224,9 +224,19 @@ export default function DemandasServicios() {
     setIsSubmitting(true)
 
     try {
-      const uploadPromises = attachedFiles.map((file) => uploadFile(file))
-      const uploadResults = await Promise.all(uploadPromises)
-      const successfulUploads = uploadResults.filter((result) => result !== null).map((result) => result!.url)
+      const uploadResults = await Promise.all(attachedFiles.map((file) => uploadFile(file)))
+      // Si falla una subida no se envía la oferta: mandarla sin los adjuntos
+      // dejaría al profesional creyendo que el cliente los ha recibido.
+      if (uploadResults.some((result) => result === null)) {
+        toast({
+          title: "No se pudieron subir los archivos",
+          description: "Tu oferta no se ha enviado. Inténtalo de nuevo o quita los adjuntos.",
+          variant: "destructive",
+        })
+        setIsSubmitting(false)
+        return
+      }
+      const successfulUploads = uploadResults.map((result) => result!.url)
 
       const result = await crearOferta({
         solicitud_id: demandaSeleccionada.id,

@@ -10,9 +10,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
 
-    // Upload to Vercel Blob
+    // `addRandomSuffix` es obligatorio: sin él, subir un fichero cuyo nombre ya
+    // existe falla con "This blob already exists". Y no vale `allowOverwrite`,
+    // porque dos usuarios distintos pueden adjuntar nombres corrientes
+    // ("presupuesto.pdf") y el segundo pisaría el fichero del primero.
     const blob = await put(file.name, file, {
       access: "public",
+      addRandomSuffix: true,
     })
 
     return NextResponse.json({
