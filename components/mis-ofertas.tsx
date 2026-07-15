@@ -127,7 +127,7 @@ export default function MisOfertas() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Ofertas pendientes de respuesta ({ofertas.length})</CardTitle>
+          <CardTitle>Pujas pendientes de respuesta ({ofertas.length})</CardTitle>
           <CardDescription>
             Puedes editarlas o retirarlas mientras el cliente no las acepte. Las aceptadas pasan a Gestión de
             Proyectos como trabajos activos.
@@ -137,8 +137,8 @@ export default function MisOfertas() {
           {ofertas.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="font-medium text-foreground mb-1">No tienes ofertas pendientes</p>
-              <p className="text-sm mb-4">Explora las demandas publicadas y envía tu oferta.</p>
+              <p className="font-medium text-foreground mb-1">No tienes pujas pendientes</p>
+              <p className="text-sm mb-4">Explora las demandas publicadas y envía tu puja.</p>
               <Button onClick={() => router.push("/demandas")}>Ver demandas</Button>
             </div>
           ) : (

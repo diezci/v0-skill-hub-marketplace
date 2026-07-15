@@ -7,6 +7,34 @@ export type IncidenciaCategoria = "fraude" | "abuso" | "pago" | "tecnico" | "per
 export type IncidenciaPrioridad = "baja" | "media" | "alta" | "critica"
 export type IncidenciaEstado = "abierta" | "en_revision" | "resuelta" | "cerrada"
 
+// Trabajos del usuario (como cliente o proveedor) para asociar la incidencia.
+// La otra parte del trabajo se sugiere como usuario reportado.
+export async function obtenerTrabajosParaIncidencia() {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado", data: [] }
+
+  const { data, error } = await supabase
+    .from("trabajos")
+    .select("id, titulo, estado, cliente_id, profesional_id, created_at")
+    .or(`cliente_id.eq.${user.id},profesional_id.eq.${user.id}`)
+    .order("created_at", { ascending: false })
+
+  if (error) return { error: error.message, data: [] }
+
+  const trabajos = (data || []).map((t: any) => ({
+    id: t.id,
+    titulo: t.titulo,
+    estado: t.estado,
+    // El otro participante del trabajo, para reportarlo si procede.
+    otra_parte_id: t.cliente_id === user.id ? t.profesional_id : t.cliente_id,
+  }))
+  return { data: trabajos }
+}
+
 export async function crearIncidencia(data: {
   asunto: string
   descripcion: string
