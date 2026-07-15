@@ -18,6 +18,19 @@ import type { ProfesionalesFiltros } from "@/components/profesionales-content"
 import { CATEGORIAS_SERVICIO } from "@/lib/categorias"
 
 
+// Coincidencia difusa categoría↔profesional (mismo criterio que las
+// invitaciones): substring en cualquier dirección o raíz de 5 letras.
+function normalizarCat(s: string) {
+  return (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim()
+}
+function coincideCategoria(categoriaLabel: string, titulo: string, habilidades: string[]): boolean {
+  const cat = normalizarCat(categoriaLabel)
+  if (!cat) return false
+  const raiz = cat.slice(0, Math.min(5, cat.length))
+  const textos = [titulo || "", ...(habilidades || [])].map(normalizarCat).filter(Boolean)
+  return textos.some((t) => t.includes(cat) || cat.includes(t) || t.includes(raiz))
+}
+
 const CATEGORIA_ID_TO_LABEL: Record<string, string> = Object.fromEntries(
   CATEGORIAS_SERVICIO.map((c) => [c.id, c.label]),
 )
@@ -87,6 +100,7 @@ const GigListing = ({ filtros }: GigListingProps) => {
           description: p.perfil?.bio || p.titulo || "Profesional verificado en Diime",
           price: Number(p.tarifa_por_hora) || 0,
           category: habilidades[0] || "",
+          habilidades,
           provincia: p.perfil?.ubicacion || "",
           image: p.perfil?.foto_perfil || FALLBACK_IMG,
           rating: Number(p.rating_promedio) || 0,
@@ -95,7 +109,7 @@ const GigListing = ({ filtros }: GigListingProps) => {
           freelancer: {
             name: nombre,
             avatar: p.perfil?.foto_perfil || "",
-            level: p.perfil?.verificado ? "Experto Verificado" : "Profesional",
+            level: p.nivel || "Profesional",
           },
         }
       })
@@ -114,10 +128,12 @@ const GigListing = ({ filtros }: GigListingProps) => {
       if (filtros.provincia && g.provincia.toLowerCase() !== filtros.provincia.toLowerCase()) {
         return false
       }
-      // Categorías
+      // Categorías: coincidencia difusa contra título + habilidades del
+      // profesional (los skills son texto libre; comparar por etiqueta exacta
+      // hacía desaparecer perfiles que sí encajaban).
       if (filtros.categorias.length > 0) {
         const categoriaLabels = filtros.categorias.map((id) => CATEGORIA_ID_TO_LABEL[id] || id)
-        if (!categoriaLabels.includes(g.category)) return false
+        if (!categoriaLabels.some((label) => coincideCategoria(label, g.title, g.habilidades))) return false
       }
       // Niveles
       if (filtros.niveles.length > 0 && !filtros.niveles.includes("any")) {
