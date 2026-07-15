@@ -272,6 +272,8 @@ export default function MisTrabajosPage() {
   const totalCobrado = trabajosCompletados
     .filter((t) => t.transaccion_escrow?.estado === "completado")
     .reduce((sum, t) => sum + netoDe(t), 0)
+  // Total neto (a cobrar) de los trabajos activos: en progreso + esperando pago.
+  const totalActivosNeto = [...trabajosEnProgreso, ...trabajosPendientePago].reduce((sum, t) => sum + netoDe(t), 0)
 
   if (loading) {
     return (
@@ -308,13 +310,11 @@ export default function MisTrabajosPage() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Activos</p>
-                    <p className="text-2xl font-bold">
-                      {trabajosEnProgreso.length + trabajosPendientePago.length}
-                    </p>
+                    <p className="text-2xl font-bold">{formatCurrency(totalActivosNeto)}</p>
                     <p className="text-xs text-muted-foreground">
-                      {trabajosPendientePago.length > 0
-                        ? `${trabajosPendientePago.length} esperando pago`
-                        : "en curso"}
+                      {trabajosEnProgreso.length + trabajosPendientePago.length} trabajo
+                      {trabajosEnProgreso.length + trabajosPendientePago.length !== 1 ? "s" : ""}
+                      {trabajosPendientePago.length > 0 ? ` · ${trabajosPendientePago.length} esperando pago` : ""}
                     </p>
                   </div>
                 </div>
@@ -334,10 +334,10 @@ export default function MisTrabajosPage() {
                     <Banknote className="h-5 w-5 text-purple-500" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Entregados</p>
-                    <p className="text-2xl font-bold">{trabajosEntregados.length}</p>
+                    <p className="text-sm text-muted-foreground">Entregados · pendiente de cobro</p>
+                    <p className="text-2xl font-bold">{formatCurrency(totalPendienteCobro)}</p>
                     <p className="text-xs text-muted-foreground">
-                      pendiente de cobro: {formatCurrency(totalPendienteCobro)}
+                      {trabajosEntregados.length} esperando confirmación del cliente
                     </p>
                   </div>
                 </div>
@@ -357,10 +357,11 @@ export default function MisTrabajosPage() {
                     <DollarSign className="h-5 w-5 text-emerald-500" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Completados</p>
-                    <p className="text-2xl font-bold">{trabajosCompletados.length}</p>
+                    <p className="text-sm text-muted-foreground">Completados · total cobrado (neto)</p>
+                    <p className="text-2xl font-bold">{formatCurrency(totalCobrado)}</p>
                     <p className="text-xs text-muted-foreground">
-                      total cobrado: {formatCurrency(totalCobrado)}
+                      {trabajosCompletados.length} trabajo{trabajosCompletados.length !== 1 ? "s" : ""} finalizado
+                      {trabajosCompletados.length !== 1 ? "s" : ""}
                     </p>
                   </div>
                 </div>

@@ -140,12 +140,12 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
               <FormItem>
                 <FormLabel className="flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-emerald-500" />
-                  Provincia
+                  Provincia donde se realizará el servicio
                 </FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecciona una provincia" />
+                      <SelectValue placeholder="Provincia de realización del servicio" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>

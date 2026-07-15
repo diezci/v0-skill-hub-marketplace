@@ -534,6 +534,40 @@ export default function MisSolicitudes() {
                 <CardContent className="pt-0">
                   <p className="text-sm text-muted-foreground mb-4">{solicitud.descripcion}</p>
 
+                  {/* Archivos que el cliente adjuntó al publicar la demanda */}
+                  {Array.isArray(solicitud.archivos) && solicitud.archivos.length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
+                        <FileText className="h-3.5 w-3.5" /> Archivos adjuntos ({solicitud.archivos.length})
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {solicitud.archivos.map((url: string, i: number) =>
+                          /\.(png|jpe?g|gif|webp)(\?|$)/i.test(url) ? (
+                            <a key={i} href={url} target="_blank" rel="noreferrer">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={url}
+                                alt={`Adjunto ${i + 1}`}
+                                className="h-16 w-16 rounded-md object-cover border hover:opacity-80 transition"
+                              />
+                            </a>
+                          ) : (
+                            <a
+                              key={i}
+                              href={url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted transition"
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                              {decodeURIComponent(url.split("/").pop()?.split("?")[0] || `Archivo ${i + 1}`)}
+                            </a>
+                          ),
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex gap-2 mb-4">
                     <Button variant="outline" size="sm" className="bg-transparent" onClick={() => abrirEditar(solicitud)}>
                       <Pencil className="h-4 w-4 mr-1.5" />
