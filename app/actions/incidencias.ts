@@ -44,7 +44,53 @@ export async function crearIncidencia(data: {
   }
 
   revalidatePath("/admin/incidencias")
+  revalidatePath("/incidencias")
   return { data: incidencia }
+}
+
+// Incidencias del usuario actual (las que ha reportado), con datos básicos del
+// trabajo relacionado. Para el panel de incidencias de cliente/proveedor.
+export async function obtenerMisIncidencias() {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado", data: [] }
+
+  const { data, error } = await supabase
+    .from("incidencias")
+    .select(
+      "id, asunto, descripcion, categoria, prioridad, estado, trabajo_id, notas_admin, fecha_resolucion, created_at, updated_at",
+    )
+    .eq("reportado_por", user.id)
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    if (error.code === "42P01") return { data: [] }
+    return { error: error.message, data: [] }
+  }
+
+  // Adjuntar el título del trabajo relacionado (si lo hay).
+  const conTrabajo = await Promise.all(
+    (data || []).map(async (inc: any) => {
+      if (!inc.trabajo_id) return inc
+      const { data: trabajo } = await supabase
+        .from("trabajos")
+        .select("titulo")
+        .eq("id", inc.trabajo_id)
+        .maybeSingle()
+      return { ...inc, trabajo_titulo: trabajo?.titulo ?? null }
+    }),
+  )
+
+  return { data: conTrabajo }
+}
+
+// Comprueba si el usuario actual es admin de la plataforma (columna es_admin).
+async function esAdmin(supabase: any, userId: string): Promise<boolean> {
+  const { data } = await supabase.from("profiles").select("es_admin").eq("id", userId).maybeSingle()
+  return !!data?.es_admin
 }
 
 export async function obtenerIncidencias() {
@@ -55,26 +101,16 @@ export async function obtenerIncidencias() {
   } = await supabase.auth.getUser()
   if (!user) return { error: "No autenticado" }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("rol")
-    .eq("id", user.id)
-    .single()
-
-  if (profile?.rol !== "admin") {
+  if (!(await esAdmin(supabase, user.id))) {
     return { error: "No tienes permiso para ver incidencias" }
   }
 
   const { data, error } = await supabase
     .from("incidencias")
     .select(
-      `
-      id, asunto, descripcion, categoria, prioridad, estado,
-      trabajo_id, usuario_reportado, notas_admin,
-      resuelto_por, fecha_resolucion, created_at, updated_at,
-      reportador:profiles!incidencias_reportado_por_fkey(id, nombre, apellido, email),
-      reportado:profiles!incidencias_usuario_reportado_fkey(id, nombre, apellido, email)
-    `,
+      `id, asunto, descripcion, categoria, prioridad, estado,
+       trabajo_id, usuario_reportado, reportado_por, notas_admin,
+       resuelto_por, fecha_resolucion, created_at, updated_at`,
     )
     .order("created_at", { ascending: false })
 
@@ -83,7 +119,29 @@ export async function obtenerIncidencias() {
     return { error: error.message }
   }
 
-  return { data: data || [] }
+  // La FK de incidencias apunta a auth.users, así que los perfiles se obtienen
+  // aparte (los embeds de PostgREST hacia profiles no resuelven).
+  const ids = [
+    ...new Set(
+      (data || []).flatMap((i: any) => [i.reportado_por, i.usuario_reportado]).filter((x): x is string => !!x),
+    ),
+  ]
+  const mapa: Record<string, any> = {}
+  if (ids.length > 0) {
+    const { data: perfiles } = await supabase
+      .from("profiles")
+      .select("id, nombre, apellido, email")
+      .in("id", ids)
+    for (const p of perfiles || []) mapa[p.id] = p
+  }
+
+  const enriquecidas = (data || []).map((i: any) => ({
+    ...i,
+    reportador: i.reportado_por ? mapa[i.reportado_por] || null : null,
+    reportado: i.usuario_reportado ? mapa[i.usuario_reportado] || null : null,
+  }))
+
+  return { data: enriquecidas }
 }
 
 export async function actualizarIncidencia(
@@ -101,13 +159,7 @@ export async function actualizarIncidencia(
   } = await supabase.auth.getUser()
   if (!user) return { error: "No autenticado" }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("rol")
-    .eq("id", user.id)
-    .single()
-
-  if (profile?.rol !== "admin") {
+  if (!(await esAdmin(supabase, user.id))) {
     return { error: "No tienes permiso" }
   }
 
@@ -121,5 +173,6 @@ export async function actualizarIncidencia(
   if (error) return { error: error.message }
 
   revalidatePath("/admin/incidencias")
+  revalidatePath("/incidencias")
   return { success: true }
 }
