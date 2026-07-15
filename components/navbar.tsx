@@ -27,7 +27,7 @@ import { ToastAction } from "@/components/ui/toast"
 
 // Notificaciones que merecen celebración a pantalla completa (con sonido):
 // recibir una entrega (cliente) y cobrar un trabajo (profesional).
-const TIPOS_CELEBRABLES = ["trabajo_entregado", "pago_liberado"]
+const TIPOS_CELEBRABLES = ["trabajo_entregado", "pago_liberado", "pago_recibido"]
 const CELEBRADAS_KEY = "diime_notifs_celebradas"
 
 const Navbar = () => {

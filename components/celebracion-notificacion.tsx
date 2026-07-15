@@ -47,8 +47,36 @@ function reproducirArpegio(tipo: "pago" | "entrega") {
 
 const COLORES_CONFETI = ["#10b981", "#f59e0b", "#3b82f6", "#ec4899", "#8b5cf6", "#facc15"]
 
+// Variante visual/sonora según el tipo de notificación celebrada.
+const VARIANTES: Record<
+  string,
+  { emoji: string; etiqueta: string; titulo: string; cta: string; sonido: "pago" | "entrega" }
+> = {
+  pago_liberado: {
+    emoji: "💶",
+    etiqueta: "¡Pago liberado!",
+    titulo: "Has cobrado un trabajo",
+    cta: "Ver mis cobros",
+    sonido: "pago",
+  },
+  pago_recibido: {
+    emoji: "🚀",
+    etiqueta: "¡Cobro asegurado, a por ello!",
+    titulo: "El cliente ha pagado: ya puedes empezar",
+    cta: "Ver el trabajo",
+    sonido: "pago",
+  },
+  trabajo_entregado: {
+    emoji: "📦",
+    etiqueta: "¡Trabajo entregado!",
+    titulo: "Tienes una entrega lista",
+    cta: "Revisar la entrega",
+    sonido: "entrega",
+  },
+}
+
 export function CelebracionNotificacion({ notificacion, onClose }: Props) {
-  const esPago = notificacion.tipo === "pago_liberado"
+  const variante = VARIANTES[notificacion.tipo] || VARIANTES.trabajo_entregado
 
   // Piezas de confeti con posiciones/tiempos aleatorios pero estables por render.
   const confeti = useMemo(
@@ -65,8 +93,8 @@ export function CelebracionNotificacion({ notificacion, onClose }: Props) {
   )
 
   useEffect(() => {
-    reproducirArpegio(esPago ? "pago" : "entrega")
-  }, [notificacion.id, esPago])
+    reproducirArpegio(variante.sonido)
+  }, [notificacion.id, variante.sonido])
 
   return (
     <div
@@ -128,17 +156,15 @@ export function CelebracionNotificacion({ notificacion, onClose }: Props) {
           style={{ animation: "diime-emoji-salto 1.2s ease-in-out infinite" }}
           aria-hidden="true"
         >
-          {esPago ? "💶" : "📦"}
+          {variante.emoji}
         </div>
 
         <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-3 py-1 text-xs font-semibold uppercase tracking-wide mb-3">
           <PartyPopper className="h-3.5 w-3.5" />
-          {esPago ? "¡Pago liberado!" : "¡Trabajo entregado!"}
+          {variante.etiqueta}
         </div>
 
-        <h2 className="text-2xl font-bold mb-2 text-balance">
-          {notificacion.titulo || (esPago ? "Has cobrado un trabajo" : "Tienes una entrega lista")}
-        </h2>
+        <h2 className="text-2xl font-bold mb-2 text-balance">{notificacion.titulo || variante.titulo}</h2>
         {notificacion.mensaje && (
           <p className="text-sm text-muted-foreground mb-6 text-pretty">{notificacion.mensaje}</p>
         )}
@@ -149,7 +175,7 @@ export function CelebracionNotificacion({ notificacion, onClose }: Props) {
           </Button>
           <Button asChild className="bg-emerald-600 hover:bg-emerald-700">
             <Link href={notificacion.link || "/"} onClick={onClose}>
-              {esPago ? "Ver mis cobros" : "Revisar la entrega"}
+              {variante.cta}
             </Link>
           </Button>
         </div>
