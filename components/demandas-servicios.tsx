@@ -939,7 +939,7 @@ export default function DemandasServicios() {
             {/* Garantía de cobro: la plataforma retiene el pago del cliente. */}
             <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
               <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
-                <CheckCircle2 className="h-4 w-4" /> Cobro asegurado
+                <CheckCircle2 className="h-4 w-4" /> Cobro protegido
               </p>
               <p className="text-sm text-muted-foreground mt-1">
                 Cuando el cliente acepte tu puja y pague, Diime{" "}

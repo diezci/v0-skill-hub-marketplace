@@ -61,7 +61,7 @@ const VARIANTES: Record<
   },
   pago_recibido: {
     emoji: "🚀",
-    etiqueta: "¡Cobro asegurado, a por ello!",
+    etiqueta: "¡Cobro protegido, a por ello!",
     titulo: "El cliente ha pagado: ya puedes empezar",
     cta: "Ver el trabajo",
     sonido: "pago",
