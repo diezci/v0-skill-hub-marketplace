@@ -219,7 +219,7 @@ const Navbar = () => {
       shortName: "Demandas",
     },
     { name: "Mis Demandas", path: "/mis-solicitudes", icon: Inbox, shortName: "Mis Demandas" },
-    { name: "Mis ofertas enviadas", path: "/mis-ofertas", icon: FileText, shortName: "Mis Ofertas" },
+    { name: "Mis pujas enviadas", path: "/mis-ofertas", icon: FileText, shortName: "Mis Pujas" },
     {
       name: "Gestión de proyectos",
       path: "/mis-trabajos",
