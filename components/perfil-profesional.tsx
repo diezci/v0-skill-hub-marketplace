@@ -26,15 +26,24 @@ import {
   Plus,
   X,
   Edit2,
-  ExternalLink,
   Loader2,
   Globe,
   Upload,
   LogOut,
+  Trash2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { actualizarPerfil, obtenerPerfilActual } from "@/app/actions/profiles"
+import { crearItemPortfolio, obtenerPortfolioPorProfesional, eliminarItemPortfolio } from "@/app/actions/portfolio"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { uploadFile } from "@/lib/upload-helpers"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
@@ -140,11 +149,30 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
   const [newCert, setNewCert] = useState("")
   const [newLanguage, setNewLanguage] = useState("")
 
+  // Portfolio: el alta/baja vive aquí porque /mi-perfil es el único editor de perfil.
+  const [profesionalId, setProfesionalId] = useState<string | null>(null)
+  const [showPortfolioDialog, setShowPortfolioDialog] = useState(false)
+  const [savingPortfolio, setSavingPortfolio] = useState(false)
+  const [uploadingPortfolioImg, setUploadingPortfolioImg] = useState(false)
+  const [deletingPortfolioId, setDeletingPortfolioId] = useState<string | null>(null)
+  const PORTFOLIO_VACIO = {
+    titulo: "",
+    descripcion: "",
+    imagen_url: "",
+    categoria: "",
+    fecha_completado: "",
+    ubicacion: "",
+    duracion: "",
+    presupuesto: "",
+  }
+  const [newPortfolioItem, setNewPortfolioItem] = useState(PORTFOLIO_VACIO)
+
   useEffect(() => {
     async function cargarPerfil() {
       const result = await obtenerPerfilActual()
       if (result.data) {
         const { data } = result
+        setProfesionalId(data.id)
         setEditData({
           nombre: data.nombre || "",
           apellido: data.apellido || "",
@@ -176,6 +204,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
             precio_calidad: 0,
           },
         })
+        await cargarPortfolio(data.id)
       } else if (result.error === "No autenticado") {
         router.push("/auth/login")
         return
@@ -184,6 +213,73 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     }
     cargarPerfil()
   }, [])
+
+  // La tabla guarda `imagen_url`; las tarjetas de abajo leen `imagen`.
+  const cargarPortfolio = async (id: string) => {
+    const { data } = await obtenerPortfolioPorProfesional(id)
+    if (!data) return
+    setEditData((prev) => ({
+      ...prev,
+      portfolio: data.map((item: any) => ({
+        ...item,
+        imagen: item.imagen_url || (Array.isArray(item.imagenes) ? item.imagenes[0] : ""),
+      })),
+    }))
+  }
+
+  const handlePortfolioImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploadingPortfolioImg(true)
+    const result = await uploadFile(file)
+    setUploadingPortfolioImg(false)
+
+    if (result) {
+      setNewPortfolioItem((prev) => ({ ...prev, imagen_url: result.url }))
+    } else {
+      toast({ title: "Error", description: "No se pudo subir la imagen.", variant: "destructive" })
+    }
+  }
+
+  const handleAddPortfolio = async () => {
+    if (!newPortfolioItem.titulo || !newPortfolioItem.descripcion || !newPortfolioItem.imagen_url) {
+      toast({
+        title: "Campos requeridos",
+        description: "Completa título, descripción e imagen.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setSavingPortfolio(true)
+    const result = await crearItemPortfolio(newPortfolioItem)
+    setSavingPortfolio(false)
+
+    if (result.error) {
+      toast({ title: "Error", description: result.error, variant: "destructive" })
+      return
+    }
+
+    toast({ title: "Proyecto añadido", description: "Ya aparece en tu portfolio." })
+    setShowPortfolioDialog(false)
+    setNewPortfolioItem(PORTFOLIO_VACIO)
+    if (profesionalId) await cargarPortfolio(profesionalId)
+  }
+
+  const handleDeletePortfolio = async (itemId: string) => {
+    setDeletingPortfolioId(itemId)
+    const result = await eliminarItemPortfolio(itemId)
+    setDeletingPortfolioId(null)
+
+    if (result.error) {
+      toast({ title: "Error", description: result.error, variant: "destructive" })
+      return
+    }
+
+    toast({ title: "Proyecto eliminado", description: "Se ha quitado de tu portfolio." })
+    if (profesionalId) await cargarPortfolio(profesionalId)
+  }
 
   const handleSave = async () => {
     setSaving(true)
@@ -761,34 +857,59 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
             </TabsContent>
 
             <TabsContent value="portfolio" className="pt-6">
+              {editable && (
+                <div className="flex justify-end mb-4">
+                  <Button size="sm" className="gap-2" onClick={() => setShowPortfolioDialog(true)}>
+                    <Plus className="h-4 w-4" />
+                    Añadir proyecto
+                  </Button>
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {editData.portfolio.length === 0 && (
                   <div className="col-span-2 text-center py-12 text-muted-foreground">
                     <Briefcase className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No tienes proyectos en tu portfolio todavía.</p>
                     {editable && (
-                      <p className="text-sm mt-2">Añade proyectos desde la sección de Portfolio en Mi Cuenta.</p>
+                      <p className="text-sm mt-2">
+                        Usa &laquo;Añadir proyecto&raquo; para mostrar tus trabajos a los clientes.
+                      </p>
                     )}
                   </div>
                 )}
                 {editData.portfolio.map((item: any) => (
-                  <Card key={item.id} className="group overflow-hidden cursor-pointer hover:shadow-lg transition-all">
+                  <Card key={item.id} className="group overflow-hidden hover:shadow-lg transition-all">
                     <div className="relative h-48 overflow-hidden">
                       <img
                         src={item.imagen || "/placeholder.svg"}
                         alt={item.titulo}
                         className="w-full h-full object-cover transition-transform group-hover:scale-105"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
-                        <Button size="sm" variant="secondary">
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          Ver proyecto
+                      {editable && (
+                        <Button
+                          size="icon"
+                          variant="destructive"
+                          className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                          aria-label={`Eliminar ${item.titulo}`}
+                          disabled={deletingPortfolioId === item.id}
+                          onClick={() => handleDeletePortfolio(item.id)}
+                        >
+                          {deletingPortfolioId === item.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
                         </Button>
-                      </div>
+                      )}
                     </div>
                     <CardContent className="p-4">
                       <h4 className="font-semibold">{item.titulo}</h4>
                       <p className="text-sm text-muted-foreground">{item.descripcion}</p>
+                      {(item.ubicacion || item.duracion) && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {[item.ubicacion, item.duracion].filter(Boolean).join(" · ")}
+                        </p>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -907,6 +1028,149 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
           </Card>
         </div>
       </div>
+
+      <Dialog open={showPortfolioDialog} onOpenChange={setShowPortfolioDialog}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Añadir proyecto al portfolio</DialogTitle>
+            <DialogDescription>
+              Muestra un trabajo que ya hayas realizado. Aparecerá en tu perfil público.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="pf-titulo">Título del proyecto *</Label>
+              <Input
+                id="pf-titulo"
+                value={newPortfolioItem.titulo}
+                onChange={(e) => setNewPortfolioItem({ ...newPortfolioItem, titulo: e.target.value })}
+                placeholder="Ej: Reforma integral de cocina"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="pf-descripcion">Descripción *</Label>
+              <Textarea
+                id="pf-descripcion"
+                rows={3}
+                value={newPortfolioItem.descripcion}
+                onChange={(e) => setNewPortfolioItem({ ...newPortfolioItem, descripcion: e.target.value })}
+                placeholder="Describe el proyecto, los retos y el resultado..."
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="pf-imagen">Imagen del proyecto *</Label>
+              {newPortfolioItem.imagen_url ? (
+                <div className="relative h-40 rounded-md overflow-hidden border">
+                  <img
+                    src={newPortfolioItem.imagen_url}
+                    alt="Vista previa del proyecto"
+                    className="w-full h-full object-cover"
+                  />
+                  <Button
+                    size="icon"
+                    variant="destructive"
+                    className="absolute top-2 right-2 h-7 w-7"
+                    aria-label="Quitar imagen"
+                    onClick={() => setNewPortfolioItem({ ...newPortfolioItem, imagen_url: "" })}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="pf-imagen"
+                    type="file"
+                    accept="image/*"
+                    disabled={uploadingPortfolioImg}
+                    onChange={handlePortfolioImageUpload}
+                  />
+                  {uploadingPortfolioImg && <Loader2 className="h-4 w-4 animate-spin shrink-0" />}
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="pf-categoria">Categoría</Label>
+                <Input
+                  id="pf-categoria"
+                  value={newPortfolioItem.categoria}
+                  onChange={(e) => setNewPortfolioItem({ ...newPortfolioItem, categoria: e.target.value })}
+                  placeholder="Ej: Albañilería"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="pf-fecha">Fecha de finalización</Label>
+                <Input
+                  id="pf-fecha"
+                  type="date"
+                  value={newPortfolioItem.fecha_completado}
+                  onChange={(e) => setNewPortfolioItem({ ...newPortfolioItem, fecha_completado: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="pf-ubicacion">Ubicación</Label>
+                <Input
+                  id="pf-ubicacion"
+                  value={newPortfolioItem.ubicacion}
+                  onChange={(e) => setNewPortfolioItem({ ...newPortfolioItem, ubicacion: e.target.value })}
+                  placeholder="Madrid, España"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="pf-duracion">Duración</Label>
+                <Input
+                  id="pf-duracion"
+                  value={newPortfolioItem.duracion}
+                  onChange={(e) => setNewPortfolioItem({ ...newPortfolioItem, duracion: e.target.value })}
+                  placeholder="2 semanas"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="pf-presupuesto">Presupuesto (€)</Label>
+              <Input
+                id="pf-presupuesto"
+                type="number"
+                min={0}
+                step="any"
+                value={newPortfolioItem.presupuesto}
+                onChange={(e) => setNewPortfolioItem({ ...newPortfolioItem, presupuesto: e.target.value })}
+                placeholder="5000"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="bg-transparent"
+              onClick={() => setShowPortfolioDialog(false)}
+              disabled={savingPortfolio}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleAddPortfolio} disabled={savingPortfolio || uploadingPortfolioImg}>
+              {savingPortfolio ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                "Añadir proyecto"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

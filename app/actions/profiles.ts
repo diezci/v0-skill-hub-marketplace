@@ -178,6 +178,7 @@ export async function actualizarPerfil(formData: {
   }
 
   revalidatePath("/mi-cuenta")
+  revalidatePath("/mi-perfil")
   revalidatePath(`/profesional/${profesional?.id}`)
   return { data: { success: true } }
 }

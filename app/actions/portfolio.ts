@@ -3,6 +3,16 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
+// La tabla guarda `imagenes` (text[]), `fecha_proyecto` (date) y `presupuesto` (numeric).
+// El formulario trabaja con una sola imagen y un importe escrito a mano, así que se traduce aquí.
+// El formulario envía el importe en euros como número plano; se descartan negativos.
+function parsePresupuesto(valor?: string): number | null {
+  if (!valor?.trim()) return null
+  const num = Number.parseFloat(valor)
+  if (!Number.isFinite(num) || num < 0) return null
+  return num
+}
+
 export async function crearItemPortfolio(data: {
   titulo: string
   descripcion: string
@@ -26,7 +36,14 @@ export async function crearItemPortfolio(data: {
     .from("portfolio")
     .insert({
       profesional_id: user.id,
-      ...data,
+      titulo: data.titulo,
+      descripcion: data.descripcion,
+      categoria: data.categoria || null,
+      imagenes: data.imagen_url ? [data.imagen_url] : [],
+      ubicacion: data.ubicacion || null,
+      duracion: data.duracion || null,
+      presupuesto: parsePresupuesto(data.presupuesto),
+      fecha_proyecto: data.fecha_completado || null,
     })
     .select()
     .single()
@@ -35,7 +52,8 @@ export async function crearItemPortfolio(data: {
     return { error: error.message }
   }
 
-  revalidatePath("/mi-cuenta")
+  revalidatePath("/mi-perfil")
+  revalidatePath(`/profesional/${user.id}`)
   return { data: portfolio }
 }
 
@@ -46,7 +64,7 @@ export async function obtenerPortfolioPorProfesional(profesionalId: string) {
     .from("portfolio")
     .select("*")
     .eq("profesional_id", profesionalId)
-    .order("fecha_completado", { ascending: false })
+    .order("fecha_proyecto", { ascending: false, nullsFirst: false })
 
   if (error) {
     return { error: error.message }
@@ -71,6 +89,7 @@ export async function eliminarItemPortfolio(itemId: string) {
     return { error: error.message }
   }
 
-  revalidatePath("/mi-cuenta")
+  revalidatePath("/mi-perfil")
+  revalidatePath(`/profesional/${user.id}`)
   return { success: true }
 }
