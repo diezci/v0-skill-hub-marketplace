@@ -383,23 +383,35 @@ async function notificarResolucionDisputa({
   let mensajeCliente: string
   let mensajeProfesional: string
 
+  // Sin transacción de escrow (base 0) no hay cifras fiables que comunicar:
+  // se avisa del sentido de la resolución sin importes.
+  const sinImportes = base <= 0
+
   if (resolucion === "proveedor") {
     mensajeCliente = `La disputa de "${titulo}" se ha resuelto a favor del profesional, así que se le ha liberado el pago y no hay reembolso.${motivo}`
-    mensajeProfesional = `La disputa de "${titulo}" se ha resuelto a tu favor: se ha liberado tu cobro de ${formatearPrecio(
-      calcularPagoProveedor(base).pagoNeto,
-    )} netos.${motivo}`
+    mensajeProfesional = sinImportes
+      ? `La disputa de "${titulo}" se ha resuelto a tu favor: se ha liberado tu cobro.${motivo}`
+      : `La disputa de "${titulo}" se ha resuelto a tu favor: se ha liberado tu cobro de ${formatearPrecio(
+          calcularPagoProveedor(base).pagoNeto,
+        )} netos.${motivo}`
   } else if (resolucion === "cliente") {
-    mensajeCliente = `La disputa de "${titulo}" se ha resuelto a tu favor: te hemos reembolsado ${formatearPrecio(
-      montoReembolso,
-    )}.${motivo}`
+    mensajeCliente = sinImportes
+      ? `La disputa de "${titulo}" se ha resuelto a tu favor.${motivo}`
+      : `La disputa de "${titulo}" se ha resuelto a tu favor: te hemos reembolsado ${formatearPrecio(
+          montoReembolso,
+        )}.${motivo}`
     mensajeProfesional = `La disputa de "${titulo}" se ha resuelto a favor del cliente, así que se le ha reembolsado el importe y el trabajo no se abonará.${motivo}`
   } else {
-    mensajeCliente = `La disputa de "${titulo}" se ha resuelto de forma parcial: te hemos reembolsado ${formatearPrecio(
-      montoReembolso,
-    )}.${motivo}`
-    mensajeProfesional = `La disputa de "${titulo}" se ha resuelto de forma parcial: se han reembolsado ${formatearPrecio(
-      montoReembolso,
-    )} al cliente sobre un precio acordado de ${formatearPrecio(base)}.${motivo}`
+    mensajeCliente = sinImportes
+      ? `La disputa de "${titulo}" se ha resuelto de forma parcial.${motivo}`
+      : `La disputa de "${titulo}" se ha resuelto de forma parcial: te hemos reembolsado ${formatearPrecio(
+          montoReembolso,
+        )}.${motivo}`
+    mensajeProfesional = sinImportes
+      ? `La disputa de "${titulo}" se ha resuelto de forma parcial.${motivo}`
+      : `La disputa de "${titulo}" se ha resuelto de forma parcial: se han reembolsado ${formatearPrecio(
+          montoReembolso,
+        )} al cliente sobre un precio acordado de ${formatearPrecio(base)}.${motivo}`
   }
 
   const { crearNotificacion } = await import("./notificaciones")
