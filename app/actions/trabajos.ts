@@ -43,6 +43,32 @@ export async function crearTrabajo(data: {
     fechaEstimadaFin = fecha.toISOString()
   }
 
+  // Si el cliente ya había aceptado otra oferta de esta demanda pero nunca la
+  // pagó, aceptar una nueva la sustituye: se anula aquel trabajo en limbo y su
+  // oferta vuelve a quedar rechazada para el otro profesional.
+  const { data: trabajoLimbo } = await supabase
+    .from("trabajos")
+    .select("id, oferta_id, profesional_id, titulo")
+    .eq("solicitud_id", data.solicitud_id)
+    .eq("estado", "pendiente_pago")
+    .neq("oferta_id", data.oferta_id)
+    .maybeSingle()
+  if (trabajoLimbo) {
+    await supabase.from("trabajos").update({ estado: "cancelado", fecha_fin: new Date().toISOString() }).eq("id", trabajoLimbo.id)
+    await supabase.from("transacciones_escrow").update({ estado: "cancelado" }).eq("trabajo_id", trabajoLimbo.id).eq("estado", "pendiente")
+    if (trabajoLimbo.oferta_id) {
+      await supabase.from("ofertas").update({ estado: "rechazada", updated_at: new Date().toISOString() }).eq("id", trabajoLimbo.oferta_id)
+    }
+    const { crearNotificacion } = await import("./notificaciones")
+    await crearNotificacion({
+      usuarioId: trabajoLimbo.profesional_id,
+      tipo: "oferta_rechazada",
+      titulo: "Contratación no completada",
+      mensaje: `El cliente no llegó a completar el pago de "${trabajoLimbo.titulo}" y ha optado por otra oferta.`,
+      link: "/mis-ofertas",
+    })
+  }
+
   const { data: trabajo, error } = await supabase
     .from("trabajos")
     .insert({
@@ -66,18 +92,11 @@ export async function crearTrabajo(data: {
     return { error: error.message }
   }
 
-  // Update solicitud status (valor válido para la constraint: en_progreso)
-  await supabase.from("solicitudes").update({ estado: "en_progreso" }).eq("id", data.solicitud_id)
-
-  // Update oferta status
+  // La oferta elegida queda aceptada, pero la contratación NO se consuma aquí:
+  // la demanda sigue abierta y las demás ofertas siguen pendientes hasta que el
+  // cliente complete el pago (confirmarPagoEscrow o el webhook de Stripe). Si
+  // abandona la pasarela, nada ha cambiado para el resto.
   await supabase.from("ofertas").update({ estado: "aceptada" }).eq("id", data.oferta_id)
-
-  // Reject other ofertas for this solicitud
-  await supabase
-    .from("ofertas")
-    .update({ estado: "rechazada" })
-    .eq("solicitud_id", data.solicitud_id)
-    .neq("id", data.oferta_id)
 
   revalidatePath("/mis-solicitudes")
   return { data: trabajo }
