@@ -45,7 +45,9 @@ export async function POST(request: Request) {
       // Mismo estado que la confirmación en página (confirmarPago): el resto de
       // la app solo entiende "fondos_retenidos". El antiguo "retenido" pasaba el
       // CHECK de la tabla pero dejaba el pago atascado: liberarlo era imposible.
-      const { data: escrowActualizado } = await supabase
+      // `.select()` sin single: si quedaran filas "pendiente" duplicadas de
+      // antiguo, un maybeSingle() fallaría y el pago no se consumaría.
+      const { data: escrowsActualizados } = await supabase
         .from("transacciones_escrow")
         .update({
           estado: "fondos_retenidos",
@@ -57,10 +59,10 @@ export async function POST(request: Request) {
         .eq("trabajo_id", trabajoId)
         .eq("estado", "pendiente")
         .select("id, profesional_id")
-        .maybeSingle()
 
       // Si no había fila en "pendiente" es que la confirmación en página ya lo
       // procesó: no repetir el resto (evita actualizaciones y avisos duplicados).
+      const escrowActualizado = escrowsActualizados?.[0]
       if (!escrowActualizado) {
         break
       }
@@ -88,9 +90,23 @@ export async function POST(request: Request) {
       // sesión de usuario, así que se inserta directamente con el cliente admin.
       const { data: trabajoPagado } = await supabase
         .from("trabajos")
-        .select("titulo")
+        .select("titulo, solicitud_id")
         .eq("id", trabajoId)
         .maybeSingle()
+
+      // El pago consuma la contratación (igual que confirmarPagoEscrow): la
+      // demanda pasa a en_progreso y las demás ofertas quedan rechazadas.
+      if (trabajoPagado?.solicitud_id) {
+        await supabase
+          .from("solicitudes")
+          .update({ estado: "en_progreso" })
+          .eq("id", trabajoPagado.solicitud_id)
+        await supabase
+          .from("ofertas")
+          .update({ estado: "rechazada", updated_at: new Date().toISOString() })
+          .eq("solicitud_id", trabajoPagado.solicitud_id)
+          .eq("estado", "pendiente")
+      }
       if (escrowActualizado.profesional_id) {
         await supabase.from("notificaciones").insert({
           usuario_id: escrowActualizado.profesional_id,

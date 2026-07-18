@@ -26,16 +26,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Clock, MessageSquare, MapPin, Calendar, FileText, Loader2, Pencil, Trash2, Check, Paperclip, X } from "lucide-react"
+import { Clock, MessageSquare, MapPin, Calendar, FileText, Loader2, Pencil, Trash2, Check, Paperclip, X, Eye } from "lucide-react"
 import { obtenerOfertasPorProfesional, actualizarOferta, eliminarOferta } from "@/app/actions/ofertas"
 import { crearConversacion } from "@/app/actions/messages"
 import { uploadFile } from "@/lib/upload-helpers"
 import { useToast } from "@/hooks/use-toast"
 
-// Aquí solo viven las ofertas pendientes de respuesta: las aceptadas se
-// convierten en trabajos (Gestión de Proyectos) y las rechazadas/retiradas
-// desaparecen de la lista.
+// Aquí viven las pujas pendientes de respuesta y también las aceptadas cuyo
+// pago el cliente aún no ha completado: hasta que se pague, el trabajo no
+// existe de verdad y no aparece en Gestión de Proyectos. Las rechazadas y
+// retiradas desaparecen de la lista.
 const esPendiente = (oferta: any) => !["aceptada", "rechazada", "retirada"].includes(oferta.estado)
+const esAceptadaSinPagar = (oferta: any) => oferta.estado === "aceptada" && oferta.trabajo?.estado === "pendiente_pago"
+const esVisible = (oferta: any) => esPendiente(oferta) || esAceptadaSinPagar(oferta)
 
 export default function MisOfertas() {
   const [ofertas, setOfertas] = useState<any[]>([])
@@ -47,6 +50,8 @@ export default function MisOfertas() {
   const [editNuevos, setEditNuevos] = useState<File[]>([])
   const [subiendo, setSubiendo] = useState(false)
   const [deleteOferta, setDeleteOferta] = useState<any>(null)
+  // Demanda cuya publicación completa se está consultando.
+  const [verDemanda, setVerDemanda] = useState<any>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
@@ -54,7 +59,7 @@ export default function MisOfertas() {
   async function cargarOfertas() {
     setLoading(true)
     const result = await obtenerOfertasPorProfesional()
-    setOfertas((result.data || []).filter(esPendiente))
+    setOfertas((result.data || []).filter(esVisible))
     setLoading(false)
   }
 
@@ -154,10 +159,10 @@ export default function MisOfertas() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Pujas pendientes de respuesta ({ofertas.length})</CardTitle>
+          <CardTitle>Pujas en curso ({ofertas.length})</CardTitle>
           <CardDescription>
-            Puedes editarlas o retirarlas mientras el cliente no las acepte. Las aceptadas pasan a Gestión de
-            Proyectos como trabajos activos.
+            Puedes editarlas o retirarlas mientras el cliente no las acepte. Cuando una puja aceptada se pague,
+            pasará a Gestión de Proyectos como trabajo activo; hasta entonces sigue aquí.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -176,10 +181,17 @@ export default function MisOfertas() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <CardTitle className="text-lg sm:text-xl">{oferta.solicitud?.titulo || "Servicio"}</CardTitle>
-                        <Badge variant="secondary" className="gap-1">
-                          <Clock className="h-3 w-3" />
-                          Enviada
-                        </Badge>
+                        {esAceptadaSinPagar(oferta) ? (
+                          <Badge variant="outline" className="gap-1 text-amber-600 border-amber-500/50 bg-amber-500/10">
+                            <Clock className="h-3 w-3" />
+                            Aceptada · esperando pago del cliente
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="gap-1">
+                            <Clock className="h-3 w-3" />
+                            Enviada
+                          </Badge>
+                        )}
                       </div>
                       <CardDescription className="text-base">
                         {oferta.solicitud?.cliente?.nombre} {oferta.solicitud?.cliente?.apellido}
@@ -259,7 +271,23 @@ export default function MisOfertas() {
                     </div>
                   )}
 
+                  {esAceptadaSinPagar(oferta) && (
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-muted-foreground">
+                      El cliente aceptó tu puja pero aún no ha completado el pago protegido. Cuando lo haga, el
+                      trabajo aparecerá en Gestión de Proyectos.
+                    </div>
+                  )}
+
                   <div className="flex flex-wrap gap-2 pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 bg-transparent"
+                      onClick={() => setVerDemanda(oferta.solicitud)}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      Ver demanda
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
@@ -269,19 +297,23 @@ export default function MisOfertas() {
                       <MessageSquare className="h-4 w-4 mr-2" />
                       Contactar Cliente
                     </Button>
-                    <Button variant="outline" size="sm" className="flex-1 bg-transparent" onClick={() => abrirEditar(oferta)}>
-                      <Pencil className="h-4 w-4 mr-2" />
-                      Editar oferta
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 bg-transparent text-destructive border-destructive/40 hover:bg-destructive/10"
-                      onClick={() => setDeleteOferta(oferta)}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Retirar
-                    </Button>
+                    {!esAceptadaSinPagar(oferta) && (
+                      <>
+                        <Button variant="outline" size="sm" className="flex-1 bg-transparent" onClick={() => abrirEditar(oferta)}>
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Editar oferta
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 bg-transparent text-destructive border-destructive/40 hover:bg-destructive/10"
+                          onClick={() => setDeleteOferta(oferta)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Retirar
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -435,6 +467,88 @@ export default function MisOfertas() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Publicación completa de la demanda por la que se puja */}
+      <Dialog open={!!verDemanda} onOpenChange={(o) => !o && setVerDemanda(null)}>
+        <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{verDemanda?.titulo || "Demanda"}</DialogTitle>
+            <DialogDescription>
+              Publicada por {verDemanda?.cliente?.nombre} {verDemanda?.cliente?.apellido}
+              {verDemanda?.created_at
+                ? ` el ${new Date(verDemanda.created_at).toLocaleDateString("es-ES")}`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+
+          {verDemanda && (
+            <div className="space-y-4 py-1 text-sm">
+              <div className="flex flex-wrap gap-2">
+                {verDemanda.urgencia && (
+                  <Badge variant="outline" className="capitalize">{verDemanda.urgencia}</Badge>
+                )}
+                {verDemanda.ubicacion && (
+                  <Badge variant="outline" className="gap-1">
+                    <MapPin className="h-3 w-3" />
+                    {verDemanda.ubicacion}
+                  </Badge>
+                )}
+                {(verDemanda.presupuesto_min || verDemanda.presupuesto_max) && (
+                  <Badge variant="outline">
+                    {verDemanda.presupuesto_min ? formatearPrecioEuros(verDemanda.presupuesto_min) : ""}
+                    {verDemanda.presupuesto_min && verDemanda.presupuesto_max ? " – " : ""}
+                    {verDemanda.presupuesto_max
+                      ? formatearPrecioEuros(verDemanda.presupuesto_max)
+                      : verDemanda.presupuesto_min
+                        ? " o más"
+                        : ""}
+                  </Badge>
+                )}
+              </div>
+
+              <div>
+                <p className="font-medium mb-1.5">Descripción del cliente</p>
+                <p className="text-muted-foreground whitespace-pre-wrap">
+                  {verDemanda.descripcion || "Sin descripción."}
+                </p>
+              </div>
+
+              {Array.isArray(verDemanda.archivos) && verDemanda.archivos.length > 0 && (
+                <div>
+                  <p className="font-medium mb-1.5 flex items-center gap-1">
+                    <FileText className="h-4 w-4" /> Archivos adjuntos ({verDemanda.archivos.length})
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {verDemanda.archivos.map((url: string, i: number) =>
+                      /\.(png|jpe?g|gif|webp)(\?|$)/i.test(url) ? (
+                        <a key={i} href={url} target="_blank" rel="noreferrer">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={url}
+                            alt={`Adjunto ${i + 1}`}
+                            className="h-20 w-20 rounded-md object-cover border hover:opacity-80 transition"
+                          />
+                        </a>
+                      ) : (
+                        <a
+                          key={i}
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted transition"
+                        >
+                          <FileText className="h-3.5 w-3.5" />
+                          {decodeURIComponent(url.split("/").pop()?.split("?")[0] || `Archivo ${i + 1}`)}
+                        </a>
+                      ),
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

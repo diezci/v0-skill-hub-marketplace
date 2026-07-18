@@ -175,12 +175,22 @@ export async function confirmarPagoEscrow(sessionId: string) {
       updated_at: new Date().toISOString(),
     }).eq("id", escrow.trabajo_id)
 
-    // Avisar al proveedor de que el pago está en custodia y puede empezar.
     const { data: trabajoPagado } = await supabase
       .from("trabajos")
-      .select("titulo")
+      .select("titulo, solicitud_id, oferta_id")
       .eq("id", escrow.trabajo_id)
       .maybeSingle()
+
+    // El pago consuma la contratación: hasta aquí la demanda seguía abierta y
+    // las demás ofertas pendientes (por si el cliente abandonaba la pasarela).
+    if (trabajoPagado?.solicitud_id) {
+      await supabase.from("solicitudes").update({ estado: "en_progreso" }).eq("id", trabajoPagado.solicitud_id)
+      await supabase
+        .from("ofertas")
+        .update({ estado: "rechazada", updated_at: new Date().toISOString() })
+        .eq("solicitud_id", trabajoPagado.solicitud_id)
+        .eq("estado", "pendiente")
+    }
     const { crearNotificacion } = await import("./notificaciones")
     await crearNotificacion({
       usuarioId: escrow.profesional_id,

@@ -117,6 +117,8 @@ export async function obtenerMisOfertas() {
     return { error: "No autenticado" }
   }
 
+  // La solicitud completa: Mis Pujas debe poder enseñar la publicación entera
+  // de la demanda por la que se puja (descripción, urgencia, adjuntos...).
   const { data, error } = await supabase
     .from("ofertas")
     .select(`
@@ -124,8 +126,13 @@ export async function obtenerMisOfertas() {
       solicitud:solicitudes(
         id,
         titulo,
+        descripcion,
         ubicacion,
         estado,
+        urgencia,
+        archivos,
+        categoria_id,
+        created_at,
         presupuesto_min,
         presupuesto_max
       )
@@ -135,6 +142,20 @@ export async function obtenerMisOfertas() {
 
   if (error) {
     return { error: error.message }
+  }
+
+  // Para las pujas aceptadas, el estado de su trabajo: mientras esté sin pagar
+  // (pendiente_pago) la puja sigue viviendo aquí, no en Gestión de Proyectos.
+  const idsAceptadas = (data || []).filter((o: any) => o.estado === "aceptada").map((o: any) => o.id)
+  const trabajosPorOferta: Record<string, { id: string; estado: string }> = {}
+  if (idsAceptadas.length > 0) {
+    const { data: trabajosDeOfertas } = await supabase
+      .from("trabajos")
+      .select("id, estado, oferta_id")
+      .in("oferta_id", idsAceptadas)
+    for (const t of trabajosDeOfertas || []) {
+      trabajosPorOferta[t.oferta_id] = { id: t.id, estado: t.estado }
+    }
   }
 
   // Get client info for each solicitud
@@ -156,6 +177,7 @@ export async function obtenerMisOfertas() {
 
           return {
             ...oferta,
+            trabajo: trabajosPorOferta[oferta.id] ?? null,
             solicitud: {
               ...oferta.solicitud,
               cliente,
@@ -164,7 +186,7 @@ export async function obtenerMisOfertas() {
           }
         }
       }
-      return oferta
+      return { ...oferta, trabajo: trabajosPorOferta[oferta.id] ?? null }
     }),
   )
 
@@ -328,9 +350,9 @@ export async function aceptarOferta(ofertaId: string) {
   await crearNotificacion({
     usuarioId: oferta.profesional_id,
     tipo: "oferta_aceptada",
-    titulo: "Han aceptado tu oferta",
-    mensaje: `Tu oferta para "${oferta.solicitud?.titulo ?? "una demanda"}" ha sido aceptada. Revisa el trabajo en Gestión de proyectos.`,
-    link: "/mis-trabajos",
+    titulo: "Han aceptado tu puja",
+    mensaje: `Tu oferta para "${oferta.solicitud?.titulo ?? "una demanda"}" ha sido aceptada. Cuando el cliente complete el pago protegido, el trabajo aparecerá en Gestión de Proyectos.`,
+    link: "/mis-ofertas",
   })
 
   return { data: trabajoResult.data }
