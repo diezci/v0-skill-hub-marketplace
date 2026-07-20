@@ -532,6 +532,34 @@ export default function MisSolicitudes() {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
+                  {/* Oferta aceptada con el pago sin completar (p. ej. abandonó la
+                      pasarela): la demanda sigue abierta y desde aquí se retoma el
+                      pago. Hasta pagar, nada se consuma. */}
+                  {solicitud.trabajo?.estado === "pendiente_pago" && (
+                    <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+                      <div className="flex items-start gap-3">
+                        <CreditCard className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="font-semibold text-amber-700 dark:text-amber-400">
+                            Has aceptado la oferta de {solicitud.trabajo?.profesional?.nombre || "un profesional"}
+                            {" — "}falta completar el pago
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            La contratación no se cierra hasta que completes el pago protegido. Mientras tanto,
+                            las demás ofertas siguen disponibles.
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        className="bg-emerald-600 hover:bg-emerald-700 shrink-0"
+                        onClick={() => router.push(`/pago/${solicitud.trabajo.id}`)}
+                      >
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Pagar ahora
+                      </Button>
+                    </div>
+                  )}
+
                   <p className="text-sm text-muted-foreground mb-4">{solicitud.descripcion}</p>
 
                   {/* Archivos que el cliente adjuntó al publicar la demanda */}
@@ -711,7 +739,9 @@ export default function MisSolicitudes() {
                         ))}
                       </div>
                     </div>
-                  ) : (
+                  ) : solicitud.trabajo?.estado === "pendiente_pago" ? null : (
+                    // Con una oferta aceptada pendiente de pago, el banner de arriba
+                    // ya lo cuenta todo: "no has recibido ofertas" sería contradictorio.
                     <div className="bg-muted/50 rounded-lg p-4 text-center">
                       <Clock className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                       <p className="text-sm text-muted-foreground">
@@ -1100,14 +1130,23 @@ export default function MisSolicitudes() {
                         <div>
                           <p className="font-semibold">{solicitud.titulo}</p>
                           <p className="text-sm text-muted-foreground">
-                            Completado el {solicitud.trabajo?.fecha_fin 
-                              ? formatearFecha(solicitud.trabajo.fecha_fin) 
+                            Completado el {solicitud.trabajo?.fecha_fin
+                              ? formatearFecha(solicitud.trabajo.fecha_fin)
                               : formatearFecha(solicitud.created_at)}
                           </p>
                           {solicitud.trabajo?.profesional && (
                             <p className="text-sm text-muted-foreground">
                               Profesional: {solicitud.trabajo.profesional.nombre} {solicitud.trabajo.profesional.apellido}
                             </p>
+                          )}
+                          {solicitud.trabajo?.id && (
+                            <a
+                              href={`/trabajos/${solicitud.trabajo.id}/factura`}
+                              target="_blank"
+                              className="text-xs text-primary hover:underline inline-flex items-center gap-1 mt-1"
+                            >
+                              <FileText className="h-3 w-3" /> Ver factura y términos
+                            </a>
                           )}
                         </div>
                       </div>

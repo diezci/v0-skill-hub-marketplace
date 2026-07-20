@@ -258,7 +258,9 @@ export default function MisTrabajosPage() {
     return days
   }
 
-  const trabajosPendientePago = trabajos.filter((t) => t.estado === "pendiente_pago")
+  // Los trabajos sin pagar (pendiente_pago) NO aparecen aquí: hasta que el
+  // cliente complete el pago viven en Mis Pujas como "aceptada, esperando pago".
+  // A Gestión de Proyectos solo llegan trabajos ya pagados.
   // Los trabajos en disputa se muestran junto a los activos para que no desaparezcan de la vista.
   const trabajosEnProgreso = trabajos.filter((t) => t.estado === "en_progreso" || t.estado === "en_disputa")
   const trabajosEntregados = trabajos.filter((t) => t.estado === "entregado")
@@ -272,8 +274,8 @@ export default function MisTrabajosPage() {
   const totalCobrado = trabajosCompletados
     .filter((t) => t.transaccion_escrow?.estado === "completado")
     .reduce((sum, t) => sum + netoDe(t), 0)
-  // Total neto (a cobrar) de los trabajos activos: en progreso + esperando pago.
-  const totalActivosNeto = [...trabajosEnProgreso, ...trabajosPendientePago].reduce((sum, t) => sum + netoDe(t), 0)
+  // Total neto (a cobrar) de los trabajos activos (ya pagados y en curso).
+  const totalActivosNeto = trabajosEnProgreso.reduce((sum, t) => sum + netoDe(t), 0)
 
   if (loading) {
     return (
@@ -312,9 +314,8 @@ export default function MisTrabajosPage() {
                     <p className="text-sm text-muted-foreground">Activos</p>
                     <p className="text-2xl font-bold">{formatCurrency(totalActivosNeto)}</p>
                     <p className="text-xs text-muted-foreground">
-                      {trabajosEnProgreso.length + trabajosPendientePago.length} trabajo
-                      {trabajosEnProgreso.length + trabajosPendientePago.length !== 1 ? "s" : ""}
-                      {trabajosPendientePago.length > 0 ? ` · ${trabajosPendientePago.length} esperando pago` : ""}
+                      {trabajosEnProgreso.length} trabajo
+                      {trabajosEnProgreso.length !== 1 ? "s" : ""}
                     </p>
                   </div>
                 </div>
@@ -377,7 +378,7 @@ export default function MisTrabajosPage() {
             <TabsList className="bg-muted/50 grid w-full grid-cols-3 h-auto">
               <TabsTrigger value="activos" className="gap-2">
                 <Briefcase className="h-4 w-4" />
-                Activos ({trabajosEnProgreso.length + trabajosPendientePago.length})
+                Activos ({trabajosEnProgreso.length})
               </TabsTrigger>
               <TabsTrigger value="entregados" className="gap-2">
                 <Package className="h-4 w-4" />
@@ -391,7 +392,7 @@ export default function MisTrabajosPage() {
 
           {/* Active Jobs */}
           <TabsContent value="activos" className="space-y-4">
-            {[...trabajosEnProgreso, ...trabajosPendientePago].length === 0 ? (
+            {trabajosEnProgreso.length === 0 ? (
               <Card className="p-12 text-center">
                 <Briefcase className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
                 <h3 className="text-lg font-medium mb-2">No tienes trabajos activos</h3>
@@ -403,7 +404,7 @@ export default function MisTrabajosPage() {
                 </Button>
               </Card>
             ) : (
-              [...trabajosEnProgreso, ...trabajosPendientePago].map((trabajo) => (
+              trabajosEnProgreso.map((trabajo) => (
                 <TrabajoCard
                   key={trabajo.id}
                   trabajo={trabajo}
