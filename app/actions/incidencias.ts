@@ -191,14 +191,39 @@ export async function actualizarIncidencia(
     return { error: "No tienes permiso" }
   }
 
+  const cierra = cambios.estado === "resuelta" || cambios.estado === "cerrada"
+
   const update: Record<string, any> = { ...cambios }
-  if (cambios.estado === "resuelta" || cambios.estado === "cerrada") {
+  if (cierra) {
     update.resuelto_por = user.id
     update.fecha_resolucion = new Date().toISOString()
   }
 
-  const { error } = await supabase.from("incidencias").update(update).eq("id", id)
+  const { data: incidencia, error } = await supabase
+    .from("incidencias")
+    .update(update)
+    .eq("id", id)
+    .select("id, asunto, estado, reportado_por, notas_admin")
+    .maybeSingle()
   if (error) return { error: error.message }
+
+  // Solo se avisa a quien la reportó: el usuario reportado nunca supo de la
+  // incidencia y `obtenerMisIncidencias` filtra por `reportado_por`, así que un
+  // aviso le llevaría a un panel donde no aparece.
+  if (cierra && incidencia?.reportado_por) {
+    const resuelta = cambios.estado === "resuelta"
+    const nota = incidencia.notas_admin?.trim()
+    const { crearNotificacion } = await import("./notificaciones")
+    await crearNotificacion({
+      usuarioId: incidencia.reportado_por,
+      tipo: "incidencia_resuelta",
+      titulo: resuelta ? "Incidencia resuelta" : "Incidencia cerrada",
+      mensaje: `Tu incidencia "${incidencia.asunto}" se ha marcado como ${
+        resuelta ? "resuelta" : "cerrada"
+      }.${nota ? ` Respuesta del equipo: ${nota}` : ""}`,
+      link: "/incidencias",
+    })
+  }
 
   revalidatePath("/admin/incidencias")
   revalidatePath("/incidencias")

@@ -42,17 +42,30 @@ export async function POST(request: Request) {
 
       const trabajoId = metadata.trabajo_id
 
-      // Update escrow status to paid
-      await supabase
+      // Mismo estado que la confirmación en página (confirmarPago): el resto de
+      // la app solo entiende "fondos_retenidos". El antiguo "retenido" pasaba el
+      // CHECK de la tabla pero dejaba el pago atascado: liberarlo era imposible.
+      // `.select()` sin single: si quedaran filas "pendiente" duplicadas de
+      // antiguo, un maybeSingle() fallaría y el pago no se consumaría.
+      const { data: escrowsActualizados } = await supabase
         .from("transacciones_escrow")
         .update({
-          estado: "retenido",
-          stripe_payment_intent_id: typeof session.payment_intent === "string" 
-            ? session.payment_intent 
+          estado: "fondos_retenidos",
+          fecha_retencion: new Date().toISOString(),
+          stripe_payment_intent_id: typeof session.payment_intent === "string"
+            ? session.payment_intent
             : session.payment_intent?.id,
         })
         .eq("trabajo_id", trabajoId)
         .eq("estado", "pendiente")
+        .select("id, profesional_id")
+
+      // Si no había fila en "pendiente" es que la confirmación en página ya lo
+      // procesó: no repetir el resto (evita actualizaciones y avisos duplicados).
+      const escrowActualizado = escrowsActualizados?.[0]
+      if (!escrowActualizado) {
+        break
+      }
 
       // Update trabajo status to in progress
       await supabase
@@ -73,6 +86,38 @@ export async function POST(request: Request) {
         progreso: 0,
       })
 
+      // Avisar al proveedor igual que hace la confirmación en página. Aquí no hay
+      // sesión de usuario, así que se inserta directamente con el cliente admin.
+      const { data: trabajoPagado } = await supabase
+        .from("trabajos")
+        .select("titulo, solicitud_id")
+        .eq("id", trabajoId)
+        .maybeSingle()
+
+      // El pago consuma la contratación (igual que confirmarPagoEscrow): la
+      // demanda pasa a en_progreso y las demás ofertas quedan rechazadas.
+      if (trabajoPagado?.solicitud_id) {
+        await supabase
+          .from("solicitudes")
+          .update({ estado: "en_progreso" })
+          .eq("id", trabajoPagado.solicitud_id)
+        await supabase
+          .from("ofertas")
+          .update({ estado: "rechazada", updated_at: new Date().toISOString() })
+          .eq("solicitud_id", trabajoPagado.solicitud_id)
+          .eq("estado", "pendiente")
+      }
+      if (escrowActualizado.profesional_id) {
+        await supabase.from("notificaciones").insert({
+          usuario_id: escrowActualizado.profesional_id,
+          tipo: "pago_recibido",
+          titulo: "El cliente ha pagado: puedes empezar",
+          mensaje: `El pago de "${trabajoPagado?.titulo ?? "un trabajo"}" ya está retenido en custodia. El trabajo pasa a En Progreso.`,
+          link: "/mis-trabajos",
+          leida: false,
+        })
+      }
+
       break
     }
 
@@ -84,10 +129,12 @@ export async function POST(request: Request) {
         break
       }
 
-      // Mark escrow as failed
+      // "fallido" no existe en el CHECK de estados de la tabla, así que este
+      // update fallaba en silencio y el escrow se quedaba en "pendiente".
+      // "cancelado" sí es un estado válido.
       await supabase
         .from("transacciones_escrow")
-        .update({ estado: "fallido" })
+        .update({ estado: "cancelado" })
         .eq("trabajo_id", metadata.trabajo_id)
         .eq("estado", "pendiente")
 
