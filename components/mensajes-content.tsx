@@ -1060,7 +1060,13 @@ export default function MensajesContent() {
                         }
                         const e = estados[p.estado] || { label: p.estado, cls: "" }
                         return (
-                          <div key={p.id} className="rounded-md border border-border bg-background p-2.5">
+                          <a
+                            key={p.id}
+                            href={`/trabajos/${p.id}/factura`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block rounded-md border border-border bg-background p-2.5 hover:bg-muted/50 hover:border-primary/40 transition-colors group"
+                          >
                             <div className="flex items-center justify-between gap-2">
                               <p className="text-xs font-medium truncate">{p.titulo}</p>
                               <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-4 shrink-0", e.cls)}>
@@ -1073,7 +1079,11 @@ export default function MensajesContent() {
                                 {Number(p.precio_acordado || 0).toLocaleString("es-ES")}€
                               </span>
                             </div>
-                          </div>
+                            <div className="flex items-center gap-1 mt-1.5 text-[11px] text-primary opacity-80 group-hover:opacity-100">
+                              <FileText className="h-3 w-3" />
+                              Ver factura y términos
+                            </div>
+                          </a>
                         )
                       })}
                     </div>
