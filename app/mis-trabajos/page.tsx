@@ -65,6 +65,7 @@ import {
 import { createClient } from "@/lib/supabase/client"
 import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
 import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
+import MisDisputas from "@/components/mis-disputas"
 import { calcularPagoProveedor, PLATFORM_CONFIG } from "@/lib/comisiones"
 
 type EstadoTrabajo = "pendiente_pago" | "en_progreso" | "entregado" | "completado" | "cancelado" | "en_disputa"
@@ -375,7 +376,7 @@ export default function MisTrabajosPage() {
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-6">
           {/* Left column: Tabs with job lists */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="bg-muted/50 grid w-full grid-cols-3 h-auto">
+            <TabsList className="bg-muted/50 grid w-full grid-cols-2 sm:grid-cols-4 h-auto">
               <TabsTrigger value="activos" className="gap-2">
                 <Briefcase className="h-4 w-4" />
                 Activos ({trabajosEnProgreso.length})
@@ -387,6 +388,10 @@ export default function MisTrabajosPage() {
               <TabsTrigger value="completados" className="gap-2">
                 <CheckCircle2 className="h-4 w-4" />
                 Completados ({trabajosCompletados.length})
+              </TabsTrigger>
+              <TabsTrigger value="disputas" className="gap-2">
+                <Scale className="h-4 w-4" />
+                Disputas
               </TabsTrigger>
             </TabsList>
 
@@ -468,6 +473,12 @@ export default function MisTrabajosPage() {
                 />
               ))
             )}
+          </TabsContent>
+
+          {/* Seguimiento de disputas: las que ha abierto el profesional y las
+              que el cliente ha abierto contra él. */}
+          <TabsContent value="disputas" className="space-y-4">
+            <MisDisputas rol="proveedor" />
           </TabsContent>
           </Tabs>
 

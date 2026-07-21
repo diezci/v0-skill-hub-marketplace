@@ -26,6 +26,7 @@ import { rechazarEntrega } from "@/app/actions/disputes"
 import { obtenerMisTrabajos, actualizarProgresoTrabajo, marcarTrabajoEntregado, confirmarTrabajoCompletado } from "@/app/actions/trabajos"
 import { crearResena } from "@/app/actions/reviews"
 import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
+import MisDisputas from "@/components/mis-disputas"
 import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
 import { calcularTotalCliente, PLATFORM_CONFIG } from "@/lib/comisiones"
 import { useToast } from "@/hooks/use-toast"
@@ -460,7 +461,7 @@ export default function MisSolicitudes() {
 
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 h-auto">
           <TabsTrigger value="solicitudes" className="gap-2">
             <FileText className="h-4 w-4" />
             Abiertas
@@ -481,6 +482,10 @@ export default function MisSolicitudes() {
           <TabsTrigger value="historial" className="gap-2">
             <CheckCircle2 className="h-4 w-4" />
             Historial
+          </TabsTrigger>
+          <TabsTrigger value="disputas" className="gap-2">
+            <Scale className="h-4 w-4" />
+            Disputas
           </TabsTrigger>
         </TabsList>
 
@@ -1172,6 +1177,12 @@ export default function MisSolicitudes() {
               )
             })
           )}
+        </TabsContent>
+
+        {/* Seguimiento de disputas: las que ha abierto el cliente y las que el
+            profesional ha abierto contra él. */}
+        <TabsContent value="disputas" className="space-y-4">
+          <MisDisputas rol="cliente" />
         </TabsContent>
       </Tabs>
 
