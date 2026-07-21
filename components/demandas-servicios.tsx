@@ -43,6 +43,7 @@ import { crearOferta } from "@/app/actions/ofertas"
 import { obtenerSolicitudesAbiertas } from "@/app/actions/solicitudes"
 import { cn } from "@/lib/utils"
 import { PROVINCIAS_ES } from "@/lib/provincias"
+import { CATEGORIAS_SERVICIO_NOMBRES } from "@/lib/categorias"
 
 type Demanda = {
   id: string
@@ -70,19 +71,9 @@ const urgenciaConfig: Record<string, { label: string; color: string }> = {
   urgente: { label: "Urgente", color: "bg-red-500/10 text-red-500 border-red-500/20" },
 }
 
-const CATEGORIAS = [
-  "Todas las categorías",
-  "Electricista",
-  "Albañil",
-  "Fontanero",
-  "Instalador de suelos",
-  "Pintor",
-  "Carpintero",
-  "Climatización",
-  "Cerrajero",
-  "Jardinero",
-  "Arquitecto",
-]
+// Mismas categorías que /profesionales, el formulario de publicar demanda y el
+// "Tipo de Servicio" del homepage: fuente única en lib/categorias.ts.
+const CATEGORIAS = ["Todas las categorías", ...CATEGORIAS_SERVICIO_NOMBRES]
 
 const UBICACIONES = ["Toda España", ...PROVINCIAS_ES]
 
