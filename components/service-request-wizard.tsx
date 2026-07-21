@@ -49,9 +49,9 @@ const CATEGORIES = [
 
 const URGENCY_OPTIONS = [
   { id: "urgente", name: "Urgente (1-3 días)", description: "Necesito ayuda lo antes posible" },
-  { id: "alta", name: "Pronto (1-2 semanas)", description: "Tengo algo de flexibilidad" },
-  { id: "media", name: "Planificado (1+ mes)", description: "Estoy planificando a futuro" },
-  { id: "baja", name: "Flexible", description: "Sin fecha límite específica" },
+  { id: "pronto", name: "Pronto (1-2 semanas)", description: "Tengo algo de flexibilidad" },
+  { id: "planificado", name: "Planificado (1+ mes)", description: "Estoy planificando a futuro" },
+  { id: "flexible", name: "Flexible", description: "Sin fecha límite específica" },
 ]
 
 interface WizardData {
@@ -105,7 +105,7 @@ export default function ServiceRequestWizard() {
       const result = await crearSolicitud({
         titulo: data.titulo,
         descripcion: data.descripcion,
-        categoria_id: CATEGORIES.find(c => c.id === data.categoria)?.name ?? data.categoria,
+        categoria_id: data.categoria,
         ubicacion: data.ubicacion,
         presupuesto_min: data.presupuestoMin,
         presupuesto_max: data.presupuestoMax,

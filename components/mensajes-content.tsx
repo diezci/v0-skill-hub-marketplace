@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -24,17 +23,7 @@ import {
   Archive,
   Pin,
   Trash2,
-  Star,
 } from "lucide-react"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Textarea } from "@/components/ui/textarea"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,11 +33,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { obtenerConversaciones, obtenerMensajes, enviarMensaje } from "@/app/actions/messages"
-import { crearResena, obtenerTrabajoValorable } from "@/app/actions/reviews"
-import { obtenerTrabajosConUsuario } from "@/app/actions/trabajos"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
-import { useToast } from "@/hooks/use-toast"
 
 interface Message {
   id: string
@@ -67,10 +53,9 @@ interface Conversation {
   participante_2: string
   ultimo_mensaje?: string
   fecha_ultimo_mensaje?: string
-  participante_otro?: { nombre: string; apellido: string; foto_perfil?: string; ubicacion?: string; created_at?: string }
-  participante1?: { nombre: string; apellido: string; foto_perfil?: string; ubicacion?: string; created_at?: string }
-  participante2?: { nombre: string; apellido: string; foto_perfil?: string; ubicacion?: string; created_at?: string }
-  otro_profesional?: { rating_promedio?: number; total_reseñas?: number; idiomas?: string[] } | null
+  participante_otro?: { nombre: string; apellido: string; foto_perfil?: string }
+  participante1?: { nombre: string; apellido: string; foto_perfil?: string }
+  participante2?: { nombre: string; apellido: string; foto_perfil?: string }
   unread_count?: number
   proyecto?: { titulo: string; estado: string; progreso?: number }
   solicitud_id?: string
@@ -80,6 +65,128 @@ interface Conversation {
   mi_rol?: "cliente" | "proveedor"
   rol_otro?: "cliente" | "proveedor"
 }
+
+const MOCK_CONVERSATIONS: Conversation[] = [
+  {
+    id: "conv-1",
+    participante_1: "user-1",
+    participante_2: "user-2",
+    ultimo_mensaje: "Perfecto, mañana a las 10h paso a ver el trabajo",
+    fecha_ultimo_mensaje: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+    participante_otro: { nombre: "Carlos", apellido: "Rodríguez", foto_perfil: "/professional-man.png" },
+    participante1: { nombre: "Carlos", apellido: "Rodríguez", foto_perfil: "/professional-man.png" },
+    participante2: { nombre: "María", apellido: "García", foto_perfil: "/professional-woman.png" },
+    unread_count: 2,
+    proyecto: { titulo: "Reforma de baño completo", estado: "en_progreso", progreso: 65 },
+    trabajo_id: "trabajo-1",
+    pinned: true,
+    mi_rol: "cliente",
+    rol_otro: "proveedor",
+  },
+  {
+    id: "conv-2",
+    participante_1: "user-1",
+    participante_2: "user-3",
+    ultimo_mensaje: "¿Puede enviarme fotos del estado actual?",
+    fecha_ultimo_mensaje: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    participante1: { nombre: "Pedro", apellido: "Martínez", foto_perfil: "/electrician-man.jpg" },
+    participante2: { nombre: "Ana", apellido: "López", foto_perfil: "/woman-client.png" },
+    unread_count: 0,
+    proyecto: { titulo: "Instalación eléctrica cocina", estado: "pendiente" },
+    mi_rol: "proveedor",
+    rol_otro: "cliente",
+  },
+  {
+    id: "conv-3",
+    participante_1: "user-1",
+    participante_2: "user-4",
+    ultimo_mensaje: "El presupuesto incluye materiales y mano de obra",
+    fecha_ultimo_mensaje: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+    participante1: { nombre: "Luis", apellido: "Fernández", foto_perfil: "/plumber-man.jpg" },
+    participante2: { nombre: "Carmen", apellido: "Ruiz", foto_perfil: "/woman-homeowner.png" },
+    unread_count: 0,
+    proyecto: { titulo: "Pintura interior vivienda", estado: "completado" },
+    mi_rol: "cliente",
+    rol_otro: "proveedor",
+  },
+  {
+    id: "conv-4",
+    participante_1: "user-1",
+    participante_2: "user-5",
+    ultimo_mensaje: "Gracias por el excelente trabajo realizado",
+    fecha_ultimo_mensaje: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+    participante1: { nombre: "Roberto", apellido: "Sánchez", foto_perfil: "/contractor-man.jpg" },
+    participante2: { nombre: "Elena", apellido: "Navarro", foto_perfil: "/business-woman.png" },
+    unread_count: 0,
+    proyecto: { titulo: "Montaje de muebles IKEA", estado: "completado" },
+    mi_rol: "proveedor",
+    rol_otro: "cliente",
+  },
+]
+
+const MOCK_MESSAGES: Message[] = [
+  {
+    id: "msg-1",
+    remitente_id: "user-2",
+    contenido: "Hola, he visto tu solicitud de reforma de baño y me interesa mucho el proyecto",
+    created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    leido: true,
+    tipo: "texto",
+  },
+  {
+    id: "msg-2",
+    remitente_id: "user-1",
+    contenido: "¡Hola! Sí, necesito reformar el baño completo. Es de unos 6m² aproximadamente",
+    created_at: new Date(Date.now() - 1.5 * 60 * 60 * 1000).toISOString(),
+    leido: true,
+    tipo: "texto",
+  },
+  {
+    id: "msg-3",
+    remitente_id: "user-2",
+    contenido: "foto_baño_actual.jpg",
+    created_at: new Date(Date.now() - 1.2 * 60 * 60 * 1000).toISOString(),
+    leido: true,
+    tipo: "imagen",
+    archivo_url: "/pre-renovation-bathroom.png",
+    archivo_nombre: "foto_baño_actual.jpg",
+  },
+  {
+    id: "msg-4",
+    remitente_id: "user-2",
+    contenido:
+      "Perfecto, tengo disponibilidad la próxima semana para ver el trabajo y hacer una valoración más precisa. Adjunto mi presupuesto inicial.",
+    created_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
+    leido: true,
+    tipo: "texto",
+  },
+  {
+    id: "msg-5",
+    remitente_id: "user-2",
+    contenido: "presupuesto_reforma.pdf",
+    created_at: new Date(Date.now() - 58 * 60 * 1000).toISOString(),
+    leido: true,
+    tipo: "archivo",
+    archivo_url: "#",
+    archivo_nombre: "presupuesto_reforma.pdf",
+  },
+  {
+    id: "msg-6",
+    remitente_id: "user-1",
+    contenido: "Genial, ¿qué día te vendría mejor? Yo tengo flexibilidad por las mañanas",
+    created_at: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+    leido: true,
+    tipo: "texto",
+  },
+  {
+    id: "msg-7",
+    remitente_id: "user-2",
+    contenido: "Perfecto, mañana a las 10h paso a ver el trabajo",
+    created_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+    leido: false,
+    tipo: "texto",
+  },
+]
 
 export default function MensajesContent() {
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -92,58 +199,46 @@ export default function MensajesContent() {
   const [searchQuery, setSearchQuery] = useState("")
   const [showMobileChat, setShowMobileChat] = useState(false)
   const [activeTab, setActiveTab] = useState<"all" | "unread" | "archived">("all")
+  const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [loadingMessages, setLoadingMessages] = useState(true) // Added state for message loading
   const [newMessage, setNewMessage] = useState("") // State for new message input
   const [sendingMessage, setSendingMessage] = useState(false) // State for sending message indicator
-  const searchParams = useSearchParams()
-  const router = useRouter()
-  const [autoSelectDone, setAutoSelectDone] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  // Valorar desde el chat: trabajo completado pendiente de reseña con el otro usuario.
-  const [reviewTrabajo, setReviewTrabajo] = useState<{ id: string; titulo?: string } | null>(null)
-  const [reviewRating, setReviewRating] = useState(5)
-  const [reviewHover, setReviewHover] = useState(0)
-  const [reviewComentario, setReviewComentario] = useState("")
-  const [reviewSubmitting, setReviewSubmitting] = useState(false)
-  // Todos los trabajos (actuales e históricos) con el usuario de la conversación.
-  const [proyectosCompartidos, setProyectosCompartidos] = useState<any[]>([])
-  const { toast } = useToast()
 
   const scrollToBottom = () => {
-    // Desplazar solo el panel de mensajes (viewport del ScrollArea), nunca la
-    // página: scrollIntoView movía también el scroll del documento y al abrir
-    // /mensajes la vista saltaba hasta abajo.
-    const viewport = messagesEndRef.current?.closest("[data-radix-scroll-area-viewport]")
-    if (viewport) viewport.scrollTop = viewport.scrollHeight
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }
 
-  // Solo bajar el scroll cuando llega un mensaje nuevo, no en cada refresco en
-  // vivo (si el usuario está leyendo mensajes antiguos no hay que moverle).
-  const ultimoMensajeId = messages.length > 0 ? messages[messages.length - 1].id : null
   useEffect(() => {
-    scrollToBottom()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ultimoMensajeId])
+    if (selectedConversation) {
+      const timer = setTimeout(() => {
+        setIsTyping(true)
+        setTimeout(() => setIsTyping(false), 3000)
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [selectedConversation])
 
   useEffect(() => {
     async function loadData() {
       setLoading(true)
-      // Solo datos reales: sin sesión (o sin cliente supabase) la lista queda vacía.
-      try {
-        const supabase = createClient()
-        const {
-          data: { user },
-        } = await supabase.auth.getUser()
-        if (user) {
-          setCurrentUserId(user.id)
-          const result = await obtenerConversaciones()
-          setConversations((result.data as Conversation[]) || [])
-        } else {
-          setConversations([])
-        }
-      } catch {
+      const supabase = createClient()
+      if (!supabase) {
+        setConversations([])
+        setLoading(false)
+        return
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (user) {
+        setCurrentUserId(user.id)
+        const result = await obtenerConversaciones()
+        setConversations((result.data || []) as Conversation[])
+      } else {
         setConversations([])
       }
       setLoading(false)
@@ -156,86 +251,9 @@ export default function MensajesContent() {
     setShowMobileChat(true)
     setLoadingMessages(true) // Set loading state before fetching messages
     const result = await obtenerMensajes(conv.id)
-    setMessages(result.data ? (result.data as Message[]) : [])
+    setMessages((result.data || []) as Message[])
     setLoadingMessages(false) // Set loading state to false after fetching messages
-
-    // Historial completo de trabajos con este usuario para el panel lateral.
-    setProyectosCompartidos([])
-    const otroId = currentUserId === conv.participante_1 ? conv.participante_2 : conv.participante_1
-    obtenerTrabajosConUsuario(otroId).then((r) => setProyectosCompartidos(r.data || []))
   }
-
-  // Chat en vivo: refrescar la conversación abierta cada pocos segundos (y la
-  // lista de conversaciones con menos frecuencia) sin que el usuario recargue.
-  useEffect(() => {
-    const convId = selectedConversation?.id
-    if (!convId) return
-    const id = setInterval(async () => {
-      if (document.visibilityState !== "visible") return
-      const result = await obtenerMensajes(convId)
-      if (result.data) setMessages(result.data as Message[])
-    }, 4000)
-    return () => clearInterval(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedConversation?.id])
-
-  useEffect(() => {
-    const id = setInterval(async () => {
-      if (document.visibilityState !== "visible") return
-      try {
-        const result = await obtenerConversaciones()
-        if (result.data) setConversations(result.data as Conversation[])
-      } catch {
-        // silencioso: el siguiente tick lo reintenta
-      }
-    }, 20000)
-    return () => clearInterval(id)
-  }, [])
-
-  // "Valorar": busca un trabajo completado sin reseña con el otro usuario y
-  // abre el diálogo de valoración; si no lo hay, explica por qué no se puede.
-  const handleValorar = async () => {
-    if (!selectedConversation) return
-    const result = await obtenerTrabajoValorable(getOtherUserId(selectedConversation))
-    if (result.error || !result.data) {
-      toast({ title: "No se puede valorar todavía", description: result.error })
-      return
-    }
-    setReviewRating(5)
-    setReviewComentario("")
-    setReviewTrabajo(result.data)
-  }
-
-  const handleEnviarValoracion = async () => {
-    if (!reviewTrabajo || !selectedConversation) return
-    setReviewSubmitting(true)
-    const result = await crearResena({
-      trabajo_id: reviewTrabajo.id,
-      profesional_id: getOtherUserId(selectedConversation),
-      rating: reviewRating,
-      comentario: reviewComentario,
-    })
-    if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" })
-    } else {
-      toast({ title: "Valoración enviada", description: "Gracias por valorar a este profesional." })
-      setReviewTrabajo(null)
-    }
-    setReviewSubmitting(false)
-  }
-
-  // Si llegamos con ?c=<id>, abrir esa conversación automáticamente.
-  useEffect(() => {
-    if (autoSelectDone || loading) return
-    const convId = searchParams?.get("c")
-    if (!convId) return
-    const target = conversations.find((c) => String(c.id) === convId)
-    if (target) {
-      handleSelectConversation(target)
-      setAutoSelectDone(true)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversations, loading, searchParams, autoSelectDone])
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation) return
@@ -259,39 +277,6 @@ export default function MensajesContent() {
 
     setNewMessage("")
     setSendingMessage(false)
-  }
-
-  const getOtherUserId = (conv: Conversation) =>
-    currentUserId === conv.participante_1 ? conv.participante_2 : conv.participante_1
-
-  // Subir un archivo adjunto y enviarlo como mensaje.
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    e.target.value = "" // permitir re-seleccionar el mismo archivo
-    if (!file || !selectedConversation) return
-    setUploading(true)
-    try {
-      const formData = new FormData()
-      formData.append("file", file)
-      const res = await fetch("/api/upload", { method: "POST", body: formData })
-      if (!res.ok) throw new Error("upload failed")
-      const { url, filename, type } = await res.json()
-      const tipo: "imagen" | "archivo" = type?.startsWith("image/") ? "imagen" : "archivo"
-      const result = await enviarMensaje(selectedConversation.id, "", { tipo, url, nombre: filename })
-      if (result.error) {
-        toast({ title: "Error", description: result.error, variant: "destructive" })
-      } else if (result.data) {
-        setMessages((prev) => [...prev, result.data as Message])
-      }
-    } catch {
-      toast({
-        title: "No se pudo subir el archivo",
-        description: "Inténtalo de nuevo en unos segundos.",
-        variant: "destructive",
-      })
-    } finally {
-      setUploading(false)
-    }
   }
 
   const formatTime = (dateString?: string) => {
@@ -718,14 +703,11 @@ export default function MensajesContent() {
                               {!isOwn && !showAvatar && <div className="w-8 shrink-0" />}
 
                               <div className={cn("max-w-[70%]", isOwn ? "items-end" : "items-start")}>
-                                {/* Image message: abre la imagen a tamaño completo */}
+                                {/* Image message */}
                                 {msg.tipo === "imagen" && msg.archivo_url && (
-                                  <a
-                                    href={msg.archivo_url}
-                                    target="_blank"
-                                    rel="noreferrer"
+                                  <div
                                     className={cn(
-                                      "block rounded-2xl overflow-hidden shadow-sm mb-1 hover:opacity-90 transition",
+                                      "rounded-2xl overflow-hidden shadow-sm mb-1",
                                       isOwn ? "rounded-br-md" : "rounded-bl-md",
                                     )}
                                   >
@@ -734,21 +716,17 @@ export default function MensajesContent() {
                                       alt={msg.archivo_nombre}
                                       className="max-w-full h-auto max-h-64 object-cover"
                                     />
-                                  </a>
+                                  </div>
                                 )}
 
-                                {/* File message: enlaza al archivo real para verlo/descargarlo */}
+                                {/* File message */}
                                 {msg.tipo === "archivo" && msg.archivo_nombre && (
-                                  <a
-                                    href={msg.archivo_url || "#"}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    download={msg.archivo_nombre}
+                                  <div
                                     className={cn(
-                                      "rounded-2xl px-4 py-3 shadow-sm mb-1 flex items-center gap-3 transition hover:opacity-90",
+                                      "rounded-2xl px-4 py-3 shadow-sm mb-1 flex items-center gap-3",
                                       isOwn
                                         ? "bg-primary text-primary-foreground rounded-br-md"
-                                        : "bg-card border rounded-bl-md hover:bg-muted/50",
+                                        : "bg-card border rounded-bl-md",
                                     )}
                                   >
                                     <div
@@ -767,11 +745,10 @@ export default function MensajesContent() {
                                           isOwn ? "text-primary-foreground/70" : "text-muted-foreground",
                                         )}
                                       >
-                                        {(msg.archivo_nombre.split(".").pop() || "archivo").toUpperCase()} • Haz clic
-                                        para abrir
+                                        PDF • Haz clic para descargar
                                       </p>
                                     </div>
-                                  </a>
+                                  </div>
                                 )}
 
                                 {/* Text message */}
@@ -811,6 +788,34 @@ export default function MensajesContent() {
                         )
                       })}
 
+                      {/* Typing indicator */}
+                      {isTyping && (
+                        <div className="flex gap-2 justify-start">
+                          <Avatar className="h-8 w-8 mt-auto shrink-0">
+                            <AvatarImage src={getOtherUser(selectedConversation)?.foto_perfil || "/placeholder.svg"} />
+                            <AvatarFallback className="text-xs bg-muted">
+                              {getOtherUser(selectedConversation)?.nombre?.[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="bg-card border rounded-2xl rounded-bl-md px-4 py-3">
+                            <div className="flex gap-1">
+                              <span
+                                className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce"
+                                style={{ animationDelay: "0ms" }}
+                              />
+                              <span
+                                className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce"
+                                style={{ animationDelay: "150ms" }}
+                              />
+                              <span
+                                className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce"
+                                style={{ animationDelay: "300ms" }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       <div ref={messagesEndRef} />
                     </>
                   )}
@@ -820,34 +825,30 @@ export default function MensajesContent() {
 
               {/* Input de mensaje */}
               <div className="p-4 border-t border-border shrink-0">
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault()
-                    handleSendMessage()
-                  }}
-                  className="flex items-center gap-2"
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    className="hidden"
-                    accept="image/*,.pdf,.doc,.docx"
-                    onChange={handleFileChange}
-                  />
-                  {/* El clip abre el selector directamente en el onClick: pasar
-                      por un menú intermedio rompía la activación de usuario y
-                      Safari/iOS bloqueaba el selector de archivos. */}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    disabled={uploading}
-                    aria-label="Adjuntar archivo"
-                    className="shrink-0 h-10 w-10 text-muted-foreground"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    {uploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
-                  </Button>
+                <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+                  <input ref={fileInputRef} type="file" className="hidden" accept="image/*,.pdf,.doc,.docx" />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0 h-10 w-10 text-muted-foreground"
+                      >
+                        <Paperclip className="h-5 w-5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                        <ImageIcon className="h-4 w-4 mr-2" />
+                        Imagen
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                        <FileText className="h-4 w-4 mr-2" />
+                        Documento
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
 
                   <div className="flex-1">
                     <Input
@@ -920,31 +921,19 @@ export default function MensajesContent() {
                       {selectedConversation.rol_otro === "proveedor" ? "Proveedor" : "Cliente"}
                     </Badge>
                   )}
-                  {selectedConversation.otro_profesional && (
-                    <div className="flex items-center gap-1 mt-3 text-sm">
-                      <span className="text-amber-500">★</span>
-                      <span className="font-medium">
-                        {Number(selectedConversation.otro_profesional.rating_promedio || 0).toFixed(1)}
-                      </span>
-                      <span className="text-muted-foreground">
-                        ({selectedConversation.otro_profesional.total_reseñas || 0} reseñas)
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-1 mt-3 text-sm">
+                    <span className="text-amber-500">★</span>
+                    <span className="font-medium">4.9</span>
+                    <span className="text-muted-foreground">(127 reseñas)</span>
+                  </div>
                 </div>
 
                 {/* Acciones rápidas */}
                 <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-xs"
-                    onClick={() => router.push(`/profesional/${getOtherUserId(selectedConversation)}`)}
-                  >
+                  <Button variant="outline" size="sm" className="text-xs">
                     Ver perfil
                   </Button>
-                  <Button variant="outline" size="sm" className="text-xs" onClick={handleValorar}>
-                    <Star className="h-3.5 w-3.5 mr-1" />
+                  <Button variant="outline" size="sm" className="text-xs">
                     Valorar
                   </Button>
                 </div>
@@ -955,31 +944,22 @@ export default function MensajesContent() {
                     Acerca de
                   </h4>
                   <dl className="space-y-2.5 text-sm">
-                    {getOtherUser(selectedConversation)?.ubicacion && (
-                      <div className="flex items-center justify-between">
-                        <dt className="text-muted-foreground">Ubicación</dt>
-                        <dd className="font-medium">{getOtherUser(selectedConversation)?.ubicacion}</dd>
-                      </div>
-                    )}
-                    {getOtherUser(selectedConversation)?.created_at && (
-                      <div className="flex items-center justify-between">
-                        <dt className="text-muted-foreground">Miembro desde</dt>
-                        <dd className="font-medium">
-                          {new Date(getOtherUser(selectedConversation)!.created_at!).toLocaleDateString("es-ES", {
-                            month: "short",
-                            year: "numeric",
-                          })}
-                        </dd>
-                      </div>
-                    )}
-                    {(selectedConversation.otro_profesional?.idiomas?.length ?? 0) > 0 && (
-                      <div className="flex items-center justify-between">
-                        <dt className="text-muted-foreground">Idiomas</dt>
-                        <dd className="font-medium">
-                          {selectedConversation.otro_profesional!.idiomas!.join(", ")}
-                        </dd>
-                      </div>
-                    )}
+                    <div className="flex items-center justify-between">
+                      <dt className="text-muted-foreground">Desde</dt>
+                      <dd className="font-medium">España</dd>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <dt className="text-muted-foreground">Miembro desde</dt>
+                      <dd className="font-medium">Mar 2024</dd>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <dt className="text-muted-foreground">Tiempo respuesta</dt>
+                      <dd className="font-medium">~ 1 hora</dd>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <dt className="text-muted-foreground">Idiomas</dt>
+                      <dd className="font-medium">Español, Inglés</dd>
+                    </div>
                   </dl>
                 </div>
 
@@ -1028,54 +1008,9 @@ export default function MensajesContent() {
                         </div>
                       )}
 
-                      <Button
-                        size="sm"
-                        className="w-full text-xs h-8"
-                        onClick={() =>
-                          router.push(selectedConversation.mi_rol === "proveedor" ? "/mis-trabajos" : "/mis-solicitudes")
-                        }
-                      >
+                      <Button size="sm" className="w-full text-xs h-8">
                         Ver detalles del proyecto
                       </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Todos los proyectos con este usuario (actuales e históricos) */}
-                {proyectosCompartidos.length > 0 && (
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Proyectos con este usuario ({proyectosCompartidos.length})
-                    </h4>
-                    <div className="space-y-2">
-                      {proyectosCompartidos.map((p) => {
-                        const estados: Record<string, { label: string; cls: string }> = {
-                          pendiente_pago: { label: "Esperando pago", cls: "border-amber-500/50 text-amber-600" },
-                          en_progreso: { label: "En progreso", cls: "border-blue-500/50 text-blue-600" },
-                          entregado: { label: "Entregado", cls: "border-purple-500/50 text-purple-600" },
-                          completado: { label: "Completado", cls: "border-emerald-500/50 text-emerald-600" },
-                          cancelado: { label: "Cancelado", cls: "border-muted-foreground/50 text-muted-foreground" },
-                          rechazado: { label: "Rechazado", cls: "border-red-500/50 text-red-600" },
-                          en_disputa: { label: "En disputa", cls: "border-amber-500/50 text-amber-600" },
-                        }
-                        const e = estados[p.estado] || { label: p.estado, cls: "" }
-                        return (
-                          <div key={p.id} className="rounded-md border border-border bg-background p-2.5">
-                            <div className="flex items-center justify-between gap-2">
-                              <p className="text-xs font-medium truncate">{p.titulo}</p>
-                              <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-4 shrink-0", e.cls)}>
-                                {e.label}
-                              </Badge>
-                            </div>
-                            <div className="flex items-center justify-between mt-1 text-[11px] text-muted-foreground">
-                              <span>{new Date(p.created_at).toLocaleDateString("es-ES", { month: "short", year: "numeric" })}</span>
-                              <span className="font-medium text-foreground">
-                                {Number(p.precio_acordado || 0).toLocaleString("es-ES")}€
-                              </span>
-                            </div>
-                          </div>
-                        )
-                      })}
                     </div>
                   </div>
                 )}
@@ -1093,12 +1028,9 @@ export default function MensajesContent() {
                       .filter((m) => m.tipo === "archivo" || m.tipo === "imagen")
                       .slice(0, 3)
                       .map((m) => (
-                        <a
+                        <div
                           key={m.id}
-                          href={m.archivo_url || "#"}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex items-center gap-2 p-2 rounded-md border border-border bg-background hover:bg-muted/50 transition-colors"
+                          className="flex items-center gap-2 p-2 rounded-md border border-border bg-background hover:bg-muted/50 transition-colors cursor-pointer"
                         >
                           <div className="h-8 w-8 rounded bg-muted flex items-center justify-center shrink-0">
                             {m.tipo === "imagen" ? (
@@ -1115,7 +1047,7 @@ export default function MensajesContent() {
                               {formatMessageTime(m.created_at)}
                             </p>
                           </div>
-                        </a>
+                        </div>
                       ))}
                     {messages.filter((m) => m.tipo === "archivo" || m.tipo === "imagen").length === 0 && (
                       <p className="text-xs text-muted-foreground text-center py-3">
@@ -1129,62 +1061,6 @@ export default function MensajesContent() {
           </aside>
         )}
       </div>
-
-      {/* Valorar al profesional desde el chat */}
-      <Dialog open={!!reviewTrabajo} onOpenChange={(o) => !o && setReviewTrabajo(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Valorar al profesional</DialogTitle>
-            <DialogDescription>
-              Valora el trabajo "{reviewTrabajo?.titulo || "completado"}". Tu opinión ayuda a otros clientes.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-6 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Puntuación</label>
-              <div className="flex items-center justify-center gap-2">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    type="button"
-                    onMouseEnter={() => setReviewHover(star)}
-                    onMouseLeave={() => setReviewHover(0)}
-                    onClick={() => setReviewRating(star)}
-                    className="transition-transform hover:scale-110"
-                  >
-                    <Star
-                      className={cn(
-                        "h-8 w-8 transition-colors",
-                        star <= (reviewHover || reviewRating)
-                          ? "fill-amber-500 text-amber-500"
-                          : "text-muted-foreground",
-                      )}
-                    />
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Comentario</label>
-              <Textarea
-                placeholder="Describe tu experiencia con este profesional..."
-                value={reviewComentario}
-                onChange={(e) => setReviewComentario(e.target.value)}
-                rows={4}
-              />
-            </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" className="bg-transparent" onClick={() => setReviewTrabajo(null)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleEnviarValoracion} disabled={reviewSubmitting || !reviewComentario.trim()}>
-              {reviewSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-              Enviar valoración
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

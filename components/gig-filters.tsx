@@ -9,19 +9,79 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { MapPin } from "lucide-react"
 import type { ProfesionalesFiltros } from "@/components/profesionales-content"
-import { PROVINCIAS_ES } from "@/lib/provincias"
-import { CATEGORIAS_SERVICIO } from "@/lib/categorias"
 
-// Re-exportada por compatibilidad con quien ya la importe desde aquí.
-export { PROVINCIAS_ES }
-
-const categories = CATEGORIAS_SERVICIO
+const categories = [
+  { id: "albanileria", label: "Albañilería" },
+  { id: "fontaneria", label: "Fontanería" },
+  { id: "electricidad", label: "Electricidad" },
+  { id: "pintura", label: "Pintura" },
+  { id: "carpinteria", label: "Carpintería" },
+  { id: "climatizacion", label: "Climatización" },
+  { id: "jardineria", label: "Jardinería" },
+  { id: "cerrajeria", label: "Cerrajería" },
+  { id: "arquitectura", label: "Arquitectura" },
+]
 
 const levels = [
   { id: "any", label: "Cualquier Nivel" },
   { id: "certificado", label: "Profesional Certificado" },
   { id: "experto", label: "Experto Verificado" },
   { id: "maestro", label: "Maestro Artesano" },
+]
+
+export const PROVINCIAS_ES = [
+  "A Coruña",
+  "Álava",
+  "Albacete",
+  "Alicante",
+  "Almería",
+  "Asturias",
+  "Ávila",
+  "Badajoz",
+  "Barcelona",
+  "Burgos",
+  "Cáceres",
+  "Cádiz",
+  "Cantabria",
+  "Castellón",
+  "Ceuta",
+  "Ciudad Real",
+  "Córdoba",
+  "Cuenca",
+  "Girona",
+  "Granada",
+  "Guadalajara",
+  "Gipuzkoa",
+  "Huelva",
+  "Huesca",
+  "Illes Balears",
+  "Jaén",
+  "La Rioja",
+  "Las Palmas",
+  "León",
+  "Lleida",
+  "Lugo",
+  "Madrid",
+  "Málaga",
+  "Melilla",
+  "Murcia",
+  "Navarra",
+  "Ourense",
+  "Palencia",
+  "Pontevedra",
+  "Salamanca",
+  "Santa Cruz de Tenerife",
+  "Segovia",
+  "Sevilla",
+  "Soria",
+  "Tarragona",
+  "Teruel",
+  "Toledo",
+  "Valencia",
+  "Valladolid",
+  "Bizkaia",
+  "Zamora",
+  "Zaragoza",
 ]
 
 const radios = [

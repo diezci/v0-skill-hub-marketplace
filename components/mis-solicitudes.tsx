@@ -3,12 +3,11 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { formatearPrecioEuros, formatearRangoPresupuesto } from "@/lib/utils"
+import { formatearPrecioEuros } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { Textarea } from "@/components/ui/textarea"
-import { Input } from "@/components/ui/input"
 import { Slider } from "@/components/ui/slider"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -16,16 +15,12 @@ import { Separator } from "@/components/ui/separator"
 import { 
   Clock, CheckCircle2, XCircle, Loader2, Calendar, MapPin, Euro, MessageSquare, FileText,
   CreditCard, AlertCircle, Send, Check, Star, ChevronRight, ArrowRight, Package,
-  Banknote, ShieldCheck, Timer, TrendingUp, User, Building, Eye, Pencil, Trash2, Scale
+  Banknote, ShieldCheck, Timer, TrendingUp, User, Building, Eye
 } from "lucide-react"
-import { obtenerSolicitudesPorUsuario, actualizarSolicitud, eliminarSolicitud } from "@/app/actions/solicitudes"
-import { aceptarOferta, rechazarOferta } from "@/app/actions/ofertas"
-import { crearConversacion } from "@/app/actions/messages"
+import { obtenerSolicitudesPorUsuario } from "@/app/actions/solicitudes"
 import { crearTransaccionEscrow, liberarFondosEscrow, rechazarTrabajoYReembolsar } from "@/app/actions/escrow"
 import { obtenerMisTrabajos, actualizarProgresoTrabajo, marcarTrabajoEntregado, confirmarTrabajoCompletado } from "@/app/actions/trabajos"
 import { crearResena } from "@/app/actions/reviews"
-import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
-import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
 import { calcularTotalCliente, calcularReembolsoCliente, PLATFORM_CONFIG } from "@/lib/comisiones"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
@@ -49,9 +44,130 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
-// Tarjeta-resumen clicable: hover y anillo cuando su pestaña está activa.
-const cnCard = (base: string, activa: boolean) =>
-  `${base} w-full transition hover:shadow-md ${activa ? "ring-2 ring-primary/50" : ""}`
+// Mock data for demonstration
+const MOCK_SOLICITUDES = [
+  {
+    id: "mock-1",
+    titulo: "Mesa de mármol a medida",
+    descripcion: "Necesito una mesa de mármol blanco Carrara de 180x90cm para el salón. Preferiblemente con base de acero inoxidable.",
+    categoria: { nombre: "Marmolista" },
+    ubicacion: "Madrid, España",
+    presupuesto_min: 2000,
+    presupuesto_max: 4000,
+    created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    urgencia: "media",
+    estado: "pendiente",
+    ofertas: [
+      {
+        id: "oferta-1",
+        profesional_id: "prof-1",
+        profesional: {
+          nombre: "Antonio",
+          apellido: "García",
+          foto_perfil: "/professional-man-construction.jpg",
+          rating: 4.9,
+          trabajos_completados: 127,
+        },
+        precio: 3200,
+        tiempo_estimado: 21,
+        unidad_tiempo: "días",
+        descripcion: "Mesa de mármol Carrara de primera calidad con acabado pulido mate. Base de acero inoxidable cepillado. Incluye transporte e instalación.",
+        estado: "pendiente",
+        created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        id: "oferta-2",
+        profesional_id: "prof-2",
+        profesional: {
+          nombre: "María",
+          apellido: "López",
+          foto_perfil: "/professional-woman.png",
+          rating: 4.7,
+          trabajos_completados: 89,
+        },
+        precio: 2800,
+        tiempo_estimado: 18,
+        unidad_tiempo: "días",
+        descripcion: "Fabricación artesanal con mármol Carrara importado. Estructura de acero con acabado negro mate. 2 años de garantía.",
+        estado: "pendiente",
+        created_at: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
+      },
+    ],
+  },
+  {
+    id: "mock-2",
+    titulo: "Reforma completa de baño",
+    descripcion: "Reforma integral del baño principal: cambio de azulejos, sanitarios, plato de ducha y mampara. Superficie aproximada 6m².",
+    categoria: { nombre: "Albañil" },
+    ubicacion: "Barcelona, España",
+    presupuesto_min: 4000,
+    presupuesto_max: 6000,
+    created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+    urgencia: "alta",
+    estado: "en-progreso",
+    trabajo: {
+      id: "trabajo-1",
+      estado: "en_progreso",
+      progreso: 65,
+      precio_acordado: 5200,
+      fecha_inicio: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+      fecha_estimada_fin: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+      profesional: {
+        nombre: "Carlos",
+        apellido: "Martínez",
+        foto_perfil: "/contractor-man.jpg",
+        rating: 4.8,
+      },
+      escrow: {
+        estado: "fondos_retenidos",
+        monto: 5200,
+      },
+      actualizaciones: [
+        { fecha: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(), mensaje: "Demolición completada", progreso: 20 },
+        { fecha: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(), mensaje: "Fontanería nueva instalada", progreso: 40 },
+        { fecha: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), mensaje: "Azulejos colocados al 80%", progreso: 65 },
+      ]
+    },
+    ofertas: [],
+  },
+  {
+    id: "mock-3",
+    titulo: "Instalación de aire acondicionado",
+    descripcion: "Instalar 2 splits de aire acondicionado en salón y dormitorio principal.",
+    categoria: { nombre: "Instalador" },
+    ubicacion: "Valencia, España",
+    presupuesto_min: 1500,
+    presupuesto_max: 2500,
+    created_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+    urgencia: "baja",
+    estado: "en-progreso",
+    trabajo: {
+      id: "trabajo-2",
+      estado: "entregado",
+      progreso: 100,
+      precio_acordado: 1800,
+      fecha_inicio: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+      fecha_estimada_fin: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+      fecha_entrega: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+      profesional: {
+        nombre: "Pedro",
+        apellido: "Sánchez",
+        foto_perfil: "/electrician-man.jpg",
+        rating: 4.6,
+      },
+      escrow: {
+        id: "escrow-2",
+        estado: "fondos_retenidos",
+        monto: 1800,
+      },
+      actualizaciones: [
+        { fecha: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), mensaje: "Equipos instalados", progreso: 80 },
+        { fecha: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), mensaje: "Trabajo completado. Equipos funcionando correctamente.", progreso: 100 },
+      ]
+    },
+    ofertas: [],
+  },
+]
 
 export default function MisSolicitudes() {
   const [activeTab, setActiveTab] = useState("solicitudes")
@@ -68,155 +184,38 @@ export default function MisSolicitudes() {
   const [reviewHover, setReviewHover] = useState(0)
   const [rejectReason, setRejectReason] = useState("")
   const [actionLoading, setActionLoading] = useState(false)
-  const [editSolicitud, setEditSolicitud] = useState<any>(null)
-  const [editForm, setEditForm] = useState({
-    titulo: "",
-    descripcion: "",
-    ubicacion: "",
-    presupuesto_min: "",
-    presupuesto_max: "",
-    urgencia: "media",
-  })
-  const [deleteSolicitud, setDeleteSolicitud] = useState<any>(null)
-  const [rejectOfertaTarget, setRejectOfertaTarget] = useState<any>(null)
-  // Confirmación al aceptar una oferta: informa de los gastos de servicio
-  // de Diime antes de continuar al pago.
-  const [acceptOfertaTarget, setAcceptOfertaTarget] = useState<{ oferta: any; solicitud: any } | null>(null)
   const { toast } = useToast()
   const router = useRouter()
 
-  const refrescarSolicitudes = async () => {
-    const result = await obtenerSolicitudesPorUsuario()
-    if (result.data) setSolicitudes(result.data)
-  }
-
-  const abrirEditar = (solicitud: any) => {
-    setEditForm({
-      titulo: solicitud.titulo || "",
-      descripcion: solicitud.descripcion || "",
-      ubicacion: solicitud.ubicacion || "",
-      presupuesto_min: solicitud.presupuesto_min?.toString() || "",
-      presupuesto_max: solicitud.presupuesto_max?.toString() || "",
-      urgencia: solicitud.urgencia || "media",
-    })
-    setEditSolicitud(solicitud)
-  }
-
-  const handleGuardarEdicion = async () => {
-    if (!editSolicitud) return
-    if (!editForm.titulo.trim() || editForm.descripcion.trim().length < 10) {
-      toast({ title: "Faltan datos", description: "Añade un título y una descripción (mín. 10 caracteres).", variant: "destructive" })
-      return
-    }
-    setActionLoading(true)
-    const result = await actualizarSolicitud(editSolicitud.id, {
-      titulo: editForm.titulo,
-      descripcion: editForm.descripcion,
-      ubicacion: editForm.ubicacion,
-      presupuesto_min: editForm.presupuesto_min ? Number.parseFloat(editForm.presupuesto_min) : undefined,
-      presupuesto_max: editForm.presupuesto_max ? Number.parseFloat(editForm.presupuesto_max) : undefined,
-      urgencia: editForm.urgencia,
-    })
-    if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" })
-    } else {
-      toast({ title: "Demanda actualizada", description: "Los cambios se han guardado." })
-      setEditSolicitud(null)
-      await refrescarSolicitudes()
-    }
-    setActionLoading(false)
-  }
-
-  const handleContactar = async (otroUsuarioId: string, solicitudId?: string, trabajoId?: string) => {
-    if (!otroUsuarioId) {
-      toast({ title: "No disponible", description: "No se pudo identificar al destinatario.", variant: "destructive" })
-      return
-    }
-    toast({ title: "Abriendo chat...", description: "Preparando la conversación." })
-    const result = await crearConversacion({ otroUsuarioId, solicitudId, trabajoId })
-    if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" })
-    } else {
-      router.push(result.data?.id ? `/mensajes?c=${result.data.id}` : "/mensajes")
-    }
-  }
-
-  const handleBorrar = async () => {
-    if (!deleteSolicitud) return
-    setActionLoading(true)
-    const result = await eliminarSolicitud(deleteSolicitud.id)
-    if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" })
-    } else {
-      toast({ title: "Demanda borrada", description: "La demanda se ha eliminado." })
-      setDeleteSolicitud(null)
-      await refrescarSolicitudes()
-    }
-    setActionLoading(false)
-  }
-
   useEffect(() => {
-    async function cargarDatos(inicial: boolean) {
-      if (inicial) setLoading(true)
-
+    async function cargarDatos() {
+      setLoading(true)
+      
       const [solicitudesResult, trabajosResult] = await Promise.all([
         obtenerSolicitudesPorUsuario(),
         obtenerMisTrabajos()
       ])
-
-      // Solo datos reales (aunque estén vacíos): nada de datos de ejemplo.
+      
+      // Private areas must only show the authenticated user's real data.
       setSolicitudes(solicitudesResult.data || [])
-
+      
       if (trabajosResult.data) {
         setTrabajos(trabajosResult.data)
       }
-
-      if (inicial) setLoading(false)
+      
+      setLoading(false)
     }
-    cargarDatos(true)
-
-    // Refresco en vivo: las ofertas nuevas y los cambios de estado (entregas,
-    // cancelaciones...) aparecen sin recargar la página.
-    const id = setInterval(() => {
-      if (document.visibilityState !== "visible") return
-      cargarDatos(false)
-    }, 15000)
-    return () => clearInterval(id)
+    cargarDatos()
   }, [])
 
   const handleAceptarOferta = async (oferta: any, solicitud: any) => {
     toast({
       title: "Procesando...",
-      description: "Creando el trabajo y preparando el pago seguro",
+      description: "Creando transacción de pago seguro",
     })
-
-    // Crear el trabajo a partir de la oferta y redirigir a la pasarela de pago escrow.
-    const result = await aceptarOferta(oferta.id)
-
-    if (result.error || !result.data?.id) {
-      toast({
-        title: "No se pudo aceptar la oferta",
-        description: result.error || "Inténtalo de nuevo.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    router.push(`/pago/${result.data.id}`)
-  }
-
-  const handleRechazarOferta = async () => {
-    if (!rejectOfertaTarget) return
-    setActionLoading(true)
-    const result = await rechazarOferta(rejectOfertaTarget.id)
-    if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" })
-    } else {
-      toast({ title: "Oferta rechazada", description: "El profesional ha sido notificado." })
-      setRejectOfertaTarget(null)
-      await refrescarSolicitudes()
-    }
-    setActionLoading(false)
+    
+    // In real implementation, this would create the escrow and redirect to payment
+    router.push(`/pago?oferta=${oferta.id}`)
   }
 
   const handleConfirmarTrabajo = async (trabajo: any) => {
@@ -231,9 +230,9 @@ export default function MisSolicitudes() {
       })
       setActionLoading(false)
     } else {
-      // Release escrow funds (liberarFondosEscrow espera el id del trabajo)
+      // Release escrow funds
       if (trabajo.escrow?.id) {
-        await liberarFondosEscrow(trabajo.id)
+        await liberarFondosEscrow(trabajo.escrow.id)
       }
       
       toast({
@@ -270,9 +269,10 @@ export default function MisSolicitudes() {
         variant: "destructive",
       })
     } else {
+      const reembolso = result.data
       toast({
         title: "Trabajo rechazado",
-        description: `Se te reembolsaran ${result.reembolso?.toFixed(2) || ""}EUR. La comision de la plataforma (${PLATFORM_CONFIG.comisionClientePorcentaje}%) no es reembolsable.`,
+        description: `Se te reembolsaran ${reembolso?.monto_reembolsado?.toFixed(2) || ""}EUR. La comision de la plataforma (${PLATFORM_CONFIG.comisionClientePorcentaje}%) no es reembolsable.`,
       })
       setShowRejectDialog(false)
       setSelectedTrabajo(null)
@@ -340,14 +340,12 @@ export default function MisSolicitudes() {
   }
 
   // DB statuses: "abierta" | "en_progreso" | "completada" | "cerrada"
+  // Mock data uses "pendiente" | "en-progreso" | "completado" — accept both.
   const solicitudesPendientes = solicitudes.filter(
     (s) => s.estado === "abierta" || s.estado === "pendiente",
   )
-  // Entregados y a la espera de que el cliente confirme: pestaña propia.
-  const solicitudesPorConfirmar = solicitudes.filter((s) => s.trabajo?.estado === "entregado")
   const solicitudesEnProgreso = solicitudes.filter(
-    (s) =>
-      (s.estado === "en_progreso" || s.estado === "en-progreso") && s.trabajo?.estado !== "entregado",
+    (s) => s.estado === "en_progreso" || s.estado === "en-progreso",
   )
   const solicitudesCompletadas = solicitudes.filter(
     (s) => s.estado === "completado" || s.estado === "completada" || s.estado === "cerrada",
@@ -363,44 +361,28 @@ export default function MisSolicitudes() {
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards: mismos estados (y orden) que las pestañas, y clicables
-          para saltar directamente a la pestaña correspondiente. */}
+      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <button type="button" className="text-left" onClick={() => setActiveTab("solicitudes")}>
-        <Card
-          className={cnCard(
-            "bg-gradient-to-br from-amber-500/10 to-amber-600/5 border-amber-500/20",
-            activeTab === "solicitudes",
-          )}
-        >
+        <Card className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border-amber-500/20">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Abiertas</p>
+                <p className="text-sm text-muted-foreground">Esperando ofertas</p>
                 <p className="text-3xl font-bold">{solicitudesPendientes.length}</p>
-                <p className="text-xs text-muted-foreground">esperando ofertas</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-amber-500/20 flex items-center justify-center">
-                <FileText className="h-6 w-6 text-amber-500" />
+                <Clock className="h-6 w-6 text-amber-500" />
               </div>
             </div>
           </CardContent>
         </Card>
-        </button>
-
-        <button type="button" className="text-left" onClick={() => setActiveTab("en-progreso")}>
-        <Card
-          className={cnCard(
-            "bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20",
-            activeTab === "en-progreso",
-          )}
-        >
+        
+        <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">En Progreso</p>
+                <p className="text-sm text-muted-foreground">En progreso</p>
                 <p className="text-3xl font-bold">{solicitudesEnProgreso.length}</p>
-                <p className="text-xs text-muted-foreground">trabajos en curso</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-blue-500/20 flex items-center justify-center">
                 <TrendingUp className="h-6 w-6 text-blue-500" />
@@ -408,43 +390,13 @@ export default function MisSolicitudes() {
             </div>
           </CardContent>
         </Card>
-        </button>
-
-        <button type="button" className="text-left" onClick={() => setActiveTab("por-confirmar")}>
-        <Card
-          className={cnCard(
-            "bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20",
-            activeTab === "por-confirmar",
-          )}
-        >
+        
+        <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border-emerald-500/20">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Por Confirmar</p>
-                <p className="text-3xl font-bold">{solicitudesPorConfirmar.length}</p>
-                <p className="text-xs text-muted-foreground">entregas por revisar</p>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-purple-500/20 flex items-center justify-center">
-                <Package className="h-6 w-6 text-purple-500" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        </button>
-
-        <button type="button" className="text-left" onClick={() => setActiveTab("historial")}>
-        <Card
-          className={cnCard(
-            "bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border-emerald-500/20",
-            activeTab === "historial",
-          )}
-        >
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Historial</p>
+                <p className="text-sm text-muted-foreground">Completados</p>
                 <p className="text-3xl font-bold">{solicitudesCompletadas.length}</p>
-                <p className="text-xs text-muted-foreground">completados</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
                 <CheckCircle2 className="h-6 w-6 text-emerald-500" />
@@ -452,28 +404,34 @@ export default function MisSolicitudes() {
             </div>
           </CardContent>
         </Card>
-        </button>
+        
+        <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Pendiente confirmar</p>
+                <p className="text-3xl font-bold">
+                  {solicitudes.filter(s => s.trabajo?.estado === "entregado").length}
+                </p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-purple-500/20 flex items-center justify-center">
+                <Package className="h-6 w-6 text-purple-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="solicitudes" className="gap-2">
             <FileText className="h-4 w-4" />
-            Abiertas
+            Mis Solicitudes
           </TabsTrigger>
           <TabsTrigger value="en-progreso" className="gap-2">
             <Loader2 className="h-4 w-4" />
             En Progreso
-          </TabsTrigger>
-          <TabsTrigger value="por-confirmar" className="gap-2">
-            <Package className="h-4 w-4" />
-            Por Confirmar
-            {solicitudesPorConfirmar.length > 0 && (
-              <span className="h-4 min-w-4 px-1 rounded-full bg-purple-500 text-white text-[10px] font-bold flex items-center justify-center">
-                {solicitudesPorConfirmar.length}
-              </span>
-            )}
           </TabsTrigger>
           <TabsTrigger value="historial" className="gap-2">
             <CheckCircle2 className="h-4 w-4" />
@@ -497,14 +455,7 @@ export default function MisSolicitudes() {
               </CardContent>
             </Card>
           ) : (
-            solicitudesPendientes.map((solicitud) => {
-              // Solo mostramos ofertas pendientes de respuesta: las rechazadas
-              // desaparecen de la vista y las aceptadas pasan a "En Progreso".
-              // (mismo criterio que usa mis-ofertas.tsx del lado profesional)
-              const ofertasPendientes = (solicitud.ofertas || []).filter(
-                (o: any) => !["aceptada", "rechazada", "retirada"].includes(o.estado),
-              )
-              return (
+            solicitudesPendientes.map((solicitud) => (
               <Card key={solicitud.id} className="overflow-hidden">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
@@ -526,127 +477,48 @@ export default function MisSolicitudes() {
                         {solicitud.categoria?.nombre}
                       </Badge>
                       <p className="text-lg font-semibold text-primary">
-                        {formatearRangoPresupuesto(solicitud.presupuesto_min, solicitud.presupuesto_max)}
+                        {formatearPrecioEuros(solicitud.presupuesto_min)} - {formatearPrecioEuros(solicitud.presupuesto_max)}
                       </p>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  {/* Oferta aceptada con el pago sin completar (p. ej. abandonó la
-                      pasarela): la demanda sigue abierta y desde aquí se retoma el
-                      pago. Hasta pagar, nada se consuma. */}
-                  {solicitud.trabajo?.estado === "pendiente_pago" && (
-                    <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
-                      <div className="flex items-start gap-3">
-                        <CreditCard className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
-                        <div>
-                          <p className="font-semibold text-amber-700 dark:text-amber-400">
-                            Has aceptado la oferta de {solicitud.trabajo?.profesional?.nombre || "un profesional"}
-                            {" — "}falta completar el pago
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            La contratación no se cierra hasta que completes el pago protegido. Mientras tanto,
-                            las demás ofertas siguen disponibles.
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        className="bg-emerald-600 hover:bg-emerald-700 shrink-0"
-                        onClick={() => router.push(`/pago/${solicitud.trabajo.id}`)}
-                      >
-                        <CreditCard className="h-4 w-4 mr-2" />
-                        Pagar ahora
-                      </Button>
-                    </div>
-                  )}
-
                   <p className="text-sm text-muted-foreground mb-4">{solicitud.descripcion}</p>
-
-                  {/* Archivos que el cliente adjuntó al publicar la demanda */}
-                  {Array.isArray(solicitud.archivos) && solicitud.archivos.length > 0 && (
-                    <div className="mb-4">
-                      <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
-                        <FileText className="h-3.5 w-3.5" /> Archivos adjuntos ({solicitud.archivos.length})
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {solicitud.archivos.map((url: string, i: number) =>
-                          /\.(png|jpe?g|gif|webp)(\?|$)/i.test(url) ? (
-                            <a key={i} href={url} target="_blank" rel="noreferrer">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={url}
-                                alt={`Adjunto ${i + 1}`}
-                                className="h-16 w-16 rounded-md object-cover border hover:opacity-80 transition"
-                              />
-                            </a>
-                          ) : (
-                            <a
-                              key={i}
-                              href={url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted transition"
-                            >
-                              <FileText className="h-3.5 w-3.5" />
-                              {decodeURIComponent(url.split("/").pop()?.split("?")[0] || `Archivo ${i + 1}`)}
-                            </a>
-                          ),
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex gap-2 mb-4">
-                    <Button variant="outline" size="sm" className="bg-transparent" onClick={() => abrirEditar(solicitud)}>
-                      <Pencil className="h-4 w-4 mr-1.5" />
-                      Editar
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="bg-transparent text-destructive border-destructive/40 hover:bg-destructive/10"
-                      onClick={() => setDeleteSolicitud(solicitud)}
-                    >
-                      <Trash2 className="h-4 w-4 mr-1.5" />
-                      Borrar
-                    </Button>
-                  </div>
-
+                  
                   {/* Ofertas recibidas */}
-                  {ofertasPendientes.length > 0 ? (
+                  {solicitud.ofertas && solicitud.ofertas.length > 0 ? (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <h4 className="font-semibold flex items-center gap-2">
                           <MessageSquare className="h-4 w-4" />
-                          {ofertasPendientes.length} oferta{ofertasPendientes.length !== 1 ? "s" : ""} recibida{ofertasPendientes.length !== 1 ? "s" : ""}
+                          {solicitud.ofertas.length} oferta{solicitud.ofertas.length !== 1 ? "s" : ""} recibida{solicitud.ofertas.length !== 1 ? "s" : ""}
                         </h4>
                       </div>
-
+                      
                       <div className="grid gap-3">
-                        {ofertasPendientes.map((oferta: any) => (
+                        {solicitud.ofertas.map((oferta: any) => (
                           <Card key={oferta.id} className="bg-muted/50">
                             <CardContent className="p-4">
                               <div className="flex items-start gap-4">
                                 <Avatar className="h-12 w-12">
-                                  <AvatarImage src={oferta.profesional?.profiles?.foto_perfil || "/placeholder.svg"} />
+                                  <AvatarImage src={oferta.profesional?.foto_perfil || "/placeholder.svg"} />
                                   <AvatarFallback>
-                                    {oferta.profesional?.profiles?.nombre?.[0]}{oferta.profesional?.profiles?.apellido?.[0]}
+                                    {oferta.profesional?.nombre?.[0]}{oferta.profesional?.apellido?.[0]}
                                   </AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-start justify-between gap-2">
                                     <div>
                                       <p className="font-semibold">
-                                        {oferta.profesional?.profiles?.nombre} {oferta.profesional?.profiles?.apellido}
+                                        {oferta.profesional?.nombre} {oferta.profesional?.apellido}
                                       </p>
                                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                        {oferta.profesional?.rating_promedio != null && (
-                                          <span className="flex items-center gap-1">
-                                            <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
-                                            {Number(oferta.profesional.rating_promedio).toFixed(1)}
-                                          </span>
-                                        )}
-                                        {oferta.profesional?.titulo && <span>{oferta.profesional.titulo}</span>}
+                                        <span className="flex items-center gap-1">
+                                          <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
+                                          {oferta.profesional?.rating || 4.5}
+                                        </span>
+                                        <span>•</span>
+                                        <span>{oferta.profesional?.trabajos_completados || 50} trabajos</span>
                                       </div>
                                     </div>
                                     <div className="text-right">
@@ -657,77 +529,19 @@ export default function MisSolicitudes() {
                                     </div>
                                   </div>
                                   <p className="text-sm mt-2 text-muted-foreground">{oferta.descripcion}</p>
-                                  {oferta.materiales_incluidos && (
-                                    <p className="text-sm text-muted-foreground mt-1">
-                                      <span className="font-medium text-foreground">Materiales:</span>{" "}
-                                      {oferta.materiales_incluidos === "si"
-                                        ? "incluidos"
-                                        : oferta.materiales_incluidos === "no"
-                                          ? "no incluidos"
-                                          : oferta.materiales_incluidos === "parcial"
-                                            ? "parcialmente incluidos"
-                                            : oferta.materiales_incluidos}
-                                    </p>
-                                  )}
-                                  {Array.isArray(oferta.archivos) && oferta.archivos.length > 0 && (
-                                    <div className="mt-3">
-                                      <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
-                                        <FileText className="h-3.5 w-3.5" /> Archivos adjuntos ({oferta.archivos.length})
-                                      </p>
-                                      <div className="flex flex-wrap gap-2">
-                                        {oferta.archivos.map((url: string, i: number) =>
-                                          /\.(png|jpe?g|gif|webp)(\?|$)/i.test(url) ? (
-                                            <a key={i} href={url} target="_blank" rel="noreferrer">
-                                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                                              <img
-                                                src={url}
-                                                alt={`Adjunto ${i + 1}`}
-                                                className="h-16 w-16 rounded-md object-cover border hover:opacity-80 transition"
-                                              />
-                                            </a>
-                                          ) : (
-                                            <a
-                                              key={i}
-                                              href={url}
-                                              target="_blank"
-                                              rel="noreferrer"
-                                              className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted transition"
-                                            >
-                                              <FileText className="h-3.5 w-3.5" />
-                                              {decodeURIComponent(url.split("/").pop()?.split("?")[0] || `Archivo ${i + 1}`)}
-                                            </a>
-                                          ),
-                                        )}
-                                      </div>
-                                    </div>
-                                  )}
-                                  <div className="flex flex-wrap gap-2 mt-3">
-                                    <Button
-                                      size="sm"
-                                      onClick={() => setAcceptOfertaTarget({ oferta, solicitud })}
+                                  <div className="flex gap-2 mt-3">
+                                    <Button 
+                                      size="sm" 
+                                      onClick={() => handleAceptarOferta(oferta, solicitud)}
                                     >
                                       <Check className="h-4 w-4 mr-1" />
                                       Aceptar Oferta
                                     </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="bg-transparent text-destructive border-destructive/40 hover:bg-destructive/10"
-                                      onClick={() => setRejectOfertaTarget(oferta)}
-                                    >
-                                      <XCircle className="h-4 w-4 mr-1" />
-                                      Rechazar
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="bg-transparent"
-                                      onClick={() => handleContactar(oferta.profesional_id, solicitud.id)}
-                                    >
+                                    <Button size="sm" variant="outline" className="bg-transparent">
                                       <MessageSquare className="h-4 w-4 mr-1" />
                                       Contactar
                                     </Button>
-                                    <Button size="sm" variant="ghost" onClick={() => router.push(`/profesional/${oferta.profesional_id}`)}>
+                                    <Button size="sm" variant="ghost">
                                       <Eye className="h-4 w-4 mr-1" />
                                       Ver Perfil
                                     </Button>
@@ -739,9 +553,7 @@ export default function MisSolicitudes() {
                         ))}
                       </div>
                     </div>
-                  ) : solicitud.trabajo?.estado === "pendiente_pago" ? null : (
-                    // Con una oferta aceptada pendiente de pago, el banner de arriba
-                    // ya lo cuenta todo: "no has recibido ofertas" sería contradictorio.
+                  ) : (
                     <div className="bg-muted/50 rounded-lg p-4 text-center">
                       <Clock className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                       <p className="text-sm text-muted-foreground">
@@ -751,39 +563,24 @@ export default function MisSolicitudes() {
                   )}
                 </CardContent>
               </Card>
-              )
-            })
+            ))
           )}
         </TabsContent>
 
-        {/* Pestañas "En Progreso" y "Por Confirmar": comparten la misma tarjeta
-            de proyecto, cambian la lista y el estado vacío. */}
-        {(["en-progreso", "por-confirmar"] as const).map((tab) => {
-          const lista = tab === "en-progreso" ? solicitudesEnProgreso : solicitudesPorConfirmar
-          return (
-        <TabsContent key={tab} value={tab} className="space-y-4">
-          {lista.length === 0 ? (
+        {/* En Progreso Tab */}
+        <TabsContent value="en-progreso" className="space-y-4">
+          {solicitudesEnProgreso.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
-                {tab === "en-progreso" ? (
-                  <Loader2 className="h-12 w-12 text-muted-foreground mb-4" />
-                ) : (
-                  <Package className="h-12 w-12 text-muted-foreground mb-4" />
-                )}
-                <p className="text-lg font-medium">
-                  {tab === "en-progreso"
-                    ? "No tienes proyectos en progreso"
-                    : "No tienes entregas pendientes de confirmar"}
-                </p>
+                <Loader2 className="h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-lg font-medium">No tienes proyectos en progreso</p>
                 <p className="text-muted-foreground text-center mt-1">
-                  {tab === "en-progreso"
-                    ? "Cuando aceptes una oferta, el proyecto aparecerá aquí"
-                    : "Cuando un profesional te entregue un trabajo, aquí podrás confirmarlo y liberar el pago"}
+                  Cuando aceptes una oferta, el proyecto aparecerá aquí
                 </p>
               </CardContent>
             </Card>
           ) : (
-            lista.map((solicitud) => {
+            solicitudesEnProgreso.map((solicitud) => {
               const trabajo = solicitud.trabajo
               const diasRestantes = trabajo?.fecha_estimada_fin 
                 ? calcularDiasRestantes(trabajo.fecha_estimada_fin)
@@ -809,21 +606,12 @@ export default function MisSolicitudes() {
                       </div>
                       <div className="text-right">
                         <p className="text-2xl font-bold">{formatearPrecioEuros(trabajo?.precio_acordado)}</p>
-                        {pagado ? (
+                        {pagado && (
                           <Badge variant="outline" className="bg-transparent text-emerald-500 border-emerald-500/50">
                             <ShieldCheck className="h-3 w-3 mr-1" />
-                            Pagado · Protegido
+                            Pago Protegido
                           </Badge>
-                        ) : trabajo?.estado === "pendiente_pago" ? (
-                          <Badge variant="outline" className="bg-transparent text-amber-500 border-amber-500/50">
-                            <CreditCard className="h-3 w-3 mr-1" />
-                            Pendiente de pago
-                          </Badge>
-                        ) : trabajo?.escrow?.estado === "reembolsado" ? (
-                          <Badge variant="outline" className="bg-transparent text-blue-500 border-blue-500/50">
-                            Reembolsado
-                          </Badge>
-                        ) : null}
+                        )}
                       </div>
                     </div>
                   </CardHeader>
@@ -845,113 +633,11 @@ export default function MisSolicitudes() {
                           <span>{trabajo?.profesional?.rating}</span>
                         </div>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="bg-transparent"
-                        onClick={() => handleContactar(trabajo?.profesional_id, solicitud.id, trabajo?.id)}
-                      >
+                      <Button variant="outline" size="sm" className="bg-transparent">
                         <MessageSquare className="h-4 w-4 mr-1" />
                         Mensaje
                       </Button>
                     </div>
-
-                    {/* Trabajo sin pagar (p. ej. el cliente abandonó la pasarela):
-                        siempre debe poder retomar el pago desde aquí. */}
-                    {trabajo?.estado === "pendiente_pago" && (
-                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
-                        <div className="flex items-start gap-3">
-                          <CreditCard className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
-                          <div>
-                            <p className="font-semibold text-amber-700 dark:text-amber-400">Pago pendiente</p>
-                            <p className="text-sm text-muted-foreground">
-                              El trabajo no empezará hasta que completes el pago protegido.
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          className="bg-emerald-600 hover:bg-emerald-700 shrink-0"
-                          onClick={() => router.push(`/pago/${trabajo.id}`)}
-                        >
-                          <CreditCard className="h-4 w-4 mr-2" />
-                          Pagar ahora
-                        </Button>
-                      </div>
-                    )}
-
-                    {/* Cancelación de mutuo acuerdo (antes del pago o en curso) */}
-                    {["pendiente_pago", "en_progreso"].includes(trabajo?.estado) && (
-                      <CancelacionTrabajo trabajo={trabajo} onChange={refrescarSolicitudes} />
-                    )}
-
-                    {/* Condiciones y adjuntos de la oferta aceptada + documentos */}
-                    {trabajo && (
-                      <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
-                        <p className="text-sm font-medium">Contratación</p>
-                        {trabajo.oferta?.materiales_incluidos && (
-                          <p className="text-sm text-muted-foreground">
-                            Materiales:{" "}
-                            {trabajo.oferta.materiales_incluidos === "si"
-                              ? "incluidos"
-                              : trabajo.oferta.materiales_incluidos === "no"
-                                ? "no incluidos"
-                                : trabajo.oferta.materiales_incluidos === "parcial"
-                                  ? "parcialmente incluidos"
-                                  : trabajo.oferta.materiales_incluidos}
-                          </p>
-                        )}
-                        {Array.isArray(trabajo.oferta?.archivos) && trabajo.oferta.archivos.length > 0 && (
-                          <div className="flex flex-wrap gap-2">
-                            {trabajo.oferta.archivos.map((url: string, i: number) =>
-                              /\.(png|jpe?g|gif|webp)(\?|$)/i.test(url) ? (
-                                <a key={i} href={url} target="_blank" rel="noreferrer">
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img
-                                    src={url}
-                                    alt={`Adjunto ${i + 1}`}
-                                    className="h-14 w-14 rounded-md object-cover border hover:opacity-80 transition"
-                                  />
-                                </a>
-                              ) : (
-                                <a
-                                  key={i}
-                                  href={url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted transition"
-                                >
-                                  <FileText className="h-3.5 w-3.5" />
-                                  {decodeURIComponent(url.split("/").pop()?.split("?")[0] || `Archivo ${i + 1}`)}
-                                </a>
-                              ),
-                            )}
-                          </div>
-                        )}
-                        <div className="flex gap-3 pt-1">
-                          <a
-                            href={`/trabajos/${trabajo.id}/factura`}
-                            target="_blank"
-                            className="text-xs text-primary hover:underline inline-flex items-center gap-1"
-                          >
-                            <FileText className="h-3 w-3" /> Ver factura y términos
-                          </a>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Trabajo en disputa: en revisión por el equipo */}
-                    {trabajo?.estado === "en_disputa" && (
-                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 flex items-start gap-3">
-                        <Scale className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
-                        <div>
-                          <p className="font-semibold text-amber-700 dark:text-amber-400">Trabajo en disputa</p>
-                          <p className="text-sm text-muted-foreground">
-                            El equipo de Diime está revisando el caso. El pago queda retenido hasta que se resuelva
-                            (reembolso al cliente o liberación al profesional).
-                          </p>
-                        </div>
-                      </div>
-                    )}
 
                     {/* Progress Section */}
                     <div className="space-y-3">
@@ -1021,13 +707,6 @@ export default function MisSolicitudes() {
                       </div>
                     )}
 
-                    {/* Abrir disputa mientras el trabajo está en curso (servicio no realizado o va mal) */}
-                    {trabajo?.estado === "en_progreso" && (
-                      <div className="flex justify-end">
-                        <AbrirDisputaDialog trabajoId={trabajo.id} rol="cliente" />
-                      </div>
-                    )}
-
                     {/* Action Buttons */}
                     {esEntregado && (
                       <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4 space-y-3">
@@ -1068,8 +747,8 @@ export default function MisSolicitudes() {
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
-                          <Button
-                            variant="outline"
+                          <Button 
+                            variant="outline" 
                             className="bg-transparent text-destructive border-destructive/50 hover:bg-destructive/10"
                             onClick={() => {
                               setSelectedTrabajo(trabajo)
@@ -1080,19 +759,6 @@ export default function MisSolicitudes() {
                             Rechazar y Solicitar Reembolso
                           </Button>
                         </div>
-                        <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground pt-1">
-                          <span>¿No llegáis a un acuerdo?</span>
-                          <AbrirDisputaDialog
-                            trabajoId={trabajo.id}
-                            rol="cliente"
-                            trigger={
-                              <button type="button" className="font-medium text-amber-600 hover:underline inline-flex items-center gap-1">
-                                <Scale className="h-3.5 w-3.5" />
-                                Abrir disputa
-                              </button>
-                            }
-                          />
-                        </div>
                       </div>
                     )}
                   </CardContent>
@@ -1101,8 +767,6 @@ export default function MisSolicitudes() {
             })
           )}
         </TabsContent>
-          )
-        })}
 
         {/* Historial Tab */}
         <TabsContent value="historial" className="space-y-4">
@@ -1130,23 +794,14 @@ export default function MisSolicitudes() {
                         <div>
                           <p className="font-semibold">{solicitud.titulo}</p>
                           <p className="text-sm text-muted-foreground">
-                            Completado el {solicitud.trabajo?.fecha_fin
-                              ? formatearFecha(solicitud.trabajo.fecha_fin)
+                            Completado el {solicitud.trabajo?.fecha_fin 
+                              ? formatearFecha(solicitud.trabajo.fecha_fin) 
                               : formatearFecha(solicitud.created_at)}
                           </p>
                           {solicitud.trabajo?.profesional && (
                             <p className="text-sm text-muted-foreground">
                               Profesional: {solicitud.trabajo.profesional.nombre} {solicitud.trabajo.profesional.apellido}
                             </p>
-                          )}
-                          {solicitud.trabajo?.id && (
-                            <a
-                              href={`/trabajos/${solicitud.trabajo.id}/factura`}
-                              target="_blank"
-                              className="text-xs text-primary hover:underline inline-flex items-center gap-1 mt-1"
-                            >
-                              <FileText className="h-3 w-3" /> Ver factura y términos
-                            </a>
                           )}
                         </div>
                       </div>
@@ -1278,7 +933,7 @@ export default function MisSolicitudes() {
                 <div className="flex justify-between font-semibold">
                   <span>Reembolso estimado</span>
                   <span className="text-emerald-600">
-                    {calcularReembolsoCliente(selectedTrabajo.precio_acordado).reembolso.toFixed(2)} EUR
+                    {calcularReembolsoCliente(selectedTrabajo.precio_acordado).reembolsoCliente.toFixed(2)} EUR
                   </span>
                 </div>
               </div>
@@ -1312,180 +967,6 @@ export default function MisSolicitudes() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Editar demanda */}
-      <Dialog open={!!editSolicitud} onOpenChange={(o) => !o && setEditSolicitud(null)}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Editar demanda</DialogTitle>
-            <DialogDescription>Modifica los datos de tu demanda. Solo es posible mientras siga abierta.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Título</label>
-              <Input value={editForm.titulo} onChange={(e) => setEditForm({ ...editForm, titulo: e.target.value })} />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Descripción</label>
-              <Textarea
-                rows={4}
-                value={editForm.descripcion}
-                onChange={(e) => setEditForm({ ...editForm, descripcion: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Ubicación</label>
-              <Input value={editForm.ubicacion} onChange={(e) => setEditForm({ ...editForm, ubicacion: e.target.value })} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Presupuesto mín. (€)</label>
-                <Input
-                  type="number"
-                  value={editForm.presupuesto_min}
-                  onChange={(e) => setEditForm({ ...editForm, presupuesto_min: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Presupuesto máx. (€)</label>
-                <Input
-                  type="number"
-                  value={editForm.presupuesto_max}
-                  onChange={(e) => setEditForm({ ...editForm, presupuesto_max: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Urgencia</label>
-              <select
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                value={editForm.urgencia}
-                onChange={(e) => setEditForm({ ...editForm, urgencia: e.target.value })}
-              >
-                <option value="urgente">Urgente</option>
-                <option value="alta">Alta</option>
-                <option value="media">Media</option>
-                <option value="baja">Baja</option>
-              </select>
-            </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" className="bg-transparent" onClick={() => setEditSolicitud(null)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleGuardarEdicion} disabled={actionLoading}>
-              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
-              Guardar cambios
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Confirmar aceptación de oferta: informa de los gastos de servicio */}
-      <AlertDialog open={!!acceptOfertaTarget} onOpenChange={(o) => !o && setAcceptOfertaTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Aceptar oferta y continuar al pago</AlertDialogTitle>
-            <AlertDialogDescription>
-              Vas a aceptar la oferta de{" "}
-              {formatearPrecioEuros(acceptOfertaTarget?.oferta?.precio)} para "
-              {acceptOfertaTarget?.solicitud?.titulo}". Al pagar, Diime añadirá los gastos de servicio de la
-              plataforma ({PLATFORM_CONFIG.comisionClientePorcentaje}%, mín. 2€).
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          {acceptOfertaTarget?.oferta?.precio != null && (
-            <div className="rounded-lg border bg-muted/40 p-4 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Precio del servicio</span>
-                <span>{formatearPrecioEuros(acceptOfertaTarget.oferta.precio)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Gastos de servicio Diime ({PLATFORM_CONFIG.comisionClientePorcentaje}%)
-                </span>
-                <span>
-                  {formatearPrecioEuros(calcularTotalCliente(acceptOfertaTarget.oferta.precio).comisionCliente)}
-                </span>
-              </div>
-              <Separator />
-              <div className="flex justify-between font-semibold">
-                <span>Total a pagar</span>
-                <span className="text-primary">
-                  {formatearPrecioEuros(calcularTotalCliente(acceptOfertaTarget.oferta.precio).totalCliente)}
-                </span>
-              </div>
-            </div>
-          )}
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (acceptOfertaTarget) {
-                  handleAceptarOferta(acceptOfertaTarget.oferta, acceptOfertaTarget.solicitud)
-                  setAcceptOfertaTarget(null)
-                }
-              }}
-            >
-              <Check className="h-4 w-4 mr-2" />
-              Aceptar y pagar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Confirmar rechazo de oferta */}
-      <AlertDialog open={!!rejectOfertaTarget} onOpenChange={(o) => !o && setRejectOfertaTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Rechazar esta oferta?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Se rechazará la oferta de {formatearPrecioEuros(rejectOfertaTarget?.precio)}. El profesional será
-              notificado y no podrás deshacer esta acción.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault()
-                handleRechazarOferta()
-              }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={actionLoading}
-            >
-              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
-              Rechazar oferta
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Confirmar borrado */}
-      <AlertDialog open={!!deleteSolicitud} onOpenChange={(o) => !o && setDeleteSolicitud(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Borrar esta demanda?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Se eliminará "{deleteSolicitud?.titulo}" de forma permanente. Esta acción no se puede deshacer.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault()
-                handleBorrar()
-              }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={actionLoading}
-            >
-              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-              Borrar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
     </div>
   )
 }

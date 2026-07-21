@@ -51,7 +51,7 @@ export async function obtenerTrabajosCalendario(): Promise<{
       titulo,
       descripcion,
       estado,
-      monto:precio_acordado,
+      monto,
       fecha_inicio,
       fecha_estimada_fin,
       horas_estimadas,
@@ -66,11 +66,12 @@ export async function obtenerTrabajosCalendario(): Promise<{
       ),
       solicitud:solicitud_id (
         id,
-        titulo
+        titulo,
+        categoria
       )
     `)
     .eq("profesional_id", user.id)
-    .in("estado", ["en_progreso", "pendiente_pago", "entregado", "completado"])
+    .in("estado", ["en_progreso", "pendiente_pago", "completado"])
     .order("fecha_inicio", { ascending: true })
 
   if (error) {
@@ -173,7 +174,7 @@ export async function obtenerServiciosSolicitados(): Promise<{
       titulo,
       descripcion,
       estado,
-      monto:precio_acordado,
+      monto,
       fecha_inicio,
       fecha_estimada_fin,
       profesional:profesional_id (
@@ -184,7 +185,8 @@ export async function obtenerServiciosSolicitados(): Promise<{
       ),
       solicitud:solicitud_id (
         id,
-        titulo
+        titulo,
+        categoria
       )
     `)
     .eq("cliente_id", user.id)

@@ -13,9 +13,6 @@ export async function crearOferta(formData: {
   condiciones_pago?: string
   notas?: string
   archivos?: any[]
-  // El profesional debe aceptar explícitamente los gastos de servicio de la
-  // plataforma en CADA oferta que envía.
-  acepta_gastos?: boolean
 }) {
   const supabase = await createClient()
 
@@ -26,38 +23,22 @@ export async function crearOferta(formData: {
     return { error: "No autenticado. Por favor inicia sesión." }
   }
 
-  const { data: profesional } = await supabase.from("profesionales").select("id").eq("id", user.id).single()
+  const { data: profesional } = await supabase.from("profesionales").select("id").eq("id", user.id).maybeSingle()
 
   if (!profesional) {
     return { error: "Debes crear un perfil profesional antes de enviar ofertas. Ve a 'Mi Perfil' para configurarlo." }
   }
 
-  // Importes y tiempos siempre positivos.
-  if (!Number.isFinite(formData.precio) || formData.precio <= 0) {
-    return { error: "El precio propuesto debe ser mayor que 0." }
-  }
-  if (!Number.isFinite(formData.tiempo_estimado) || formData.tiempo_estimado <= 0) {
-    return { error: "El tiempo estimado debe ser mayor que 0." }
-  }
-  if (!formData.acepta_gastos) {
-    return { error: "Debes aceptar los gastos de servicio de la plataforma para enviar la oferta." }
-  }
-
   // Check if already sent an offer for this solicitud
   const { data: existingOffer } = await supabase
     .from("ofertas")
-    .select("id, estado")
+    .select("id")
     .eq("solicitud_id", formData.solicitud_id)
     .eq("profesional_id", user.id)
     .maybeSingle()
 
-  if (existingOffer && !["retirada", "rechazada"].includes(existingOffer.estado)) {
-    return { error: "Ya has enviado una oferta para esta solicitud." }
-  }
-  // Una oferta previa retirada o rechazada (p. ej. tras cancelar el trabajo de
-  // mutuo acuerdo) no bloquea: se elimina y se envía la nueva en su lugar.
   if (existingOffer) {
-    await supabase.from("ofertas").delete().eq("id", existingOffer.id).eq("profesional_id", user.id)
+    return { error: "Ya has enviado una oferta para esta solicitud." }
   }
 
   const { data, error } = await supabase
@@ -85,23 +66,6 @@ export async function crearOferta(formData: {
   // Update total_ofertas in solicitud
   await supabase.rpc("increment_total_ofertas", { solicitud_uuid: formData.solicitud_id })
 
-  // Notificar al cliente dueño de la demanda.
-  const { data: solicitud } = await supabase
-    .from("solicitudes")
-    .select("cliente_id, titulo")
-    .eq("id", formData.solicitud_id)
-    .maybeSingle()
-  if (solicitud?.cliente_id) {
-    const { crearNotificacion } = await import("./notificaciones")
-    await crearNotificacion({
-      usuarioId: solicitud.cliente_id,
-      tipo: "oferta_nueva",
-      titulo: "Nueva oferta en tu demanda",
-      mensaje: `Has recibido una oferta en "${solicitud.titulo}".`,
-      link: "/mis-solicitudes",
-    })
-  }
-
   revalidatePath("/demandas")
   revalidatePath("/mis-solicitudes")
   return { data }
@@ -117,8 +81,6 @@ export async function obtenerMisOfertas() {
     return { error: "No autenticado" }
   }
 
-  // La solicitud completa: Mis Pujas debe poder enseñar la publicación entera
-  // de la demanda por la que se puja (descripción, urgencia, adjuntos...).
   const { data, error } = await supabase
     .from("ofertas")
     .select(`
@@ -126,13 +88,8 @@ export async function obtenerMisOfertas() {
       solicitud:solicitudes(
         id,
         titulo,
-        descripcion,
         ubicacion,
         estado,
-        urgencia,
-        archivos,
-        categoria_id,
-        created_at,
         presupuesto_min,
         presupuesto_max
       )
@@ -142,20 +99,6 @@ export async function obtenerMisOfertas() {
 
   if (error) {
     return { error: error.message }
-  }
-
-  // Para las pujas aceptadas, el estado de su trabajo: mientras esté sin pagar
-  // (pendiente_pago) la puja sigue viviendo aquí, no en Gestión de Proyectos.
-  const idsAceptadas = (data || []).filter((o: any) => o.estado === "aceptada").map((o: any) => o.id)
-  const trabajosPorOferta: Record<string, { id: string; estado: string }> = {}
-  if (idsAceptadas.length > 0) {
-    const { data: trabajosDeOfertas } = await supabase
-      .from("trabajos")
-      .select("id, estado, oferta_id")
-      .in("oferta_id", idsAceptadas)
-    for (const t of trabajosDeOfertas || []) {
-      trabajosPorOferta[t.oferta_id] = { id: t.id, estado: t.estado }
-    }
   }
 
   // Get client info for each solicitud
@@ -177,16 +120,14 @@ export async function obtenerMisOfertas() {
 
           return {
             ...oferta,
-            trabajo: trabajosPorOferta[oferta.id] ?? null,
             solicitud: {
               ...oferta.solicitud,
               cliente,
-              cliente_id: solicitudFull.cliente_id,
             },
           }
         }
       }
-      return { ...oferta, trabajo: trabajosPorOferta[oferta.id] ?? null }
+      return oferta
     }),
   )
 
@@ -197,114 +138,29 @@ export async function obtenerOfertasPorProfesional() {
   return obtenerMisOfertas()
 }
 
-export async function actualizarOferta(
-  ofertaId: string,
-  campos: {
-    precio?: number
-    tiempo_estimado?: number
-    unidad_tiempo?: string
-    descripcion?: string
-    archivos?: string[]
-  },
-) {
+export async function retirarOferta(ofertaId: string) {
   const supabase = await createClient()
-
   const {
     data: { user },
   } = await supabase.auth.getUser()
+
   if (!user) return { error: "No autenticado" }
-
-  // Solo el profesional dueño y mientras la oferta no esté aceptada.
-  const { data: oferta } = await supabase
-    .from("ofertas")
-    .select("profesional_id, estado, solicitud_id")
-    .eq("id", ofertaId)
-    .maybeSingle()
-
-  if (!oferta || oferta.profesional_id !== user.id) {
-    return { error: "No tienes permiso para editar esta oferta." }
-  }
-  if (oferta.estado === "aceptada") {
-    return { error: "No puedes editar una oferta que ya ha sido aceptada." }
-  }
-  if (campos.precio != null && (!Number.isFinite(campos.precio) || campos.precio <= 0)) {
-    return { error: "El precio propuesto debe ser mayor que 0." }
-  }
-  if (campos.tiempo_estimado != null && (!Number.isFinite(campos.tiempo_estimado) || campos.tiempo_estimado <= 0)) {
-    return { error: "El tiempo estimado debe ser mayor que 0." }
-  }
 
   const { data, error } = await supabase
     .from("ofertas")
-    .update({
-      precio: campos.precio,
-      tiempo_estimado: campos.tiempo_estimado,
-      unidad_tiempo: campos.unidad_tiempo,
-      descripcion: campos.descripcion,
-      // Solo se sobreescriben los adjuntos si se envían (edición explícita).
-      ...(campos.archivos !== undefined ? { archivos: campos.archivos } : {}),
-      updated_at: new Date().toISOString(),
-    })
+    .update({ estado: "retirada", retirada_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq("id", ofertaId)
     .eq("profesional_id", user.id)
+    .eq("estado", "pendiente")
     .select()
-    .single()
-
-  if (error) return { error: error.message }
-
-  // Avisar al cliente dueño de la demanda de que la oferta ha cambiado.
-  if (oferta.solicitud_id) {
-    const { data: solicitud } = await supabase
-      .from("solicitudes")
-      .select("cliente_id, titulo")
-      .eq("id", oferta.solicitud_id)
-      .maybeSingle()
-    if (solicitud?.cliente_id) {
-      const { crearNotificacion } = await import("./notificaciones")
-      await crearNotificacion({
-        usuarioId: solicitud.cliente_id,
-        tipo: "oferta_actualizada",
-        titulo: "Una oferta ha sido actualizada",
-        mensaje: `El profesional ha modificado su oferta en "${solicitud.titulo}"${
-          campos.precio != null ? ` (nuevo precio: ${campos.precio}€)` : ""
-        }. Revísala en Mis Demandas.`,
-        link: "/mis-solicitudes",
-      })
-    }
-  }
-
-  revalidatePath("/mis-trabajos")
-  revalidatePath("/demandas")
-  return { data }
-}
-
-export async function eliminarOferta(ofertaId: string) {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
-
-  const { data: oferta } = await supabase
-    .from("ofertas")
-    .select("profesional_id, estado, solicitud_id")
-    .eq("id", ofertaId)
     .maybeSingle()
 
-  if (!oferta || oferta.profesional_id !== user.id) {
-    return { error: "No tienes permiso para eliminar esta oferta." }
-  }
-  if (oferta.estado === "aceptada") {
-    return { error: "No puedes eliminar una oferta que ya ha sido aceptada." }
-  }
-
-  const { error } = await supabase.from("ofertas").delete().eq("id", ofertaId).eq("profesional_id", user.id)
   if (error) return { error: error.message }
+  if (!data) return { error: "Solo puedes retirar presupuestos pendientes" }
 
-  revalidatePath("/mis-trabajos")
-  revalidatePath("/demandas")
-  return { success: true }
+  revalidatePath("/presupuestos-enviados")
+  revalidatePath("/mi-cuenta")
+  return { data }
 }
 
 export async function aceptarOferta(ofertaId: string) {
@@ -345,74 +201,7 @@ export async function aceptarOferta(ofertaId: string) {
     return { error: trabajoResult.error }
   }
 
-  // Notificar al profesional que su oferta ha sido aceptada.
-  const { crearNotificacion } = await import("./notificaciones")
-  await crearNotificacion({
-    usuarioId: oferta.profesional_id,
-    tipo: "oferta_aceptada",
-    titulo: "Han aceptado tu puja",
-    mensaje: `Tu oferta para "${oferta.solicitud?.titulo ?? "una demanda"}" ha sido aceptada. Cuando el cliente complete el pago protegido, el trabajo aparecerá en Gestión de Proyectos.`,
-    link: "/mis-ofertas",
-  })
-
   return { data: trabajoResult.data }
-}
-
-export async function rechazarOferta(ofertaId: string) {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return { error: "No autenticado" }
-  }
-
-  const { data: oferta } = await supabase
-    .from("ofertas")
-    .select("estado, profesional_id, solicitud_id")
-    .eq("id", ofertaId)
-    .maybeSingle()
-
-  if (!oferta) {
-    return { error: "Oferta no encontrada." }
-  }
-
-  const { data: solicitud } = await supabase
-    .from("solicitudes")
-    .select("cliente_id, titulo")
-    .eq("id", oferta.solicitud_id)
-    .maybeSingle()
-
-  // Solo el cliente dueño de la demanda puede rechazar la oferta.
-  if (!solicitud || solicitud.cliente_id !== user.id) {
-    return { error: "No tienes permiso para rechazar esta oferta." }
-  }
-  if (["aceptada", "rechazada", "retirada"].includes(oferta.estado)) {
-    return { error: "Esta oferta ya no está pendiente de respuesta." }
-  }
-
-  const { error } = await supabase
-    .from("ofertas")
-    .update({ estado: "rechazada", updated_at: new Date().toISOString() })
-    .eq("id", ofertaId)
-
-  if (error) {
-    return { error: error.message }
-  }
-
-  const { crearNotificacion } = await import("./notificaciones")
-  await crearNotificacion({
-    usuarioId: oferta.profesional_id,
-    tipo: "oferta_rechazada",
-    titulo: "Han rechazado tu oferta",
-    mensaje: `Tu oferta para "${solicitud.titulo}" ha sido rechazada.`,
-    link: "/mis-ofertas",
-  })
-
-  revalidatePath("/mis-solicitudes")
-  revalidatePath("/mis-ofertas")
-  return { success: true }
 }
 
 export async function actualizarEstadoOferta(ofertaId: string, estado: string) {

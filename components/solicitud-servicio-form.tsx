@@ -16,8 +16,6 @@ import { Send, Paperclip, X, MapPin, Euro, Clock } from "lucide-react"
 import { uploadFile } from "@/lib/upload-helpers"
 import { crearSolicitud } from "@/app/actions/solicitudes"
 import { useRouter } from "next/navigation"
-import { CATEGORIAS_SERVICIO_NOMBRES } from "@/lib/categorias"
-import { PROVINCIAS_ES } from "@/lib/provincias"
 
 const formSchema = z.object({
   category: z.string().min(1, { message: "Selecciona una categoría" }),
@@ -28,8 +26,79 @@ const formSchema = z.object({
   urgency: z.string().min(1, { message: "Indica la urgencia" }),
 })
 
-const categories = CATEGORIAS_SERVICIO_NOMBRES
-const provincias = PROVINCIAS_ES.map((provincia) => ({ provincia }))
+const categories = [
+  "Arquitecto",
+  "Diseñador de Interiores",
+  "Contratista",
+  "Albañil",
+  "Carpintero",
+  "Fontanero",
+  "Electricista",
+  "Pintor",
+  "Yesero/Pladurista",
+  "Instalador de Suelos",
+  "Climatización",
+  "Cerrajero",
+  "Marmolista",
+  "Instalador de Ventanas",
+  "Ebanista",
+  "Tapicero",
+  "Jardinero",
+  "Domótica",
+  "Impermeabilizaciones",
+]
+
+const provincias = [
+  { provincia: "Álava", codigo: "01" },
+  { provincia: "Albacete", codigo: "02" },
+  { provincia: "Alicante", codigo: "03" },
+  { provincia: "Almería", codigo: "04" },
+  { provincia: "Ávila", codigo: "05" },
+  { provincia: "Badajoz", codigo: "06" },
+  { provincia: "Islas Baleares", codigo: "07" },
+  { provincia: "Barcelona", codigo: "08" },
+  { provincia: "Burgos", codigo: "09" },
+  { provincia: "Cáceres", codigo: "10" },
+  { provincia: "Cádiz", codigo: "11" },
+  { provincia: "Castellón", codigo: "12" },
+  { provincia: "Ciudad Real", codigo: "13" },
+  { provincia: "Córdoba", codigo: "14" },
+  { provincia: "Cuenca", codigo: "16" },
+  { provincia: "Girona", codigo: "17" },
+  { provincia: "Granada", codigo: "18" },
+  { provincia: "Guadalajara", codigo: "19" },
+  { provincia: "Guipúzcoa", codigo: "20" },
+  { provincia: "Huelva", codigo: "21" },
+  { provincia: "Huesca", codigo: "22" },
+  { provincia: "Jaén", codigo: "23" },
+  { provincia: "La Coruña", codigo: "15" },
+  { provincia: "La Rioja", codigo: "26" },
+  { provincia: "Las Palmas", codigo: "35" },
+  { provincia: "León", codigo: "24" },
+  { provincia: "Lleida", codigo: "25" },
+  { provincia: "Lugo", codigo: "27" },
+  { provincia: "Madrid", codigo: "28" },
+  { provincia: "Málaga", codigo: "29" },
+  { provincia: "Murcia", codigo: "30" },
+  { provincia: "Navarra", codigo: "31" },
+  { provincia: "Ourense", codigo: "32" },
+  { provincia: "Asturias", codigo: "33" },
+  { provincia: "Palencia", codigo: "34" },
+  { provincia: "Pontevedra", codigo: "36" },
+  { provincia: "Segovia", codigo: "40" },
+  { provincia: "Sevilla", codigo: "41" },
+  { provincia: "Soria", codigo: "42" },
+  { provincia: "Tarragona", codigo: "43" },
+  { provincia: "Teruel", codigo: "44" },
+  { provincia: "Toledo", codigo: "45" },
+  { provincia: "Valencia", codigo: "46" },
+  { provincia: "Valladolid", codigo: "47" },
+  { provincia: "Vizcaya", codigo: "48" },
+  { provincia: "Zamora", codigo: "49" },
+  { provincia: "Zaragoza", codigo: "50" },
+  { provincia: "Ceuta", codigo: "51" },
+  { provincia: "Melilla", codigo: "52" },
+]
 
 interface Props {
   embedded?: boolean
@@ -65,28 +134,17 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true)
     try {
-      const uploadResults = await Promise.all(attachedFiles.map((file) => uploadFile(file)))
-      // Si falla una subida no se publica la demanda: los profesionales verían
-      // una demanda sin las fotos que creías haber adjuntado.
-      if (uploadResults.some((r) => r === null)) {
-        toast({
-          title: "No se pudieron subir los archivos",
-          description: "Tu demanda no se ha publicado. Inténtalo de nuevo o quita los adjuntos.",
-          variant: "destructive",
-        })
-        setIsSubmitting(false)
-        return
-      }
-      const successfulUploads = uploadResults.map((r) => r!.url)
+      const uploadPromises = attachedFiles.map((file) => uploadFile(file))
+      const uploadResults = await Promise.all(uploadPromises)
+      const successfulUploads = uploadResults.filter((r) => r !== null).map((r) => r!.url)
 
       const result = await crearSolicitud({
         categoria_id: values.category,
         titulo: values.title,
         descripcion: values.description,
         ubicacion: values.location,
-        // "0-500" → hasta 500€; "5000+" → más de 5.000€ (sin inventar un tope).
-        presupuesto_min: Number.parseInt(values.budget.split("-")[0]) || undefined,
-        presupuesto_max: values.budget.includes("+") ? undefined : Number.parseInt(values.budget.split("-")[1]),
+        presupuesto_min: Number.parseInt(values.budget.split("-")[0]),
+        presupuesto_max: values.budget.includes("+") ? 10000 : Number.parseInt(values.budget.split("-")[1]),
         urgencia: values.urgency,
         archivos_adjuntos: successfulUploads,
       })
@@ -102,8 +160,8 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
       router.push("/mis-solicitudes")
     } catch (error) {
       toast({
-        title: "No se pudo publicar",
-        description: error instanceof Error ? error.message : "Hubo un problema. Inténtalo de nuevo.",
+        title: "Error",
+        description: "Hubo un problema. Inténtalo de nuevo.",
         variant: "destructive",
       })
     } finally {
@@ -150,17 +208,17 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
               <FormItem>
                 <FormLabel className="flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-emerald-500" />
-                  Provincia donde se realizará el servicio
+                  Provincia
                 </FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Provincia de realización del servicio" />
+                      <SelectValue placeholder="Selecciona una provincia" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
                     {provincias.map((prov) => (
-                      <SelectItem key={prov.provincia} value={`${prov.provincia}`}>
+                      <SelectItem key={prov.codigo} value={`${prov.provincia}`}>
                         {prov.provincia}
                       </SelectItem>
                     ))}
@@ -249,11 +307,10 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {/* Los valores deben coincidir con la constraint de la BD: baja | media | alta | urgente */}
                     <SelectItem value="urgente">Urgente (1-3 días)</SelectItem>
-                    <SelectItem value="alta">Esta semana</SelectItem>
-                    <SelectItem value="media">Este mes</SelectItem>
-                    <SelectItem value="baja">Flexible</SelectItem>
+                    <SelectItem value="esta-semana">Esta semana</SelectItem>
+                    <SelectItem value="este-mes">Este mes</SelectItem>
+                    <SelectItem value="flexible">Flexible</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />

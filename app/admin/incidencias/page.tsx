@@ -68,7 +68,6 @@ export default function AdminIncidenciasPage() {
   const [prioridad, setPrioridad] = useState<IncidenciaPrioridad>("media")
   const [notas, setNotas] = useState("")
   const [saving, setSaving] = useState(false)
-  const [resolviendo, setResolviendo] = useState<string | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -110,28 +109,6 @@ export default function AdminIncidenciasPage() {
       cargar()
     }
     setSaving(false)
-  }
-
-  // Acción directa de resolver, sin pasar por el desplegable de estado: es el
-  // desenlace habitual y desde la lista se hace en un clic. Guarda también las
-  // notas que haya escritas para que lleguen a quien reportó la incidencia.
-  const marcarResuelta = async (inc: any, notasAdmin?: string) => {
-    setResolviendo(inc.id)
-    const result = await actualizarIncidencia(inc.id, {
-      estado: "resuelta",
-      ...(notasAdmin !== undefined ? { notas_admin: notasAdmin } : {}),
-    })
-    setResolviendo(null)
-    if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" })
-      return
-    }
-    toast({
-      title: "Incidencia resuelta",
-      description: "Se ha avisado a quien la reportó.",
-    })
-    setOpen(false)
-    cargar()
   }
 
   const filtradas = incidencias.filter((i) => {
@@ -206,16 +183,16 @@ export default function AdminIncidenciasPage() {
         </TabsList>
 
         <TabsContent value="abiertas" className="space-y-3 mt-4">
-          <Lista items={abiertas} loading={loading} onOpen={abrirDetalle} onResolver={marcarResuelta} resolviendo={resolviendo} />
+          <Lista items={abiertas} loading={loading} onOpen={abrirDetalle} />
         </TabsContent>
         <TabsContent value="revision" className="space-y-3 mt-4">
-          <Lista items={enRevision} loading={loading} onOpen={abrirDetalle} onResolver={marcarResuelta} resolviendo={resolviendo} />
+          <Lista items={enRevision} loading={loading} onOpen={abrirDetalle} />
         </TabsContent>
         <TabsContent value="resueltas" className="space-y-3 mt-4">
-          <Lista items={resueltas} loading={loading} onOpen={abrirDetalle} onResolver={marcarResuelta} resolviendo={resolviendo} />
+          <Lista items={resueltas} loading={loading} onOpen={abrirDetalle} />
         </TabsContent>
         <TabsContent value="todas" className="space-y-3 mt-4">
-          <Lista items={filtradas} loading={loading} onOpen={abrirDetalle} onResolver={marcarResuelta} resolviendo={resolviendo} />
+          <Lista items={filtradas} loading={loading} onOpen={abrirDetalle} />
         </TabsContent>
       </Tabs>
 
@@ -314,11 +291,11 @@ export default function AdminIncidenciasPage() {
             </div>
           )}
 
-          <DialogFooter className="gap-2 sm:gap-2">
+          <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)} className="bg-transparent">
               Cancelar
             </Button>
-            <Button variant="outline" onClick={guardar} disabled={saving || !!resolviendo}>
+            <Button onClick={guardar} disabled={saving}>
               {saving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -328,20 +305,6 @@ export default function AdminIncidenciasPage() {
                 "Guardar cambios"
               )}
             </Button>
-            {selected && !["resuelta", "cerrada"].includes(selected.estado) && (
-              <Button
-                onClick={() => marcarResuelta(selected, notas)}
-                disabled={saving || !!resolviendo}
-                className="bg-emerald-600 hover:bg-emerald-700 gap-2"
-              >
-                {resolviendo === selected.id ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4" />
-                )}
-                Marcar como resuelta
-              </Button>
-            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -349,19 +312,7 @@ export default function AdminIncidenciasPage() {
   )
 }
 
-function Lista({
-  items,
-  loading,
-  onOpen,
-  onResolver,
-  resolviendo,
-}: {
-  items: any[]
-  loading: boolean
-  onOpen: (i: any) => void
-  onResolver: (i: any) => void
-  resolviendo: string | null
-}) {
+function Lista({ items, loading, onOpen }: { items: any[]; loading: boolean; onOpen: (i: any) => void }) {
   if (loading) {
     return (
       <Card>
@@ -414,31 +365,10 @@ function Lista({
           </CardHeader>
           <CardContent className="pt-0">
             <p className="text-sm text-muted-foreground line-clamp-2">{inc.descripcion}</p>
-            <div className="flex flex-wrap items-center gap-2 mt-2">
-              <Button variant="ghost" size="sm" className="-ml-2 gap-2">
-                <Eye className="h-4 w-4" />
-                Ver y gestionar
-              </Button>
-              {!["resuelta", "cerrada"].includes(inc.estado) && (
-                <Button
-                  size="sm"
-                  className="gap-2 bg-emerald-600 hover:bg-emerald-700"
-                  disabled={resolviendo === inc.id}
-                  onClick={(e) => {
-                    // La tarjeta entera abre el detalle: aquí no interesa.
-                    e.stopPropagation()
-                    onResolver(inc)
-                  }}
-                >
-                  {resolviendo === inc.id ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="h-4 w-4" />
-                  )}
-                  Marcar resuelta
-                </Button>
-              )}
-            </div>
+            <Button variant="ghost" size="sm" className="mt-2 -ml-2 gap-2">
+              <Eye className="h-4 w-4" />
+              Ver y gestionar
+            </Button>
           </CardContent>
         </Card>
       ))}

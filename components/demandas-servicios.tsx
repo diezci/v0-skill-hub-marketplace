@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { formatearPrecioEuros, formatearRangoPresupuesto } from "@/lib/utils"
+import { formatearPrecioEuros } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -33,16 +33,12 @@ import {
   Briefcase,
   Calendar,
   User,
-  FileText,
 } from "lucide-react"
 import { uploadFile } from "@/lib/upload-helpers"
 import { toast } from "@/hooks/use-toast"
-import { calcularPagoProveedor, PLATFORM_CONFIG, formatearPrecio } from "@/lib/comisiones"
-import { Checkbox } from "@/components/ui/checkbox"
 import { crearOferta } from "@/app/actions/ofertas"
 import { obtenerSolicitudesAbiertas } from "@/app/actions/solicitudes"
 import { cn } from "@/lib/utils"
-import { PROVINCIAS_ES } from "@/lib/provincias"
 
 type Demanda = {
   id: string
@@ -59,15 +55,23 @@ type Demanda = {
   telefono: string
   email: string
   total_ofertas: number
-  // Archivos que el cliente adjuntó al publicar la demanda (fotos, PDFs...).
-  archivos?: string[]
 }
 
 const urgenciaConfig: Record<string, { label: string; color: string }> = {
   baja: { label: "Baja", color: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" },
   media: { label: "Media", color: "bg-amber-500/10 text-amber-500 border-amber-500/20" },
-  alta: { label: "Alta", color: "bg-orange-500/10 text-orange-500 border-orange-500/20" },
-  urgente: { label: "Urgente", color: "bg-red-500/10 text-red-500 border-red-500/20" },
+  alta: { label: "Urgente", color: "bg-red-500/10 text-red-500 border-red-500/20" },
+  // Values produced by the service-request wizard
+  urgente: { label: "Urgente (1-3 días)", color: "bg-red-500/10 text-red-500 border-red-500/20" },
+  pronto: { label: "Pronto (1-2 semanas)", color: "bg-amber-500/10 text-amber-500 border-amber-500/20" },
+  planificado: { label: "Planificado", color: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" },
+  flexible: { label: "Flexible", color: "bg-sky-500/10 text-sky-500 border-sky-500/20" },
+}
+
+const URGENCIA_DEFAULT = { label: "Normal", color: "bg-muted text-muted-foreground border-border" }
+
+function getUrgencia(urgencia?: string) {
+  return (urgencia && urgenciaConfig[urgencia]) || URGENCIA_DEFAULT
 }
 
 const CATEGORIAS = [
@@ -84,8 +88,112 @@ const CATEGORIAS = [
   "Arquitecto",
 ]
 
-const UBICACIONES = ["Toda España", ...PROVINCIAS_ES]
+const UBICACIONES = ["Toda España", "Madrid", "Barcelona", "Valencia", "Sevilla", "Málaga", "Bilbao", "Zaragoza"]
 
+const MOCK_DEMANDAS: Demanda[] = [
+  {
+    id: "demanda-mock-1",
+    titulo: "Reforma completa de baño",
+    descripcion:
+      "Necesito una reforma completa del baño principal incluyendo cambio de azulejos, sanitarios, plato de ducha y mampara. El baño tiene aproximadamente 6m². Busco profesional con experiencia demostrable en este tipo de reformas.",
+    categoria: { nombre: "Albañil" },
+    cliente: { nombre: "María", apellido: "González", foto_perfil: "/professional-woman.png" },
+    ubicacion: "Madrid, España",
+    presupuesto_min: 3000,
+    presupuesto_max: 5000,
+    created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    urgencia: "media",
+    estado: "abierta",
+    telefono: "+34 600 123 456",
+    email: "maria.gonzalez@email.com",
+    total_ofertas: 2,
+  },
+  {
+    id: "demanda-mock-2",
+    titulo: "Instalación de 3 splits de aire acondicionado",
+    descripcion:
+      "Necesito instalar 3 splits de aire acondicionado en mi vivienda: salón (35m²), dormitorio principal (20m²) y dormitorio secundario (15m²). Preferiblemente marca Mitsubishi o Daikin.",
+    categoria: { nombre: "Climatización" },
+    cliente: { nombre: "Carlos", apellido: "Martínez", foto_perfil: "/business-man.png" },
+    ubicacion: "Barcelona, España",
+    presupuesto_min: 2000,
+    presupuesto_max: 3500,
+    created_at: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+    urgencia: "alta",
+    estado: "abierta",
+    telefono: "+34 611 234 567",
+    email: "carlos.martinez@email.com",
+    total_ofertas: 5,
+  },
+  {
+    id: "demanda-mock-3",
+    titulo: "Reparación urgente de fuga en cocina",
+    descripcion:
+      "Tengo una fuga de agua importante en la tubería de la cocina que necesita reparación urgente. El agua está saliendo por debajo del fregadero y está afectando al armario.",
+    categoria: { nombre: "Fontanero" },
+    cliente: { nombre: "Laura", apellido: "Sánchez", foto_perfil: "/woman-young.jpg" },
+    ubicacion: "Valencia, España",
+    presupuesto_min: 150,
+    presupuesto_max: 400,
+    created_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
+    urgencia: "alta",
+    estado: "abierta",
+    telefono: "+34 622 345 678",
+    email: "laura.sanchez@email.com",
+    total_ofertas: 8,
+  },
+  {
+    id: "demanda-mock-4",
+    titulo: "Pintura interior vivienda 90m²",
+    descripcion:
+      "Pintar 90m² de vivienda incluyendo salón, 3 habitaciones, pasillo y techos. Las paredes están en buen estado, solo necesitan preparación básica y dos manos de pintura blanca mate.",
+    categoria: { nombre: "Pintor" },
+    cliente: { nombre: "Ana", apellido: "López", foto_perfil: "/woman-middle-age.jpg" },
+    ubicacion: "Sevilla, España",
+    presupuesto_min: 1500,
+    presupuesto_max: 2500,
+    created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    urgencia: "baja",
+    estado: "abierta",
+    telefono: "+34 633 456 789",
+    email: "ana.lopez@email.com",
+    total_ofertas: 3,
+  },
+  {
+    id: "demanda-mock-5",
+    titulo: "Instalación suelo laminado 60m²",
+    descripcion:
+      "Quiero instalar suelo laminado en 60m² (salón y pasillo). Necesito incluir rodapié y desmontaje del suelo antiguo de terrazo. Tengo el material comprado.",
+    categoria: { nombre: "Instalador de suelos" },
+    cliente: { nombre: "Jorge", apellido: "Ruiz", foto_perfil: "/casual-man.png" },
+    ubicacion: "Málaga, España",
+    presupuesto_min: 800,
+    presupuesto_max: 1200,
+    created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+    urgencia: "media",
+    estado: "abierta",
+    telefono: "+34 644 567 890",
+    email: "jorge.ruiz@email.com",
+    total_ofertas: 1,
+  },
+  {
+    id: "demanda-mock-6",
+    titulo: "Instalación cuadro eléctrico nuevo",
+    descripcion:
+      "Necesito actualizar el cuadro eléctrico de mi vivienda antigua. Actualmente tiene fusibles y quiero cambiar a magnetotérmicos y diferencial. Boletín incluido.",
+    categoria: { nombre: "Electricista" },
+    cliente: { nombre: "Pedro", apellido: "Fernández", foto_perfil: "/man-elderly.jpg" },
+    ubicacion: "Bilbao, España",
+    presupuesto_min: 400,
+    presupuesto_max: 700,
+    created_at: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+    urgencia: "baja",
+    estado: "abierta",
+    telefono: "+34 655 678 901",
+    email: "pedro.fernandez@email.com",
+    total_ofertas: 4,
+  },
+]
 
 function formatTimeAgo(dateString: string): string {
   const date = new Date(dateString)
@@ -118,8 +226,6 @@ export default function DemandasServicios() {
   const [clienteSeleccionado, setClienteSeleccionado] = useState<any>(null)
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
-  // Aceptación explícita de los gastos de servicio, requerida en cada oferta.
-  const [aceptaGastos, setAceptaGastos] = useState(false)
   const [demandas, setDemandas] = useState<Demanda[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -135,8 +241,15 @@ export default function DemandasServicios() {
     async function cargarDemandas() {
       setLoading(true)
       const result = await obtenerSolicitudesAbiertas()
-      // Solo demandas reales: nada de datos de ejemplo.
-      setDemandas(result.data || [])
+      // Always show mock demandas for demo/discovery purposes,
+      // and prepend any real demandas the user (or others) have published.
+      if (result.data && result.data.length > 0) {
+        // Real demandas first (most recent), then mock as additional examples
+        setDemandas([...result.data, ...MOCK_DEMANDAS])
+      } else {
+        // No real demandas yet (or RLS issue) - show only mocks
+        setDemandas(MOCK_DEMANDAS)
+      }
       setLoading(false)
     }
     cargarDemandas()
@@ -196,57 +309,27 @@ export default function DemandasServicios() {
 
   const handleEnviarOferta = (demanda: Demanda) => {
     setDemandaSeleccionada(demanda)
-    // La aceptación de gastos es por oferta: se pide de nuevo cada vez.
-    setAceptaGastos(false)
     setDialogAbierto(true)
   }
 
   const handleSubmitOferta = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!demandaSeleccionada) return
-    // Nada de importes ni tiempos negativos o cero.
-    if (!(Number.parseFloat(formData.precio) > 0)) {
-      toast({ title: "Precio no válido", description: "El precio propuesto debe ser mayor que 0.", variant: "destructive" })
-      return
-    }
-    if (!(Number.parseInt(formData.duracion, 10) > 0)) {
-      toast({ title: "Tiempo no válido", description: "El tiempo estimado debe ser mayor que 0.", variant: "destructive" })
-      return
-    }
-    if (!aceptaGastos) {
-      toast({
-        title: "Falta aceptar los gastos de servicio",
-        description: "Debes aceptar los gastos de servicio de Diime antes de enviar la oferta.",
-        variant: "destructive",
-      })
-      return
-    }
     setIsSubmitting(true)
 
     try {
-      const uploadResults = await Promise.all(attachedFiles.map((file) => uploadFile(file)))
-      // Si falla una subida no se envía la oferta: mandarla sin los adjuntos
-      // dejaría al profesional creyendo que el cliente los ha recibido.
-      if (uploadResults.some((result) => result === null)) {
-        toast({
-          title: "No se pudieron subir los archivos",
-          description: "Tu oferta no se ha enviado. Inténtalo de nuevo o quita los adjuntos.",
-          variant: "destructive",
-        })
-        setIsSubmitting(false)
-        return
-      }
-      const successfulUploads = uploadResults.map((result) => result!.url)
+      const uploadPromises = attachedFiles.map((file) => uploadFile(file))
+      const uploadResults = await Promise.all(uploadPromises)
+      const successfulUploads = uploadResults.filter((result) => result !== null).map((result) => result!.url)
 
       const result = await crearOferta({
         solicitud_id: demandaSeleccionada.id,
         precio: Number.parseFloat(formData.precio),
-        tiempo_estimado: Number.parseInt(formData.duracion, 10),
+        tiempo_estimado: Number.parseInt(formData.duracion, 10) || 1,
         unidad_tiempo: formData.unidadTiempo,
         descripcion: formData.descripcion,
-        materiales_incluidos: formData.materiales,
+        materiales_incluidos: formData.materiales === "si" ? "si" : "no",
         archivos: successfulUploads,
-        acepta_gastos: aceptaGastos,
       })
 
       if (result.error) {
@@ -256,7 +339,6 @@ export default function DemandasServicios() {
         setDialogAbierto(false)
         setFormData({ precio: "", duracion: "", unidadTiempo: "dias", descripcion: "", materiales: "" })
         setAttachedFiles([])
-        setAceptaGastos(false)
       }
     } catch (error) {
       toast({ title: "Error", description: "No se pudo enviar la oferta", variant: "destructive" })
@@ -460,9 +542,9 @@ export default function DemandasServicios() {
                             <Badge variant="outline" className="text-xs font-normal">
                               {demanda.categoria?.nombre}
                             </Badge>
-                            <Badge variant="outline" className={cn("text-xs", (urgenciaConfig[demanda.urgencia] ?? urgenciaConfig.media).color)}>
-                              {(urgenciaConfig[demanda.urgencia] ?? urgenciaConfig.media).label}
-                            </Badge>
+                            <Badge variant="outline" className={cn("text-xs", getUrgencia(demanda.urgencia).color)}>
+                            {getUrgencia(demanda.urgencia).label}
+                          </Badge>
                           </div>
                           <h3 className="font-semibold text-lg group-hover:text-primary transition-colors">
                             {demanda.titulo}
@@ -471,20 +553,13 @@ export default function DemandasServicios() {
                         <div className="text-right shrink-0">
                           <p className="text-xs text-muted-foreground">Presupuesto</p>
                           <p className="font-bold text-lg text-primary">
-                            {formatearRangoPresupuesto(demanda.presupuesto_min, demanda.presupuesto_max)}
+                            {formatearPrecioEuros(demanda.presupuesto_min)} - {formatearPrecioEuros(demanda.presupuesto_max)}
                           </p>
                         </div>
                       </div>
 
                       {/* Description */}
                       <p className="text-sm text-muted-foreground line-clamp-2">{demanda.descripcion}</p>
-                      {Array.isArray(demanda.archivos) && demanda.archivos.length > 0 && (
-                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                          <Paperclip className="h-3 w-3" />
-                          {demanda.archivos.length} archivo{demanda.archivos.length !== 1 ? "s" : ""} adjunto
-                          {demanda.archivos.length !== 1 ? "s" : ""}
-                        </p>
-                      )}
 
                       {/* Meta Info */}
                       <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
@@ -566,8 +641,8 @@ export default function DemandasServicios() {
             <div className="flex items-center gap-2 mb-2">
               <Badge variant="outline">{demandaSeleccionada?.categoria?.nombre}</Badge>
               {demandaSeleccionada && (
-                <Badge variant="outline" className={(urgenciaConfig[demandaSeleccionada.urgencia] ?? urgenciaConfig.media).color}>
-                  {(urgenciaConfig[demandaSeleccionada.urgencia] ?? urgenciaConfig.media).label}
+                <Badge variant="outline" className={getUrgencia(demandaSeleccionada.urgencia).color}>
+                  {getUrgencia(demandaSeleccionada.urgencia).label}
                 </Badge>
               )}
             </div>
@@ -605,7 +680,7 @@ export default function DemandasServicios() {
               <div className="text-right">
                 <p className="text-sm text-muted-foreground">Presupuesto</p>
                 <p className="font-bold text-primary">
-                  {formatearRangoPresupuesto(demandaSeleccionada?.presupuesto_min, demandaSeleccionada?.presupuesto_max)}
+                  {demandaSeleccionada?.presupuesto_min}EUR - {demandaSeleccionada?.presupuesto_max}EUR
                 </p>
               </div>
             </button>
@@ -614,41 +689,6 @@ export default function DemandasServicios() {
               <h4 className="font-medium mb-2">Descripción del proyecto</h4>
               <p className="text-muted-foreground">{demandaSeleccionada?.descripcion}</p>
             </div>
-
-            {/* Archivos adjuntados por el cliente al publicar la demanda */}
-            {Array.isArray(demandaSeleccionada?.archivos) && demandaSeleccionada.archivos.length > 0 && (
-              <div>
-                <h4 className="font-medium mb-2 flex items-center gap-1.5">
-                  <FileText className="h-4 w-4" />
-                  Archivos adjuntos ({demandaSeleccionada.archivos.length})
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {demandaSeleccionada.archivos.map((url: string, i: number) =>
-                    /\.(png|jpe?g|gif|webp)(\?|$)/i.test(url) ? (
-                      <a key={i} href={url} target="_blank" rel="noreferrer">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={url}
-                          alt={`Adjunto ${i + 1}`}
-                          className="h-20 w-20 rounded-md object-cover border hover:opacity-80 transition"
-                        />
-                      </a>
-                    ) : (
-                      <a
-                        key={i}
-                        href={url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted transition"
-                      >
-                        <FileText className="h-3.5 w-3.5" />
-                        {decodeURIComponent(url.split("/").pop()?.split("?")[0] || `Archivo ${i + 1}`)}
-                      </a>
-                    ),
-                  )}
-                </div>
-              </div>
-            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div className="flex items-center gap-2 text-sm">
@@ -859,8 +899,6 @@ export default function DemandasServicios() {
                 <Label>Precio propuesto (€)</Label>
                 <Input
                   type="number"
-                  min={1}
-                  step="0.01"
                   value={formData.precio}
                   onChange={(e) => setFormData({ ...formData, precio: e.target.value })}
                   placeholder="0"
@@ -872,8 +910,6 @@ export default function DemandasServicios() {
                 <div className="flex gap-2">
                   <Input
                     type="number"
-                    min={1}
-                    step={1}
                     value={formData.duracion}
                     onChange={(e) => setFormData({ ...formData, duracion: e.target.value })}
                     placeholder="0"
@@ -946,43 +982,6 @@ export default function DemandasServicios() {
               </div>
             </div>
 
-            {/* Garantía de cobro: la plataforma retiene el pago del cliente. */}
-            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
-              <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
-                <CheckCircle2 className="h-4 w-4" /> Cobro protegido
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Cuando el cliente acepte tu puja y pague, Diime{" "}
-                <span className="font-medium text-foreground">retiene el importe en custodia</span> antes de que
-                empieces: así tienes la <span className="font-medium text-foreground">garantía del cobro</span>. El
-                pago se te libera automáticamente al completar el servicio y confirmarlo el cliente.
-              </p>
-            </div>
-
-            {/* Aceptación explícita de los gastos de servicio: obligatoria en
-                cada oferta antes de poder enviarla al cliente. */}
-            <label className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 p-3 cursor-pointer">
-              <Checkbox
-                checked={aceptaGastos}
-                onCheckedChange={(v) => setAceptaGastos(v === true)}
-                className="mt-0.5"
-              />
-              <span className="text-sm text-muted-foreground">
-                Acepto los gastos de servicio de Diime ({PLATFORM_CONFIG.comisionProveedorPorcentaje}% del precio,
-                mín. {formatearPrecio(PLATFORM_CONFIG.comision_minima)}).{" "}
-                {Number.parseFloat(formData.precio) > 0 && (
-                  <>
-                    Si el cliente acepta esta oferta de {formatearPrecio(Number.parseFloat(formData.precio))},{" "}
-                    <span className="font-medium text-foreground">
-                      recibiré {formatearPrecio(calcularPagoProveedor(Number.parseFloat(formData.precio)).pagoNeto)}{" "}
-                      netos
-                    </span>
-                    .
-                  </>
-                )}
-              </span>
-            </label>
-
             <div className="flex gap-3 pt-2">
               <Button
                 type="button"
@@ -992,7 +991,7 @@ export default function DemandasServicios() {
               >
                 Cancelar
               </Button>
-              <Button type="submit" className="flex-1" disabled={isSubmitting || !aceptaGastos}>
+              <Button type="submit" className="flex-1" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Enviar presupuesto
               </Button>

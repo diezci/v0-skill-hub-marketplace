@@ -66,7 +66,6 @@ export async function actualizarPerfil(updates: any) {
   }
 
   revalidatePath("/mi-cuenta")
-  revalidatePath("/mi-perfil")
   revalidatePath(`/profesional/${user.id}`)
   return { data }
 }
@@ -95,7 +94,6 @@ export async function actualizarPerfilProfesional(updates: any) {
   }
 
   revalidatePath("/mi-cuenta")
-  revalidatePath("/mi-perfil")
   revalidatePath(`/profesional/${user.id}`)
   return { data }
 }

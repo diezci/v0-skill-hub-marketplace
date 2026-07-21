@@ -1,60 +1,40 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
-import PerfilProfesionalPublico from "@/components/perfil-profesional-publico"
+import PerfilProfesional from "@/components/perfil-profesional"
 import { obtenerProfesionalPorId } from "@/app/actions/profiles"
 
-// Esta página lee la sesión (cookies) para personalizar acciones; debe
-// renderizarse siempre en el servidor por request, nunca como shell estático
-// (un `generateStaticParams` vacío aquí causaba "static to dynamic at runtime"
-// y un 500 en cada visita).
-export const dynamic = "force-dynamic"
+export async function generateStaticParams() {
+  return []
+}
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-  try {
-    const { id } = await params
-    const result = await obtenerProfesionalPorId(id)
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  const { id } = params
+  const result = await obtenerProfesionalPorId(id)
 
-    if (!result.data) {
-      return { title: "Perfil no encontrado | Diime" }
-    }
-
-    const profile = result.data
-    const nombre = `${profile.perfil?.nombre || ""} ${profile.perfil?.apellido || ""}`.trim()
-
+  if (!result.data) {
     return {
-      title: `${nombre} - ${profile.titulo || "Profesional"} | Diime`,
-      description: `${profile.bio || "Profesional verificado en Diime"} - ${profile.proyectos_completados || 0} proyectos completados.`,
+      title: "Perfil no encontrado",
     }
-  } catch {
-    return { title: "Perfil | Diime" }
+  }
+
+  const profile = result.data
+  const nombre = `${profile.perfil?.nombre || ""} ${profile.perfil?.apellido || ""}`
+
+  return {
+    title: `${nombre} - ${profile.titulo} | Diime`,
+    description: `${profile.bio} - ${profile.proyectos_completados} proyectos completados.`,
   }
 }
 
-export default async function ProfilePage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ id: string }>
-  searchParams: Promise<{ valorar?: string }>
-}) {
-  const { id } = await params
-  // Llegar con ?valorar=1 (p. ej. desde el botón "Valorar" del chat) abre
-  // directamente la pestaña de valoraciones.
-  const { valorar } = await searchParams
+export default async function ProfilePage({ params }: { params: { id: string } }) {
+  const { id } = params
+  const result = await obtenerProfesionalPorId(id)
 
-  let result: Awaited<ReturnType<typeof obtenerProfesionalPorId>> | undefined
-
-  try {
-    result = await obtenerProfesionalPorId(id)
-  } catch {
+  if (!result.data) {
     notFound()
   }
 
-  if (!result?.data) {
-    notFound()
-  }
-
-  const profile = result!.data!
+  const profile = result.data
 
   const mappedProfile = {
     id: profile.id,
@@ -70,7 +50,7 @@ export default async function ProfilePage({
     rating: profile.rating_promedio || 0,
     total_reviews: profile.total_reviews || 0,
     proyectos_completados: profile.proyectos_completados || 0,
-    anos_experiencia: profile["años_experiencia"] ?? profile.anos_experiencia ?? 0,
+    anos_experiencia: profile.anos_experiencia || 0,
     tarifa_hora: profile.tarifa_por_hora || 0,
     tiempo_respuesta: profile.tiempo_respuesta || "24 horas",
     nivel: profile.verificado ? "Experto Verificado" : "Profesional",
@@ -83,17 +63,15 @@ export default async function ProfilePage({
       id: item.id,
       titulo: item.titulo,
       descripcion: item.descripcion,
-      imagen: item.imagen_url || (Array.isArray(item.imagenes) ? item.imagenes[0] : ""),
+      imagen: Array.isArray(item.imagenes) ? item.imagenes[0] : item.imagen_url,
     })),
     reviews: (profile.reviews || []).map((review: any) => ({
       id: review.id,
-      cliente: `${review.cliente?.nombre || ""} ${review.cliente?.apellido?.charAt(0) || ""}.`,
-      avatar: review.cliente?.foto_perfil || "",
+      cliente: `${review.autor?.nombre || "Usuario"} ${review.autor?.apellido?.charAt(0) || ""}.`,
+      avatar: review.autor?.foto_perfil || "",
       rating: review.rating,
       fecha: review.created_at
         ? new Date(review.created_at).toLocaleDateString("es-ES", { day: "numeric", month: "short" })
-        : review.fecha_creacion
-        ? new Date(review.fecha_creacion).toLocaleDateString("es-ES", { day: "numeric", month: "short" })
         : "",
       texto: review.comentario,
       proyecto: review.tipo_proyecto || "Proyecto",
@@ -108,7 +86,7 @@ export default async function ProfilePage({
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <PerfilProfesionalPublico perfil={mappedProfile} tabInicial={valorar ? "valoraciones" : "sobre"} />
+      <PerfilProfesional editable={false} perfil={mappedProfile} />
     </div>
   )
 }

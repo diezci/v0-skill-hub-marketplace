@@ -1,554 +1,106 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useEffect, useState } from "react"
+import Link from "next/link"
+import { Calendar, CheckCircle2, Clock, FileText, Loader2, MapPin, MessageSquare, XCircle } from "lucide-react"
+import { obtenerOfertasPorProfesional, retirarOferta } from "@/app/actions/ofertas"
 import { Badge } from "@/components/ui/badge"
-import { formatearPrecioEuros } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { Clock, MessageSquare, MapPin, Calendar, FileText, Loader2, Pencil, Trash2, Check, Paperclip, X, Eye } from "lucide-react"
-import { obtenerOfertasPorProfesional, actualizarOferta, eliminarOferta } from "@/app/actions/ofertas"
-import { crearConversacion } from "@/app/actions/messages"
-import { uploadFile } from "@/lib/upload-helpers"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
+import { formatearPrecioEuros } from "@/lib/utils"
 
-// Aquí viven las pujas pendientes de respuesta y también las aceptadas cuyo
-// pago el cliente aún no ha completado: hasta que se pague, el trabajo no
-// existe de verdad y no aparece en Gestión de Proyectos. Las rechazadas y
-// retiradas desaparecen de la lista.
-const esPendiente = (oferta: any) => !["aceptada", "rechazada", "retirada"].includes(oferta.estado)
-const esAceptadaSinPagar = (oferta: any) => oferta.estado === "aceptada" && oferta.trabajo?.estado === "pendiente_pago"
-const esVisible = (oferta: any) => esPendiente(oferta) || esAceptadaSinPagar(oferta)
+type Estado = "pendiente" | "aceptada" | "rechazada" | "retirada"
+
+const estados: Record<Estado, { label: string; icon: typeof Clock; variant: "secondary" | "default" | "destructive" | "outline" }> = {
+  pendiente: { label: "Pendiente", icon: Clock, variant: "secondary" },
+  aceptada: { label: "Aceptada", icon: CheckCircle2, variant: "default" },
+  rechazada: { label: "Rechazada", icon: XCircle, variant: "destructive" },
+  retirada: { label: "Retirada", icon: XCircle, variant: "outline" },
+}
 
 export default function MisOfertas() {
+  const [filtro, setFiltro] = useState<Estado | "todas">("todas")
   const [ofertas, setOfertas] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [editOferta, setEditOferta] = useState<any>(null)
-  const [editForm, setEditForm] = useState({ precio: "", tiempo_estimado: "", unidad_tiempo: "dias", descripcion: "" })
-  // Adjuntos en edición: URLs ya existentes + archivos nuevos por subir.
-  const [editArchivos, setEditArchivos] = useState<string[]>([])
-  const [editNuevos, setEditNuevos] = useState<File[]>([])
-  const [subiendo, setSubiendo] = useState(false)
-  const [deleteOferta, setDeleteOferta] = useState<any>(null)
-  // Demanda cuya publicación completa se está consultando.
-  const [verDemanda, setVerDemanda] = useState<any>(null)
-  const [actionLoading, setActionLoading] = useState(false)
-  const router = useRouter()
+  const [retirando, setRetirando] = useState<string | null>(null)
   const { toast } = useToast()
 
-  async function cargarOfertas() {
+  async function cargar() {
     setLoading(true)
     const result = await obtenerOfertasPorProfesional()
-    setOfertas((result.data || []).filter(esVisible))
+    setOfertas(result.data || [])
+    if (result.error) toast({ title: "No se pudieron cargar los presupuestos", description: result.error, variant: "destructive" })
     setLoading(false)
   }
 
-  useEffect(() => {
-    cargarOfertas()
-  }, [])
+  useEffect(() => { void cargar() }, [])
 
-  const abrirEditar = (oferta: any) => {
-    setEditForm({
-      precio: oferta.precio?.toString() || "",
-      tiempo_estimado: oferta.tiempo_estimado?.toString() || "",
-      unidad_tiempo: oferta.unidad_tiempo || "dias",
-      descripcion: oferta.descripcion || "",
-    })
-    setEditArchivos(Array.isArray(oferta.archivos) ? oferta.archivos : [])
-    setEditNuevos([])
-    setEditOferta(oferta)
-  }
-
-  const handleGuardarEdicion = async () => {
-    if (!editOferta) return
-    setActionLoading(true)
-    // Subir los archivos nuevos y combinarlos con los que se conservan.
-    let archivosFinales = [...editArchivos]
-    if (editNuevos.length > 0) {
-      setSubiendo(true)
-      const subidas = await Promise.all(editNuevos.map((f) => uploadFile(f)))
-      setSubiendo(false)
-      // Si falla una subida no se guarda nada: guardar sin los adjuntos nuevos
-      // los perdería sin avisar.
-      if (subidas.some((r) => r === null)) {
-        toast({
-          title: "No se pudieron subir los archivos",
-          description: "No se ha guardado ningún cambio. Inténtalo de nuevo o quita los adjuntos nuevos.",
-          variant: "destructive",
-        })
-        setActionLoading(false)
-        return
-      }
-      archivosFinales = [...archivosFinales, ...subidas.map((r) => r!.url)]
-    }
-    const result = await actualizarOferta(editOferta.id, {
-      precio: editForm.precio ? Number.parseFloat(editForm.precio) : undefined,
-      tiempo_estimado: editForm.tiempo_estimado ? Number.parseInt(editForm.tiempo_estimado, 10) : undefined,
-      unidad_tiempo: editForm.unidad_tiempo,
-      descripcion: editForm.descripcion,
-      archivos: archivosFinales,
-    })
+  async function handleRetirar(id: string) {
+    setRetirando(id)
+    const result = await retirarOferta(id)
     if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" })
+      toast({ title: "No se pudo retirar", description: result.error, variant: "destructive" })
     } else {
-      toast({ title: "Oferta actualizada", description: "Los cambios se han guardado y el cliente ha sido notificado." })
-      setEditOferta(null)
-      await cargarOfertas()
+      toast({ title: "Presupuesto retirado", description: "El cliente ya no podrá aceptarlo." })
+      await cargar()
     }
-    setActionLoading(false)
+    setRetirando(null)
   }
 
-  const handleEliminar = async () => {
-    if (!deleteOferta) return
-    setActionLoading(true)
-    const result = await eliminarOferta(deleteOferta.id)
-    if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" })
-    } else {
-      toast({ title: "Oferta retirada", description: "Tu oferta se ha retirado." })
-      setDeleteOferta(null)
-      await cargarOfertas()
-    }
-    setActionLoading(false)
-  }
+  const visibles = filtro === "todas" ? ofertas : ofertas.filter((oferta) => oferta.estado === filtro)
+  const total = (estado: Estado) => ofertas.filter((oferta) => oferta.estado === estado).length
 
-  const handleContactarCliente = async (clienteId?: string, solicitudId?: string) => {
-    if (!clienteId) {
-      toast({ title: "No disponible", description: "No se pudo identificar al cliente.", variant: "destructive" })
-      return
-    }
-    const result = await crearConversacion({ otroUsuarioId: clienteId, solicitudId })
-    if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" })
-    } else {
-      router.push(result.data?.id ? `/mensajes?c=${result.data.id}` : "/mensajes")
-    }
-  }
-
-  if (loading) {
-    return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
-    )
-  }
+  if (loading) return <Card><CardContent className="flex items-center justify-center py-16"><Loader2 className="size-8 animate-spin text-muted-foreground" /></CardContent></Card>
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Pujas en curso ({ofertas.length})</CardTitle>
-          <CardDescription>
-            Puedes editarlas o retirarlas mientras el cliente no las acepte. Cuando una puja aceptada se pague,
-            pasará a Gestión de Proyectos como trabajo activo; hasta entonces sigue aquí.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {ofertas.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="font-medium text-foreground mb-1">No tienes pujas pendientes</p>
-              <p className="text-sm mb-4">Explora las demandas publicadas y envía tu puja.</p>
-              <Button onClick={() => router.push("/demandas")}>Ver demandas</Button>
-            </div>
-          ) : (
-            ofertas.map((oferta) => (
-              <Card key={oferta.id} className="hover:shadow-md transition-shadow">
-                <CardHeader>
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <CardTitle className="text-lg sm:text-xl">{oferta.solicitud?.titulo || "Servicio"}</CardTitle>
-                        {esAceptadaSinPagar(oferta) ? (
-                          <Badge variant="outline" className="gap-1 text-amber-600 border-amber-500/50 bg-amber-500/10">
-                            <Clock className="h-3 w-3" />
-                            Aceptada · esperando pago del cliente
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="gap-1">
-                            <Clock className="h-3 w-3" />
-                            Enviada
-                          </Badge>
-                        )}
-                      </div>
-                      <CardDescription className="text-base">
-                        {oferta.solicitud?.cliente?.nombre} {oferta.solicitud?.cliente?.apellido}
-                      </CardDescription>
-                    </div>
-                    <div className="text-left sm:text-right shrink-0">
-                      <div className="text-2xl font-bold text-primary">{formatearPrecioEuros(oferta.precio)}</div>
-                      <p className="text-sm text-muted-foreground">Precio ofertado</p>
-                    </div>
-                  </div>
+    <div className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-balance text-3xl font-bold">Presupuestos enviados</h1>
+        <p className="text-pretty text-muted-foreground">Consulta el estado de las ofertas que has enviado a clientes.</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {(["pendiente", "aceptada", "rechazada", "retirada"] as Estado[]).map((estado) => (
+          <Card key={estado}><CardContent className="flex items-center justify-between p-4"><span className="text-sm text-muted-foreground">{estados[estado].label}</span><strong className="text-xl">{total(estado)}</strong></CardContent></Card>
+        ))}
+      </div>
+
+      <Tabs value={filtro} onValueChange={(value) => setFiltro(value as Estado | "todas")}>
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 p-1">
+          <TabsTrigger value="todas">Todos ({ofertas.length})</TabsTrigger>
+          <TabsTrigger value="pendiente">Pendientes ({total("pendiente")})</TabsTrigger>
+          <TabsTrigger value="aceptada">Aceptados ({total("aceptada")})</TabsTrigger>
+          <TabsTrigger value="rechazada">Rechazados ({total("rechazada")})</TabsTrigger>
+          <TabsTrigger value="retirada">Retirados ({total("retirada")})</TabsTrigger>
+        </TabsList>
+        <TabsContent value={filtro} className="mt-5 flex flex-col gap-4">
+          {visibles.length === 0 ? (
+            <Card><CardContent className="flex flex-col items-center gap-3 py-16 text-center"><FileText className="size-10 text-muted-foreground" /><div><p className="font-medium">No hay presupuestos aquí</p><p className="text-sm text-muted-foreground">Cuando envíes uno desde una demanda aparecerá en esta sección.</p></div><Button asChild><Link href="/demandas">Ver demandas</Link></Button></CardContent></Card>
+          ) : visibles.map((oferta) => {
+            const config = estados[(oferta.estado as Estado)] || estados.pendiente
+            const Icon = config.icon
+            return (
+              <Card key={oferta.id}>
+                <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex min-w-0 flex-col gap-2"><div className="flex flex-wrap items-center gap-2"><CardTitle className="text-lg">{oferta.solicitud?.titulo || "Servicio"}</CardTitle><Badge variant={config.variant}><Icon className="mr-1 size-3" />{config.label}</Badge></div><CardDescription>{oferta.solicitud?.cliente ? `${oferta.solicitud.cliente.nombre || ""} ${oferta.solicitud.cliente.apellido || ""}` : "Cliente"}</CardDescription></div>
+                  <div className="shrink-0 sm:text-right"><p className="text-2xl font-bold text-primary">{formatearPrecioEuros(oferta.precio)}</p><p className="text-xs text-muted-foreground">Presupuesto enviado</p></div>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid gap-3 text-sm">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Calendar className="h-4 w-4" />
-                      <span>Enviada el {new Date(oferta.created_at).toLocaleDateString("es-ES")}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <MapPin className="h-4 w-4" />
-                      <span>{oferta.solicitud?.ubicacion || "Ubicación no especificada"}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Clock className="h-4 w-4" />
-                      <span>
-                        {oferta.tiempo_estimado} {oferta.unidad_tiempo || "días"} estimados
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="pt-3 border-t">
-                    <p className="text-sm font-medium mb-2">Descripción del Servicio:</p>
-                    <p className="text-sm text-muted-foreground">{oferta.descripcion}</p>
-                    {oferta.materiales_incluidos && (
-                      <p className="text-sm text-muted-foreground mt-1.5">
-                        <span className="font-medium text-foreground">Materiales:</span>{" "}
-                        {oferta.materiales_incluidos === "si"
-                          ? "incluidos"
-                          : oferta.materiales_incluidos === "no"
-                            ? "no incluidos"
-                            : oferta.materiales_incluidos === "parcial"
-                              ? "parcialmente incluidos"
-                              : oferta.materiales_incluidos}
-                      </p>
-                    )}
-                  </div>
-
-                  {Array.isArray(oferta.archivos) && oferta.archivos.length > 0 && (
-                    <div className="pt-1">
-                      <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
-                        <FileText className="h-3.5 w-3.5" /> Archivos adjuntos ({oferta.archivos.length})
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {oferta.archivos.map((url: string, i: number) =>
-                          /\.(png|jpe?g|gif|webp)(\?|$)/i.test(url) ? (
-                            <a key={i} href={url} target="_blank" rel="noreferrer">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={url}
-                                alt={`Adjunto ${i + 1}`}
-                                className="h-14 w-14 rounded-md object-cover border hover:opacity-80 transition"
-                              />
-                            </a>
-                          ) : (
-                            <a
-                              key={i}
-                              href={url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted transition"
-                            >
-                              <FileText className="h-3.5 w-3.5" />
-                              {decodeURIComponent(url.split("/").pop()?.split("?")[0] || `Archivo ${i + 1}`)}
-                            </a>
-                          ),
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {esAceptadaSinPagar(oferta) && (
-                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-muted-foreground">
-                      El cliente aceptó tu puja pero aún no ha completado el pago protegido. Cuando lo haga, el
-                      trabajo aparecerá en Gestión de Proyectos.
-                    </div>
-                  )}
-
-                  <div className="flex flex-wrap gap-2 pt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 bg-transparent"
-                      onClick={() => setVerDemanda(oferta.solicitud)}
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      Ver demanda
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 bg-transparent"
-                      onClick={() => handleContactarCliente(oferta.solicitud?.cliente_id, oferta.solicitud?.id)}
-                    >
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      Contactar Cliente
-                    </Button>
-                    {!esAceptadaSinPagar(oferta) && (
-                      <>
-                        <Button variant="outline" size="sm" className="flex-1 bg-transparent" onClick={() => abrirEditar(oferta)}>
-                          <Pencil className="h-4 w-4 mr-2" />
-                          Editar oferta
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 bg-transparent text-destructive border-destructive/40 hover:bg-destructive/10"
-                          onClick={() => setDeleteOferta(oferta)}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Retirar
-                        </Button>
-                      </>
-                    )}
+                <CardContent className="flex flex-col gap-4">
+                  <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground"><span className="flex items-center gap-2"><Calendar className="size-4" />{new Date(oferta.created_at).toLocaleDateString("es-ES")}</span><span className="flex items-center gap-2"><MapPin className="size-4" />{oferta.solicitud?.ubicacion || "Sin ubicación"}</span><span className="flex items-center gap-2"><Clock className="size-4" />{oferta.tiempo_estimado} {oferta.unidad_tiempo || "días"}</span></div>
+                  <p className="text-sm leading-relaxed text-muted-foreground">{oferta.descripcion}</p>
+                  <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row">
+                    <Button asChild variant="outline" className="sm:flex-1"><Link href={`/demandas?solicitud=${oferta.solicitud_id}`}><FileText className="mr-2 size-4" />Ver demanda</Link></Button>
+                    {oferta.estado === "aceptada" && <Button asChild className="sm:flex-1"><Link href="/mis-trabajos"><MessageSquare className="mr-2 size-4" />Ver proyecto</Link></Button>}
+                    {oferta.estado === "pendiente" && <Button variant="destructive" className="sm:flex-1" disabled={retirando === oferta.id} onClick={() => void handleRetirar(oferta.id)}>{retirando === oferta.id && <Loader2 className="mr-2 size-4 animate-spin" />}Retirar presupuesto</Button>}
                   </div>
                 </CardContent>
               </Card>
-            ))
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Editar oferta */}
-      <Dialog open={!!editOferta} onOpenChange={(o) => !o && setEditOferta(null)}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Editar oferta</DialogTitle>
-            <DialogDescription>
-              Puedes modificar tu oferta mientras no haya sido aceptada. El cliente recibirá una notificación.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Precio (€)</label>
-                <Input
-                  type="number"
-                  value={editForm.precio}
-                  onChange={(e) => setEditForm({ ...editForm, precio: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Tiempo estimado</label>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    className="w-20"
-                    value={editForm.tiempo_estimado}
-                    onChange={(e) => setEditForm({ ...editForm, tiempo_estimado: e.target.value })}
-                  />
-                  <select
-                    className="flex-1 h-9 rounded-md border border-input bg-background px-2 text-sm"
-                    value={editForm.unidad_tiempo}
-                    onChange={(e) => setEditForm({ ...editForm, unidad_tiempo: e.target.value })}
-                  >
-                    <option value="horas">Horas</option>
-                    <option value="dias">Días</option>
-                    <option value="semanas">Semanas</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Descripción</label>
-              <Textarea
-                rows={4}
-                value={editForm.descripcion}
-                onChange={(e) => setEditForm({ ...editForm, descripcion: e.target.value })}
-              />
-            </div>
-
-            {/* Adjuntos: conservar/borrar existentes y añadir nuevos */}
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Archivos adjuntos</label>
-              <div className="flex flex-wrap gap-2">
-                {editArchivos.map((url, i) => (
-                  <div
-                    key={`ex-${i}`}
-                    className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs bg-muted/40"
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                    <a href={url} target="_blank" rel="noreferrer" className="hover:underline max-w-[140px] truncate">
-                      {decodeURIComponent(url.split("/").pop()?.split("?")[0] || `Archivo ${i + 1}`)}
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() => setEditArchivos(editArchivos.filter((_, j) => j !== i))}
-                      className="text-muted-foreground hover:text-destructive"
-                      aria-label="Quitar adjunto"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
-                {editNuevos.map((f, i) => (
-                  <div
-                    key={`new-${i}`}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/40 px-2.5 py-1.5 text-xs bg-emerald-500/10"
-                  >
-                    <Paperclip className="h-3.5 w-3.5" />
-                    <span className="max-w-[140px] truncate">{f.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => setEditNuevos(editNuevos.filter((_, j) => j !== i))}
-                      className="text-muted-foreground hover:text-destructive"
-                      aria-label="Quitar archivo nuevo"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
-                <label className="inline-flex items-center gap-1.5 rounded-md border border-dashed px-2.5 py-1.5 text-xs cursor-pointer hover:bg-muted transition">
-                  <Paperclip className="h-3.5 w-3.5" /> Añadir
-                  <input
-                    type="file"
-                    multiple
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files) setEditNuevos((prev) => [...prev, ...Array.from(e.target.files!)])
-                      e.target.value = ""
-                    }}
-                  />
-                </label>
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" className="bg-transparent" onClick={() => setEditOferta(null)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleGuardarEdicion} disabled={actionLoading || subiendo}>
-              {actionLoading || subiendo ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Check className="h-4 w-4 mr-2" />
-              )}
-              {subiendo ? "Subiendo..." : "Guardar cambios"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Confirmar retirada */}
-      <AlertDialog open={!!deleteOferta} onOpenChange={(o) => !o && setDeleteOferta(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Retirar esta oferta?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Se retirará tu oferta de "{deleteOferta?.solicitud?.titulo}". Esta acción no se puede deshacer.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault()
-                handleEliminar()
-              }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={actionLoading}
-            >
-              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-              Retirar oferta
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Publicación completa de la demanda por la que se puja */}
-      <Dialog open={!!verDemanda} onOpenChange={(o) => !o && setVerDemanda(null)}>
-        <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{verDemanda?.titulo || "Demanda"}</DialogTitle>
-            <DialogDescription>
-              Publicada por {verDemanda?.cliente?.nombre} {verDemanda?.cliente?.apellido}
-              {verDemanda?.created_at
-                ? ` el ${new Date(verDemanda.created_at).toLocaleDateString("es-ES")}`
-                : ""}
-            </DialogDescription>
-          </DialogHeader>
-
-          {verDemanda && (
-            <div className="space-y-4 py-1 text-sm">
-              <div className="flex flex-wrap gap-2">
-                {verDemanda.urgencia && (
-                  <Badge variant="outline" className="capitalize">{verDemanda.urgencia}</Badge>
-                )}
-                {verDemanda.ubicacion && (
-                  <Badge variant="outline" className="gap-1">
-                    <MapPin className="h-3 w-3" />
-                    {verDemanda.ubicacion}
-                  </Badge>
-                )}
-                {(verDemanda.presupuesto_min || verDemanda.presupuesto_max) && (
-                  <Badge variant="outline">
-                    {verDemanda.presupuesto_min ? formatearPrecioEuros(verDemanda.presupuesto_min) : ""}
-                    {verDemanda.presupuesto_min && verDemanda.presupuesto_max ? " – " : ""}
-                    {verDemanda.presupuesto_max
-                      ? formatearPrecioEuros(verDemanda.presupuesto_max)
-                      : verDemanda.presupuesto_min
-                        ? " o más"
-                        : ""}
-                  </Badge>
-                )}
-              </div>
-
-              <div>
-                <p className="font-medium mb-1.5">Descripción del cliente</p>
-                <p className="text-muted-foreground whitespace-pre-wrap">
-                  {verDemanda.descripcion || "Sin descripción."}
-                </p>
-              </div>
-
-              {Array.isArray(verDemanda.archivos) && verDemanda.archivos.length > 0 && (
-                <div>
-                  <p className="font-medium mb-1.5 flex items-center gap-1">
-                    <FileText className="h-4 w-4" /> Archivos adjuntos ({verDemanda.archivos.length})
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {verDemanda.archivos.map((url: string, i: number) =>
-                      /\.(png|jpe?g|gif|webp)(\?|$)/i.test(url) ? (
-                        <a key={i} href={url} target="_blank" rel="noreferrer">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={url}
-                            alt={`Adjunto ${i + 1}`}
-                            className="h-20 w-20 rounded-md object-cover border hover:opacity-80 transition"
-                          />
-                        </a>
-                      ) : (
-                        <a
-                          key={i}
-                          href={url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted transition"
-                        >
-                          <FileText className="h-3.5 w-3.5" />
-                          {decodeURIComponent(url.split("/").pop()?.split("?")[0] || `Archivo ${i + 1}`)}
-                        </a>
-                      ),
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            )
+          })}
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

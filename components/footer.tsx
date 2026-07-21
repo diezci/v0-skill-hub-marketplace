@@ -16,14 +16,14 @@ const Footer = () => {
       { name: "Mensajes", href: "/mensajes" },
     ],
     company: [
-      { name: "Sobre nosotros", href: "/sobre-nosotros" },
+      { name: "Sobre nosotros", href: "#" },
       { name: "Contacto", href: "mailto:contacto@diime.es" },
-      { name: "Centro de ayuda", href: "/ayuda" },
+      { name: "Centro de ayuda", href: "#" },
     ],
     legal: [
-      { name: "Términos y condiciones", href: "/legal/terminos" },
-      { name: "Política de privacidad", href: "/legal/privacidad" },
-      { name: "Política de cookies", href: "/legal/cookies" },
+      { name: "Terminos y condiciones", href: "#" },
+      { name: "Politica de privacidad", href: "#" },
+      { name: "Politica de cookies", href: "#" },
     ],
   }
 

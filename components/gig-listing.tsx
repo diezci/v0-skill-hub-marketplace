@@ -1,39 +1,230 @@
 "use client"
 
-import { useMemo, useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { obtenerProfesionales } from "@/app/actions/profiles"
-import { crearConversacion } from "@/app/actions/messages"
+import { useMemo, useState } from "react"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Star, Grid3X3, List, MapPin, MessageSquare } from "lucide-react"
+import { Star, Grid3X3, List, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
-import { createClient } from "@/lib/supabase/client"
-import { useToast } from "@/hooks/use-toast"
 import type { ProfesionalesFiltros } from "@/components/profesionales-content"
-import { CATEGORIAS_SERVICIO } from "@/lib/categorias"
 
+const gigs = [
+  {
+    id: 1,
+    title: "Reforma Integral de Viviendas",
+    description: "Realizo reformas completas de pisos y casas con más de 15 años de experiencia",
+    price: 3500,
+    category: "Albañilería",
+    provincia: "Madrid",
+    image:
+      "https://images.unsplash.com/photo-1504307651254-35680f356dfd?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+    rating: 4.9,
+    reviews: 87,
+    freelancer: {
+      name: "Carlos Rodríguez",
+      avatar: "https://randomuser.me/api/portraits/men/32.jpg",
+      level: "Profesional Certificado",
+    },
+  },
+  {
+    id: 2,
+    title: "Instalación de Fontanería Completa",
+    description: "Instalación y reparación de sistemas de agua, calefacción y gas certificado",
+    price: 450,
+    category: "Fontanería",
+    provincia: "Barcelona",
+    image:
+      "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+    rating: 4.8,
+    reviews: 124,
+    freelancer: {
+      name: "Miguel Ángel Torres",
+      avatar: "https://randomuser.me/api/portraits/men/45.jpg",
+      level: "Experto Verificado",
+    },
+  },
+  {
+    id: 3,
+    title: "Instalaciones Eléctricas Certificadas",
+    description: "Electricista certificado para instalaciones residenciales y comerciales",
+    price: 380,
+    category: "Electricidad",
+    provincia: "Valencia",
+    image:
+      "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+    rating: 4.9,
+    reviews: 156,
+    freelancer: {
+      name: "Javier Martínez",
+      avatar: "https://randomuser.me/api/portraits/men/22.jpg",
+      level: "Experto Verificado",
+    },
+  },
+  {
+    id: 4,
+    title: "Pintura Profesional Interior y Exterior",
+    description: "Servicio de pintura con acabados de alta calidad y garantía de 2 años",
+    price: 850,
+    category: "Pintura",
+    provincia: "Sevilla",
+    image:
+      "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+    rating: 4.7,
+    reviews: 93,
+    freelancer: {
+      name: "Antonio López",
+      avatar: "https://randomuser.me/api/portraits/men/56.jpg",
+      level: "Profesional Certificado",
+    },
+  },
+  {
+    id: 5,
+    title: "Carpintería a Medida",
+    description: "Diseño y fabricación de muebles personalizados, armarios empotrados y cocinas",
+    price: 1200,
+    category: "Carpintería",
+    provincia: "Madrid",
+    image:
+      "https://images.unsplash.com/photo-1617806118233-18e1de247200?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+    rating: 4.9,
+    reviews: 78,
+    freelancer: {
+      name: "Francisco Gómez",
+      avatar: "https://randomuser.me/api/portraits/men/76.jpg",
+      level: "Maestro Artesano",
+    },
+  },
+  {
+    id: 6,
+    title: "Instalación de Aire Acondicionado",
+    description: "Instalación y mantenimiento de sistemas de climatización con garantía oficial",
+    price: 680,
+    category: "Climatización",
+    provincia: "Málaga",
+    image:
+      "https://images.unsplash.com/photo-1631545806609-c2ce1e6e4e0c?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+    rating: 4.8,
+    reviews: 112,
+    freelancer: {
+      name: "Roberto Sánchez",
+      avatar: "https://randomuser.me/api/portraits/men/60.jpg",
+      level: "Técnico Certificado",
+    },
+  },
+  {
+    id: 7,
+    title: "Diseño de Jardines y Paisajismo",
+    description: "Diseño, instalación y mantenimiento de jardines residenciales y comerciales",
+    price: 950,
+    category: "Jardinería",
+    provincia: "Barcelona",
+    image: "https://images.unsplash.com/photo-1558904541-efa843a96f01?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+    rating: 4.7,
+    reviews: 64,
+    freelancer: {
+      name: "Luis Fernández",
+      avatar: "https://randomuser.me/api/portraits/men/18.jpg",
+      level: "Especialista",
+    },
+  },
+  {
+    id: 8,
+    title: "Instalación de Puertas Blindadas",
+    description: "Cerrajero profesional especializado en seguridad del hogar",
+    price: 420,
+    category: "Cerrajería",
+    provincia: "Zaragoza",
+    image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+    rating: 4.9,
+    reviews: 89,
+    freelancer: {
+      name: "Pedro Ramírez",
+      avatar: "https://randomuser.me/api/portraits/men/62.jpg",
+      level: "Experto Verificado",
+    },
+  },
+  {
+    id: 9,
+    title: "Proyectos Arquitectónicos Completos",
+    description: "Arquitecto colegiado para diseño de viviendas, reformas y dirección de obra",
+    price: 2500,
+    category: "Arquitectura",
+    provincia: "Madrid",
+    image: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+    rating: 4.9,
+    reviews: 45,
+    freelancer: {
+      name: "Elena García",
+      avatar: "https://randomuser.me/api/portraits/women/28.jpg",
+      level: "Arquitecto Colegiado",
+    },
+  },
+  {
+    id: 10,
+    title: "Instalación de Suelos y Alicatados",
+    description: "Especialista en instalación de parquet, tarima, gres y cerámica",
+    price: 720,
+    category: "Albañilería",
+    provincia: "Valencia",
+    image:
+      "https://images.unsplash.com/photo-1581858726788-75bc0f6a952d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+    rating: 4.8,
+    reviews: 102,
+    freelancer: {
+      name: "José Manuel Ruiz",
+      avatar: "https://randomuser.me/api/portraits/men/42.jpg",
+      level: "Profesional Certificado",
+    },
+  },
+  {
+    id: 11,
+    title: "Diseño de Interiores Personalizado",
+    description: "Interiorista profesional para proyectos residenciales y comerciales",
+    price: 1800,
+    category: "Arquitectura",
+    provincia: "Bizkaia",
+    image:
+      "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+    rating: 4.9,
+    reviews: 67,
+    freelancer: {
+      name: "María Jiménez",
+      avatar: "https://randomuser.me/api/portraits/women/44.jpg",
+      level: "Diseñadora Profesional",
+    },
+  },
+  {
+    id: 12,
+    title: "Reparación de Electrodomésticos",
+    description: "Técnico especializado en reparación de lavadoras, frigoríficos y hornos",
+    price: 85,
+    category: "Electricidad",
+    provincia: "Sevilla",
+    image: "https://images.unsplash.com/photo-1556911220-bff31c812dba?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+    rating: 4.6,
+    reviews: 134,
+    freelancer: {
+      name: "David Moreno",
+      avatar: "https://randomuser.me/api/portraits/men/54.jpg",
+      level: "Técnico Certificado",
+    },
+  },
+]
 
-// Coincidencia difusa categoría↔profesional (mismo criterio que las
-// invitaciones): substring en cualquier dirección o raíz de 5 letras.
-function normalizarCat(s: string) {
-  return (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim()
+const CATEGORIA_ID_TO_LABEL: Record<string, string> = {
+  albanileria: "Albañilería",
+  fontaneria: "Fontanería",
+  electricidad: "Electricidad",
+  pintura: "Pintura",
+  carpinteria: "Carpintería",
+  climatizacion: "Climatización",
+  jardineria: "Jardinería",
+  cerrajeria: "Cerrajería",
+  arquitectura: "Arquitectura",
 }
-function coincideCategoria(categoriaLabel: string, titulo: string, habilidades: string[]): boolean {
-  const cat = normalizarCat(categoriaLabel)
-  if (!cat) return false
-  const raiz = cat.slice(0, Math.min(5, cat.length))
-  const textos = [titulo || "", ...(habilidades || [])].map(normalizarCat).filter(Boolean)
-  return textos.some((t) => t.includes(cat) || cat.includes(t) || t.includes(raiz))
-}
-
-const CATEGORIA_ID_TO_LABEL: Record<string, string> = Object.fromEntries(
-  CATEGORIAS_SERVICIO.map((c) => [c.id, c.label]),
-)
 
 const NIVEL_ID_TOKENS: Record<string, string[]> = {
   any: [],
@@ -46,94 +237,21 @@ interface GigListingProps {
   filtros?: ProfesionalesFiltros
 }
 
-const FALLBACK_IMG =
-  "https://images.unsplash.com/photo-1504307651254-35680f356dfd?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80"
-
 const GigListing = ({ filtros }: GigListingProps) => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [sortBy, setSortBy] = useState("recommended")
-  const [realGigs, setRealGigs] = useState<any[]>([])
-  const [enviando, setEnviando] = useState<string | null>(null)
-  const router = useRouter()
-  const { toast } = useToast()
-
-  // Escribir directamente a un profesional real desde la tarjeta.
-  const handleMensaje = async (e: React.MouseEvent, profesionalId: string) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setEnviando(profesionalId)
-    try {
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) {
-        toast({ title: "Inicia sesión", description: "Necesitas una cuenta para escribir a un profesional." })
-        router.push("/auth/login")
-        return
-      }
-      if (user.id === profesionalId) {
-        toast({ title: "Eres tú", description: "No puedes escribirte a ti mismo." })
-        return
-      }
-      const res = await crearConversacion({ otroUsuarioId: profesionalId })
-      if (res.error || !res.data?.id) {
-        toast({ title: "Error", description: res.error || "No se pudo abrir el chat.", variant: "destructive" })
-        return
-      }
-      router.push(`/mensajes?c=${res.data.id}`)
-    } finally {
-      setEnviando(null)
-    }
-  }
-
-  useEffect(() => {
-    async function cargar() {
-      const result = await obtenerProfesionales()
-      if (!result.data) return
-      const mapped = result.data.map((p: any) => {
-        const nombre = `${p.perfil?.nombre || ""} ${p.perfil?.apellido || ""}`.trim() || "Profesional"
-        const habilidades = Array.isArray(p.habilidades) ? p.habilidades : []
-        return {
-          id: p.id,
-          title: p.titulo || nombre,
-          description: p.perfil?.bio || p.titulo || "Profesional verificado en Diime",
-          price: Number(p.tarifa_por_hora) || 0,
-          category: habilidades[0] || "",
-          habilidades,
-          provincia: p.perfil?.ubicacion || "",
-          image: p.perfil?.foto_perfil || FALLBACK_IMG,
-          rating: Number(p.rating_promedio) || 0,
-          reviews: p.total_reseñas || 0,
-          esReal: true,
-          freelancer: {
-            name: nombre,
-            avatar: p.perfil?.foto_perfil || "",
-            level: p.nivel || "Profesional",
-          },
-        }
-      })
-      setRealGigs(mapped as any)
-    }
-    cargar()
-  }, [])
-
-  // Solo profesionales reales de la base de datos: sin tarjetas de ejemplo.
-  const todos = realGigs
 
   const filtered = useMemo(() => {
-    if (!filtros) return todos
-    let list = todos.filter((g) => {
+    if (!filtros) return gigs
+    let list = gigs.filter((g) => {
       // Provincia
       if (filtros.provincia && g.provincia.toLowerCase() !== filtros.provincia.toLowerCase()) {
         return false
       }
-      // Categorías: coincidencia difusa contra título + habilidades del
-      // profesional (los skills son texto libre; comparar por etiqueta exacta
-      // hacía desaparecer perfiles que sí encajaban).
+      // Categorías
       if (filtros.categorias.length > 0) {
         const categoriaLabels = filtros.categorias.map((id) => CATEGORIA_ID_TO_LABEL[id] || id)
-        if (!categoriaLabels.some((label) => coincideCategoria(label, g.title, g.habilidades))) return false
+        if (!categoriaLabels.includes(g.category)) return false
       }
       // Niveles
       if (filtros.niveles.length > 0 && !filtros.niveles.includes("any")) {
@@ -165,11 +283,11 @@ const GigListing = ({ filtros }: GigListingProps) => {
         list = [...list].sort((a, b) => b.rating - a.rating)
         break
       case "newest":
-        list = [...list].sort((a, b) => String(b.id).localeCompare(String(a.id)))
+        list = [...list].sort((a, b) => b.id - a.id)
         break
     }
     return list
-  }, [filtros, sortBy, todos])
+  }, [filtros, sortBy])
 
   return (
     <div className="space-y-6">
@@ -271,23 +389,9 @@ const GigListing = ({ filtros }: GigListingProps) => {
                     </span>
                   </div>
                 </CardContent>
-                <CardFooter className="p-6 pt-0 border-t flex justify-between items-center gap-2">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Desde</p>
-                    <p className="text-xl font-bold">€{gig.price}</p>
-                  </div>
-                  {(gig as any).esReal && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="bg-transparent"
-                      disabled={enviando === String(gig.id)}
-                      onClick={(e) => handleMensaje(e, String(gig.id))}
-                    >
-                      <MessageSquare className="h-4 w-4 mr-1.5" />
-                      Mensaje
-                    </Button>
-                  )}
+                <CardFooter className="p-6 pt-0 border-t flex justify-between items-center">
+                  <p className="text-sm text-muted-foreground">Desde</p>
+                  <p className="text-xl font-bold">€{gig.price}</p>
                 </CardFooter>
               </Card>
             </Link>
@@ -336,20 +440,7 @@ const GigListing = ({ filtros }: GigListingProps) => {
                         <p className="text-sm text-muted-foreground">Desde</p>
                         <p className="text-xl font-bold">€{gig.price}</p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {(gig as any).esReal && (
-                          <Button
-                            variant="outline"
-                            className="bg-transparent"
-                            disabled={enviando === String(gig.id)}
-                            onClick={(e) => handleMensaje(e, String(gig.id))}
-                          >
-                            <MessageSquare className="h-4 w-4 mr-1.5" />
-                            Mensaje
-                          </Button>
-                        )}
-                        <Button>Ver Detalles</Button>
-                      </div>
+                      <Button>Ver Detalles</Button>
                     </div>
                   </div>
                 </div>

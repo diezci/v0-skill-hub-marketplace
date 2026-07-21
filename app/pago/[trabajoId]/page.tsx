@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { loadStripe } from "@stripe/stripe-js"
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js"
-import { crearPagoEscrow, confirmarPagoEscrow } from "@/app/actions/escrow"
+import { crearPagoEscrow } from "@/app/actions/escrow"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -19,10 +19,9 @@ export default function PagoPage() {
   const router = useRouter()
   const trabajoId = params.trabajoId as string
 
-  const [status, setStatus] = useState<"loading" | "ready" | "confirming" | "complete" | "error">("loading")
+  const [status, setStatus] = useState<"loading" | "ready" | "complete" | "error">("loading")
   const [error, setError] = useState<string | null>(null)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
-  const [sessionId, setSessionId] = useState<string | null>(null)
   const [desglose, setDesglose] = useState<{
     precioBase: number
     comisionCliente: number
@@ -43,7 +42,6 @@ export default function PagoPage() {
 
       if (result.clientSecret) {
         setClientSecret(result.clientSecret)
-        setSessionId(result.escrow?.stripe_session_id ?? null)
         setStatus("ready")
       }
 
@@ -55,27 +53,12 @@ export default function PagoPage() {
     initCheckout()
   }, [trabajoId])
 
-  const handleComplete = useCallback(async () => {
-    // Stripe ya cobró: confirmar en nuestra base de datos (escrow →
-    // fondos_retenidos, trabajo → en_progreso y aviso al proveedor). Sin esta
-    // llamada el pago quedaba cobrado pero el trabajo seguía "pendiente de pago".
-    setStatus("confirming")
-    if (sessionId) {
-      const result = await confirmarPagoEscrow(sessionId)
-      if (result.error) {
-        setError(
-          `Tu pago se ha realizado, pero no se pudo registrar la confirmación (${result.error}). ` +
-            "Recarga la página o contacta con soporte: no se te cobrará dos veces.",
-        )
-        setStatus("error")
-        return
-      }
-    }
+  const handleComplete = useCallback(() => {
     setStatus("complete")
     setTimeout(() => {
       router.push("/mis-solicitudes")
     }, 3000)
-  }, [router, sessionId])
+  }, [router])
 
   if (status === "error") {
     return (
@@ -95,20 +78,6 @@ export default function PagoPage() {
     )
   }
 
-  if (status === "confirming") {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="pt-6 text-center">
-            <Loader2 className="h-12 w-12 text-primary mx-auto mb-4 animate-spin" />
-            <h2 className="text-xl font-semibold mb-2">Confirmando el pago...</h2>
-            <p className="text-muted-foreground">No cierres esta ventana.</p>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
   if (status === "complete") {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -119,7 +88,7 @@ export default function PagoPage() {
             <p className="text-muted-foreground mb-2">
               Los fondos quedan retenidos de forma segura hasta que confirmes la finalizacion del trabajo.
             </p>
-            <p className="text-sm text-muted-foreground">Redirigiendo a Mis Demandas...</p>
+            <p className="text-sm text-muted-foreground">Redirigiendo a Mis Solicitudes...</p>
           </CardContent>
         </Card>
       </div>
@@ -149,17 +118,10 @@ export default function PagoPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 space-y-2">
-                  <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
-                    <ShieldCheck className="h-4 w-4" /> Tu dinero está protegido
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    El importe <span className="font-medium text-foreground">no llega al profesional al pagar</span>:
-                    queda retenido por Diime y <span className="font-medium text-foreground">solo se libera cuando
-                    tú confirmes</span> que has recibido el servicio correctamente. Si no quedas satisfecho,{" "}
-                    <span className="font-medium text-foreground">se te reembolsa</span>.
-                  </p>
-                </div>
+                <p className="text-sm text-muted-foreground">
+                  Tu pago queda retenido de forma segura en nuestra plataforma. Solo se libera al profesional
+                  cuando confirmes que el trabajo se ha completado satisfactoriamente.
+                </p>
 
                 <Separator />
 
@@ -173,7 +135,7 @@ export default function PagoPage() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">
-                          Gastos de servicio Diime ({PLATFORM_CONFIG.comisionClientePorcentaje}%)
+                          Comision plataforma ({PLATFORM_CONFIG.comisionClientePorcentaje}%)
                         </span>
                         <span>{formatearPrecio(desglose.comisionCliente)}</span>
                       </div>
