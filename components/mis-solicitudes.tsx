@@ -27,6 +27,7 @@ import { obtenerMisTrabajos, actualizarProgresoTrabajo, marcarTrabajoEntregado, 
 import { crearResena } from "@/app/actions/reviews"
 import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
 import MisDisputas from "@/components/mis-disputas"
+import { AdjuntosLista } from "@/components/adjuntos-lista"
 import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
 import { calcularTotalCliente, PLATFORM_CONFIG } from "@/lib/comisiones"
 import { useToast } from "@/hooks/use-toast"
@@ -349,9 +350,13 @@ export default function MisSolicitudes() {
   )
   // Entregados y a la espera de que el cliente confirme: pestaña propia.
   const solicitudesPorConfirmar = solicitudes.filter((s) => s.trabajo?.estado === "entregado")
+  // Un trabajo en disputa vive solo en la pestaña Disputas (mismo criterio que
+  // en Gestión de Proyectos): duplicarlo en En Progreso confundía.
   const solicitudesEnProgreso = solicitudes.filter(
     (s) =>
-      (s.estado === "en_progreso" || s.estado === "en-progreso") && s.trabajo?.estado !== "entregado",
+      (s.estado === "en_progreso" || s.estado === "en-progreso") &&
+      s.trabajo?.estado !== "entregado" &&
+      s.trabajo?.estado !== "en_disputa",
   )
   const solicitudesCompletadas = solicitudes.filter(
     (s) => s.estado === "completado" || s.estado === "completada" || s.estado === "cerrada",
@@ -576,31 +581,7 @@ export default function MisSolicitudes() {
                       <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
                         <FileText className="h-3.5 w-3.5" /> Archivos adjuntos ({solicitud.archivos.length})
                       </p>
-                      <div className="flex flex-wrap gap-2">
-                        {solicitud.archivos.map((url: string, i: number) =>
-                          /\.(png|jpe?g|gif|webp)(\?|$)/i.test(url) ? (
-                            <a key={i} href={url} target="_blank" rel="noreferrer">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={url}
-                                alt={`Adjunto ${i + 1}`}
-                                className="h-16 w-16 rounded-md object-cover border hover:opacity-80 transition"
-                              />
-                            </a>
-                          ) : (
-                            <a
-                              key={i}
-                              href={url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted transition"
-                            >
-                              <FileText className="h-3.5 w-3.5" />
-                              {decodeURIComponent(url.split("/").pop()?.split("?")[0] || `Archivo ${i + 1}`)}
-                            </a>
-                          ),
-                        )}
-                      </div>
+                      <AdjuntosLista archivos={solicitud.archivos} />
                     </div>
                   )}
 
@@ -682,31 +663,7 @@ export default function MisSolicitudes() {
                                       <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
                                         <FileText className="h-3.5 w-3.5" /> Archivos adjuntos ({oferta.archivos.length})
                                       </p>
-                                      <div className="flex flex-wrap gap-2">
-                                        {oferta.archivos.map((url: string, i: number) =>
-                                          /\.(png|jpe?g|gif|webp)(\?|$)/i.test(url) ? (
-                                            <a key={i} href={url} target="_blank" rel="noreferrer">
-                                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                                              <img
-                                                src={url}
-                                                alt={`Adjunto ${i + 1}`}
-                                                className="h-16 w-16 rounded-md object-cover border hover:opacity-80 transition"
-                                              />
-                                            </a>
-                                          ) : (
-                                            <a
-                                              key={i}
-                                              href={url}
-                                              target="_blank"
-                                              rel="noreferrer"
-                                              className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted transition"
-                                            >
-                                              <FileText className="h-3.5 w-3.5" />
-                                              {decodeURIComponent(url.split("/").pop()?.split("?")[0] || `Archivo ${i + 1}`)}
-                                            </a>
-                                          ),
-                                        )}
-                                      </div>
+                                      <AdjuntosLista archivos={oferta.archivos} />
                                     </div>
                                   )}
                                   <div className="flex flex-wrap gap-2 mt-3">
@@ -908,33 +865,7 @@ export default function MisSolicitudes() {
                                   : trabajo.oferta.materiales_incluidos}
                           </p>
                         )}
-                        {Array.isArray(trabajo.oferta?.archivos) && trabajo.oferta.archivos.length > 0 && (
-                          <div className="flex flex-wrap gap-2">
-                            {trabajo.oferta.archivos.map((url: string, i: number) =>
-                              /\.(png|jpe?g|gif|webp)(\?|$)/i.test(url) ? (
-                                <a key={i} href={url} target="_blank" rel="noreferrer">
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img
-                                    src={url}
-                                    alt={`Adjunto ${i + 1}`}
-                                    className="h-14 w-14 rounded-md object-cover border hover:opacity-80 transition"
-                                  />
-                                </a>
-                              ) : (
-                                <a
-                                  key={i}
-                                  href={url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted transition"
-                                >
-                                  <FileText className="h-3.5 w-3.5" />
-                                  {decodeURIComponent(url.split("/").pop()?.split("?")[0] || `Archivo ${i + 1}`)}
-                                </a>
-                              ),
-                            )}
-                          </div>
-                        )}
+                        <AdjuntosLista archivos={trabajo.oferta?.archivos} />
                         <div className="flex gap-3 pt-1">
                           <a
                             href={`/trabajos/${trabajo.id}/factura`}

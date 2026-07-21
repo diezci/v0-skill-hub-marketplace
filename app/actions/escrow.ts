@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { stripe } from "@/lib/stripe"
 import { revalidatePath } from "next/cache"
 import { calcularTotalCliente, calcularPagoProveedor, PLATFORM_CONFIG } from "@/lib/comisiones"
+import { rechazarYNotificarOfertasPerdedoras } from "@/lib/ofertas-perdedoras"
 
 /**
  * Create Stripe Checkout Session for escrow payment.
@@ -184,12 +185,17 @@ export async function confirmarPagoEscrow(sessionId: string) {
     // El pago consuma la contratación: hasta aquí la demanda seguía abierta y
     // las demás ofertas pendientes (por si el cliente abandonaba la pasarela).
     if (trabajoPagado?.solicitud_id) {
-      await supabase.from("solicitudes").update({ estado: "en_progreso" }).eq("id", trabajoPagado.solicitud_id)
-      await supabase
-        .from("ofertas")
-        .update({ estado: "rechazada", updated_at: new Date().toISOString() })
-        .eq("solicitud_id", trabajoPagado.solicitud_id)
-        .eq("estado", "pendiente")
+      const { data: solicitudPagada } = await supabase
+        .from("solicitudes")
+        .update({ estado: "en_progreso" })
+        .eq("id", trabajoPagado.solicitud_id)
+        .select("titulo")
+        .maybeSingle()
+
+      await rechazarYNotificarOfertasPerdedoras(supabase, {
+        solicitudId: trabajoPagado.solicitud_id,
+        tituloSolicitud: solicitudPagada?.titulo ?? trabajoPagado.titulo,
+      })
     }
     const { crearNotificacion } = await import("./notificaciones")
     await crearNotificacion({

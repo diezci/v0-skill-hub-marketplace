@@ -66,6 +66,7 @@ import { createClient } from "@/lib/supabase/client"
 import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
 import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
 import MisDisputas from "@/components/mis-disputas"
+import { AdjuntosLista } from "@/components/adjuntos-lista"
 import { calcularPagoProveedor, PLATFORM_CONFIG } from "@/lib/comisiones"
 
 type EstadoTrabajo = "pendiente_pago" | "en_progreso" | "entregado" | "completado" | "cancelado" | "en_disputa"
@@ -262,8 +263,10 @@ export default function MisTrabajosPage() {
   // Los trabajos sin pagar (pendiente_pago) NO aparecen aquí: hasta que el
   // cliente complete el pago viven en Mis Pujas como "aceptada, esperando pago".
   // A Gestión de Proyectos solo llegan trabajos ya pagados.
-  // Los trabajos en disputa se muestran junto a los activos para que no desaparezcan de la vista.
-  const trabajosEnProgreso = trabajos.filter((t) => t.estado === "en_progreso" || t.estado === "en_disputa")
+  // Los trabajos en disputa viven solo en la pestaña Disputas: mientras Diime
+  // decide no hay nada que gestionar en Activos, y verlos duplicados en ambas
+  // pestañas confundía.
+  const trabajosEnProgreso = trabajos.filter((t) => t.estado === "en_progreso")
   const trabajosEntregados = trabajos.filter((t) => t.estado === "entregado")
   const trabajosCompletados = trabajos.filter((t) => t.estado === "completado")
 
@@ -780,31 +783,7 @@ function TrabajoCard({
                 <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
                   <FileText className="h-3.5 w-3.5" /> Archivos de tu oferta ({archivosOferta.length})
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  {archivosOferta.map((url: string, i: number) =>
-                    /\.(png|jpe?g|gif|webp)(\?|$)/i.test(url) ? (
-                      <a key={i} href={url} target="_blank" rel="noreferrer">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={url}
-                          alt={`Adjunto ${i + 1}`}
-                          className="h-14 w-14 rounded-md object-cover border hover:opacity-80 transition"
-                        />
-                      </a>
-                    ) : (
-                      <a
-                        key={i}
-                        href={url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted transition"
-                      >
-                        <FileText className="h-3.5 w-3.5" />
-                        {decodeURIComponent(url.split("/").pop()?.split("?")[0] || `Archivo ${i + 1}`)}
-                      </a>
-                    ),
-                  )}
-                </div>
+                <AdjuntosLista archivos={archivosOferta} />
               </div>
             )}
 

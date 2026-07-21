@@ -1,6 +1,7 @@
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
+import { rechazarYNotificarOfertasPerdedoras } from "@/lib/ofertas-perdedoras"
 
 // Use service role for webhook (no user context)
 function getAdminClient() {
@@ -95,17 +96,20 @@ export async function POST(request: Request) {
         .maybeSingle()
 
       // El pago consuma la contratación (igual que confirmarPagoEscrow): la
-      // demanda pasa a en_progreso y las demás ofertas quedan rechazadas.
+      // demanda pasa a en_progreso y las demás ofertas quedan rechazadas, con
+      // aviso a cada profesional que no ha sido elegido.
       if (trabajoPagado?.solicitud_id) {
-        await supabase
+        const { data: solicitudPagada } = await supabase
           .from("solicitudes")
           .update({ estado: "en_progreso" })
           .eq("id", trabajoPagado.solicitud_id)
-        await supabase
-          .from("ofertas")
-          .update({ estado: "rechazada", updated_at: new Date().toISOString() })
-          .eq("solicitud_id", trabajoPagado.solicitud_id)
-          .eq("estado", "pendiente")
+          .select("titulo")
+          .maybeSingle()
+
+        await rechazarYNotificarOfertasPerdedoras(supabase, {
+          solicitudId: trabajoPagado.solicitud_id,
+          tituloSolicitud: solicitudPagada?.titulo ?? trabajoPagado.titulo,
+        })
       }
       if (escrowActualizado.profesional_id) {
         await supabase.from("notificaciones").insert({

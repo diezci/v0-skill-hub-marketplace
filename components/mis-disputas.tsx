@@ -4,20 +4,44 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Scale, Briefcase, Clock, CheckCircle2, FileText, ArrowRight } from "lucide-react"
+import { Loader2, Scale, Briefcase, Clock, CheckCircle2, XCircle, FileText, ArrowRight } from "lucide-react"
 import { obtenerMisDisputas } from "@/app/actions/disputes"
 
-const ESTADO_CONFIG: Record<string, { label: string; cls: string; icon: any }> = {
-  abierta: {
-    label: "En revisión por Diime",
+const ESTADO_ABIERTA = {
+  label: "En revisión por Diime",
+  cls: "bg-amber-500/15 text-amber-600 border-amber-500/30",
+  icon: Clock,
+}
+
+// Una disputa resuelta no se presenta igual si la ganaste que si la perdiste:
+// el desenlace manda sobre el color (verde a favor, rojo en contra, ámbar si
+// fue parcial).
+function configResuelta(resolucion: string | null, soyCliente: boolean) {
+  const gane = (resolucion === "cliente" && soyCliente) || (resolucion === "proveedor" && !soyCliente)
+  const perdi = (resolucion === "cliente" && !soyCliente) || (resolucion === "proveedor" && soyCliente)
+  if (gane)
+    return {
+      label: "Resuelta a tu favor",
+      cls: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30",
+      icon: CheckCircle2,
+      caja: "border-emerald-500/30 bg-emerald-500/10",
+      tituloCaja: "text-emerald-700 dark:text-emerald-400",
+    }
+  if (perdi)
+    return {
+      label: "Resuelta en tu contra",
+      cls: "bg-red-500/15 text-red-600 border-red-500/30",
+      icon: XCircle,
+      caja: "border-red-500/30 bg-red-500/10",
+      tituloCaja: "text-red-700 dark:text-red-400",
+    }
+  return {
+    label: "Resuelta de forma parcial",
     cls: "bg-amber-500/15 text-amber-600 border-amber-500/30",
-    icon: Clock,
-  },
-  resuelta: {
-    label: "Resuelta",
-    cls: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30",
     icon: CheckCircle2,
-  },
+    caja: "border-amber-500/30 bg-amber-500/10",
+    tituloCaja: "text-amber-700 dark:text-amber-400",
+  }
 }
 
 // Cómo se le explica el desenlace a cada rol: el mismo fallo se lee distinto
@@ -96,9 +120,9 @@ export default function MisDisputas({ rol }: { rol: "cliente" | "proveedor" }) {
       )}
 
       {disputas.map((d) => {
-        const estado = ESTADO_CONFIG[d.estado] || ESTADO_CONFIG.abierta
-        const EstadoIcon = estado.icon
         const soyCliente = rol === "cliente"
+        const estado = d.estado === "resuelta" ? configResuelta(d.resolucion, soyCliente) : ESTADO_ABIERTA
+        const EstadoIcon = estado.icon
         return (
           <Card key={d.id}>
             <CardContent className="pt-6 space-y-3">
@@ -123,9 +147,9 @@ export default function MisDisputas({ rol }: { rol: "cliente" | "proveedor" }) {
                 <p className="text-sm text-muted-foreground">{d.motivo}</p>
               </div>
 
-              {d.estado === "resuelta" && (
-                <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
-                  <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400 mb-0.5">
+              {d.estado === "resuelta" && "caja" in estado && (
+                <div className={`rounded-lg border p-3 ${estado.caja}`}>
+                  <p className={`text-xs font-medium mb-0.5 ${estado.tituloCaja}`}>
                     Decisión del equipo de Diime
                   </p>
                   <p className="text-sm text-muted-foreground">{textoResolucion(d.resolucion, soyCliente)}</p>
@@ -140,6 +164,10 @@ export default function MisDisputas({ rol }: { rol: "cliente" | "proveedor" }) {
                       Resuelta el {formatFecha(d.fecha_resolucion)}
                     </p>
                   )}
+                  <p className="text-xs text-muted-foreground mt-2 border-t border-border/50 pt-2">
+                    La decisión de Diime es una mediación privada entre las partes y en ningún caso te impide
+                    emprender por tu cuenta las acciones legales o de otro tipo que consideres.
+                  </p>
                 </div>
               )}
 
