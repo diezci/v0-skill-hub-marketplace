@@ -44,6 +44,7 @@ import { obtenerSolicitudesAbiertas } from "@/app/actions/solicitudes"
 import { cn } from "@/lib/utils"
 import { PROVINCIAS_ES } from "@/lib/provincias"
 import { CATEGORIAS_SERVICIO_NOMBRES } from "@/lib/categorias"
+import { AdjuntosLista } from "@/components/adjuntos-lista"
 
 type Demanda = {
   id: string
@@ -613,31 +614,7 @@ export default function DemandasServicios() {
                   <FileText className="h-4 w-4" />
                   Archivos adjuntos ({demandaSeleccionada.archivos.length})
                 </h4>
-                <div className="flex flex-wrap gap-2">
-                  {demandaSeleccionada.archivos.map((url: string, i: number) =>
-                    /\.(png|jpe?g|gif|webp)(\?|$)/i.test(url) ? (
-                      <a key={i} href={url} target="_blank" rel="noreferrer">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={url}
-                          alt={`Adjunto ${i + 1}`}
-                          className="h-20 w-20 rounded-md object-cover border hover:opacity-80 transition"
-                        />
-                      </a>
-                    ) : (
-                      <a
-                        key={i}
-                        href={url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted transition"
-                      >
-                        <FileText className="h-3.5 w-3.5" />
-                        {decodeURIComponent(url.split("/").pop()?.split("?")[0] || `Archivo ${i + 1}`)}
-                      </a>
-                    ),
-                  )}
-                </div>
+                <AdjuntosLista archivos={demandaSeleccionada.archivos} />
               </div>
             )}
 
