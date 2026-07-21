@@ -89,32 +89,6 @@ export async function crearResena(data: {
   return { data: resena }
 }
 
-// Busca el trabajo completado más reciente entre el usuario actual (cliente) y
-// este profesional que aún no tenga reseña: es el que se puede valorar desde
-// el botón "Valorar" del chat.
-export async function obtenerTrabajoValorable(profesionalId: string) {
-  const supabase = await createClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
-
-  const { data: trabajos } = await supabase
-    .from("trabajos")
-    .select("id, titulo, review_cliente_id, estado")
-    .eq("cliente_id", user.id)
-    .eq("profesional_id", profesionalId)
-    .eq("estado", "completado")
-    .order("created_at", { ascending: false })
-
-  const sinResena = (trabajos || []).find((t) => !t.review_cliente_id)
-  if (sinResena) return { data: sinResena }
-
-  if ((trabajos || []).length > 0) {
-    return { error: "Ya has valorado todos los trabajos completados con este profesional." }
-  }
-  return { error: "Solo puedes valorar a un profesional cuando hayáis completado un trabajo juntos." }
-}
-
 export async function obtenerResenasProfesional(profesionalId: string) {
   const supabase = await createClient()
 

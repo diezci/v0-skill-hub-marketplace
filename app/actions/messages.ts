@@ -38,44 +38,30 @@ export async function obtenerConversaciones() {
   const enrichedConversations = await Promise.all(
     (conversaciones || []).map(async (conv) => {
       const otherParticipantId = conv.participante_1 === user.id ? conv.participante_2 : conv.participante_1
-
-      // Get both participants' profiles (the chat UI uses participante1/2).
-      const { data: p1 } = await supabase
+      
+      // Get other participant's profile
+      const { data: otherProfile } = await supabase
         .from("profiles")
-        .select("nombre, apellido, foto_perfil, ubicacion, created_at")
-        .eq("id", conv.participante_1)
-        .maybeSingle()
-      const { data: p2 } = await supabase
-        .from("profiles")
-        .select("nombre, apellido, foto_perfil, ubicacion, created_at")
-        .eq("id", conv.participante_2)
-        .maybeSingle()
-      const otherProfile = conv.participante_1 === user.id ? p2 : p1
-
-      // Ficha profesional del otro participante (si la tiene), para mostrar
-      // rating/reseñas/idiomas reales en el panel lateral del chat.
-      const { data: otroProfesional } = await supabase
-        .from("profesionales")
-        .select("rating_promedio, total_reseñas, idiomas")
+        .select("nombre, apellido, foto_perfil")
         .eq("id", otherParticipantId)
-        .maybeSingle()
+        .single()
 
       // Get solicitud info if linked
       let solicitud = null
       let miRol: "cliente" | "proveedor" | null = null
       let rolOtro: "cliente" | "proveedor" | null = null
-
+      
       if (conv.solicitud_id) {
         const { data: solicitudData } = await supabase
           .from("solicitudes")
-          .select("id, titulo, estado, cliente_id")
+          .select("id, titulo, estado, user_id")
           .eq("id", conv.solicitud_id)
-          .maybeSingle()
-
+          .single()
+        
         if (solicitudData) {
           solicitud = { titulo: solicitudData.titulo, estado: solicitudData.estado }
-          miRol = solicitudData.cliente_id === user.id ? "cliente" : "proveedor"
-          rolOtro = solicitudData.cliente_id === user.id ? "proveedor" : "cliente"
+          miRol = solicitudData.user_id === user.id ? "cliente" : "proveedor"
+          rolOtro = solicitudData.user_id === user.id ? "proveedor" : "cliente"
         }
       }
 
@@ -105,33 +91,11 @@ export async function obtenerConversaciones() {
         .select("*", { count: "exact", head: true })
         .eq("conversacion_id", conv.id)
         .eq("leido", false)
-        .neq("remitente_id", user.id)
-
-      // Último mensaje real, para el preview de la lista (el campo denormalizado
-      // de la conversación puede no estar actualizado).
-      const { data: ultimoMsg } = await supabase
-        .from("mensajes")
-        .select("contenido, tipo, created_at")
-        .eq("conversacion_id", conv.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      const previewMsg = ultimoMsg
-        ? ultimoMsg.tipo === "imagen"
-          ? "📷 Imagen"
-          : ultimoMsg.tipo === "archivo"
-            ? "📎 Archivo"
-            : ultimoMsg.contenido
-        : conv.ultimo_mensaje
+        .neq("emisor_id", user.id)
 
       return {
         ...conv,
-        ultimo_mensaje: previewMsg ?? conv.ultimo_mensaje,
-        fecha_ultimo_mensaje: ultimoMsg?.created_at ?? conv.fecha_ultimo_mensaje,
-        participante1: p1,
-        participante2: p2,
         participante_otro: otherProfile,
-        otro_profesional: otroProfesional || null,
         proyecto: trabajo || solicitud,
         mi_rol: miRol,
         rol_otro: rolOtro,
@@ -180,22 +144,18 @@ export async function obtenerMensajes(conversacionId: string) {
     .from("mensajes")
     .update({ leido: true })
     .eq("conversacion_id", conversacionId)
-    .neq("remitente_id", user.id)
+    .neq("emisor_id", user.id)
 
   return { data: mensajes }
 }
 
-export async function enviarMensaje(
-  conversacionId: string,
-  contenido: string,
-  adjunto?: { tipo: "imagen" | "archivo"; url: string; nombre: string },
-) {
+export async function enviarMensaje(conversacionId: string, contenido: string, archivo?: string) {
   const supabase = await createClient()
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
-
+  
   if (!user) {
     return { error: "No autenticado" }
   }
@@ -215,12 +175,11 @@ export async function enviarMensaje(
     .from("mensajes")
     .insert({
       conversacion_id: conversacionId,
-      remitente_id: user.id,
+      emisor_id: user.id,
+      receptor_id: conv.participante_1 === user.id ? conv.participante_2 : conv.participante_1,
       contenido,
+      archivo,
       leido: false,
-      tipo: adjunto ? adjunto.tipo : "texto",
-      archivo_url: adjunto?.url ?? null,
-      archivo_nombre: adjunto?.nombre ?? null,
     })
     .select()
     .single()
@@ -230,11 +189,10 @@ export async function enviarMensaje(
   }
 
   // Update conversation's last message
-  const preview = adjunto ? (adjunto.tipo === "imagen" ? "📷 Imagen" : "📎 Archivo") : contenido
   await supabase
     .from("conversaciones")
     .update({
-      ultimo_mensaje: preview,
+      ultimo_mensaje: contenido,
       fecha_ultimo_mensaje: new Date().toISOString(),
     })
     .eq("id", conversacionId)
@@ -259,26 +217,27 @@ export async function crearConversacion(params: {
     return { error: "No autenticado" }
   }
 
-  // Reutilizar cualquier conversación existente entre ambos usuarios (en
-  // cualquier dirección). Existe una constraint UNIQUE (participante_1,
-  // participante_2), así que no debemos crear duplicados.
-  const { data: existingConv } = await supabase
-    .from("conversaciones")
-    .select("id, solicitud_id, trabajo_id")
-    .or(
-      `and(participante_1.eq.${user.id},participante_2.eq.${params.otroUsuarioId}),and(participante_1.eq.${params.otroUsuarioId},participante_2.eq.${user.id})`,
-    )
-    .limit(1)
-    .maybeSingle()
+  // Check if conversation already exists for this project
+  let existingConv = null
+  
+  if (params.trabajoId) {
+    const { data } = await supabase
+      .from("conversaciones")
+      .select("id")
+      .eq("trabajo_id", params.trabajoId)
+      .single()
+    existingConv = data
+  } else if (params.solicitudId) {
+    const { data } = await supabase
+      .from("conversaciones")
+      .select("id")
+      .eq("solicitud_id", params.solicitudId)
+      .or(`and(participante_1.eq.${user.id},participante_2.eq.${params.otroUsuarioId}),and(participante_1.eq.${params.otroUsuarioId},participante_2.eq.${user.id})`)
+      .single()
+    existingConv = data
+  }
 
   if (existingConv) {
-    // Vincular a la solicitud/trabajo si aún no lo estaba.
-    const updates: any = {}
-    if (params.solicitudId && !existingConv.solicitud_id) updates.solicitud_id = params.solicitudId
-    if (params.trabajoId && !existingConv.trabajo_id) updates.trabajo_id = params.trabajoId
-    if (Object.keys(updates).length > 0) {
-      await supabase.from("conversaciones").update(updates).eq("id", existingConv.id)
-    }
     return { data: existingConv }
   }
 
@@ -304,7 +263,8 @@ export async function crearConversacion(params: {
   if (params.mensajeInicial) {
     await supabase.from("mensajes").insert({
       conversacion_id: conv.id,
-      remitente_id: user.id,
+      emisor_id: user.id,
+      receptor_id: params.otroUsuarioId,
       contenido: params.mensajeInicial,
       leido: false,
     })

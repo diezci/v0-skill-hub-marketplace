@@ -1,11 +1,10 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Menu, X, Search, Megaphone, Inbox, MessageSquare, FolderKanban, LogOut, Settings, UserCircle, FileText, ShieldAlert } from "lucide-react"
+import { Menu, X, User, Search, Megaphone, Inbox, MessageSquare, FolderKanban, LogOut, Settings, UserCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ThemeToggle } from "@/components/theme-toggle"
 import {
   DropdownMenu,
@@ -17,33 +16,14 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
-import {
-  obtenerResumenNotificaciones,
-  marcarNotificacionesLeidasPorLink,
-} from "@/app/actions/notificaciones"
-import { CelebracionNotificacion } from "@/components/celebracion-notificacion"
-import { useToast } from "@/hooks/use-toast"
-import { ToastAction } from "@/components/ui/toast"
-
-// Notificaciones que merecen celebración a pantalla completa (con sonido):
-// recibir una entrega (cliente) y cobrar un trabajo (profesional).
-const TIPOS_CELEBRABLES = ["trabajo_entregado", "pago_liberado", "pago_recibido"]
-const CELEBRADAS_KEY = "diime_notifs_celebradas"
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [userEmail, setUserEmail] = useState<string | null>(null)
-  const [userName, setUserName] = useState<string | null>(null)
-  const [userPhoto, setUserPhoto] = useState<string | null>(null)
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0)
-  const [porSeccion, setPorSeccion] = useState<Record<string, number>>({})
-  const [celebracion, setCelebracion] = useState<any>(null)
   const pathname = usePathname()
   const router = useRouter()
-  const { toast } = useToast()
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 10)
@@ -52,163 +32,33 @@ const Navbar = () => {
   }, [])
 
   useEffect(() => {
-    let supabase
-    try {
-      supabase = createClient()
-    } catch (e) {
-      // Si faltan las variables de entorno de Supabase, no bloqueamos la navbar.
-      console.error("[navbar] No se pudo inicializar Supabase:", e)
-      return
-    }
-
-    const aplicarSesion = async (user: { id: string; email?: string } | null) => {
-      setIsAuthenticated(!!user)
-      setUserEmail(user?.email ?? null)
-      if (!user) {
-        setIsAdmin(false)
-        setUserName(null)
-        setUserPhoto(null)
-        return
-      }
-      // Datos del perfil para el avatar + comprobación de admin.
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("es_admin, nombre, apellido, foto_perfil")
-        .eq("id", user.id)
-        .maybeSingle()
-      setIsAdmin(!!profile?.es_admin)
-      const nombreCompleto = `${profile?.nombre ?? ""} ${profile?.apellido ?? ""}`.trim()
-      setUserName(nombreCompleto || null)
-      setUserPhoto(profile?.foto_perfil ?? null)
-    }
-
+    const supabase = createClient()
     const checkAuth = async () => {
       const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      aplicarSesion(session?.user ?? null)
+        data: { user },
+      } = await supabase.auth.getUser()
+      setIsAuthenticated(!!user)
+      setUserEmail(user?.email ?? null)
     }
     checkAuth()
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      aplicarSesion(session?.user ?? null)
+      setIsAuthenticated(!!session?.user)
+      setUserEmail(session?.user?.email ?? null)
     })
 
     return () => subscription.unsubscribe()
   }, [])
 
-  // Los admins solo deben ver el panel de administración: si están autenticados
-  // como admin y navegan a una página de usuario, se les lleva a /admin.
-  useEffect(() => {
-    if (isAdmin && pathname && !pathname.startsWith("/admin") && !pathname.startsWith("/auth")) {
-      router.replace("/admin")
-    }
-  }, [isAdmin, pathname, router])
-
-  // Cargar contadores de notificaciones y mensajes sin leer para los badges del navbar.
-  useEffect(() => {
-    if (!isAuthenticated || isAdmin) {
-      setMensajesNoLeidos(0)
-      setPorSeccion({})
-      return
-    }
-    let activo = true
-    const cargar = async () => {
-      try {
-        const r = await obtenerResumenNotificaciones()
-        if (!activo) return
-        setMensajesNoLeidos(r.mensajesNoLeidos || 0)
-        setPorSeccion(r.porSeccion || {})
-
-        // Popup con preview del último mensaje de chat sin leer (fuera de
-        // /mensajes y una sola vez por mensaje en esta sesión del navegador).
-        const um: any = (r as any).ultimoMensajeNoLeido
-        if (um && !(pathname ?? "").startsWith("/mensajes")) {
-          const yaAvisado = sessionStorage.getItem("diime_ultimo_msg_avisado")
-          if (yaAvisado !== um.id) {
-            sessionStorage.setItem("diime_ultimo_msg_avisado", um.id)
-            toast({
-              title: `💬 ${um.remitente}`,
-              description: um.preview,
-              action: (
-                <ToastAction altText="Abrir chat" onClick={() => router.push(`/mensajes?c=${um.conversacion_id}`)}>
-                  Abrir
-                </ToastAction>
-              ),
-            })
-          }
-        }
-
-        // Celebración a pantalla completa para entregas recibidas y pagos
-        // cobrados: una sola vez por notificación (registro en localStorage)
-        // y solo si es reciente, para no celebrar historial antiguo.
-        const candidatas = (r.notificaciones || []).filter(
-          (n: any) =>
-            !n.leida &&
-            TIPOS_CELEBRABLES.includes(n.tipo) &&
-            Date.now() - new Date(n.created_at).getTime() < 48 * 60 * 60 * 1000,
-        )
-        if (candidatas.length > 0) {
-          let celebradas: string[] = []
-          try {
-            celebradas = JSON.parse(localStorage.getItem(CELEBRADAS_KEY) || "[]")
-          } catch {}
-          const nueva = candidatas.find((n: any) => !celebradas.includes(n.id))
-          if (nueva) {
-            localStorage.setItem(CELEBRADAS_KEY, JSON.stringify([...celebradas, nueva.id].slice(-50)))
-            setCelebracion(nueva)
-          }
-        }
-      } catch {
-        // silencioso: los badges son secundarios
-      }
-    }
-    cargar()
-    // 15s para que el badge aparezca poco después de recibir una oferta/aviso.
-    const id = setInterval(cargar, 15000)
-    return () => {
-      activo = false
-      clearInterval(id)
-    }
-  }, [isAuthenticated, isAdmin, pathname])
-
-  // Al entrar en una sección, sus notificaciones se dan por vistas y el badge se apaga.
-  useEffect(() => {
-    if (!pathname || !(porSeccion[pathname] > 0)) return
-    setPorSeccion((prev) => ({ ...prev, [pathname]: 0 }))
-    marcarNotificacionesLeidasPorLink(pathname).catch(() => {})
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, porSeccion])
-
   const handleLogout = async () => {
-    try {
-      const supabase = createClient()
-      await supabase.auth.signOut({ scope: "local" })
-    } catch (e) {
-      console.error("[navbar] Error al cerrar sesión:", e)
-    }
-    setIsAuthenticated(false)
-    setUserEmail(null)
-    setUserName(null)
-    setUserPhoto(null)
-    setIsAdmin(false)
+    const supabase = createClient()
+    await supabase.auth.signOut()
     setIsOpen(false)
     router.push("/")
     router.refresh()
   }
-
-  // Iniciales para el avatar: del nombre si existe, si no del email.
-  const iniciales = (
-    userName
-      ? userName
-          .split(" ")
-          .map((p) => p[0])
-          .slice(0, 2)
-          .join("")
-      : userEmail?.[0] ?? "U"
-  ).toUpperCase()
 
   const navLinks = [
     { name: "Profesionales", path: "/profesionales", icon: Search, shortName: "Profesionales" },
@@ -218,8 +68,7 @@ const Navbar = () => {
       icon: Megaphone,
       shortName: "Demandas",
     },
-    { name: "Mis Demandas", path: "/mis-solicitudes", icon: Inbox, shortName: "Mis Demandas" },
-    { name: "Mis pujas enviadas", path: "/mis-ofertas", icon: FileText, shortName: "Mis Pujas" },
+    { name: "Mis Solicitudes", path: "/mis-solicitudes", icon: Inbox, shortName: "Mis Solicitudes" },
     {
       name: "Gestión de proyectos",
       path: "/mis-trabajos",
@@ -229,20 +78,7 @@ const Navbar = () => {
     { name: "Mensajes", path: "/mensajes", icon: MessageSquare, shortName: "Mensajes" },
   ]
 
-  // Badge de cada sección: sus notificaciones sin leer (en Mensajes, además,
-  // los mensajes de chat sin leer).
-  const badgeDe = (path: string) =>
-    (porSeccion[path] || 0) + (path === "/mensajes" ? mensajesNoLeidos : 0)
-
-  // Los perfiles admin no ven el navbar público (el panel /admin tiene su propia
-  // navegación). Así su experiencia es exclusivamente la vista de administración.
-  if (isAdmin) return null
-
   return (
-    <>
-    {celebracion && (
-      <CelebracionNotificacion notificacion={celebracion} onClose={() => setCelebracion(null)} />
-    )}
     <header
       className={cn(
         "fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300",
@@ -277,11 +113,6 @@ const Navbar = () => {
                 >
                   <Icon className="h-4 w-4 shrink-0" />
                   <span>{link.shortName}</span>
-                  {badgeDe(link.path) > 0 && (
-                    <span className="ml-0.5 h-4 min-w-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                      {badgeDe(link.path) > 9 ? "9+" : badgeDe(link.path)}
-                    </span>
-                  )}
                 </Link>
               )
             })}
@@ -292,30 +123,17 @@ const Navbar = () => {
             {isAuthenticated ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label="Cuenta"
-                    className="rounded-full outline-none ring-offset-2 ring-offset-background focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-                  >
-                    <Avatar className="h-9 w-9 border border-border transition-opacity hover:opacity-90">
-                      <AvatarImage src={userPhoto || undefined} alt={userName || "Perfil"} />
-                      <AvatarFallback className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-sm font-semibold">
-                        {iniciales}
-                      </AvatarFallback>
-                    </Avatar>
-                  </button>
+                  <Button variant="ghost" size="icon" className="rounded-lg" aria-label="Menu de usuario">
+                    <User className="h-5 w-5" />
+                  </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-60">
-                  <DropdownMenuLabel className="flex items-center gap-3 py-2 font-normal">
-                    <Avatar className="h-9 w-9">
-                      <AvatarImage src={userPhoto || undefined} alt={userName || "Perfil"} />
-                      <AvatarFallback className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-sm font-semibold">
-                        {iniciales}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{userName || "Mi cuenta"}</p>
-                      {userEmail && <p className="text-xs text-muted-foreground truncate">{userEmail}</p>}
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium">Mi Cuenta</p>
+                      {userEmail && (
+                        <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
+                      )}
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
@@ -326,15 +144,9 @@ const Navbar = () => {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href="/incidencias" className="cursor-pointer">
-                      <ShieldAlert className="mr-2 h-4 w-4" />
-                      Incidencias
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
                     <Link href="/mi-cuenta" className="cursor-pointer">
                       <Settings className="mr-2 h-4 w-4" />
-                      Configuración
+                      Configuracion
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -343,7 +155,7 @@ const Navbar = () => {
                     className="cursor-pointer text-red-600 focus:text-red-600"
                   >
                     <LogOut className="mr-2 h-4 w-4" />
-                    Cerrar sesión
+                    Cerrar Sesion
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -390,11 +202,6 @@ const Navbar = () => {
                   >
                     <Icon className="h-5 w-5 shrink-0" />
                     <span>{link.name}</span>
-                    {badgeDe(link.path) > 0 && (
-                      <span className="ml-auto h-5 min-w-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
-                        {badgeDe(link.path) > 9 ? "9+" : badgeDe(link.path)}
-                      </span>
-                    )}
                   </Link>
                 )
               })}
@@ -425,14 +232,6 @@ const Navbar = () => {
                     Mi Perfil
                   </Link>
                   <Link
-                    href="/incidencias"
-                    onClick={() => setIsOpen(false)}
-                    className="px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted flex items-center gap-3"
-                  >
-                    <ShieldAlert className="h-5 w-5 shrink-0" />
-                    Incidencias
-                  </Link>
-                  <Link
                     href="/mi-cuenta"
                     onClick={() => setIsOpen(false)}
                     className="px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted flex items-center gap-3"
@@ -455,7 +254,6 @@ const Navbar = () => {
         )}
       </div>
     </header>
-    </>
   )
 }
 

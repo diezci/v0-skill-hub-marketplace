@@ -34,24 +34,12 @@ import {
   Briefcase,
   DollarSign,
   CheckCheck,
-  Scale,
 } from "lucide-react"
 import {
   obtenerMisTrabajos,
   actualizarProgresoTrabajo,
   marcarTrabajoEntregado,
 } from "@/app/actions/trabajos"
-import { crearConversacion } from "@/app/actions/messages"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import {
@@ -63,11 +51,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { createClient } from "@/lib/supabase/client"
-import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
-import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
-import { calcularPagoProveedor, PLATFORM_CONFIG } from "@/lib/comisiones"
 
-type EstadoTrabajo = "pendiente_pago" | "en_progreso" | "entregado" | "completado" | "cancelado" | "en_disputa"
+type EstadoTrabajo = "pendiente_pago" | "en_progreso" | "entregado" | "completado" | "cancelado"
 
 const estadoTrabajoConfig: Record<
   EstadoTrabajo,
@@ -103,19 +88,68 @@ const estadoTrabajoConfig: Record<
     icon: XCircle,
     description: "Trabajo cancelado",
   },
-  en_disputa: {
-    label: "En disputa",
-    color: "bg-amber-500",
-    icon: Scale,
-    description: "En revisión por el equipo de Diime",
-  },
 }
+
+// Mock data for demonstration
+const MOCK_TRABAJOS = [
+  {
+    id: "trabajo-1",
+    titulo: "Mesa de mármol a medida",
+    descripcion: "Fabricación de mesa de mármol Carrara 180x90cm con base de acero negro",
+    cliente: { nombre: "Laura", apellido: "Martínez", foto_perfil: "/woman-young.jpg" },
+    precio_acordado: 2800,
+    estado: "en_progreso" as EstadoTrabajo,
+    progreso: 65,
+    fecha_inicio: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+    fecha_estimada_fin: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    ubicacion: "Madrid",
+    transaccion_escrow: { estado: "retenido", monto: 2800 },
+  },
+  {
+    id: "trabajo-2",
+    titulo: "Encimera cocina mármol",
+    descripcion: "Instalación de encimera de mármol en cocina con fregadero integrado",
+    cliente: { nombre: "Carlos", apellido: "García", foto_perfil: "/business-man.png" },
+    precio_acordado: 1500,
+    estado: "pendiente_pago" as EstadoTrabajo,
+    progreso: 0,
+    fecha_inicio: new Date().toISOString(),
+    fecha_estimada_fin: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
+    ubicacion: "Barcelona",
+    transaccion_escrow: null,
+  },
+  {
+    id: "trabajo-3",
+    titulo: "Lápida memorial personalizada",
+    descripcion: "Lápida de granito negro con grabado personalizado y letras doradas",
+    cliente: { nombre: "Ana", apellido: "López", foto_perfil: "/woman-middle-age.jpg" },
+    precio_acordado: 950,
+    estado: "entregado" as EstadoTrabajo,
+    progreso: 100,
+    fecha_inicio: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+    fecha_estimada_fin: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    fecha_entrega: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+    ubicacion: "Valencia",
+    transaccion_escrow: { estado: "retenido", monto: 950 },
+  },
+  {
+    id: "trabajo-4",
+    titulo: "Chimenea de mármol clásica",
+    descripcion: "Restauración y montaje de chimenea de mármol estilo Luis XV",
+    cliente: { nombre: "Roberto", apellido: "Fernández", foto_perfil: "/man-elderly.jpg" },
+    precio_acordado: 3200,
+    estado: "completado" as EstadoTrabajo,
+    progreso: 100,
+    fecha_inicio: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
+    fecha_fin: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+    ubicacion: "Sevilla",
+    transaccion_escrow: { estado: "liberado", monto: 3200, fecha_liberacion: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString() },
+  },
+]
 
 export default function MisTrabajosPage() {
   const [trabajos, setTrabajos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  // Pestaña activa controlada: las tarjetas-resumen también la seleccionan.
-  const [activeTab, setActiveTab] = useState("activos")
   const [selectedTrabajo, setSelectedTrabajo] = useState<any>(null)
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false)
   const [deliveryDialogOpen, setDeliveryDialogOpen] = useState(false)
@@ -129,32 +163,22 @@ export default function MisTrabajosPage() {
 
   useEffect(() => {
     loadTrabajos()
-
-    // Refresco en vivo: cancelaciones, pagos y confirmaciones del cliente
-    // aparecen sin recargar la página.
-    const id = setInterval(() => {
-      if (document.visibilityState !== "visible") return
-      loadTrabajos(false)
-    }, 15000)
-    return () => clearInterval(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const loadTrabajos = async (inicial = true) => {
-    if (inicial) setLoading(true)
+  const loadTrabajos = async () => {
+    setLoading(true)
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     setCurrentUserId(user?.id || null)
 
     const result = await obtenerMisTrabajos()
-    // Solo datos reales (aunque estén vacíos): nada de datos de ejemplo.
-    if (user && result.data) {
-      const misTrabajos = result.data.filter((t: any) => t.profesional_id === user.id)
-      setTrabajos(misTrabajos)
+    if (result.data) {
+      // This provider workspace only shows projects assigned to the signed-in professional.
+      setTrabajos(result.data.filter((t: any) => t.profesional_id === user?.id))
     } else {
       setTrabajos([])
     }
-    if (inicial) setLoading(false)
+    setLoading(false)
   }
 
   const handleUpdateProgress = async () => {
@@ -220,20 +244,6 @@ export default function MisTrabajosPage() {
     setDeliveryDialogOpen(true)
   }
 
-  const handleContactarCliente = async (trabajo: any) => {
-    if (!trabajo?.cliente_id) {
-      toast({ title: "No disponible", description: "No se pudo identificar al cliente.", variant: "destructive" })
-      return
-    }
-    const result = await crearConversacion({ otroUsuarioId: trabajo.cliente_id, trabajoId: trabajo.id })
-    if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" })
-    } else {
-      router.push(result.data?.id ? `/mensajes?c=${result.data.id}` : "/mensajes")
-    }
-  }
-
-
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString("es-ES", {
       day: "numeric",
@@ -258,24 +268,15 @@ export default function MisTrabajosPage() {
     return days
   }
 
-  // Los trabajos sin pagar (pendiente_pago) NO aparecen aquí: hasta que el
-  // cliente complete el pago viven en Mis Pujas como "aceptada, esperando pago".
-  // A Gestión de Proyectos solo llegan trabajos ya pagados.
-  // Los trabajos en disputa se muestran junto a los activos para que no desaparezcan de la vista.
-  const trabajosEnProgreso = trabajos.filter((t) => t.estado === "en_progreso" || t.estado === "en_disputa")
+  const trabajosPendientePago = trabajos.filter((t) => t.estado === "pendiente_pago")
+  const trabajosEnProgreso = trabajos.filter((t) => t.estado === "en_progreso")
   const trabajosEntregados = trabajos.filter((t) => t.estado === "entregado")
   const trabajosCompletados = trabajos.filter((t) => t.estado === "completado")
 
-  // Importes NETOS para el proveedor (tras la comisión del 5% de la plataforma).
-  const netoDe = (t: any) =>
-    Number(t.transaccion_escrow?.pago_neto_proveedor ?? calcularPagoProveedor(t.precio_acordado || 0).pagoNeto)
-  const totalPendienteCobro = trabajosEntregados.reduce((sum, t) => sum + netoDe(t), 0)
-  // Histórico cobrado: escrows con el pago ya liberado (estado "completado").
+  const totalPendienteCobro = trabajosEntregados.reduce((sum, t) => sum + (t.precio_acordado || 0), 0)
   const totalCobrado = trabajosCompletados
-    .filter((t) => t.transaccion_escrow?.estado === "completado")
-    .reduce((sum, t) => sum + netoDe(t), 0)
-  // Total neto (a cobrar) de los trabajos activos (ya pagados y en curso).
-  const totalActivosNeto = trabajosEnProgreso.reduce((sum, t) => sum + netoDe(t), 0)
+    .filter((t) => t.transaccion_escrow?.estado === "liberado")
+    .reduce((sum, t) => sum + (t.precio_acordado || 0), 0)
 
   if (loading) {
     return (
@@ -290,95 +291,79 @@ export default function MisTrabajosPage() {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2">Gestión de Proyectos</h1>
+          <h1 className="text-3xl font-bold mb-2">Gestión de Proyectos</h1>
           <p className="text-muted-foreground">
             Cronograma editable, lista de proyectos y eventos personalizados en un solo lugar
           </p>
         </div>
 
-        {/* Summary Cards: mismos estados (y orden) que las pestañas de abajo,
-            y clicables para saltar a la pestaña correspondiente. */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-8">
-          <button type="button" className="text-left" onClick={() => setActiveTab("activos")}>
-            <Card
-              className={`w-full border-blue-500/20 bg-blue-500/5 transition hover:shadow-md ${
-                activeTab === "activos" ? "ring-2 ring-primary/50" : ""
-              }`}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-blue-500/10">
-                    <Briefcase className="h-5 w-5 text-blue-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Activos</p>
-                    <p className="text-2xl font-bold">{formatCurrency(totalActivosNeto)}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {trabajosEnProgreso.length} trabajo
-                      {trabajosEnProgreso.length !== 1 ? "s" : ""}
-                    </p>
-                  </div>
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <Card className="border-amber-500/20 bg-amber-500/5">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-amber-500/10">
+                  <CreditCard className="h-5 w-5 text-amber-500" />
                 </div>
-              </CardContent>
-            </Card>
-          </button>
+                <div>
+                  <p className="text-sm text-muted-foreground">Esperando pago</p>
+                  <p className="text-2xl font-bold">{trabajosPendientePago.length}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-          <button type="button" className="text-left" onClick={() => setActiveTab("entregados")}>
-            <Card
-              className={`w-full border-purple-500/20 bg-purple-500/5 transition hover:shadow-md ${
-                activeTab === "entregados" ? "ring-2 ring-primary/50" : ""
-              }`}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-purple-500/10">
-                    <Banknote className="h-5 w-5 text-purple-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Entregados · pendiente de cobro</p>
-                    <p className="text-2xl font-bold">{formatCurrency(totalPendienteCobro)}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {trabajosEntregados.length} esperando confirmación del cliente
-                    </p>
-                  </div>
+          <Card className="border-blue-500/20 bg-blue-500/5">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-blue-500/10">
+                  <Loader2 className="h-5 w-5 text-blue-500" />
                 </div>
-              </CardContent>
-            </Card>
-          </button>
+                <div>
+                  <p className="text-sm text-muted-foreground">En progreso</p>
+                  <p className="text-2xl font-bold">{trabajosEnProgreso.length}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-          <button type="button" className="text-left" onClick={() => setActiveTab("completados")}>
-            <Card
-              className={`w-full border-emerald-500/20 bg-emerald-500/5 transition hover:shadow-md ${
-                activeTab === "completados" ? "ring-2 ring-primary/50" : ""
-              }`}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-emerald-500/10">
-                    <DollarSign className="h-5 w-5 text-emerald-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Completados · total cobrado (neto)</p>
-                    <p className="text-2xl font-bold">{formatCurrency(totalCobrado)}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {trabajosCompletados.length} trabajo{trabajosCompletados.length !== 1 ? "s" : ""} finalizado
-                      {trabajosCompletados.length !== 1 ? "s" : ""}
-                    </p>
-                  </div>
+          <Card className="border-purple-500/20 bg-purple-500/5">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-purple-500/10">
+                  <Banknote className="h-5 w-5 text-purple-500" />
                 </div>
-              </CardContent>
-            </Card>
-          </button>
+                <div>
+                  <p className="text-sm text-muted-foreground">Pendiente de cobro</p>
+                  <p className="text-2xl font-bold">{formatCurrency(totalPendienteCobro)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-emerald-500/20 bg-emerald-500/5">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-emerald-500/10">
+                  <DollarSign className="h-5 w-5 text-emerald-500" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Total cobrado</p>
+                  <p className="text-2xl font-bold">{formatCurrency(totalCobrado)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Two-column layout: jobs list on left, calendar on right */}
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-6">
           {/* Left column: Tabs with job lists */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="bg-muted/50 grid w-full grid-cols-3 h-auto">
+          <Tabs defaultValue="activos" className="space-y-6">
+            <TabsList className="bg-muted/50 flex-wrap h-auto">
               <TabsTrigger value="activos" className="gap-2">
                 <Briefcase className="h-4 w-4" />
-                Activos ({trabajosEnProgreso.length})
+                Activos ({trabajosEnProgreso.length + trabajosPendientePago.length})
               </TabsTrigger>
               <TabsTrigger value="entregados" className="gap-2">
                 <Package className="h-4 w-4" />
@@ -392,7 +377,7 @@ export default function MisTrabajosPage() {
 
           {/* Active Jobs */}
           <TabsContent value="activos" className="space-y-4">
-            {trabajosEnProgreso.length === 0 ? (
+            {[...trabajosEnProgreso, ...trabajosPendientePago].length === 0 ? (
               <Card className="p-12 text-center">
                 <Briefcase className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
                 <h3 className="text-lg font-medium mb-2">No tienes trabajos activos</h3>
@@ -404,14 +389,12 @@ export default function MisTrabajosPage() {
                 </Button>
               </Card>
             ) : (
-              trabajosEnProgreso.map((trabajo) => (
+              [...trabajosEnProgreso, ...trabajosPendientePago].map((trabajo) => (
                 <TrabajoCard
                   key={trabajo.id}
                   trabajo={trabajo}
                   onUpdateProgress={() => openUpdateDialog(trabajo)}
                   onMarkDelivered={() => openDeliveryDialog(trabajo)}
-                  onContactar={() => handleContactarCliente(trabajo)}
-                  onRefresh={loadTrabajos}
                   formatDate={formatDate}
                   formatCurrency={formatCurrency}
                   getDaysRemaining={getDaysRemaining}
@@ -435,7 +418,6 @@ export default function MisTrabajosPage() {
                 <TrabajoCard
                   key={trabajo.id}
                   trabajo={trabajo}
-                  onContactar={() => handleContactarCliente(trabajo)}
                   formatDate={formatDate}
                   formatCurrency={formatCurrency}
                   getDaysRemaining={getDaysRemaining}
@@ -460,7 +442,6 @@ export default function MisTrabajosPage() {
                 <TrabajoCard
                   key={trabajo.id}
                   trabajo={trabajo}
-                  onContactar={() => handleContactarCliente(trabajo)}
                   formatDate={formatDate}
                   formatCurrency={formatCurrency}
                   getDaysRemaining={getDaysRemaining}
@@ -511,7 +492,7 @@ export default function MisTrabajosPage() {
                   <Button variant="outline" size="sm" className="justify-start bg-transparent" asChild>
                     <a href="/mis-ofertas">
                       <FileText className="h-4 w-4 mr-2" />
-                      Pujas enviadas
+                      Ofertas enviadas
                     </a>
                   </Button>
                   <Button variant="outline" size="sm" className="justify-start bg-transparent" asChild>
@@ -630,7 +611,6 @@ export default function MisTrabajosPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-
       </div>
     </div>
   )
@@ -640,8 +620,6 @@ function TrabajoCard({
   trabajo,
   onUpdateProgress,
   onMarkDelivered,
-  onContactar,
-  onRefresh,
   formatDate,
   formatCurrency,
   getDaysRemaining,
@@ -651,8 +629,6 @@ function TrabajoCard({
   trabajo: any
   onUpdateProgress?: () => void
   onMarkDelivered?: () => void
-  onContactar?: () => void
-  onRefresh?: () => void
   formatDate: (date: string) => string
   formatCurrency: (amount: number) => string
   getDaysRemaining: (date: string) => number
@@ -662,37 +638,11 @@ function TrabajoCard({
   const config = estadoTrabajoConfig[trabajo.estado as EstadoTrabajo]
   const Icon = config?.icon || Clock
   const daysRemaining = trabajo.fecha_estimada_fin ? getDaysRemaining(trabajo.fecha_estimada_fin) : null
-  // Estados reales del escrow: "fondos_retenidos" (pagado, en custodia) y
-  // "completado" (pago liberado al proveedor).
-  const escrowEstado = trabajo.transaccion_escrow?.estado
-  const isPaid = escrowEstado === "fondos_retenidos" || escrowEstado === "completado"
-  const isPaymentReleased = escrowEstado === "completado"
-  const pagoNeto = Number(
-    trabajo.transaccion_escrow?.pago_neto_proveedor ?? calcularPagoProveedor(trabajo.precio_acordado || 0).pagoNeto,
-  )
-  const comisionProveedor = Number(
-    trabajo.transaccion_escrow?.comision_proveedor ??
-      calcularPagoProveedor(trabajo.precio_acordado || 0).comisionProveedor,
-  )
-  const archivosOferta: string[] = Array.isArray(trabajo.oferta?.archivos) ? trabajo.oferta.archivos : []
-  // Trabajo en curso con el pago ya retenido: se resalta para que el proveedor
-  // vea de un vistazo que puede empezar con el cobro protegido.
-  const pagoRetenidoActivo = trabajo.estado === "en_progreso" && escrowEstado === "fondos_retenidos"
+  const isPaid = trabajo.transaccion_escrow?.estado === "retenido" || trabajo.transaccion_escrow?.estado === "liberado"
+  const isPaymentReleased = trabajo.transaccion_escrow?.estado === "liberado"
 
   return (
-    <Card
-      className={`overflow-hidden hover:shadow-md transition-shadow ${
-        pagoRetenidoActivo ? "ring-2 ring-emerald-500/50" : ""
-      }`}
-    >
-      {pagoRetenidoActivo && (
-        <div className="bg-emerald-500/10 border-b border-emerald-500/30 px-6 py-2.5 flex items-center gap-2">
-          <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
-          <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
-            Pago retenido en custodia · cobro protegido: puedes empezar el trabajo
-          </p>
-        </div>
-      )}
+    <Card className="overflow-hidden hover:shadow-md transition-shadow">
       <CardContent className="p-0">
         <div className="flex flex-col lg:flex-row">
           {/* Main Content */}
@@ -763,40 +713,6 @@ function TrabajoCard({
               )}
             </div>
 
-            {/* Adjuntos de la oferta con la que se contrató este trabajo */}
-            {archivosOferta.length > 0 && (
-              <div className="mt-4 pt-4 border-t">
-                <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
-                  <FileText className="h-3.5 w-3.5" /> Archivos de tu oferta ({archivosOferta.length})
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {archivosOferta.map((url: string, i: number) =>
-                    /\.(png|jpe?g|gif|webp)(\?|$)/i.test(url) ? (
-                      <a key={i} href={url} target="_blank" rel="noreferrer">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={url}
-                          alt={`Adjunto ${i + 1}`}
-                          className="h-14 w-14 rounded-md object-cover border hover:opacity-80 transition"
-                        />
-                      </a>
-                    ) : (
-                      <a
-                        key={i}
-                        href={url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted transition"
-                      >
-                        <FileText className="h-3.5 w-3.5" />
-                        {decodeURIComponent(url.split("/").pop()?.split("?")[0] || `Archivo ${i + 1}`)}
-                      </a>
-                    ),
-                  )}
-                </div>
-              </div>
-            )}
-
             {/* Payment Status for Provider */}
             <div className="mt-4 pt-4 border-t">
               <div className="flex items-center justify-between">
@@ -806,11 +722,9 @@ function TrabajoCard({
                       <ShieldCheck className="h-5 w-5 text-emerald-500" />
                       <span className="text-sm">
                         {isPaymentReleased ? (
-                          <span className="text-emerald-600 font-medium">
-                            Pago recibido: {formatCurrency(pagoNeto)} netos
-                          </span>
+                          <span className="text-emerald-600 font-medium">Pago recibido</span>
                         ) : (
-                          <span className="text-blue-600">Pago retenido en custodia: cobrarás {formatCurrency(pagoNeto)}</span>
+                          <span className="text-blue-600">Pago retenido en escrow</span>
                         )}
                       </span>
                     </>
@@ -827,53 +741,32 @@ function TrabajoCard({
                   </span>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Precio acordado {formatCurrency(trabajo.precio_acordado || 0)} − comisión Diime{" "}
-                {PLATFORM_CONFIG.comisionProveedorPorcentaje}% ({formatCurrency(comisionProveedor)}) ={" "}
-                <span className="font-medium text-foreground">{formatCurrency(pagoNeto)} netos</span>
-              </p>
-              <div className="flex gap-3 mt-2">
-                <a
-                  href={`/trabajos/${trabajo.id}/factura`}
-                  target="_blank"
-                  className="text-xs text-primary hover:underline inline-flex items-center gap-1"
-                >
-                  <FileText className="h-3 w-3" /> Ver factura y términos
-                </a>
-              </div>
             </div>
           </div>
 
           {/* Actions Sidebar */}
-          {(onUpdateProgress || onMarkDelivered || onContactar || showPendingConfirmation) && (
+          {(onUpdateProgress || onMarkDelivered || showPendingConfirmation) && (
             <div className="lg:w-56 p-6 bg-muted/30 border-t lg:border-t-0 lg:border-l flex flex-col gap-3">
               {trabajo.estado === "en_progreso" && onUpdateProgress && (
                 <>
-                  <Button onClick={onUpdateProgress} variant="outline" className="w-full bg-transparent">
+                  <Button onClick={onUpdateProgress} className="w-full bg-emerald-600 hover:bg-emerald-700">
                     <TrendingUp className="h-4 w-4 mr-2" />
                     Actualizar Progreso
                   </Button>
-                  {/* Entregar en cualquier momento: no exige haber actualizado antes el progreso. */}
-                  {onMarkDelivered && (
-                    <Button onClick={onMarkDelivered} className="w-full bg-emerald-600 hover:bg-emerald-700">
+                  {trabajo.progreso >= 90 && onMarkDelivered && (
+                    <Button onClick={onMarkDelivered} variant="outline" className="w-full bg-transparent">
                       <Package className="h-4 w-4 mr-2" />
                       Entregar Trabajo
                     </Button>
                   )}
-                  {/* Cancelación de mutuo acuerdo también con el trabajo en curso:
-                      si el cliente acepta, se le reembolsa íntegramente. */}
-                  <CancelacionTrabajo trabajo={trabajo} onChange={onRefresh} />
                 </>
               )}
               {trabajo.estado === "pendiente_pago" && (
-                <div className="py-4 space-y-3">
-                  <div className="text-center">
-                    <CreditCard className="h-8 w-8 mx-auto text-amber-500 mb-2" />
-                    <p className="text-sm text-muted-foreground">
-                      El proyecto iniciará cuando el cliente realice el pago
-                    </p>
-                  </div>
-                  <CancelacionTrabajo trabajo={trabajo} onChange={onRefresh} />
+                <div className="text-center py-4">
+                  <CreditCard className="h-8 w-8 mx-auto text-amber-500 mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    El proyecto iniciará cuando el cliente realice el pago
+                  </p>
                 </div>
               )}
               {showPendingConfirmation && (
@@ -883,41 +776,14 @@ function TrabajoCard({
                     Esperando confirmación del cliente
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Cuando confirme la entrega, el pago se liberará a tu favor. Si no responde, puedes abrir una
-                    disputa y el equipo de Diime revisará la entrega para liberarte el pago.
+                    El pago se liberará automáticamente
                   </p>
                 </div>
               )}
-              {trabajo.estado === "en_disputa" && (
-                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-center">
-                  <Scale className="h-7 w-7 mx-auto text-amber-600 mb-1.5" />
-                  <p className="text-sm font-medium text-amber-700 dark:text-amber-400">Trabajo en disputa</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    El equipo de Diime lo está revisando. El pago queda retenido hasta la resolución.
-                  </p>
-                </div>
-              )}
-              <Button variant="ghost" size="sm" className="w-full" onClick={onContactar}>
+              <Button variant="ghost" size="sm" className="w-full">
                 <MessageSquare className="h-4 w-4 mr-2" />
                 Contactar Cliente
               </Button>
-              {/* El proveedor puede abrir disputa cuando ya entregó y el cliente no confirma. */}
-              {trabajo.estado === "entregado" && (
-                <AbrirDisputaDialog
-                  trabajoId={trabajo.id}
-                  rol="proveedor"
-                  trigger={
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full bg-transparent text-amber-600 border-amber-500/40 hover:bg-amber-500/10"
-                    >
-                      <Scale className="h-4 w-4 mr-2" />
-                      Abrir disputa
-                    </Button>
-                  }
-                />
-              )}
             </div>
           )}
 

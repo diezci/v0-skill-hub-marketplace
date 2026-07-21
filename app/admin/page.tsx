@@ -1,11 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { createClient } from "@/lib/supabase/client"
-import { formatearPrecio } from "@/lib/comisiones"
-import { formatearFecha } from "@/lib/utils"
-import { Users, Briefcase, Scale, CreditCard, TrendingUp, AlertCircle, ShieldAlert, Euro, Wallet } from "lucide-react"
+import { Users, Briefcase, Scale, CreditCard, TrendingUp, AlertCircle, ShieldAlert } from "lucide-react"
 import Link from "next/link"
 
 interface Stats {
@@ -18,19 +16,6 @@ interface Stats {
   incidenciasCriticas: number
   pagosEnEscrow: number
   montoEscrow: number
-  // Ingresos de Diime: comisiones de trabajos completados + retenciones de reembolsos.
-  ingresosTotal: number
-  ingresosComisionCliente: number
-  ingresosComisionProveedor: number
-  ingresosRetenciones: number
-}
-
-// Cobro individual para la lista de "cuándo se cobró".
-interface Cobro {
-  id: string
-  fecha: string | null
-  importe: number
-  trabajoTitulo: string
 }
 
 export default function AdminDashboard() {
@@ -44,12 +29,7 @@ export default function AdminDashboard() {
     incidenciasCriticas: 0,
     pagosEnEscrow: 0,
     montoEscrow: 0,
-    ingresosTotal: 0,
-    ingresosComisionCliente: 0,
-    ingresosComisionProveedor: 0,
-    ingresosRetenciones: 0,
   })
-  const [cobros, setCobros] = useState<Cobro[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
@@ -74,11 +54,11 @@ export default function AdminDashboard() {
         .from("trabajos")
         .select("*", { count: "exact", head: true })
 
-      // Trabajos activos (los estados reales: no existe "pendiente" a secas)
+      // Trabajos activos
       const { count: activos } = await supabase
         .from("trabajos")
         .select("*", { count: "exact", head: true })
-        .in("estado", ["pendiente_pago", "en_progreso", "entregado"])
+        .in("estado", ["pendiente", "en_progreso"])
 
       // Disputas abiertas
       const { count: disputas } = await supabase
@@ -105,52 +85,14 @@ export default function AdminDashboard() {
         // Table may not exist yet
       }
 
-      // Pagos en escrow. El estado "retenido" no existe: el dinero retenido está
-      // en "fondos_retenidos" y también en "disputa" (congelado hasta resolver).
+      // Pagos en escrow
       const { data: escrowData } = await supabase
         .from("transacciones_escrow")
         .select("monto")
-        .in("estado", ["fondos_retenidos", "disputa"])
+        .eq("estado", "retenido")
 
       const pagosEscrow = escrowData?.length || 0
-      const montoTotal = escrowData?.reduce((sum, t) => sum + Number(t.monto || 0), 0) || 0
-
-      // Ingresos de Diime: comisiones de los trabajos cobrados (completado) y
-      // retención de la plataforma en los reembolsos.
-      const { data: liberadas } = await supabase
-        .from("transacciones_escrow")
-        .select("id, comision_cliente, comision_proveedor, fecha_liberacion, trabajo_id")
-        .eq("estado", "completado")
-        .order("fecha_liberacion", { ascending: false })
-
-      const { data: reembolsadas } = await supabase
-        .from("transacciones_escrow")
-        .select("retencion_plataforma")
-        .eq("estado", "reembolsado")
-
-      const comCliente = (liberadas || []).reduce((s, t) => s + Number(t.comision_cliente || 0), 0)
-      const comProveedor = (liberadas || []).reduce((s, t) => s + Number(t.comision_proveedor || 0), 0)
-      const retenciones = (reembolsadas || []).reduce((s, t) => s + Number(t.retencion_plataforma || 0), 0)
-
-      // Últimos cobros con su fecha y el título del trabajo.
-      const ultimas = (liberadas || []).slice(0, 6)
-      const trabajoIds = [...new Set(ultimas.map((t) => t.trabajo_id).filter(Boolean))]
-      const titulos: Record<string, string> = {}
-      if (trabajoIds.length > 0) {
-        const { data: trabajosCobrados } = await supabase
-          .from("trabajos")
-          .select("id, titulo")
-          .in("id", trabajoIds)
-        for (const t of trabajosCobrados || []) titulos[t.id] = t.titulo
-      }
-      setCobros(
-        ultimas.map((t) => ({
-          id: t.id,
-          fecha: t.fecha_liberacion,
-          importe: Number(t.comision_cliente || 0) + Number(t.comision_proveedor || 0),
-          trabajoTitulo: titulos[t.trabajo_id] || "Trabajo",
-        })),
-      )
+      const montoTotal = escrowData?.reduce((sum, t) => sum + (t.monto || 0), 0) || 0
 
       setStats({
         totalUsuarios: usuarios || 0,
@@ -162,10 +104,6 @@ export default function AdminDashboard() {
         incidenciasCriticas: incidenciasCrit,
         pagosEnEscrow: pagosEscrow,
         montoEscrow: montoTotal,
-        ingresosTotal: comCliente + comProveedor + retenciones,
-        ingresosComisionCliente: comCliente,
-        ingresosComisionProveedor: comProveedor,
-        ingresosRetenciones: retenciones,
       })
     } catch (error) {
       console.error("Error loading stats:", error)
@@ -224,7 +162,7 @@ export default function AdminDashboard() {
     {
       title: "Pagos en Escrow",
       value: stats.pagosEnEscrow,
-      subtitle: `${formatearPrecio(stats.montoEscrow)} retenidos en custodia`,
+      subtitle: `${stats.montoEscrow.toFixed(2)} EUR retenidos`,
       icon: CreditCard,
       href: "/admin/pagos",
       color: "text-cyan-500",
@@ -238,7 +176,7 @@ export default function AdminDashboard() {
       <div>
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <p className="text-muted-foreground mt-1">
-          Bienvenido al panel de administración de Diime
+          Bienvenido al panel de administracion de Diime
         </p>
       </div>
 
@@ -285,81 +223,12 @@ export default function AdminDashboard() {
         })}
       </div>
 
-      {/* Ingresos de Diime: qué ha cobrado la plataforma y cuándo */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <div>
-              <CardTitle className="text-sm font-medium text-muted-foreground">Ingresos de Diime</CardTitle>
-              <CardDescription className="text-xs">Comisiones cobradas por la plataforma</CardDescription>
-            </div>
-            <div className="p-2 rounded-lg bg-emerald-500/10">
-              <Euro className="h-5 w-5 text-emerald-500" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-emerald-500">
-              {loading ? "-" : formatearPrecio(stats.ingresosTotal)}
-            </div>
-            <div className="mt-3 space-y-1.5 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Gastos de servicio a clientes (10%)</span>
-                <span className="font-medium">{formatearPrecio(stats.ingresosComisionCliente)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Gastos de servicio a profesionales (5%)</span>
-                <span className="font-medium">{formatearPrecio(stats.ingresosComisionProveedor)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Retenciones en reembolsos</span>
-                <span className="font-medium">{formatearPrecio(stats.ingresosRetenciones)}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <div>
-              <CardTitle className="text-sm font-medium text-muted-foreground">Últimos cobros</CardTitle>
-              <CardDescription className="text-xs">Comisión ingresada al liberar cada pago</CardDescription>
-            </div>
-            <div className="p-2 rounded-lg bg-emerald-500/10">
-              <Wallet className="h-5 w-5 text-emerald-500" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <p className="text-sm text-muted-foreground">-</p>
-            ) : cobros.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4">Todavía no se ha liberado ningún pago.</p>
-            ) : (
-              <ul className="divide-y divide-border">
-                {cobros.map((c) => (
-                  <li key={c.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                    <div className="min-w-0">
-                      <p className="font-medium truncate">{c.trabajoTitulo}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {c.fecha ? formatearFecha(c.fecha) : "Sin fecha"}
-                      </p>
-                    </div>
-                    <span className="font-semibold text-emerald-500 shrink-0">
-                      +{formatearPrecio(c.importe)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Quick Actions */}
       <Card>
         <CardHeader>
-          <CardTitle>Acciones Rápidas</CardTitle>
+          <CardTitle>Acciones Rapidas</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link
             href="/admin/usuarios"
             className="flex items-center gap-3 p-4 rounded-lg border hover:bg-accent transition-colors"

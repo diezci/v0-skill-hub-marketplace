@@ -71,7 +71,7 @@ export default function LoginPage() {
         password,
       })
       if (error) throw error
-      router.push("/")
+      router.push("/mi-cuenta")
       router.refresh()
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "Error al iniciar sesión")

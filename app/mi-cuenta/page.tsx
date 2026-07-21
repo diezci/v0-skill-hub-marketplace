@@ -1,29 +1,20 @@
 import type { Metadata } from "next"
-import Link from "next/link"
+import MisSolicitudes from "@/components/mis-solicitudes"
+import MisOfertas from "@/components/mis-ofertas"
+import MisTrabajos from "@/components/mis-trabajos"
+import EditarPerfil from "@/components/editar-perfil"
+import PortfolioManager from "@/components/portfolio-manager"
 import LogoutButton from "@/components/logout-button"
-import { CambiarContrasenaForm } from "@/components/cambiar-contrasena-form"
-import { ReportarIncidenciaDialog } from "@/components/reportar-incidencia-dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import {
-  UserCircle,
-  Inbox,
-  ChevronRight,
-  Briefcase,
-  Bell,
-  ShieldAlert,
-  Trash2,
-  BadgeCheck,
-} from "lucide-react"
+import { User, FileText, Settings, Briefcase, Hammer, MessageSquare } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { formatearFecha } from "@/lib/utils"
 
 export const metadata: Metadata = {
-  title: "Configuración - Diime",
-  description: "Gestiona tu cuenta y preferencias",
+  title: "Mi Cuenta - Diime",
+  description: "Gestiona tus solicitudes de servicio y perfil",
 }
 
 export default async function MiCuentaPage() {
@@ -36,176 +27,104 @@ export default async function MiCuentaPage() {
     redirect("/auth/login")
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("nombre, apellido, verificado, created_at")
-    .eq("id", user.id)
-    .maybeSingle()
+  const { data: profesional } = await supabase.from("profesionales").select("id").eq("id", user.id).single()
 
-  const { data: profesional } = await supabase
-    .from("profesionales")
-    .select("id")
-    .eq("id", user.id)
-    .maybeSingle()
-
-  const esProfesional = !!profesional
+  const isProfesional = !!profesional
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-2xl">
+    <div className="container mx-auto px-4 py-8 max-w-6xl">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Configuración</h1>
-        <p className="text-muted-foreground">Gestiona tu cuenta y preferencias</p>
+        <h1 className="text-4xl font-bold mb-2">Mi Cuenta</h1>
+        <p className="text-muted-foreground">Gestiona tus solicitudes de servicio y configuración de perfil</p>
       </div>
 
-      <div className="space-y-6">
-        {/* Cuenta */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Cuenta</CardTitle>
-            <CardDescription>Datos de acceso y tipo de cuenta</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <h3 className="text-sm font-medium mb-1">Correo electrónico</h3>
-              <p className="text-sm text-muted-foreground">
-                Sesión iniciada como <span className="font-medium text-foreground">{user.email}</span>
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline" className={esProfesional ? "border-emerald-500/40 text-emerald-600" : ""}>
-                {esProfesional ? "Profesional" : "Cliente"}
-              </Badge>
-              {profile?.verificado && (
-                <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 gap-1">
-                  <BadgeCheck className="h-3.5 w-3.5" /> Verificado
-                </Badge>
-              )}
-              {profile?.created_at && (
-                <span className="text-xs text-muted-foreground">
-                  Miembro desde {formatearFecha(profile.created_at)}
-                </span>
-              )}
-            </div>
-            {!esProfesional && (
-              <Button asChild variant="outline" size="sm" className="bg-transparent">
-                <Link href="/convertirse-profesional">
-                  <Briefcase className="h-4 w-4 mr-2" />
-                  Convertirme en profesional
-                </Link>
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="solicitudes" className="space-y-6">
+        <TabsList className={`grid w-full ${isProfesional ? "grid-cols-6" : "grid-cols-4"} lg:w-auto`}>
+          <TabsTrigger value="solicitudes" className="gap-2">
+            <FileText className="h-4 w-4" />
+            <span className="hidden sm:inline">Solicitudes</span>
+            <span className="sm:hidden">Solic.</span>
+          </TabsTrigger>
+          {isProfesional && (
+            <TabsTrigger value="ofertas" className="gap-2">
+              <MessageSquare className="h-4 w-4" />
+              <span className="hidden sm:inline">Ofertas</span>
+              <span className="sm:hidden">Ofertas</span>
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="trabajos" className="gap-2">
+            <Hammer className="h-4 w-4" />
+            <span className="hidden sm:inline">Trabajos</span>
+            <span className="sm:hidden">Trabajos</span>
+          </TabsTrigger>
+          <TabsTrigger value="perfil" className="gap-2">
+            <User className="h-4 w-4" />
+            <span className="hidden sm:inline">Perfil</span>
+            <span className="sm:hidden">Perfil</span>
+          </TabsTrigger>
+          {isProfesional && (
+            <TabsTrigger value="portfolio" className="gap-2">
+              <Briefcase className="h-4 w-4" />
+              <span className="hidden sm:inline">Portfolio</span>
+              <span className="sm:hidden">Portfolio</span>
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="configuracion" className="gap-2">
+            <Settings className="h-4 w-4" />
+            <span className="hidden sm:inline">Config</span>
+            <span className="sm:hidden">Config</span>
+          </TabsTrigger>
+        </TabsList>
 
-        {/* Mi actividad */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Mi actividad</CardTitle>
-            <CardDescription>Accede a tu perfil y tus solicitudes</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Button asChild variant="outline" className="w-full justify-between bg-transparent">
-              <Link href="/mi-perfil">
-                <span className="flex items-center gap-2">
-                  <UserCircle className="h-4 w-4" />
-                  Mi Perfil
-                </span>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="w-full justify-between bg-transparent">
-              <Link href="/mis-solicitudes">
-                <span className="flex items-center gap-2">
-                  <Inbox className="h-4 w-4" />
-                  Mis Demandas
-                </span>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
+        <TabsContent value="solicitudes" className="space-y-4">
+          <MisSolicitudes />
+        </TabsContent>
 
-        {/* Seguridad */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Seguridad</CardTitle>
-            <CardDescription>Cambia la contraseña de tu cuenta</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <CambiarContrasenaForm />
-          </CardContent>
-        </Card>
+        {isProfesional && (
+          <TabsContent value="ofertas" className="space-y-4">
+            <MisOfertas />
+          </TabsContent>
+        )}
 
-        {/* Notificaciones */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Bell className="h-4 w-4" /> Notificaciones
-            </CardTitle>
-            <CardDescription>Cómo te avisamos de la actividad en tu cuenta</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Verás un aviso en la campana del menú cuando recibas un mensaje nuevo, alguien oferte en una demanda
-              que has publicado, o te acepten una oferta que hayas enviado.
-            </p>
-          </CardContent>
-        </Card>
+        <TabsContent value="trabajos" className="space-y-4">
+          <MisTrabajos />
+        </TabsContent>
 
-        {/* Soporte */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Soporte</CardTitle>
-            <CardDescription>¿Algo no funciona como esperabas?</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ReportarIncidenciaDialog
-              trigger={
-                <Button variant="outline" className="bg-transparent gap-2">
-                  <ShieldAlert className="h-4 w-4" />
-                  Reportar un problema
-                </Button>
-              }
-            />
-          </CardContent>
-        </Card>
+        <TabsContent value="perfil" className="space-y-4">
+          <EditarPerfil />
+        </TabsContent>
 
-        {/* Zona de peligro */}
-        <Card className="border-destructive/30">
-          <CardHeader>
-            <CardTitle className="text-destructive">Zona de peligro</CardTitle>
-            <CardDescription>Cerrar sesión o solicitar la baja de tu cuenta</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div>
-              <h3 className="text-sm font-medium mb-1">Cerrar sesión</h3>
-              <p className="text-sm text-muted-foreground mb-3">
-                Cierra tu sesión para entrar con otra cuenta o registrar una nueva.
-              </p>
-              <LogoutButton />
-            </div>
-            <Separator />
-            <div>
-              <h3 className="text-sm font-medium mb-1">Eliminar mi cuenta</h3>
-              <p className="text-sm text-muted-foreground mb-3">
-                Enviamos tu solicitud a soporte, que la gestionará manualmente para asegurarse de que no queden
-                trabajos, pagos o disputas abiertas.
-              </p>
-              <ReportarIncidenciaDialog
-                asuntoInicial="Solicitud de eliminación de cuenta"
-                categoriaInicial="otro"
-                descripcionPlaceholder="Confírmanos que quieres eliminar tu cuenta y por qué, así podemos gestionarlo cuanto antes..."
-                trigger={
-                  <Button variant="outline" className="bg-transparent text-destructive border-destructive/40 hover:bg-destructive/10 gap-2">
-                    <Trash2 className="h-4 w-4" />
-                    Solicitar eliminación de cuenta
-                  </Button>
-                }
-              />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        {isProfesional && (
+          <TabsContent value="portfolio" className="space-y-4">
+            <PortfolioManager profesionalId={user.id} />
+          </TabsContent>
+        )}
+
+        <TabsContent value="configuracion" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Configuracion de Cuenta</CardTitle>
+              <CardDescription>Gestiona tus preferencias y sesion</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div>
+                <h3 className="text-sm font-medium mb-1">Cuenta</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Sesion iniciada como <span className="font-medium text-foreground">{user.email}</span>
+                </p>
+              </div>
+              <Separator />
+              <div>
+                <h3 className="text-sm font-medium mb-1">Cerrar sesion</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Cierra tu sesion para entrar con otra cuenta o registrar una nueva.
+                </p>
+                <LogoutButton />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

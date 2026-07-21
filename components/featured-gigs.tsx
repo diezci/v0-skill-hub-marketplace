@@ -27,13 +27,9 @@ interface FeaturedGig {
   }
 }
 
-// Detecta si el ID es un UUID válido (los de la BD real)
-const isUUID = (id: string) =>
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
-
 const fallbackGigs: FeaturedGig[] = [
   {
-    id: "fallback-1",
+    id: "1",
     title: "Albañilería Profesional",
     description: "Construcción y reformas con más de 15 años de experiencia",
     price: 35,
@@ -46,7 +42,7 @@ const fallbackGigs: FeaturedGig[] = [
     freelancer: { name: "Carlos Rodríguez", avatar: "/placeholder.svg", level: "Experto" },
   },
   {
-    id: "fallback-2",
+    id: "2",
     title: "Fontanería 24h",
     description: "Reparaciones urgentes e instalaciones",
     price: 40,
@@ -59,7 +55,7 @@ const fallbackGigs: FeaturedGig[] = [
     freelancer: { name: "María García", avatar: "/placeholder.svg", level: "Experta" },
   },
   {
-    id: "fallback-3",
+    id: "3",
     title: "Electricista Certificado",
     description: "Instalaciones eléctricas y certificados",
     price: 45,
@@ -72,7 +68,7 @@ const fallbackGigs: FeaturedGig[] = [
     freelancer: { name: "Antonio López", avatar: "/placeholder.svg", level: "Experto" },
   },
   {
-    id: "fallback-4",
+    id: "4",
     title: "Pintura y Decoración",
     description: "Acabados profesionales interior y exterior",
     price: 30,
@@ -85,61 +81,6 @@ const fallbackGigs: FeaturedGig[] = [
     freelancer: { name: "Elena Martín", avatar: "/placeholder.svg", level: "Profesional" },
   },
 ]
-
-const GigCard = ({ gig }: { gig: FeaturedGig }) => (
-  <Card className="overflow-hidden card-hover cursor-pointer group h-full">
-    <div className="relative h-40 overflow-hidden">
-      <img
-        src={gig.image || "/placeholder.svg"}
-        alt={gig.title}
-        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-      <Badge className="absolute top-3 left-3 bg-background/90 text-foreground hover:bg-background/90">
-        {gig.category}
-      </Badge>
-      {gig.verified && (
-        <div className="absolute top-3 right-3 bg-primary/90 text-primary-foreground rounded-full p-1">
-          <CheckCircle2 className="h-3 w-3" />
-        </div>
-      )}
-      <div className="absolute bottom-3 left-3 right-3">
-        <div className="flex items-center gap-2">
-          <Avatar className="h-8 w-8 border-2 border-background">
-            <AvatarImage src={gig.freelancer.avatar || "/placeholder.svg"} />
-            <AvatarFallback>{gig.freelancer.name.charAt(0)}</AvatarFallback>
-          </Avatar>
-          <div className="text-white">
-            <p className="text-sm font-medium leading-none">{gig.freelancer.name}</p>
-            <p className="text-xs opacity-80">{gig.freelancer.level}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div className="p-4">
-      <h3 className="font-semibold mb-1 line-clamp-1">{gig.title}</h3>
-      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{gig.description}</p>
-
-      <div className="flex items-center justify-between text-sm">
-        <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1 text-amber-500">
-            <Star className="h-3.5 w-3.5 fill-current" />
-            <span className="font-medium">{gig.rating.toFixed(1)}</span>
-            <span className="text-muted-foreground">({gig.reviews})</span>
-          </span>
-          {gig.location && (
-            <span className="flex items-center gap-1 text-muted-foreground">
-              <MapPin className="h-3 w-3" />
-              {gig.location}
-            </span>
-          )}
-        </div>
-        <span className="font-bold text-primary">{formatearPrecioEuros(gig.price)}/h</span>
-      </div>
-    </div>
-  </Card>
-)
 
 const FeaturedGigs = () => {
   const [gigs, setGigs] = useState<FeaturedGig[]>(fallbackGigs)
@@ -173,7 +114,7 @@ const FeaturedGigs = () => {
         setGigs(formattedGigs)
       }
     } catch {
-      // Muestra los fallback gigs sin links rotos
+      // Silent fail - show fallback gigs
     } finally {
       setLoading(false)
     }
@@ -186,10 +127,7 @@ const FeaturedGigs = () => {
           <h2 className="text-2xl md:text-3xl font-bold mb-2">Profesionales destacados</h2>
           <p className="text-muted-foreground">Los mejor valorados por nuestros clientes</p>
         </div>
-        <Link
-          href="/profesionales"
-          className="text-sm font-medium text-primary hover:gap-3 transition-all flex items-center gap-2"
-        >
+        <Link href="/profesionales" className="text-sm font-medium text-primary hover:gap-3 transition-all flex items-center gap-2">
           Ver todos
         </Link>
       </div>
@@ -197,22 +135,74 @@ const FeaturedGigs = () => {
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="overflow-hidden h-64 animate-pulse bg-muted" />
+            <Card key={i} className="overflow-hidden">
+              <div className="h-40 bg-muted animate-pulse" />
+              <div className="p-4 space-y-3">
+                <div className="h-4 bg-muted rounded animate-pulse w-3/4" />
+                <div className="h-3 bg-muted rounded animate-pulse" />
+                <div className="h-3 bg-muted rounded animate-pulse w-1/2" />
+              </div>
+            </Card>
           ))}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {gigs.map((gig) =>
-            isUUID(gig.id) ? (
-              <Link key={gig.id} href={`/profesional/${gig.id}`}>
-                <GigCard gig={gig} />
-              </Link>
-            ) : (
-              <Link key={gig.id} href="/profesionales">
-                <GigCard gig={gig} />
-              </Link>
-            )
-          )}
+          {gigs.map((gig) => (
+            <Link key={gig.id} href={`/profesional/${gig.id}`}>
+              <Card className="overflow-hidden card-hover cursor-pointer group h-full">
+                <div className="relative h-40 overflow-hidden">
+                  <img
+                    src={gig.image || "/placeholder.svg"}
+                    alt={gig.title}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                  <Badge className="absolute top-3 left-3 bg-background/90 text-foreground hover:bg-background/90">
+                    {gig.category}
+                  </Badge>
+                  {gig.verified && (
+                    <div className="absolute top-3 right-3 bg-primary/90 text-primary-foreground rounded-full p-1">
+                      <CheckCircle2 className="h-3 w-3" />
+                    </div>
+                  )}
+                  <div className="absolute bottom-3 left-3 right-3">
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-8 w-8 border-2 border-background">
+                        <AvatarImage src={gig.freelancer.avatar || "/placeholder.svg"} />
+                        <AvatarFallback>{gig.freelancer.name.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <div className="text-white">
+                        <p className="text-sm font-medium leading-none">{gig.freelancer.name}</p>
+                        <p className="text-xs opacity-80">{gig.freelancer.level}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4">
+                  <h3 className="font-semibold mb-1 line-clamp-1">{gig.title}</h3>
+                  <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{gig.description}</p>
+
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-3">
+                      <span className="flex items-center gap-1 text-amber-500">
+                        <Star className="h-3.5 w-3.5 fill-current" />
+                        <span className="font-medium">{gig.rating.toFixed(1)}</span>
+                        <span className="text-muted-foreground">({gig.reviews})</span>
+                      </span>
+                      {gig.location && (
+                        <span className="flex items-center gap-1 text-muted-foreground">
+                          <MapPin className="h-3 w-3" />
+                          {gig.location}
+                        </span>
+                      )}
+                    </div>
+                    <span className="font-bold text-primary">{formatearPrecioEuros(gig.price)}/h</span>
+                  </div>
+                </div>
+              </Card>
+            </Link>
+          ))}
         </div>
       )}
     </section>

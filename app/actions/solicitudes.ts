@@ -15,9 +15,6 @@ export async function crearSolicitud(formData: {
   archivos_adjuntos?: string[]
 }) {
   const supabase = await createClient()
-  if (!supabase) {
-    return { error: "El servidor no está configurado correctamente. Falta la conexión con Supabase." }
-  }
 
   const {
     data: { user },
@@ -28,12 +25,11 @@ export async function crearSolicitud(formData: {
 
   let categoria_uuid = null
   if (formData.categoria_id) {
-    // Case-insensitive lookup so "Reformas integrales" matches "Reformas Integrales", etc.
     const { data: categoria } = await supabase
       .from("categorias")
       .select("id")
-      .ilike("nombre", formData.categoria_id)
-      .maybeSingle()
+      .eq("nombre", formData.categoria_id)
+      .single()
 
     if (categoria) {
       categoria_uuid = categoria.id
@@ -153,92 +149,6 @@ export async function obtenerSolicitudes(filtros?: {
   return { data: enriquecidas }
 }
 
-export async function actualizarSolicitud(
-  id: string,
-  campos: {
-    titulo?: string
-    descripcion?: string
-    ubicacion?: string
-    presupuesto_min?: number
-    presupuesto_max?: number
-    urgencia?: string
-  },
-) {
-  const supabase = await createClient()
-  if (!supabase) return { error: "Conexión con la base de datos no disponible." }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
-
-  // Solo se puede editar una demanda propia que siga abierta (sin trabajo en curso).
-  const { data: solicitud } = await supabase
-    .from("solicitudes")
-    .select("cliente_id, estado")
-    .eq("id", id)
-    .maybeSingle()
-
-  if (!solicitud || solicitud.cliente_id !== user.id) {
-    return { error: "No tienes permiso para editar esta demanda." }
-  }
-  if (solicitud.estado !== "abierta") {
-    return { error: "Solo puedes editar demandas que sigan abiertas (sin ofertas aceptadas)." }
-  }
-
-  const { data, error } = await supabase
-    .from("solicitudes")
-    .update({
-      titulo: campos.titulo,
-      descripcion: campos.descripcion,
-      ubicacion: campos.ubicacion,
-      presupuesto_min: campos.presupuesto_min,
-      presupuesto_max: campos.presupuesto_max,
-      urgencia: campos.urgencia,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .eq("cliente_id", user.id)
-    .select()
-    .single()
-
-  if (error) return { error: error.message }
-
-  revalidatePath("/mis-solicitudes")
-  revalidatePath("/demandas")
-  return { data }
-}
-
-export async function eliminarSolicitud(id: string) {
-  const supabase = await createClient()
-  if (!supabase) return { error: "Conexión con la base de datos no disponible." }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
-
-  const { data: solicitud } = await supabase
-    .from("solicitudes")
-    .select("cliente_id, estado")
-    .eq("id", id)
-    .maybeSingle()
-
-  if (!solicitud || solicitud.cliente_id !== user.id) {
-    return { error: "No tienes permiso para borrar esta demanda." }
-  }
-  if (solicitud.estado !== "abierta") {
-    return { error: "No puedes borrar una demanda con un trabajo en curso." }
-  }
-
-  const { error } = await supabase.from("solicitudes").delete().eq("id", id).eq("cliente_id", user.id)
-  if (error) return { error: error.message }
-
-  revalidatePath("/mis-solicitudes")
-  revalidatePath("/demandas")
-  return { success: true }
-}
-
 export async function obtenerMisSolicitudes() {
   const supabase = await createClient()
 
@@ -269,9 +179,7 @@ export async function obtenerMisSolicitudes() {
     (data || []).map(async (s: any) => {
       const { data: ofertas } = await supabase
         .from("ofertas")
-        .select(
-          "id, precio, tiempo_estimado, unidad_tiempo, descripcion, estado, created_at, profesional_id, archivos, materiales_incluidos, condiciones_pago",
-        )
+        .select("id, precio, tiempo_estimado, unidad_tiempo, descripcion, estado, created_at, profesional_id")
         .eq("solicitud_id", s.id)
       return {
         ...s,
@@ -371,10 +279,7 @@ export async function obtenerSolicitudesPorUsuario() {
           descripcion,
           estado,
           created_at,
-          profesional_id,
-          archivos,
-          materiales_incluidos,
-          condiciones_pago
+          profesional_id
         `)
         .eq("solicitud_id", solicitud.id)
 
@@ -417,75 +322,10 @@ export async function obtenerSolicitudesPorUsuario() {
         }),
       )
 
-      // Get the active trabajo for this solicitud (if any) with its escrow,
-      // professional info and updates so the "En Progreso" tab can render the
-      // confirm/release/reject actions for real data (not only mock data).
-      const { data: trabajoRow } = await supabase
-        .from("trabajos")
-        .select("*")
-        .eq("solicitud_id", solicitud.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      let trabajo: any = null
-      if (trabajoRow) {
-        const { data: escrow } = await supabase
-          .from("transacciones_escrow")
-          .select("id, estado, monto")
-          .eq("trabajo_id", trabajoRow.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle()
-
-        // La oferta aceptada del trabajo: sus adjuntos y condiciones deben
-        // seguir visibles para el cliente después de la contratación.
-        const { data: ofertaTrabajo } = trabajoRow.oferta_id
-          ? await supabase
-              .from("ofertas")
-              .select("archivos, materiales_incluidos, condiciones_pago, descripcion")
-              .eq("id", trabajoRow.oferta_id)
-              .maybeSingle()
-          : { data: null }
-
-        const { data: profProfile } = await supabase
-          .from("profiles")
-          .select("nombre, apellido, foto_perfil")
-          .eq("id", trabajoRow.profesional_id)
-          .maybeSingle()
-
-        const { data: profDatos } = await supabase
-          .from("profesionales")
-          .select("rating_promedio")
-          .eq("id", trabajoRow.profesional_id)
-          .maybeSingle()
-
-        const { data: actualizaciones } = await supabase
-          .from("actualizaciones_trabajo")
-          .select("mensaje, progreso, created_at")
-          .eq("trabajo_id", trabajoRow.id)
-          .order("created_at", { ascending: true })
-
-        trabajo = {
-          ...trabajoRow,
-          escrow: escrow || null,
-          oferta: ofertaTrabajo || null,
-          profesional: profProfile
-            ? { ...profProfile, rating: profDatos?.rating_promedio ?? null }
-            : null,
-          actualizaciones: (actualizaciones || []).map((a: any) => ({
-            fecha: a.created_at,
-            mensaje: a.mensaje,
-            progreso: a.progreso,
-          })),
-        }
-      }
-
       return {
         ...solicitud,
         categoria: solicitud.categoria_id ? mapaCategorias[solicitud.categoria_id] || null : null,
         ofertas: ofertasWithProfesional,
-        trabajo,
       }
     }),
   )

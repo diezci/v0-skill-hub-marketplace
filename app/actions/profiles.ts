@@ -14,12 +14,11 @@ export async function obtenerProfesionales(filtros?: {
     return { error: "Base de datos no disponible", data: [] }
   }
 
-  // Todos los que tienen ficha de profesional (perfil profesional creado).
   let query = supabase
     .from("profesionales")
     .select(`
       *,
-      perfil:profiles(nombre, apellido, ubicacion, foto_perfil, bio, verificado)
+      perfil:profiles(nombre, apellido, ubicacion, foto_perfil)
     `)
     .order("rating_promedio", { ascending: false })
 
@@ -30,10 +29,10 @@ export async function obtenerProfesionales(filtros?: {
   const { data, error } = await query
 
   if (error) {
-    return { error: error.message, data: [] }
+    return { error: error.message }
   }
 
-  return { data: data || [] }
+  return { data }
 }
 
 export async function obtenerProfesionalPorId(id: string) {
@@ -47,7 +46,7 @@ export async function obtenerProfesionalPorId(id: string) {
     .from("profesionales")
     .select(`
       *,
-      perfil:profiles(nombre, apellido, ubicacion, foto_perfil, foto_portada, email, telefono)
+      perfil:profiles(nombre, apellido, ubicacion, foto_perfil, foto_portada, email, telefono, bio)
     `)
     .eq("id", id)
     .single()
@@ -60,22 +59,38 @@ export async function obtenerProfesionalPorId(id: string) {
     .from("portfolio")
     .select("*")
     .eq("profesional_id", id)
-    .order("fecha_completado", { ascending: false })
+    .order("fecha_proyecto", { ascending: false })
 
+  // Reviews live in the "reseñas" table; the reviewer is "autor_id"
   const { data: reviews } = await supabase
     .from("reseñas")
-    .select(`
-      *,
-      cliente:autor_id(nombre, apellido, foto_perfil)
-    `)
+    .select("id, rating, comentario, tipo_proyecto, created_at, autor_id")
     .eq("profesional_id", id)
     .order("created_at", { ascending: false })
+
+  let reviewsConAutor: any[] = reviews || []
+  if (reviews && reviews.length > 0) {
+    const autorIds = [...new Set(reviews.map((r: any) => r.autor_id).filter(Boolean))]
+    const { data: autores } = await supabase
+      .from("profiles")
+      .select("id, nombre, apellido, foto_perfil")
+      .in("id", autorIds)
+    const autoresMap = new Map((autores || []).map((a: any) => [a.id, a]))
+    reviewsConAutor = reviews.map((r: any) => ({
+      ...r,
+      autor: autoresMap.get(r.autor_id) || { nombre: "Usuario", apellido: "" },
+    }))
+  }
 
   return {
     data: {
       ...profesional,
+      bio: profesional.perfil?.bio || "",
+      total_reviews: profesional.total_reseñas || 0,
+      anos_experiencia: profesional["años_experiencia"] ?? 0,
+      proyectos_completados: profesional.total_trabajos ?? 0,
       portfolio: portfolio || [],
-      reviews: reviews || [],
+      reviews: reviewsConAutor,
     },
   }
 }
@@ -120,18 +135,20 @@ export async function actualizarPerfil(formData: {
   if (formData.bio !== undefined) profileUpdates.bio = formData.bio
 
   if (Object.keys(profileUpdates).length > 0) {
-    console.log("[v0] Updating profile with:", profileUpdates)
-    const { error: profileError } = await supabase.from("profiles").update(profileUpdates).eq("id", user.id)
+    // Upsert so the profile saves even if the row was never created
+    // (e.g. the DB trigger didn't run on signup).
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .upsert({ id: user.id, email: user.email, ...profileUpdates }, { onConflict: "id" })
 
     if (profileError) {
       console.error("[v0] Profile update error:", profileError)
       return { error: profileError.message }
     }
-    console.log("[v0] Profile updated successfully")
   }
 
   // Check if professional profile exists
-  const { data: profesional } = await supabase.from("profesionales").select("id").eq("id", user.id).single()
+  const { data: profesional } = await supabase.from("profesionales").select("id").eq("id", user.id).maybeSingle()
 
   // Prepare professional data (bio is in profiles, not profesionales)
   const profData: any = {}
@@ -170,15 +187,11 @@ export async function actualizarPerfil(formData: {
         if (createError) {
           return { error: createError.message }
         }
-        // Al crear ficha profesional, marcar al usuario como profesional para
-        // que aparezca en la sección "Profesionales".
-        await supabase.from("profiles").update({ tipo_usuario: "profesional" }).eq("id", user.id)
       }
     }
   }
 
   revalidatePath("/mi-cuenta")
-  revalidatePath("/mi-perfil")
   revalidatePath(`/profesional/${profesional?.id}`)
   return { data: { success: true } }
 }
@@ -198,13 +211,35 @@ export async function obtenerPerfilActual() {
     return { error: "No autenticado" }
   }
 
-  const { data: profile, error: profileError } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+  let { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .maybeSingle()
 
-  if (profileError) {
-    return { error: profileError.message }
+  // If the profile row doesn't exist yet, create a minimal one from the auth user
+  if (!profile) {
+    const meta = (user.user_metadata || {}) as any
+    const { data: created } = await supabase
+      .from("profiles")
+      .upsert(
+        {
+          id: user.id,
+          email: user.email,
+          nombre: meta.nombre || "",
+          apellido: meta.apellido || "",
+          telefono: meta.telefono || null,
+          ubicacion: meta.ubicacion || null,
+          tipo_usuario: "cliente",
+        },
+        { onConflict: "id" },
+      )
+      .select("*")
+      .maybeSingle()
+    profile = created || { id: user.id, email: user.email }
   }
 
-  const { data: profesional } = await supabase.from("profesionales").select("*").eq("id", user.id).single()
+  const { data: profesional } = await supabase.from("profesionales").select("*").eq("id", user.id).maybeSingle()
 
   // Normalize años_experiencia to anos_experiencia for frontend compatibility
   const normalizedProfesional = profesional ? {

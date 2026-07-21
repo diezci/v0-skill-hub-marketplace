@@ -40,11 +40,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       const { data: profile, error } = await supabase
         .from("profiles")
-        .select("es_admin, nombre, apellido")
+        .select("rol, nombre, apellido")
         .eq("id", user.id)
         .single()
 
-      if (error || !profile?.es_admin) {
+      if (error || profile?.rol !== "admin") {
         router.push("/")
         return
       }
@@ -131,7 +131,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             onClick={handleLogout}
           >
             <LogOut className="h-4 w-4" />
-            Cerrar sesión
+            Cerrar sesion
           </Button>
         </div>
       </aside>

@@ -51,7 +51,7 @@ export default function ConvertirseEnProfesionalPage() {
       description: "Ahora puedes empezar a ofrecer tus servicios",
     })
 
-    router.push("/mi-perfil")
+    router.push("/mi-cuenta")
   }
 
   return (

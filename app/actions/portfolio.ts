@@ -3,16 +3,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
-// La tabla guarda `imagenes` (text[]), `fecha_proyecto` (date) y `presupuesto` (numeric).
-// El formulario trabaja con una sola imagen y un importe escrito a mano, así que se traduce aquí.
-// El formulario envía el importe en euros como número plano; se descartan negativos.
-function parsePresupuesto(valor?: string): number | null {
-  if (!valor?.trim()) return null
-  const num = Number.parseFloat(valor)
-  if (!Number.isFinite(num) || num < 0) return null
-  return num
-}
-
 export async function crearItemPortfolio(data: {
   titulo: string
   descripcion: string
@@ -32,6 +22,14 @@ export async function crearItemPortfolio(data: {
     return { error: "No autenticado" }
   }
 
+  // Map the UI fields to the real DB columns:
+  // - imagen_url (string)   -> imagenes (text[])
+  // - fecha_completado      -> fecha_proyecto
+  // - presupuesto (string)  -> numeric or null
+  const presupuestoNum = data.presupuesto
+    ? Number.parseFloat(String(data.presupuesto).replace(/[^\d.,]/g, "").replace(",", "."))
+    : null
+
   const { data: portfolio, error } = await supabase
     .from("portfolio")
     .insert({
@@ -40,10 +38,11 @@ export async function crearItemPortfolio(data: {
       descripcion: data.descripcion,
       categoria: data.categoria || null,
       imagenes: data.imagen_url ? [data.imagen_url] : [],
+      fecha_proyecto: data.fecha_completado || null,
       ubicacion: data.ubicacion || null,
       duracion: data.duracion || null,
-      presupuesto: parsePresupuesto(data.presupuesto),
-      fecha_proyecto: data.fecha_completado || null,
+      presupuesto: presupuestoNum && !Number.isNaN(presupuestoNum) ? presupuestoNum : null,
+      visible: true,
     })
     .select()
     .single()
@@ -52,8 +51,7 @@ export async function crearItemPortfolio(data: {
     return { error: error.message }
   }
 
-  revalidatePath("/mi-perfil")
-  revalidatePath(`/profesional/${user.id}`)
+  revalidatePath("/mi-cuenta")
   return { data: portfolio }
 }
 
@@ -64,13 +62,20 @@ export async function obtenerPortfolioPorProfesional(profesionalId: string) {
     .from("portfolio")
     .select("*")
     .eq("profesional_id", profesionalId)
-    .order("fecha_proyecto", { ascending: false, nullsFirst: false })
+    .order("fecha_proyecto", { ascending: false })
 
   if (error) {
     return { error: error.message }
   }
 
-  return { data }
+  // Map DB columns back to the field names the UI expects
+  const mapped = (data || []).map((item: any) => ({
+    ...item,
+    imagen_url: Array.isArray(item.imagenes) ? item.imagenes[0] : item.imagen_url,
+    fecha_completado: item.fecha_proyecto || item.fecha_completado,
+  }))
+
+  return { data: mapped }
 }
 
 export async function eliminarItemPortfolio(itemId: string) {
@@ -89,7 +94,6 @@ export async function eliminarItemPortfolio(itemId: string) {
     return { error: error.message }
   }
 
-  revalidatePath("/mi-perfil")
-  revalidatePath(`/profesional/${user.id}`)
+  revalidatePath("/mi-cuenta")
   return { success: true }
 }

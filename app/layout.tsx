@@ -3,7 +3,9 @@ import type { Metadata, Viewport } from "next"
 import { Inter, Space_Grotesk } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import { AppChrome } from "@/components/app-chrome"
+import Navbar from "@/components/navbar"
+import Footer from "@/components/footer"
+import { ChatWidget } from "@/components/chat-widget"
 import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
@@ -41,7 +43,10 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <div className="flex flex-col min-h-screen">
-            <AppChrome>{children}</AppChrome>
+            <Navbar />
+            <main className="flex-1 pt-16">{children}</main>
+            <Footer />
+            <ChatWidget />
           </div>
           <Toaster />
         </ThemeProvider>
