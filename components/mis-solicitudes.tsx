@@ -21,12 +21,13 @@ import {
 import { obtenerSolicitudesPorUsuario, actualizarSolicitud, eliminarSolicitud } from "@/app/actions/solicitudes"
 import { aceptarOferta, rechazarOferta } from "@/app/actions/ofertas"
 import { crearConversacion } from "@/app/actions/messages"
-import { crearTransaccionEscrow, liberarFondosEscrow, rechazarTrabajoYReembolsar } from "@/app/actions/escrow"
+import { liberarFondosEscrow } from "@/app/actions/escrow"
+import { rechazarEntrega } from "@/app/actions/disputes"
 import { obtenerMisTrabajos, actualizarProgresoTrabajo, marcarTrabajoEntregado, confirmarTrabajoCompletado } from "@/app/actions/trabajos"
 import { crearResena } from "@/app/actions/reviews"
 import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
 import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
-import { calcularTotalCliente, calcularReembolsoCliente, PLATFORM_CONFIG } from "@/lib/comisiones"
+import { calcularTotalCliente, PLATFORM_CONFIG } from "@/lib/comisiones"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import {
@@ -259,9 +260,10 @@ export default function MisSolicitudes() {
     }
 
     setActionLoading(true)
-    
-    // First reject the work
-    const result = await rechazarTrabajoYReembolsar(trabajo.id, rejectReason)
+
+    // Rechazar una entrega NO reembolsa: abre una disputa para que el equipo de
+    // Diime decida según las pruebas y los términos. El pago sigue retenido.
+    const result = await rechazarEntrega(trabajo.id, rejectReason)
 
     if (result.error) {
       toast({
@@ -271,8 +273,9 @@ export default function MisSolicitudes() {
       })
     } else {
       toast({
-        title: "Trabajo rechazado",
-        description: `Se te reembolsaran ${result.reembolso?.toFixed(2) || ""}EUR. La comision de la plataforma (${PLATFORM_CONFIG.comisionClientePorcentaje}%) no es reembolsable.`,
+        title: "Entrega rechazada · disputa abierta",
+        description:
+          "El pago queda retenido en custodia. El equipo de Diime revisará las pruebas y los términos acordados para decidir.",
       })
       setShowRejectDialog(false)
       setSelectedTrabajo(null)
@@ -1077,22 +1080,13 @@ export default function MisSolicitudes() {
                             }}
                           >
                             <XCircle className="h-4 w-4 mr-1" />
-                            Rechazar y Solicitar Reembolso
+                            Rechazar entrega
                           </Button>
                         </div>
-                        <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground pt-1">
-                          <span>¿No llegáis a un acuerdo?</span>
-                          <AbrirDisputaDialog
-                            trabajoId={trabajo.id}
-                            rol="cliente"
-                            trigger={
-                              <button type="button" className="font-medium text-amber-600 hover:underline inline-flex items-center gap-1">
-                                <Scale className="h-3.5 w-3.5" />
-                                Abrir disputa
-                              </button>
-                            }
-                          />
-                        </div>
+                        <p className="text-center text-xs text-muted-foreground pt-1">
+                          Si rechazas la entrega, el pago sigue retenido y el equipo de Diime decidirá según las
+                          pruebas y los términos acordados.
+                        </p>
                       </div>
                     )}
                   </CardContent>
@@ -1251,43 +1245,30 @@ export default function MisSolicitudes() {
         </DialogContent>
       </Dialog>
 
-      {/* Reject / Refund Dialog */}
+      {/* Rechazar entrega → abre disputa (no reembolsa automáticamente) */}
       <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-destructive">Rechazar trabajo y solicitar reembolso</DialogTitle>
+            <DialogTitle className="text-destructive">Rechazar la entrega</DialogTitle>
             <DialogDescription>
-              Si el trabajo no cumple con lo acordado, puedes rechazarlo y solicitar un reembolso.
-              La comision de la plataforma ({PLATFORM_CONFIG.comisionClientePorcentaje}%) no es reembolsable.
+              Si la entrega no cumple lo acordado, puedes rechazarla. El pago{" "}
+              <span className="font-medium">no se reembolsa automáticamente</span>: queda retenido en custodia y el
+              equipo de Diime decidirá según las pruebas y los términos acordados.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            {selectedTrabajo && (
-              <div className="bg-muted/50 rounded-lg p-4 space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Precio acordado</span>
-                  <span>{selectedTrabajo.precio_acordado} EUR</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Comision plataforma (no reembolsable)</span>
-                  <span className="text-destructive">
-                    -{calcularTotalCliente(selectedTrabajo.precio_acordado).comisionCliente.toFixed(2)} EUR
-                  </span>
-                </div>
-                <Separator />
-                <div className="flex justify-between font-semibold">
-                  <span>Reembolso estimado</span>
-                  <span className="text-emerald-600">
-                    {calcularReembolsoCliente(selectedTrabajo.precio_acordado).reembolso.toFixed(2)} EUR
-                  </span>
-                </div>
-              </div>
-            )}
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-muted-foreground flex items-start gap-2">
+              <Scale className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+              <span>
+                Se abrirá una disputa. Adjunta tus pruebas en el chat del trabajo (fotos, mensajes): Diime las
+                revisará junto con lo acordado antes de decidir si te reembolsa o libera el pago al profesional.
+              </span>
+            </div>
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Motivo del rechazo *</label>
               <Textarea
-                placeholder="Explica por que el trabajo no cumple con lo acordado..."
+                placeholder="Explica por qué la entrega no cumple lo acordado..."
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 rows={4}
@@ -1301,13 +1282,13 @@ export default function MisSolicitudes() {
             }}>
               Cancelar
             </Button>
-            <Button 
-              variant="destructive" 
-              onClick={() => handleRechazarTrabajo(selectedTrabajo)} 
+            <Button
+              variant="destructive"
+              onClick={() => handleRechazarTrabajo(selectedTrabajo)}
               disabled={actionLoading || !rejectReason.trim()}
             >
               {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
-              Rechazar y Reembolsar
+              Rechazar y abrir disputa
             </Button>
           </DialogFooter>
         </DialogContent>
