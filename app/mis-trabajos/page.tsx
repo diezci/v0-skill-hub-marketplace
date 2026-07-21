@@ -263,8 +263,10 @@ export default function MisTrabajosPage() {
   // Los trabajos sin pagar (pendiente_pago) NO aparecen aquí: hasta que el
   // cliente complete el pago viven en Mis Pujas como "aceptada, esperando pago".
   // A Gestión de Proyectos solo llegan trabajos ya pagados.
-  // Los trabajos en disputa se muestran junto a los activos para que no desaparezcan de la vista.
-  const trabajosEnProgreso = trabajos.filter((t) => t.estado === "en_progreso" || t.estado === "en_disputa")
+  // Los trabajos en disputa viven solo en la pestaña Disputas: mientras Diime
+  // decide no hay nada que gestionar en Activos, y verlos duplicados en ambas
+  // pestañas confundía.
+  const trabajosEnProgreso = trabajos.filter((t) => t.estado === "en_progreso")
   const trabajosEntregados = trabajos.filter((t) => t.estado === "entregado")
   const trabajosCompletados = trabajos.filter((t) => t.estado === "completado")
 
