@@ -31,6 +31,7 @@ import { obtenerOfertasPorProfesional, actualizarOferta, eliminarOferta } from "
 import { crearConversacion } from "@/app/actions/messages"
 import { uploadFile } from "@/lib/upload-helpers"
 import { useToast } from "@/hooks/use-toast"
+import { AdjuntosLista } from "@/components/adjuntos-lista"
 
 // Aquí viven las pujas pendientes de respuesta y también las aceptadas cuyo
 // pago el cliente aún no ha completado: hasta que se pague, el trabajo no
@@ -243,31 +244,7 @@ export default function MisOfertas() {
                       <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
                         <FileText className="h-3.5 w-3.5" /> Archivos adjuntos ({oferta.archivos.length})
                       </p>
-                      <div className="flex flex-wrap gap-2">
-                        {oferta.archivos.map((url: string, i: number) =>
-                          /\.(png|jpe?g|gif|webp)(\?|$)/i.test(url) ? (
-                            <a key={i} href={url} target="_blank" rel="noreferrer">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={url}
-                                alt={`Adjunto ${i + 1}`}
-                                className="h-14 w-14 rounded-md object-cover border hover:opacity-80 transition"
-                              />
-                            </a>
-                          ) : (
-                            <a
-                              key={i}
-                              href={url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted transition"
-                            >
-                              <FileText className="h-3.5 w-3.5" />
-                              {decodeURIComponent(url.split("/").pop()?.split("?")[0] || `Archivo ${i + 1}`)}
-                            </a>
-                          ),
-                        )}
-                      </div>
+                      <AdjuntosLista archivos={oferta.archivos} />
                     </div>
                   )}
 
@@ -518,31 +495,7 @@ export default function MisOfertas() {
                   <p className="font-medium mb-1.5 flex items-center gap-1">
                     <FileText className="h-4 w-4" /> Archivos adjuntos ({verDemanda.archivos.length})
                   </p>
-                  <div className="flex flex-wrap gap-2">
-                    {verDemanda.archivos.map((url: string, i: number) =>
-                      /\.(png|jpe?g|gif|webp)(\?|$)/i.test(url) ? (
-                        <a key={i} href={url} target="_blank" rel="noreferrer">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={url}
-                            alt={`Adjunto ${i + 1}`}
-                            className="h-20 w-20 rounded-md object-cover border hover:opacity-80 transition"
-                          />
-                        </a>
-                      ) : (
-                        <a
-                          key={i}
-                          href={url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted transition"
-                        >
-                          <FileText className="h-3.5 w-3.5" />
-                          {decodeURIComponent(url.split("/").pop()?.split("?")[0] || `Archivo ${i + 1}`)}
-                        </a>
-                      ),
-                    )}
-                  </div>
+                  <AdjuntosLista archivos={verDemanda.archivos} />
                 </div>
               )}
             </div>
