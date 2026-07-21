@@ -350,9 +350,13 @@ export default function MisSolicitudes() {
   )
   // Entregados y a la espera de que el cliente confirme: pestaña propia.
   const solicitudesPorConfirmar = solicitudes.filter((s) => s.trabajo?.estado === "entregado")
+  // Un trabajo en disputa vive solo en la pestaña Disputas (mismo criterio que
+  // en Gestión de Proyectos): duplicarlo en En Progreso confundía.
   const solicitudesEnProgreso = solicitudes.filter(
     (s) =>
-      (s.estado === "en_progreso" || s.estado === "en-progreso") && s.trabajo?.estado !== "entregado",
+      (s.estado === "en_progreso" || s.estado === "en-progreso") &&
+      s.trabajo?.estado !== "entregado" &&
+      s.trabajo?.estado !== "en_disputa",
   )
   const solicitudesCompletadas = solicitudes.filter(
     (s) => s.estado === "completado" || s.estado === "completada" || s.estado === "cerrada",

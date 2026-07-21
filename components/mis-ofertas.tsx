@@ -35,14 +35,17 @@ import { AdjuntosLista } from "@/components/adjuntos-lista"
 
 // Aquí viven las pujas pendientes de respuesta y también las aceptadas cuyo
 // pago el cliente aún no ha completado: hasta que se pague, el trabajo no
-// existe de verdad y no aparece en Gestión de Proyectos. Las rechazadas y
-// retiradas desaparecen de la lista.
+// existe de verdad y no aparece en Gestión de Proyectos. Las rechazadas se
+// muestran aparte, en el apartado de pujas perdidas; las retiradas (las quitó
+// el propio profesional) no se muestran.
 const esPendiente = (oferta: any) => !["aceptada", "rechazada", "retirada"].includes(oferta.estado)
 const esAceptadaSinPagar = (oferta: any) => oferta.estado === "aceptada" && oferta.trabajo?.estado === "pendiente_pago"
 const esVisible = (oferta: any) => esPendiente(oferta) || esAceptadaSinPagar(oferta)
+const esPerdida = (oferta: any) => oferta.estado === "rechazada"
 
 export default function MisOfertas() {
   const [ofertas, setOfertas] = useState<any[]>([])
+  const [perdidas, setPerdidas] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [editOferta, setEditOferta] = useState<any>(null)
   const [editForm, setEditForm] = useState({ precio: "", tiempo_estimado: "", unidad_tiempo: "dias", descripcion: "" })
@@ -60,7 +63,9 @@ export default function MisOfertas() {
   async function cargarOfertas() {
     setLoading(true)
     const result = await obtenerOfertasPorProfesional()
-    setOfertas((result.data || []).filter(esVisible))
+    const todas = result.data || []
+    setOfertas(todas.filter(esVisible))
+    setPerdidas(todas.filter(esPerdida))
     setLoading(false)
   }
 
@@ -298,6 +303,57 @@ export default function MisOfertas() {
           )}
         </CardContent>
       </Card>
+
+      {/* Pujas perdidas: demandas en las que el cliente eligió a otro
+          profesional (o rechazó la puja). Solo consulta; sin acciones de
+          edición. Las retiradas por el propio profesional no aparecen. */}
+      {perdidas.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <X className="h-5 w-5 text-red-500" />
+              Pujas perdidas ({perdidas.length})
+            </CardTitle>
+            <CardDescription>
+              El cliente eligió otra opción en estas demandas. Puedes revisar qué ofertaste y seguir pujando en
+              otras demandas.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {perdidas.map((oferta) => (
+              <div
+                key={oferta.id}
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border p-4"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-medium truncate">{oferta.solicitud?.titulo || "Servicio"}</p>
+                    <Badge variant="outline" className="gap-1 text-red-600 border-red-500/50 bg-red-500/10 shrink-0">
+                      <X className="h-3 w-3" />
+                      No seleccionada
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {oferta.solicitud?.cliente?.nombre} {oferta.solicitud?.cliente?.apellido}
+                    {" · "}Ofertaste {formatearPrecioEuros(oferta.precio)}
+                    {oferta.updated_at &&
+                      ` · ${new Date(oferta.updated_at).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })}`}
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 bg-transparent"
+                  onClick={() => setVerDemanda(oferta.solicitud)}
+                >
+                  <Eye className="h-4 w-4 mr-1.5" />
+                  Ver demanda
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Editar oferta */}
       <Dialog open={!!editOferta} onOpenChange={(o) => !o && setEditOferta(null)}>

@@ -34,6 +34,7 @@ export async function crearDisputa(data: {
   avisoOtraParte?: { titulo: string; mensaje: string }
 }) {
   const supabase = await createClient()
+  if (!supabase) return { error: "No se pudo conectar" }
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -123,6 +124,23 @@ export async function crearDisputa(data: {
       mensaje: aviso.mensaje,
       link: otraParteId === trabajo.cliente_id ? "/mis-solicitudes" : "/mis-trabajos",
     })
+  }
+
+  // Avisar también al equipo de Diime: son quienes deben resolverla. Inserción
+  // directa (sin .select(): el RETURNING exigiría la política de SELECT sobre
+  // filas ajenas) para poder notificar a todos los admins de una vez.
+  const { data: admins } = await supabase.from("profiles").select("id").eq("es_admin", true)
+  if (admins?.length) {
+    await supabase.from("notificaciones").insert(
+      admins.map((a: { id: string }) => ({
+        usuario_id: a.id,
+        tipo: "disputa_abierta_admin",
+        titulo: "Nueva disputa para revisar",
+        mensaje: `${tipo === "cliente" ? "El cliente" : "El profesional"} ha abierto una disputa sobre "${titulo}". Motivo: ${motivo}`,
+        link: "/admin/disputas",
+        leida: false,
+      })),
+    )
   }
 
   revalidatePath("/admin/disputas")
@@ -548,12 +566,35 @@ async function notificarResolucionDisputa({
         )} al cliente sobre un precio acordado de ${formatearPrecio(base)}.${motivo}`
   }
 
+  // La decisión de Diime es mediación privada: hay que dejar claro a ambas
+  // partes que no les impide emprender acciones legales u otras por su cuenta.
+  const notaLegal =
+    " Recuerda que la decisión de Diime es una mediación privada entre las partes y en ningún caso te impide emprender por tu cuenta las acciones legales o de otro tipo que consideres."
+  mensajeCliente += notaLegal
+  mensajeProfesional += notaLegal
+
+  // Tipo y título según el desenlace para cada parte: quien pierde una disputa
+  // no debe recibir el mismo aviso neutro que quien la gana (la campana y las
+  // vistas los presentan en rojo o en verde según el tipo).
+  const desenlaceCliente =
+    resolucion === "cliente"
+      ? { tipo: "disputa_ganada", titulo: "Disputa resuelta a tu favor" }
+      : resolucion === "proveedor"
+        ? { tipo: "disputa_perdida", titulo: "Disputa resuelta en tu contra" }
+        : { tipo: "disputa_resuelta", titulo: "Disputa resuelta de forma parcial" }
+  const desenlaceProfesional =
+    resolucion === "proveedor"
+      ? { tipo: "disputa_ganada", titulo: "Disputa resuelta a tu favor" }
+      : resolucion === "cliente"
+        ? { tipo: "disputa_perdida", titulo: "Disputa resuelta en tu contra" }
+        : { tipo: "disputa_resuelta", titulo: "Disputa resuelta de forma parcial" }
+
   const { crearNotificacion } = await import("./notificaciones")
   if (disputa.cliente_id) {
     await crearNotificacion({
       usuarioId: disputa.cliente_id,
-      tipo: "disputa_resuelta",
-      titulo: "Disputa resuelta",
+      tipo: desenlaceCliente.tipo,
+      titulo: desenlaceCliente.titulo,
       mensaje: mensajeCliente,
       link: "/mis-solicitudes",
     })
@@ -561,8 +602,8 @@ async function notificarResolucionDisputa({
   if (disputa.profesional_id) {
     await crearNotificacion({
       usuarioId: disputa.profesional_id,
-      tipo: "disputa_resuelta",
-      titulo: "Disputa resuelta",
+      tipo: desenlaceProfesional.tipo,
+      titulo: desenlaceProfesional.titulo,
       mensaje: mensajeProfesional,
       link: "/mis-trabajos",
     })
