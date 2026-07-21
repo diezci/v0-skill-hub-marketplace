@@ -19,6 +19,10 @@ const navItems = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
   const [adminName, setAdminName] = useState("")
+  // Disputas e incidencias pendientes de revisar: badge rojo en el menú para
+  // que una disputa nueva no pase desapercibida (el admin no ve el navbar
+  // público ni su campana).
+  const [pendientes, setPendientes] = useState<Record<string, number>>({})
   const router = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
@@ -26,6 +30,28 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     checkAdminStatus()
   }, [])
+
+  useEffect(() => {
+    if (!isAdmin) return
+    let activo = true
+    const cargar = async () => {
+      const [disputas, incidencias] = await Promise.all([
+        supabase.from("disputas").select("id", { count: "exact", head: true }).eq("estado", "abierta"),
+        supabase.from("incidencias").select("id", { count: "exact", head: true }).eq("estado", "abierta"),
+      ])
+      if (!activo) return
+      setPendientes({
+        "/admin/disputas": disputas.count || 0,
+        "/admin/incidencias": incidencias.count || 0,
+      })
+    }
+    cargar()
+    const id = setInterval(cargar, 30000)
+    return () => {
+      activo = false
+      clearInterval(id)
+    }
+  }, [isAdmin])
 
   const checkAdminStatus = async () => {
     try {
@@ -105,7 +131,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               >
                 <item.icon className="h-5 w-5" />
                 {item.label}
-                {isActive && <ChevronRight className="h-4 w-4 ml-auto" />}
+                {(pendientes[item.href] || 0) > 0 && (
+                  <span className="ml-auto h-5 min-w-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-bold flex items-center justify-center">
+                    {pendientes[item.href] > 9 ? "9+" : pendientes[item.href]}
+                  </span>
+                )}
+                {isActive && (pendientes[item.href] || 0) === 0 && <ChevronRight className="h-4 w-4 ml-auto" />}
               </Link>
             )
           })}
