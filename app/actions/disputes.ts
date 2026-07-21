@@ -29,6 +29,9 @@ const ESTADOS_DISPUTABLES = ["en_progreso", "entregado"] as const
 export async function crearDisputa(data: {
   trabajo_id: string
   motivo: string
+  // Aviso a la otra parte al abrir la disputa. Si se omite, se usa uno genérico.
+  // rechazarEntrega lo pasa para dar un mensaje específico de rechazo de entrega.
+  avisoOtraParte?: { titulo: string; mensaje: string }
 }) {
   const supabase = await createClient()
   const {
@@ -41,7 +44,7 @@ export async function crearDisputa(data: {
 
   const { data: trabajo } = await supabase
     .from("trabajos")
-    .select("cliente_id, profesional_id, estado, cancelacion_estado, cancelacion_solicitada_por")
+    .select("cliente_id, profesional_id, estado, titulo, cancelacion_estado, cancelacion_solicitada_por")
     .eq("id", data.trabajo_id)
     .maybeSingle()
 
@@ -102,10 +105,141 @@ export async function crearDisputa(data: {
   await supabase.from("trabajos").update({ estado: "en_disputa" }).eq("id", data.trabajo_id)
   await supabase.from("transacciones_escrow").update({ estado: "disputa" }).eq("trabajo_id", data.trabajo_id)
 
+  // Avisar a la OTRA parte (la que no ha abierto la disputa). El enlace lleva a
+  // su sección de seguimiento según su rol en este trabajo.
+  const otraParteId = user.id === trabajo.cliente_id ? trabajo.profesional_id : trabajo.cliente_id
+  const titulo = trabajo.titulo ?? "un trabajo"
+  const aviso =
+    data.avisoOtraParte ?? {
+      titulo: "Se ha abierto una disputa",
+      mensaje: `Se ha abierto una disputa sobre "${titulo}". El pago queda retenido en custodia y el equipo de Diime la revisará según las pruebas y los términos acordados.`,
+    }
+  if (otraParteId) {
+    const { crearNotificacion } = await import("./notificaciones")
+    await crearNotificacion({
+      usuarioId: otraParteId,
+      tipo: "disputa_abierta",
+      titulo: aviso.titulo,
+      mensaje: aviso.mensaje,
+      link: otraParteId === trabajo.cliente_id ? "/mis-solicitudes" : "/mis-trabajos",
+    })
+  }
+
   revalidatePath("/admin/disputas")
   revalidatePath("/mis-trabajos")
   revalidatePath("/mis-solicitudes")
   return { data: disputa }
+}
+
+// El cliente rechaza una entrega porque, según él, no cumple lo acordado.
+// NO se reembolsa automáticamente: se abre una disputa para que el equipo de
+// Diime decida según las pruebas adjuntadas y los términos acordados. El pago
+// queda retenido en custodia mientras tanto.
+export async function rechazarEntrega(trabajoId: string, motivo: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const razon = motivo?.trim()
+  if (!razon) return { error: "Explica por qué la entrega no cumple lo acordado." }
+
+  const { data: trabajo } = await supabase
+    .from("trabajos")
+    .select("cliente_id, profesional_id, estado, titulo")
+    .eq("id", trabajoId)
+    .maybeSingle()
+
+  if (!trabajo || trabajo.cliente_id !== user.id) {
+    return { error: "No tienes permiso para rechazar la entrega de este trabajo." }
+  }
+  if (trabajo.estado !== "entregado") {
+    return { error: "Solo puedes rechazar una entrega que el profesional haya marcado como entregada." }
+  }
+
+  // Abrir la disputa reutiliza toda la lógica: congela los fondos (escrow a
+  // "disputa"), pone el trabajo "en_disputa", crea el registro para el admin y
+  // avisa al profesional con el mensaje específico de rechazo de entrega.
+  const res = await crearDisputa({
+    trabajo_id: trabajoId,
+    motivo: `Entrega rechazada por el cliente. Motivo: ${razon}`,
+    avisoOtraParte: {
+      titulo: "El cliente ha rechazado tu entrega",
+      mensaje: `El cliente considera que "${trabajo.titulo ?? "el trabajo"}" no cumple lo acordado. El pago sigue retenido en custodia y el equipo de Diime decidirá según las pruebas y los términos. Motivo: ${razon}`,
+    },
+  })
+  if (res.error) return { error: res.error }
+
+  // Deja constancia en el historial del trabajo (el aviso al profesional ya lo
+  // ha enviado crearDisputa mediante avisoOtraParte).
+  await supabase.from("actualizaciones_trabajo").insert({
+    trabajo_id: trabajoId,
+    usuario_id: user.id,
+    tipo: "disputa",
+    mensaje: `El cliente ha rechazado la entrega. El equipo de Diime decidirá según las pruebas y los términos acordados. Motivo: ${razon}`,
+    progreso: 100,
+  })
+
+  return { data: res.data }
+}
+
+// Disputas del usuario actual (donde es cliente o profesional), para que siga
+// las que ha abierto él y las que la otra parte ha abierto contra él.
+export async function obtenerMisDisputas() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado", data: [] }
+
+  const { data, error } = await supabase
+    .from("disputas")
+    .select("id, trabajo_id, cliente_id, profesional_id, tipo, motivo, estado, resolucion, resultado, fecha_resolucion, created_at")
+    .or(`cliente_id.eq.${user.id},profesional_id.eq.${user.id}`)
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    if (error.code === "42P01") return { data: [] }
+    return { error: error.message, data: [] }
+  }
+
+  // Enriquecer con el título del trabajo y el nombre de la otra parte.
+  const otrosIds = [
+    ...new Set(
+      (data || [])
+        .map((d: any) => (d.cliente_id === user.id ? d.profesional_id : d.cliente_id))
+        .filter((x): x is string => !!x),
+    ),
+  ]
+  const perfiles: Record<string, any> = {}
+  if (otrosIds.length > 0) {
+    const { data: profs } = await supabase.from("profiles").select("id, nombre, apellido").in("id", otrosIds)
+    for (const p of profs || []) perfiles[p.id] = p
+  }
+
+  const enriquecidas = await Promise.all(
+    (data || []).map(async (d: any) => {
+      const { data: trabajo } = await supabase
+        .from("trabajos")
+        .select("titulo, estado")
+        .eq("id", d.trabajo_id)
+        .maybeSingle()
+      const otraParteId = d.cliente_id === user.id ? d.profesional_id : d.cliente_id
+      // tipo = quién la abrió ("cliente" o "proveedor"). La abrió el usuario
+      // actual si su rol en el trabajo coincide con el tipo de la disputa.
+      const miRol = d.cliente_id === user.id ? "cliente" : "proveedor"
+      return {
+        ...d,
+        trabajo_titulo: trabajo?.titulo ?? "Trabajo",
+        trabajo_estado: trabajo?.estado ?? null,
+        la_abri_yo: d.tipo === miRol,
+        otra_parte: perfiles[otraParteId] || null,
+      }
+    }),
+  )
+
+  return { data: enriquecidas }
 }
 
 // Lista de disputas para el panel admin (con datos básicos del trabajo y partes).
