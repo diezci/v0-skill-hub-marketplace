@@ -16,7 +16,7 @@ import { Send, Paperclip, X, MapPin, Euro, Clock } from "lucide-react"
 import { uploadFile } from "@/lib/upload-helpers"
 import { crearSolicitud } from "@/app/actions/solicitudes"
 import { useRouter } from "next/navigation"
-import { CATEGORIAS_SERVICIO_NOMBRES } from "@/lib/categorias"
+import { OpcionesCategorias } from "@/components/select-categorias-opciones"
 import { PROVINCIAS_ES } from "@/lib/provincias"
 
 const formSchema = z.object({
@@ -28,7 +28,6 @@ const formSchema = z.object({
   urgency: z.string().min(1, { message: "Indica la urgencia" }),
 })
 
-const categories = CATEGORIAS_SERVICIO_NOMBRES
 const provincias = PROVINCIAS_ES.map((provincia) => ({ provincia }))
 
 interface Props {
@@ -131,11 +130,7 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
-                      </SelectItem>
-                    ))}
+                    <OpcionesCategorias />
                   </SelectContent>
                 </Select>
                 <FormMessage />

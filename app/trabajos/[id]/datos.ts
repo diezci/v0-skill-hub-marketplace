@@ -25,7 +25,11 @@ export async function obtenerDatosContratacion(trabajoId: string) {
       ? supabase.from("ofertas").select("*").eq("id", trabajo.oferta_id).maybeSingle()
       : Promise.resolve({ data: null } as any),
     trabajo.solicitud_id
-      ? supabase.from("solicitudes").select("titulo, descripcion, ubicacion").eq("id", trabajo.solicitud_id).maybeSingle()
+      ? supabase
+          .from("solicitudes")
+          .select("titulo, descripcion, ubicacion, archivos")
+          .eq("id", trabajo.solicitud_id)
+          .maybeSingle()
       : Promise.resolve({ data: null } as any),
     supabase
       .from("transacciones_escrow")

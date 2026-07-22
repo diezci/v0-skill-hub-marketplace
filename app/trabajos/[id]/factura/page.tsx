@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { BotonImprimir } from "@/components/boton-imprimir"
+import { AdjuntosLista } from "@/components/adjuntos-lista"
 import { PLATFORM_CONFIG, calcularTotalCliente, calcularPagoProveedor } from "@/lib/comisiones"
 import { obtenerDatosContratacion, formatearEuros, formatearFechaLarga, etiquetaMateriales } from "../datos"
 
@@ -94,6 +95,14 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
               {solicitud.descripcion}
             </p>
           )}
+          {Array.isArray(solicitud?.archivos) && solicitud.archivos.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">
+                Adjuntos de la publicación de la demanda
+              </p>
+              <AdjuntosLista archivos={solicitud.archivos} />
+            </div>
+          )}
           <div className="rounded-lg border p-4 space-y-2 bg-muted/20">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
               Propuesta del profesional aceptada por el cliente
@@ -113,6 +122,12 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
                 <span className="font-medium">Notas del profesional: </span>
                 <span className="text-muted-foreground">{oferta.notas}</span>
               </p>
+            )}
+            {Array.isArray(oferta?.archivos) && oferta.archivos.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">Adjuntos de la oferta aceptada</p>
+                <AdjuntosLista archivos={oferta.archivos} />
+              </div>
             )}
           </div>
           <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-2">
