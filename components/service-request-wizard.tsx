@@ -21,30 +21,28 @@ import {
   ArrowLeft,
   Loader2,
   Sparkles,
-  Zap,
   Home,
-  Paintbrush,
-  Droplets,
-  Flame,
-  Building2,
   Trees,
-  Shield,
-  HardHat
+  HardHat,
+  Car,
+  Cpu,
+  PartyPopper,
+  Scissors
 } from "lucide-react"
 import { crearSolicitud } from "@/app/actions/solicitudes"
+import { TAXONOMIA_SERVICIOS } from "@/lib/categorias"
 import { useToast } from "@/hooks/use-toast"
 
+// Las 7 categorías principales de la taxonomía; la subcategoría concreta se
+// elige en un segundo desplegable (es la unidad que guarda la demanda).
 const CATEGORIES = [
-  { id: "fontaneria", name: "Fontanería", icon: Droplets, color: "bg-blue-500" },
-  { id: "electricidad", name: "Electricidad", icon: Zap, color: "bg-yellow-500" },
-  { id: "pintura", name: "Pintura", icon: Paintbrush, color: "bg-purple-500" },
-  { id: "albanileria", name: "Albañilería", icon: Building2, color: "bg-orange-500" },
-  { id: "carpinteria", name: "Carpintería", icon: Home, color: "bg-amber-700" },
-  { id: "climatizacion", name: "Climatización", icon: Flame, color: "bg-red-500" },
-  { id: "jardineria", name: "Jardinería", icon: Trees, color: "bg-green-500" },
-  { id: "cerrajeria", name: "Cerrajería", icon: Shield, color: "bg-gray-600" },
-  { id: "reformas", name: "Reformas integrales", icon: HardHat, color: "bg-emerald-600" },
-  { id: "otros", name: "Otros servicios", icon: Wrench, color: "bg-slate-500" },
+  { name: "Reformas y Construcción", icon: HardHat, color: "bg-emerald-600" },
+  { name: "Hogar y mantenimiento", icon: Home, color: "bg-blue-500" },
+  { name: "Exteriores y jardín", icon: Trees, color: "bg-green-600" },
+  { name: "Automoción", icon: Car, color: "bg-red-500" },
+  { name: "Tecnología y electrónica", icon: Cpu, color: "bg-purple-500" },
+  { name: "Eventos", icon: PartyPopper, color: "bg-amber-500" },
+  { name: "Moda y textil", icon: Scissors, color: "bg-pink-500" },
 ]
 
 const URGENCY_OPTIONS = [
@@ -56,6 +54,7 @@ const URGENCY_OPTIONS = [
 
 interface WizardData {
   categoria: string
+  subcategoria: string
   descripcion: string
   ubicacion: string
   urgencia: string
@@ -73,6 +72,7 @@ export default function ServiceRequestWizard() {
   
   const [data, setData] = useState<WizardData>({
     categoria: "",
+    subcategoria: "",
     descripcion: "",
     ubicacion: "",
     urgencia: "",
@@ -89,7 +89,7 @@ export default function ServiceRequestWizard() {
 
   const canProceed = () => {
     switch (step) {
-      case 1: return !!data.categoria
+      case 1: return !!data.subcategoria
       case 2: return data.descripcion.length >= 20
       case 3: return !!data.ubicacion
       case 4: return !!data.urgencia
@@ -105,7 +105,7 @@ export default function ServiceRequestWizard() {
       const result = await crearSolicitud({
         titulo: data.titulo,
         descripcion: data.descripcion,
-        categoria_id: CATEGORIES.find(c => c.id === data.categoria)?.name ?? data.categoria,
+        categoria_id: data.subcategoria,
         ubicacion: data.ubicacion,
         presupuesto_min: data.presupuestoMin,
         presupuesto_max: data.presupuestoMax,
@@ -136,7 +136,7 @@ export default function ServiceRequestWizard() {
     }
   }
 
-  const selectedCategory = CATEGORIES.find(c => c.id === data.categoria)
+  const selectedCategory = CATEGORIES.find(c => c.name === data.categoria)
 
   if (isComplete) {
     return (
@@ -205,18 +205,22 @@ export default function ServiceRequestWizard() {
                   Selecciona la categoría que mejor describe tu necesidad
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {CATEGORIES.map((category) => {
                     const Icon = category.icon
-                    const isSelected = data.categoria === category.id
+                    const isSelected = data.categoria === category.name
                     return (
                       <button
-                        key={category.id}
-                        onClick={() => updateData("categoria", category.id)}
+                        key={category.name}
+                        onClick={() => {
+                          updateData("categoria", category.name)
+                          // Cambiar de categoría invalida la subcategoría elegida.
+                          updateData("subcategoria", "")
+                        }}
                         className={`p-4 rounded-xl border-2 transition-all text-left ${
-                          isSelected 
-                            ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20" 
+                          isSelected
+                            ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20"
                             : "border-border hover:border-emerald-300 hover:bg-muted/50"
                         }`}
                       >
@@ -228,6 +232,31 @@ export default function ServiceRequestWizard() {
                     )
                   })}
                 </div>
+
+                {data.categoria && (
+                  <div className="space-y-1.5">
+                    <Label>¿Qué tipo de trabajo en concreto?</Label>
+                    <Select value={data.subcategoria} onValueChange={(v) => updateData("subcategoria", v)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Elige el servicio concreto" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-72">
+                        {TAXONOMIA_SERVICIOS.find((c) => c.nombre === data.categoria)?.bloques.map((bloque) => (
+                          <div key={bloque.nombre || "unico"}>
+                            {bloque.nombre && (
+                              <p className="px-2 py-1.5 text-xs font-medium text-muted-foreground">{bloque.nombre}</p>
+                            )}
+                            {bloque.subcategorias.map((sub) => (
+                              <SelectItem key={sub.nombre} value={sub.nombre}>
+                                {sub.nombre}
+                              </SelectItem>
+                            ))}
+                          </div>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -245,9 +274,9 @@ export default function ServiceRequestWizard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {selectedCategory && (
+                {data.subcategoria && (
                   <Badge variant="secondary" className="mb-2">
-                    {selectedCategory.name}
+                    {data.subcategoria}
                   </Badge>
                 )}
                 <div>
@@ -376,7 +405,7 @@ export default function ServiceRequestWizard() {
                 <div className="bg-muted/50 rounded-xl p-4 space-y-2">
                   <h4 className="font-medium text-sm">Resumen de tu solicitud</h4>
                   <div className="text-sm text-muted-foreground space-y-1">
-                    <p><strong>Categoría:</strong> {selectedCategory?.name}</p>
+                    <p><strong>Categoría:</strong> {data.subcategoria || selectedCategory?.name}</p>
                     <p><strong>Ubicación:</strong> {data.ubicacion}</p>
                     <p><strong>Urgencia:</strong> {URGENCY_OPTIONS.find(o => o.id === data.urgencia)?.name}</p>
                     <p><strong>Presupuesto:</strong> {data.presupuestoMin.toLocaleString("es-ES")}€ - {data.presupuestoMax.toLocaleString("es-ES")}€</p>
