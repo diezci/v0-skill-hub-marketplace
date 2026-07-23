@@ -10,10 +10,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { MapPin } from "lucide-react"
 import type { ProfesionalesFiltros } from "@/components/profesionales-content"
 import { PROVINCIAS_ES } from "@/lib/provincias"
-import { GRUPOS_CATEGORIAS_IDS } from "@/lib/categorias"
+import { CATEGORIAS_SERVICIO } from "@/lib/categorias"
+import { SelectorCategoriasAgrupado } from "@/components/selector-categorias-agrupado"
 
 // Re-exportada por compatibilidad con quien ya la importe desde aquí.
 export { PROVINCIAS_ES }
+
+// Los filtros guardan ids (slug); la taxonomía y el selector usan nombres.
+const ID_A_NOMBRE: Record<string, string> = Object.fromEntries(CATEGORIAS_SERVICIO.map((c) => [c.id, c.label]))
+const NOMBRE_A_ID: Record<string, string> = Object.fromEntries(CATEGORIAS_SERVICIO.map((c) => [c.label, c.id]))
 
 
 const levels = [
@@ -149,27 +154,13 @@ const GigFilters = ({ filtros, onChange, onReset }: GigFiltersProps) => {
             <AccordionItem value="category">
               <AccordionTrigger>Categoría</AccordionTrigger>
               <AccordionContent>
-                <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-                  {GRUPOS_CATEGORIAS_IDS.map((grupo) => (
-                    <div key={grupo.grupo} className="space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        {grupo.grupo}
-                      </p>
-                      {grupo.categorias.map((category) => (
-                        <div key={category.id} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`category-${category.id}`}
-                            checked={filtros.categorias.includes(category.id)}
-                            onCheckedChange={() => handleCategoryChange(category.id)}
-                          />
-                          <label htmlFor={`category-${category.id}`} className="text-sm cursor-pointer">
-                            {category.label}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
+                {/* El filtro trabaja con ids (slug), pero el selector devuelve
+                    nombres: se traduce en ambos sentidos. */}
+                <SelectorCategoriasAgrupado
+                  idPrefix="category"
+                  seleccionadas={filtros.categorias.map((id) => ID_A_NOMBRE[id]).filter(Boolean)}
+                  onChange={(nombres) => onChange({ categorias: nombres.map((n) => NOMBRE_A_ID[n]).filter(Boolean) })}
+                />
               </AccordionContent>
             </AccordionItem>
 

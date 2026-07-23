@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { X, Search } from "lucide-react"
-import { GRUPOS_CATEGORIAS } from "@/lib/categorias"
+import { SelectorCategoriasAgrupado } from "@/components/selector-categorias-agrupado"
 import { PROVINCIAS_ES } from "@/lib/provincias"
 
 function normalizar(s: string) {
@@ -14,9 +14,8 @@ function normalizar(s: string) {
 }
 
 /**
- * Selección múltiple de las subcategorías de servicio en las que trabaja el
- * profesional. Agrupadas por bloque igual que el resto de la web, con buscador
- * porque son 55.
+ * Servicios en los que trabaja el profesional: las elegidas como etiquetas
+ * (para verlas de un vistazo) y, al editar, los grupos plegables.
  */
 export function SelectorCategorias({
   seleccionadas,
@@ -27,20 +26,10 @@ export function SelectorCategorias({
   onChange: (v: string[]) => void
   disabled?: boolean
 }) {
-  const [busqueda, setBusqueda] = useState("")
-
   const alternar = (nombre: string) =>
     onChange(
       seleccionadas.includes(nombre) ? seleccionadas.filter((c) => c !== nombre) : [...seleccionadas, nombre],
     )
-
-  const q = normalizar(busqueda.trim())
-  const grupos = GRUPOS_CATEGORIAS.map((g) => ({
-    grupo: g.grupo,
-    subcategorias: q
-      ? g.subcategorias.filter((s) => normalizar(s.nombre).includes(q) || normalizar(g.grupo).includes(q))
-      : g.subcategorias,
-  })).filter((g) => g.subcategorias.length > 0)
 
   return (
     <div className="space-y-3">
@@ -60,35 +49,7 @@ export function SelectorCategorias({
       )}
 
       {!disabled && (
-        <>
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar servicio..."
-              className="pl-8"
-            />
-          </div>
-          <div className="max-h-72 overflow-y-auto rounded-lg border p-3 space-y-3">
-            {grupos.length === 0 && <p className="text-sm text-muted-foreground">Ningún servicio coincide.</p>}
-            {grupos.map((g) => (
-              <div key={g.grupo} className="space-y-1.5">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{g.grupo}</p>
-                {g.subcategorias.map((s) => (
-                  <label key={s.nombre} className="flex items-start gap-2 cursor-pointer">
-                    <Checkbox
-                      checked={seleccionadas.includes(s.nombre)}
-                      onCheckedChange={() => alternar(s.nombre)}
-                      className="mt-0.5"
-                    />
-                    <span className="text-sm leading-tight">{s.nombre}</span>
-                  </label>
-                ))}
-              </div>
-            ))}
-          </div>
-        </>
+        <SelectorCategoriasAgrupado idPrefix="perfil-cat" seleccionadas={seleccionadas} onChange={onChange} />
       )}
     </div>
   )
