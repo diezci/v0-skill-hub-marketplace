@@ -10,21 +10,27 @@ function normalizar(s: string) {
     .trim()
 }
 
-// Compara la categoría de la demanda contra el título/habilidades del
-// profesional. No hay una taxonomía estricta que los relacione (las
-// habilidades son texto libre), así que se usa una coincidencia por texto:
-// substring en cualquier dirección, o la raíz de la categoría (p.ej.
-// "fontan" cubre tanto "Fontanería" como "Fontanero").
-function coincideConCategoria(categoriaNombre: string, titulo: string | null, habilidades: string[] | null) {
-  const catNorm = normalizar(categoriaNombre)
-  const catRaiz = catNorm.slice(0, Math.min(5, catNorm.length))
-  const textos = [titulo || "", ...(habilidades || [])].map(normalizar).filter(Boolean)
-  return textos.some((t) => t.includes(catNorm) || catNorm.includes(t) || t.includes(catRaiz))
+// La ubicación de una demanda es una provincia del listado (lib/provincias),
+// pero en demandas antiguas puede venir con el municipio o con otro formato,
+// así que se compara de forma laxa en vez de por igualdad exacta.
+function cubreLaZona(ubicacionDemanda: string | null, provincias: string[] | null) {
+  if (!provincias || provincias.length === 0) return false
+  const ubi = normalizar(ubicacionDemanda || "")
+  if (!ubi) return true // demanda sin ubicación: no se descarta a nadie por zona
+  return provincias.some((p) => {
+    const prov = normalizar(p)
+    return ubi.includes(prov) || prov.includes(ubi)
+  })
 }
 
-// Al publicarse una demanda, notifica (campana del navbar) a los profesionales
-// cuyo título/habilidades encajan con la categoría de la demanda, para que
-// puedan pujar cuanto antes.
+// Al publicarse una demanda, avisa (campana del navbar) a los profesionales que
+// han declarado trabajar en esa subcategoría Y cubrir esa provincia.
+//
+// Antes esto se decidía por coincidencia de texto entre la categoría y el
+// título/habilidades del profesional (substring o raíz de 5 letras), que
+// avisaba a quien no tocaba, dejaba fuera a quien sí, y no miraba la zona. Los
+// profesionales que aún no hayan elegido categorías no reciben avisos: es el
+// precio de que el aviso sea fiable, y la app se lo reclama de forma visible.
 export async function buscarYEnviarInvitaciones(solicitudId: string) {
   const supabase = await createClient()
 
@@ -35,7 +41,7 @@ export async function buscarYEnviarInvitaciones(solicitudId: string) {
 
   const { data: solicitud, error: solicitudError } = await supabase
     .from("solicitudes")
-    .select("id, titulo, categoria_id, categorias(nombre)")
+    .select("id, titulo, ubicacion, categoria_id, categorias(nombre)")
     .eq("id", solicitudId)
     .maybeSingle()
 
@@ -48,31 +54,35 @@ export async function buscarYEnviarInvitaciones(solicitudId: string) {
     return { message: "La demanda no tiene categoría; no se notifica a nadie" }
   }
 
+  // Filtro por categoría en la propia consulta (índice GIN sobre el array);
+  // la zona se comprueba después porque admite coincidencia laxa.
   const { data: profesionales, error: profError } = await supabase
     .from("profesionales")
-    .select("id, titulo, habilidades")
+    .select("id, provincias_cobertura")
+    .contains("categorias_interes", [categoriaNombre])
 
   if (profError) {
     return { error: profError.message }
   }
   if (!profesionales || profesionales.length === 0) {
-    return { message: "No hay profesionales registrados" }
+    return { message: "Ningún profesional ha declarado trabajar en esta categoría" }
   }
 
   const destinatarios = profesionales
     .filter((p) => p.id !== user.id)
-    .filter((p) => coincideConCategoria(categoriaNombre, p.titulo, p.habilidades as string[] | null))
+    .filter((p) => cubreLaZona(solicitud.ubicacion, p.provincias_cobertura as string[] | null))
 
   if (destinatarios.length === 0) {
-    return { message: "Sin profesionales que coincidan con esta categoría" }
+    return { message: "Sin profesionales que cubran esta categoría y zona" }
   }
 
+  const zona = solicitud.ubicacion ? ` en ${solicitud.ubicacion}` : ""
   const { error: insertError } = await supabase.from("notificaciones").insert(
     destinatarios.map((p) => ({
       usuario_id: p.id,
       tipo: "demanda_nueva",
       titulo: "Nueva demanda en tu área",
-      mensaje: `Se ha publicado "${solicitud.titulo}" (${categoriaNombre}). Échale un vistazo y envía tu oferta.`,
+      mensaje: `Se ha publicado "${solicitud.titulo}" (${categoriaNombre})${zona}. Échale un vistazo y envía tu oferta.`,
       link: "/demandas",
       leida: false,
     })),
