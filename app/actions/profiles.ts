@@ -2,6 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { CATEGORIAS_SERVICIO_NOMBRES } from "@/lib/categorias"
+import { PROVINCIAS_ES } from "@/lib/provincias"
 
 export async function obtenerProfesionales(filtros?: {
   categoria?: string
@@ -94,6 +96,10 @@ export async function actualizarPerfil(formData: {
   tarifa_por_hora?: number
   anos_experiencia?: number
   titulo?: string
+  // En qué subcategorías de la taxonomía trabaja y qué provincias cubre: de
+  // esto dependen los avisos de demandas nuevas.
+  categorias_interes?: string[]
+  provincias_cobertura?: string[]
 }) {
   const supabase = await createClient()
 
@@ -107,6 +113,28 @@ export async function actualizarPerfil(formData: {
 
   if (!user) {
     return { error: "No autenticado" }
+  }
+
+  // Categorías y provincias solo pueden ser valores de la taxonomía y del
+  // listado de provincias: son la base del emparejamiento con las demandas, y
+  // un valor libre nunca casaría con ninguna.
+  if (formData.categorias_interes !== undefined) {
+    const invalidas = formData.categorias_interes.filter((c) => !CATEGORIAS_SERVICIO_NOMBRES.includes(c))
+    if (invalidas.length > 0) {
+      return { error: `Categorías no válidas: ${invalidas.join(", ")}` }
+    }
+    if (formData.categorias_interes.length === 0) {
+      return { error: "Elige al menos una categoría de servicio para recibir demandas." }
+    }
+  }
+  if (formData.provincias_cobertura !== undefined) {
+    const invalidas = formData.provincias_cobertura.filter((p) => !PROVINCIAS_ES.includes(p))
+    if (invalidas.length > 0) {
+      return { error: `Provincias no válidas: ${invalidas.join(", ")}` }
+    }
+    if (formData.provincias_cobertura.length === 0) {
+      return { error: "Elige al menos una provincia en la que quieras cubrir demandas." }
+    }
   }
 
   const profileUpdates: any = {}
@@ -142,6 +170,8 @@ export async function actualizarPerfil(formData: {
   if (formData.tarifa_por_hora !== undefined) profData.tarifa_por_hora = formData.tarifa_por_hora
   // DB column is "años_experiencia" (with ñ), not "anos_experiencia"
   if (formData.anos_experiencia !== undefined) profData["años_experiencia"] = formData.anos_experiencia
+  if (formData.categorias_interes !== undefined) profData.categorias_interes = formData.categorias_interes
+  if (formData.provincias_cobertura !== undefined) profData.provincias_cobertura = formData.provincias_cobertura
 
   if (Object.keys(profData).length > 0) {
     console.log("[v0] Updating profesional with:", profData)
@@ -156,8 +186,10 @@ export async function actualizarPerfil(formData: {
     } else {
       // Create new professional profile if user is trying to add professional data
       const hasProfessionalData = formData.titulo ||
-        (formData.habilidades && formData.habilidades.length > 0) || 
-        (formData.certificaciones && formData.certificaciones.length > 0)
+        (formData.habilidades && formData.habilidades.length > 0) ||
+        (formData.certificaciones && formData.certificaciones.length > 0) ||
+        (formData.categorias_interes && formData.categorias_interes.length > 0) ||
+        (formData.provincias_cobertura && formData.provincias_cobertura.length > 0)
       
       if (hasProfessionalData) {
         const { error: createError } = await supabase.from("profesionales").insert({
