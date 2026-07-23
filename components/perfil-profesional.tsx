@@ -31,10 +31,12 @@ import {
   Upload,
   LogOut,
   Trash2,
+  Bell,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { actualizarPerfil, obtenerPerfilActual } from "@/app/actions/profiles"
+import { SelectorCategorias, SelectorProvincias } from "@/components/selector-cobertura"
 import { crearItemPortfolio, obtenerPortfolioPorProfesional, eliminarItemPortfolio } from "@/app/actions/portfolio"
 import {
   Dialog,
@@ -133,6 +135,10 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     disponibilidad: "Disponible",
     verificado: false,
     habilidades: [] as string[],
+    // De estas dos dependen los avisos de demandas nuevas: sin ellas no se
+    // recibe ninguna, así que son obligatorias al guardar.
+    categorias_interes: [] as string[],
+    provincias_cobertura: [] as string[],
     certificaciones: [] as string[],
     idiomas: [] as string[],
     portfolio: [] as any[],
@@ -193,6 +199,8 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
           disponibilidad: data.profesional?.disponible ? "Disponible" : "No disponible",
           verificado: data.profesional?.verificado || false,
           habilidades: data.profesional?.habilidades || [],
+          categorias_interes: data.profesional?.categorias_interes || [],
+          provincias_cobertura: data.profesional?.provincias_cobertura || [],
           certificaciones: data.profesional?.certificaciones || [],
           idiomas: data.profesional?.idiomas || [],
           portfolio: [],
@@ -282,6 +290,25 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
   }
 
   const handleSave = async () => {
+    // Sin categorías ni provincias no se puede avisar de ninguna demanda, así
+    // que no se deja guardar el perfil a medias.
+    if (editData.categorias_interes.length === 0) {
+      toast({
+        title: "Elige tus servicios",
+        description: "Marca al menos una categoría para que te lleguen las demandas que te interesan.",
+        variant: "destructive",
+      })
+      return
+    }
+    if (editData.provincias_cobertura.length === 0) {
+      toast({
+        title: "Elige tu zona",
+        description: "Marca al menos una provincia en la que quieras cubrir demandas.",
+        variant: "destructive",
+      })
+      return
+    }
+
     setSaving(true)
 
     const result = await actualizarPerfil({
@@ -294,6 +321,8 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
       foto_perfil: editData.foto_perfil,
       foto_portada: editData.foto_portada,
       habilidades: editData.habilidades,
+      categorias_interes: editData.categorias_interes,
+      provincias_cobertura: editData.provincias_cobertura,
       certificaciones: editData.certificaciones,
       idiomas: editData.idiomas,
       tarifa_por_hora: editData.tarifa_hora,
@@ -411,6 +440,9 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
       </div>
     )
   }
+
+  // Sin servicios o sin provincias no llega ningún aviso de demanda nueva.
+  const sinCobertura = editData.categorias_interes.length === 0 || editData.provincias_cobertura.length === 0
 
   return (
     <div className="space-y-6">
@@ -727,6 +759,65 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                   <div className="flex items-center gap-3">
                     <Mail className="h-5 w-5 text-muted-foreground" />
                     <span>{editData.email || "No especificado"}</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Servicios y zona: de esto dependen los avisos de demandas */}
+              <Card className={sinCobertura ? "border-amber-500/50" : undefined}>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Bell className="h-5 w-5 text-primary" />
+                    Servicios y zona de trabajo
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Te avisamos de las demandas nuevas que encajen con los servicios y las provincias que marques
+                    aquí.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  {sinCobertura && (
+                    <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+                      <p className="font-medium text-amber-700 dark:text-amber-400">
+                        No estás recibiendo avisos de demandas
+                      </p>
+                      <p className="text-muted-foreground mt-0.5">
+                        Elige tus servicios y tus provincias {!isEditing && "(pulsa «Editar perfil») "}para empezar a
+                        recibirlas.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">
+                      Servicios que ofreces
+                      {isEditing && <span className="text-destructive ml-1">*</span>}
+                    </p>
+                    {!isEditing && editData.categorias_interes.length === 0 ? (
+                      <p className="text-muted-foreground text-sm">Todavía no has elegido servicios.</p>
+                    ) : (
+                      <SelectorCategorias
+                        seleccionadas={editData.categorias_interes}
+                        onChange={(v) => setEditData({ ...editData, categorias_interes: v })}
+                        disabled={!isEditing}
+                      />
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">
+                      Provincias que cubres
+                      {isEditing && <span className="text-destructive ml-1">*</span>}
+                    </p>
+                    {!isEditing && editData.provincias_cobertura.length === 0 ? (
+                      <p className="text-muted-foreground text-sm">Todavía no has elegido provincias.</p>
+                    ) : (
+                      <SelectorProvincias
+                        seleccionadas={editData.provincias_cobertura}
+                        onChange={(v) => setEditData({ ...editData, provincias_cobertura: v })}
+                        disabled={!isEditing}
+                      />
+                    )}
                   </div>
                 </CardContent>
               </Card>

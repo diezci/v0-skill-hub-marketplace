@@ -43,7 +43,7 @@ import { crearOferta } from "@/app/actions/ofertas"
 import { obtenerSolicitudesAbiertas } from "@/app/actions/solicitudes"
 import { cn } from "@/lib/utils"
 import { PROVINCIAS_ES } from "@/lib/provincias"
-import { CATEGORIAS_SERVICIO_NOMBRES } from "@/lib/categorias"
+import { OpcionesCategorias } from "@/components/select-categorias-opciones"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
 
 type Demanda = {
@@ -74,7 +74,6 @@ const urgenciaConfig: Record<string, { label: string; color: string }> = {
 
 // Mismas categorías que /profesionales, el formulario de publicar demanda y el
 // "Tipo de Servicio" del homepage: fuente única en lib/categorias.ts.
-const CATEGORIAS = ["Todas las categorías", ...CATEGORIAS_SERVICIO_NOMBRES]
 
 const UBICACIONES = ["Toda España", ...PROVINCIAS_ES]
 
@@ -283,11 +282,8 @@ export default function DemandasServicios() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {CATEGORIAS.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
-                  </SelectItem>
-                ))}
+                <SelectItem value="Todas las categorías">Todas las categorías</SelectItem>
+                <OpcionesCategorias />
               </SelectContent>
             </Select>
           </div>
@@ -384,11 +380,8 @@ export default function DemandasServicios() {
                   <SelectValue placeholder="Categoría" />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIAS.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="Todas las categorías">Todas las categorías</SelectItem>
+                  <OpcionesCategorias />
                 </SelectContent>
               </Select>
               <Select value={filtroUbicacion} onValueChange={setFiltroUbicacion}>
