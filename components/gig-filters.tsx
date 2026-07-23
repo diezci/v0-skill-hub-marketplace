@@ -10,12 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { MapPin } from "lucide-react"
 import type { ProfesionalesFiltros } from "@/components/profesionales-content"
 import { PROVINCIAS_ES } from "@/lib/provincias"
-import { CATEGORIAS_SERVICIO } from "@/lib/categorias"
+import { GRUPOS_CATEGORIAS_IDS } from "@/lib/categorias"
 
 // Re-exportada por compatibilidad con quien ya la importe desde aquí.
 export { PROVINCIAS_ES }
 
-const categories = CATEGORIAS_SERVICIO
 
 const levels = [
   { id: "any", label: "Cualquier Nivel" },
@@ -150,17 +149,24 @@ const GigFilters = ({ filtros, onChange, onReset }: GigFiltersProps) => {
             <AccordionItem value="category">
               <AccordionTrigger>Categoría</AccordionTrigger>
               <AccordionContent>
-                <div className="space-y-2">
-                  {categories.map((category) => (
-                    <div key={category.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`category-${category.id}`}
-                        checked={filtros.categorias.includes(category.id)}
-                        onCheckedChange={() => handleCategoryChange(category.id)}
-                      />
-                      <label htmlFor={`category-${category.id}`} className="text-sm cursor-pointer">
-                        {category.label}
-                      </label>
+                <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                  {GRUPOS_CATEGORIAS_IDS.map((grupo) => (
+                    <div key={grupo.grupo} className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        {grupo.grupo}
+                      </p>
+                      {grupo.categorias.map((category) => (
+                        <div key={category.id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`category-${category.id}`}
+                            checked={filtros.categorias.includes(category.id)}
+                            onCheckedChange={() => handleCategoryChange(category.id)}
+                          />
+                          <label htmlFor={`category-${category.id}`} className="text-sm cursor-pointer">
+                            {category.label}
+                          </label>
+                        </div>
+                      ))}
                     </div>
                   ))}
                 </div>

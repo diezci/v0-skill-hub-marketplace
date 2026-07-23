@@ -4,6 +4,8 @@ import { Card } from "@/components/ui/card"
 import { ArrowRight } from "lucide-react"
 import Link from "next/link"
 
+// Atajos visuales del homepage. Los nombres deben ser subcategorías EXACTAS de
+// lib/categorias.ts para que el usuario vea la misma taxonomía en toda la web.
 const categories = [
   {
     name: "Albañilería",
@@ -24,10 +26,10 @@ const categories = [
     href: "/profesionales?category=electricidad",
   },
   {
-    name: "Pintura",
+    name: "Pintura y decoración",
     description: "Interior y exterior",
     image: "/categories/pintura.jpg",
-    href: "/profesionales?category=pintura",
+    href: "/profesionales?category=pintura-y-decoracion",
   },
   {
     name: "Carpintería",
@@ -42,10 +44,10 @@ const categories = [
     href: "/profesionales?category=climatizacion",
   },
   {
-    name: "Jardinería",
+    name: "Jardinería y poda",
     description: "Diseño y mantenimiento",
     image: "/categories/jardineria.jpg",
-    href: "/profesionales?category=jardineria",
+    href: "/profesionales?category=jardineria-y-poda",
   },
   {
     name: "Cerrajería",
@@ -54,10 +56,10 @@ const categories = [
     href: "/profesionales?category=cerrajeria",
   },
   {
-    name: "Arquitectura",
+    name: "Arquitectura e interiorismo",
     description: "Proyectos y diseño",
     image: "/categories/arquitectura.jpg",
-    href: "/profesionales?category=arquitectura",
+    href: "/profesionales?category=arquitectura-e-interiorismo",
   },
 ]
 
