@@ -21,7 +21,9 @@ const FILTROS_INICIALES: ProfesionalesFiltros = {
   categorias: [],
   niveles: [],
   precioMin: 0,
-  precioMax: 5000,
+  // Igual que el tope del slider (PRECIO_MAX en gig-filters): así, de inicio,
+  // el filtro de tarifa no excluye a nadie.
+  precioMax: 100000,
 }
 
 export default function ProfesionalesContent() {

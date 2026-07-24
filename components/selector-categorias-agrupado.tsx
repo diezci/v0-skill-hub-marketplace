@@ -5,6 +5,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Search } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { TAXONOMIA_SERVICIOS, type SubcategoriaServicio } from "@/lib/categorias"
 
 function normalizar(s: string) {
@@ -16,18 +17,16 @@ function slug(s: string) {
 }
 
 /**
- * Selección múltiple de subcategorías siguiendo la jerarquía real: los 7
- * desplegables de primer nivel son las categorías principales y, dentro de
- * "Reformas y Construcción", sus 6 bloques son un segundo nivel de
- * desplegables.
+ * Selección de subcategorías siguiendo la jerarquía real: los desplegables de
+ * primer nivel son las 8 categorías principales y, dentro de "Reformas y
+ * Construcción", sus 6 bloques son un segundo nivel.
  *
- * Se probó con un solo nivel de 12 grupos ("Reformas y Construcción · <bloque>")
- * y en el lateral de /profesionales cada título ocupaba cuatro líneas repitiendo
- * el mismo prefijo seis veces. Con la jerarquía, de entrada solo se ven 7 filas
- * cortas.
- *
- * Lo usan el filtro de /profesionales y el perfil del profesional, para que la
- * taxonomía se presente igual en toda la web.
+ * Dos modos, misma presentación en toda la web:
+ * - múltiple (por defecto): casillas, para la cobertura del profesional y el
+ *   filtro de /profesionales.
+ * - único: cada servicio es una fila que se resalta al elegirla y avisa con
+ *   onPick (para cerrar el desplegable), para el formulario de demanda y el
+ *   filtro de /demandas, donde una demanda tiene una sola categoría.
  */
 export function SelectorCategoriasAgrupado({
   seleccionadas,
@@ -35,21 +34,29 @@ export function SelectorCategoriasAgrupado({
   disabled,
   idPrefix = "cat",
   conBusqueda = true,
+  multiple = true,
+  onPick,
 }: {
   seleccionadas: string[]
   onChange: (v: string[]) => void
   disabled?: boolean
   idPrefix?: string
   conBusqueda?: boolean
+  multiple?: boolean
+  onPick?: () => void
 }) {
   const [busqueda, setBusqueda] = useState("")
   const [abiertas, setAbiertas] = useState<string[]>([])
   const [bloquesAbiertos, setBloquesAbiertos] = useState<string[]>([])
 
-  const alternar = (nombre: string) =>
-    onChange(
-      seleccionadas.includes(nombre) ? seleccionadas.filter((c) => c !== nombre) : [...seleccionadas, nombre],
-    )
+  const elegir = (nombre: string) => {
+    if (multiple) {
+      onChange(seleccionadas.includes(nombre) ? seleccionadas.filter((c) => c !== nombre) : [...seleccionadas, nombre])
+    } else {
+      onChange([nombre])
+      onPick?.()
+    }
+  }
 
   const q = normalizar(busqueda.trim())
   const coincide = (s: SubcategoriaServicio, ctx: string) =>
@@ -80,27 +87,49 @@ export function SelectorCategoriasAgrupado({
       </span>
     ) : null
 
-  const listaCasillas = (subs: SubcategoriaServicio[]) => (
-    <div className="space-y-1.5">
-      {subs.map((s) => {
-        const id = `${idPrefix}-${slug(s.nombre)}`
-        return (
-          <div key={s.nombre} className="flex items-start gap-2">
-            <Checkbox
-              id={id}
-              checked={seleccionadas.includes(s.nombre)}
-              onCheckedChange={() => alternar(s.nombre)}
-              disabled={disabled}
-              className="mt-0.5"
-            />
-            <label htmlFor={id} className="text-sm leading-tight cursor-pointer">
+  const listaServicios = (subs: SubcategoriaServicio[]) =>
+    multiple ? (
+      <div className="space-y-1.5">
+        {subs.map((s) => {
+          const id = `${idPrefix}-${slug(s.nombre)}`
+          return (
+            <div key={s.nombre} className="flex items-start gap-2">
+              <Checkbox
+                id={id}
+                checked={seleccionadas.includes(s.nombre)}
+                onCheckedChange={() => elegir(s.nombre)}
+                disabled={disabled}
+                className="mt-0.5"
+              />
+              <label htmlFor={id} className="text-sm leading-tight cursor-pointer">
+                {s.nombre}
+              </label>
+            </div>
+          )
+        })}
+      </div>
+    ) : (
+      <div className="space-y-0.5">
+        {subs.map((s) => {
+          const activo = seleccionadas.includes(s.nombre)
+          return (
+            <button
+              key={s.nombre}
+              type="button"
+              onClick={() => elegir(s.nombre)}
+              className={cn(
+                "w-full text-left text-sm rounded-md px-2 py-1.5 transition-colors",
+                activo
+                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-medium"
+                  : "hover:bg-muted",
+              )}
+            >
               {s.nombre}
-            </label>
-          </div>
-        )
-      })}
-    </div>
-  )
+            </button>
+          )
+        })}
+      </div>
+    )
 
   return (
     <div className="space-y-2">
@@ -157,12 +186,12 @@ export function SelectorCategoriasAgrupado({
                               <Contador n={nSeleccionadas(b.subcategorias)} />
                             </span>
                           </AccordionTrigger>
-                          <AccordionContent className="pb-2.5">{listaCasillas(b.subcategorias)}</AccordionContent>
+                          <AccordionContent className="pb-2.5">{listaServicios(b.subcategorias)}</AccordionContent>
                         </AccordionItem>
                       ))}
                     </Accordion>
                   ) : (
-                    listaCasillas(cat.bloques[0].subcategorias)
+                    listaServicios(cat.bloques[0].subcategorias)
                   )}
                 </AccordionContent>
               </AccordionItem>

@@ -12,6 +12,10 @@ import type { ProfesionalesFiltros } from "@/components/profesionales-content"
 import { PROVINCIAS_ES } from "@/lib/provincias"
 import { CATEGORIAS_SERVICIO } from "@/lib/categorias"
 import { SelectorCategoriasAgrupado } from "@/components/selector-categorias-agrupado"
+import { formatearPrecioEuros } from "@/lib/utils"
+
+// Tope del filtro de tarifa por hora. El extremo derecho representa "y más".
+const PRECIO_MAX = 100000
 
 // Re-exportada por compatibilidad con quien ya la importe desde aquí.
 export { PROVINCIAS_ES }
@@ -165,18 +169,24 @@ const GigFilters = ({ filtros, onChange, onReset }: GigFiltersProps) => {
             </AccordionItem>
 
             <AccordionItem value="price">
-              <AccordionTrigger>Rango de Precio</AccordionTrigger>
+              <AccordionTrigger>Rango de Precio (€/h)</AccordionTrigger>
               <AccordionContent>
-                <div className="space-y-4">
+                <div className="space-y-4 pt-1">
                   <Slider
-                    max={5000}
-                    step={50}
-                    value={[filtros.precioMin, filtros.precioMax]}
+                    max={PRECIO_MAX}
+                    step={500}
+                    value={[filtros.precioMin, Math.min(filtros.precioMax, PRECIO_MAX)]}
                     onValueChange={handlePriceChange}
                   />
-                  <div className="flex justify-between">
-                    <span className="text-sm">€{filtros.precioMin}</span>
-                    <span className="text-sm">€{filtros.precioMax}</span>
+                  <div className="flex items-center justify-between gap-2 text-sm">
+                    <span className="rounded-md border px-2 py-1 tabular-nums">
+                      {formatearPrecioEuros(filtros.precioMin)}
+                    </span>
+                    <span className="text-muted-foreground">a</span>
+                    <span className="rounded-md border px-2 py-1 tabular-nums">
+                      {formatearPrecioEuros(filtros.precioMax)}
+                      {filtros.precioMax >= PRECIO_MAX && "+"}
+                    </span>
                   </div>
                 </div>
               </AccordionContent>
