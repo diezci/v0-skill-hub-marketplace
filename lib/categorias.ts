@@ -182,6 +182,16 @@ export const TAXONOMIA_SERVICIOS: CategoriaPrincipal[] = [
       },
     ],
   },
+  {
+    // Cajón de sastre para lo que no encaje en las categorías anteriores.
+    nombre: "Otros",
+    bloques: [
+      {
+        nombre: "",
+        subcategorias: [{ nombre: "Otros", detalle: "servicios no incluidos en las demás categorías" }],
+      },
+    ],
+  },
 ]
 
 // Grupos planos para desplegables y filtros: los bloques de Reformas salen

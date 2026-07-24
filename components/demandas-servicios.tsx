@@ -43,7 +43,7 @@ import { crearOferta } from "@/app/actions/ofertas"
 import { obtenerSolicitudesAbiertas } from "@/app/actions/solicitudes"
 import { cn } from "@/lib/utils"
 import { PROVINCIAS_ES } from "@/lib/provincias"
-import { OpcionesCategorias } from "@/components/select-categorias-opciones"
+import { SelectCategoriaJerarquico } from "@/components/select-categoria-jerarquico"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
 
 type Demanda = {
@@ -277,15 +277,11 @@ export default function DemandasServicios() {
 
           <div className="space-y-2">
             <Label className="text-sm text-muted-foreground">Categoría profesional</Label>
-            <Select value={filtroCategoria} onValueChange={setFiltroCategoria}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Todas las categorías">Todas las categorías</SelectItem>
-                <OpcionesCategorias />
-              </SelectContent>
-            </Select>
+            <SelectCategoriaJerarquico
+              value={filtroCategoria}
+              onChange={setFiltroCategoria}
+              opcionTodas="Todas las categorías"
+            />
           </div>
 
           <div className="space-y-2">
@@ -375,15 +371,11 @@ export default function DemandasServicios() {
         {mostrarFiltros && (
           <Card className="lg:hidden p-4 space-y-4">
             <div className="grid grid-cols-2 gap-3">
-              <Select value={filtroCategoria} onValueChange={setFiltroCategoria}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Categoría" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Todas las categorías">Todas las categorías</SelectItem>
-                  <OpcionesCategorias />
-                </SelectContent>
-              </Select>
+              <SelectCategoriaJerarquico
+                value={filtroCategoria}
+                onChange={setFiltroCategoria}
+                opcionTodas="Todas las categorías"
+              />
               <Select value={filtroUbicacion} onValueChange={setFiltroUbicacion}>
                 <SelectTrigger>
                   <SelectValue placeholder="Ubicación" />
