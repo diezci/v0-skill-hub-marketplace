@@ -16,7 +16,7 @@ import { Send, Paperclip, X, MapPin, Euro, Clock } from "lucide-react"
 import { uploadFile } from "@/lib/upload-helpers"
 import { crearSolicitud } from "@/app/actions/solicitudes"
 import { useRouter } from "next/navigation"
-import { OpcionesCategorias } from "@/components/select-categorias-opciones"
+import { SelectCategoriaJerarquico } from "@/components/select-categoria-jerarquico"
 import { PROVINCIAS_ES } from "@/lib/provincias"
 
 const formSchema = z.object({
@@ -123,16 +123,13 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
                   <Paperclip className="h-4 w-4 text-emerald-500" />
                   Tipo de Servicio
                 </FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="¿Qué necesitas?" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <OpcionesCategorias />
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <SelectCategoriaJerarquico
+                    value={field.value}
+                    onChange={field.onChange}
+                    placeholder="¿Qué necesitas?"
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
