@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Slider } from "@/components/ui/slider"
+import { RangoPrecio } from "@/components/rango-precio"
 import { Badge } from "@/components/ui/badge"
 import { 
   Wrench, 
@@ -76,8 +76,8 @@ export default function ServiceRequestWizard() {
     descripcion: "",
     ubicacion: "",
     urgencia: "",
-    presupuestoMin: 100,
-    presupuestoMax: 5000,
+    presupuestoMin: 0,
+    presupuestoMax: 100000,
     titulo: "",
   })
 
@@ -382,22 +382,14 @@ export default function ServiceRequestWizard() {
                 
                 <div>
                   <Label>Rango de presupuesto</Label>
-                  <div className="mt-4 px-2">
-                    <Slider
+                  <div className="mt-3">
+                    <RangoPrecio
                       value={[data.presupuestoMin, data.presupuestoMax]}
-                      onValueChange={([min, max]) => {
+                      onChange={([min, max]) => {
                         updateData("presupuestoMin", min)
                         updateData("presupuestoMax", max)
                       }}
-                      min={50}
-                      max={50000}
-                      step={50}
-                      className="mb-4"
                     />
-                    <div className="flex justify-between text-sm">
-                      <span className="font-medium">{data.presupuestoMin.toLocaleString("es-ES")}€</span>
-                      <span className="font-medium">{data.presupuestoMax.toLocaleString("es-ES")}€</span>
-                    </div>
                   </div>
                 </div>
 

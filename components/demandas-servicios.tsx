@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { formatearPrecioEuros, formatearRangoPresupuesto } from "@/lib/utils"
+import { formatearRangoPresupuesto } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Slider } from "@/components/ui/slider"
+import { RangoPrecio } from "@/components/rango-precio"
+import { PRECIO_MAX } from "@/lib/precios"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -97,7 +98,7 @@ export default function DemandasServicios() {
   const [filtroCategoria, setFiltroCategoria] = useState<string>("Todas las categorías")
   const [filtroUbicacion, setFiltroUbicacion] = useState<string>("Toda España")
   const [filtroTiempo, setFiltroTiempo] = useState<string>("todos")
-  const [rangoPresupuesto, setRangoPresupuesto] = useState<[number, number]>([0, 10000])
+  const [rangoPresupuesto, setRangoPresupuesto] = useState<[number, number]>([0, PRECIO_MAX])
   const [busqueda, setBusqueda] = useState("")
   const [ordenarPor, setOrdenarPor] = useState<"recientes" | "antiguos" | "presupuesto-alto" | "presupuesto-bajo" | "menos-ofertas">("recientes")
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
@@ -315,17 +316,9 @@ export default function DemandasServicios() {
             </Select>
           </div>
 
-          <div className="space-y-3">
-            <Label className="text-sm text-muted-foreground">
-              Presupuesto: {formatearPrecioEuros(rangoPresupuesto[0])} - {formatearPrecioEuros(rangoPresupuesto[1])}
-            </Label>
-            <Slider
-              value={rangoPresupuesto}
-              onValueChange={(value) => setRangoPresupuesto(value as [number, number])}
-              max={10000}
-              step={100}
-              className="py-2"
-            />
+          <div className="space-y-2">
+            <Label className="text-sm text-muted-foreground">Presupuesto</Label>
+            <RangoPrecio value={rangoPresupuesto} onChange={setRangoPresupuesto} />
           </div>
 
           <Button
@@ -335,7 +328,7 @@ export default function DemandasServicios() {
               setFiltroCategoria("Todas las categorías")
               setFiltroUbicacion("Toda España")
               setFiltroTiempo("todos")
-              setRangoPresupuesto([0, 10000])
+              setRangoPresupuesto([0, PRECIO_MAX])
               setBusqueda("")
             }}
           >

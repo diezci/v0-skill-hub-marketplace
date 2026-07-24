@@ -10,7 +10,8 @@
 import { useEffect, useMemo } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { PartyPopper, X } from "lucide-react"
+import { PartyPopper, X, Scale, ShieldCheck, ShieldAlert } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface Props {
   notificacion: { id: string; tipo: string; titulo?: string; mensaje?: string; link?: string }
@@ -47,10 +48,23 @@ function reproducirArpegio(tipo: "pago" | "entrega") {
 
 const COLORES_CONFETI = ["#10b981", "#f59e0b", "#3b82f6", "#ec4899", "#8b5cf6", "#facc15"]
 
-// Variante visual/sonora según el tipo de notificación celebrada.
+type Tono = "festivo" | "serio" | "neutro"
+
+// Variante visual/sonora según el tipo de notificación destacada. El tono
+// decide el acento de color, y si hay confeti y sonido: solo las buenas
+// noticias se celebran; perder una disputa se muestra igual de destacado pero
+// en rojo y sin fiesta.
 const VARIANTES: Record<
   string,
-  { emoji: string; etiqueta: string; titulo: string; cta: string; sonido: "pago" | "entrega" }
+  {
+    emoji?: string
+    Icono?: typeof Scale
+    etiqueta: string
+    titulo: string
+    cta: string
+    sonido?: "pago" | "entrega"
+    tono: Tono
+  }
 > = {
   pago_liberado: {
     emoji: "💶",
@@ -58,6 +72,7 @@ const VARIANTES: Record<
     titulo: "Has cobrado un trabajo",
     cta: "Ver mis cobros",
     sonido: "pago",
+    tono: "festivo",
   },
   pago_recibido: {
     emoji: "🚀",
@@ -65,6 +80,7 @@ const VARIANTES: Record<
     titulo: "El cliente ha pagado: ya puedes empezar",
     cta: "Ver el trabajo",
     sonido: "pago",
+    tono: "festivo",
   },
   trabajo_entregado: {
     emoji: "📦",
@@ -72,11 +88,56 @@ const VARIANTES: Record<
     titulo: "Tienes una entrega lista",
     cta: "Revisar la entrega",
     sonido: "entrega",
+    tono: "festivo",
+  },
+  disputa_ganada: {
+    Icono: ShieldCheck,
+    etiqueta: "Disputa resuelta a tu favor",
+    titulo: "El equipo de Diime te ha dado la razón",
+    cta: "Ver la disputa",
+    sonido: "entrega",
+    tono: "festivo",
+  },
+  disputa_perdida: {
+    Icono: ShieldAlert,
+    etiqueta: "Disputa resuelta en tu contra",
+    titulo: "El equipo de Diime ha resuelto la disputa",
+    cta: "Ver la disputa",
+    tono: "serio",
+  },
+  disputa_resuelta: {
+    Icono: Scale,
+    etiqueta: "Disputa resuelta",
+    titulo: "El equipo de Diime ha resuelto la disputa",
+    cta: "Ver la disputa",
+    tono: "neutro",
+  },
+}
+
+// Acentos por tono: borde/anillo de la tarjeta, fondo del icono y de la etiqueta.
+const ACENTO: Record<Tono, { borde: string; chip: string; icono: string }> = {
+  festivo: {
+    borde: "border-emerald-500/30",
+    chip: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+    icono: "text-emerald-600 dark:text-emerald-400",
+  },
+  serio: {
+    borde: "border-red-500/40",
+    chip: "bg-red-500/10 text-red-600 dark:text-red-400",
+    icono: "text-red-600 dark:text-red-400",
+  },
+  neutro: {
+    borde: "border-amber-500/40",
+    chip: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    icono: "text-amber-600 dark:text-amber-400",
   },
 }
 
 export function CelebracionNotificacion({ notificacion, onClose }: Props) {
   const variante = VARIANTES[notificacion.tipo] || VARIANTES.trabajo_entregado
+  const acento = ACENTO[variante.tono]
+  const esFestivo = variante.tono === "festivo"
+  const IconoEtiqueta = variante.tono === "festivo" ? PartyPopper : variante.Icono || Scale
 
   // Piezas de confeti con posiciones/tiempos aleatorios pero estables por render.
   const confeti = useMemo(
@@ -93,8 +154,9 @@ export function CelebracionNotificacion({ notificacion, onClose }: Props) {
   )
 
   useEffect(() => {
-    reproducirArpegio(variante.sonido)
-  }, [notificacion.id, variante.sonido])
+    // Solo las buenas noticias suenan; una resolución en contra no se celebra.
+    if (esFestivo && variante.sonido) reproducirArpegio(variante.sonido)
+  }, [notificacion.id, esFestivo, variante.sonido])
 
   return (
     <div
@@ -119,26 +181,31 @@ export function CelebracionNotificacion({ notificacion, onClose }: Props) {
         }
       `}</style>
 
-      {/* Confeti */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-        {confeti.map((p, i) => (
-          <span
-            key={i}
-            className="absolute top-0 rounded-sm"
-            style={{
-              left: `${p.left}%`,
-              width: p.size,
-              height: p.size * 0.45,
-              backgroundColor: p.color,
-              transform: `rotate(${p.tilt}deg)`,
-              animation: `diime-confeti-caida ${p.duration}s linear ${p.delay}s infinite`,
-            }}
-          />
-        ))}
-      </div>
+      {/* Confeti: solo cuando hay algo que celebrar */}
+      {esFestivo && (
+        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+          {confeti.map((p, i) => (
+            <span
+              key={i}
+              className="absolute top-0 rounded-sm"
+              style={{
+                left: `${p.left}%`,
+                width: p.size,
+                height: p.size * 0.45,
+                backgroundColor: p.color,
+                transform: `rotate(${p.tilt}deg)`,
+                animation: `diime-confeti-caida ${p.duration}s linear ${p.delay}s infinite`,
+              }}
+            />
+          ))}
+        </div>
+      )}
 
       <div
-        className="relative w-full max-w-md rounded-2xl border border-emerald-500/30 bg-background shadow-2xl p-8 text-center"
+        className={cn(
+          "relative w-full max-w-md rounded-2xl border bg-background shadow-2xl p-8 text-center",
+          acento.borde,
+        )}
         style={{ animation: "diime-celebracion-pop 0.45s ease-out" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -152,15 +219,20 @@ export function CelebracionNotificacion({ notificacion, onClose }: Props) {
         </button>
 
         <div
-          className="text-6xl mb-4 select-none"
-          style={{ animation: "diime-emoji-salto 1.2s ease-in-out infinite" }}
+          className={cn("mb-4 select-none flex items-center justify-center", variante.emoji ? "text-6xl" : acento.icono)}
+          style={esFestivo ? { animation: "diime-emoji-salto 1.2s ease-in-out infinite" } : undefined}
           aria-hidden="true"
         >
-          {variante.emoji}
+          {variante.emoji ? variante.emoji : variante.Icono ? <variante.Icono className="h-16 w-16" /> : null}
         </div>
 
-        <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-3 py-1 text-xs font-semibold uppercase tracking-wide mb-3">
-          <PartyPopper className="h-3.5 w-3.5" />
+        <div
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide mb-3",
+            acento.chip,
+          )}
+        >
+          <IconoEtiqueta className="h-3.5 w-3.5" />
           {variante.etiqueta}
         </div>
 
@@ -173,7 +245,16 @@ export function CelebracionNotificacion({ notificacion, onClose }: Props) {
           <Button variant="outline" className="bg-transparent" onClick={onClose}>
             Cerrar
           </Button>
-          <Button asChild className="bg-emerald-600 hover:bg-emerald-700">
+          <Button
+            asChild
+            className={cn(
+              variante.tono === "serio"
+                ? "bg-red-600 hover:bg-red-700"
+                : variante.tono === "neutro"
+                  ? "bg-amber-600 hover:bg-amber-700"
+                  : "bg-emerald-600 hover:bg-emerald-700",
+            )}
+          >
             <Link href={notificacion.link || "/"} onClick={onClose}>
               {variante.cta}
             </Link>
