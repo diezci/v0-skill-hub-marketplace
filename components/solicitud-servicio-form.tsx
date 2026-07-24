@@ -17,6 +17,8 @@ import { uploadFile } from "@/lib/upload-helpers"
 import { crearSolicitud } from "@/app/actions/solicitudes"
 import { useRouter } from "next/navigation"
 import { SelectCategoriaJerarquico } from "@/components/select-categoria-jerarquico"
+import { RangoPrecio } from "@/components/rango-precio"
+import { PRECIO_MAX } from "@/lib/precios"
 import { PROVINCIAS_ES } from "@/lib/provincias"
 
 const formSchema = z.object({
@@ -24,7 +26,8 @@ const formSchema = z.object({
   title: z.string().min(5, { message: "Mínimo 5 caracteres" }),
   description: z.string().min(20, { message: "Mínimo 20 caracteres" }),
   location: z.string().min(2, { message: "Ingresa tu ubicación" }),
-  budget: z.string().min(1, { message: "Selecciona un presupuesto" }),
+  // Rango de presupuesto [min, max]; el mismo control 0–100k que /demandas.
+  budget: z.tuple([z.number(), z.number()]),
   urgency: z.string().min(1, { message: "Indica la urgencia" }),
 })
 
@@ -46,7 +49,7 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
       title: "",
       description: "",
       location: "",
-      budget: "",
+      budget: [0, PRECIO_MAX],
       urgency: "",
     },
   })
@@ -78,14 +81,15 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
       }
       const successfulUploads = uploadResults.map((r) => r!.url)
 
+      const [presMin, presMax] = values.budget
       const result = await crearSolicitud({
         categoria_id: values.category,
         titulo: values.title,
         descripcion: values.description,
         ubicacion: values.location,
-        // "0-500" → hasta 500€; "5000+" → más de 5.000€ (sin inventar un tope).
-        presupuesto_min: Number.parseInt(values.budget.split("-")[0]) || undefined,
-        presupuesto_max: values.budget.includes("+") ? undefined : Number.parseInt(values.budget.split("-")[1]),
+        // 0 no acota; el tope (PRECIO_MAX) significa "o más", sin límite superior.
+        presupuesto_min: presMin > 0 ? presMin : undefined,
+        presupuesto_max: presMax >= PRECIO_MAX ? undefined : presMax,
         urgencia: values.urgency,
         archivos_adjuntos: successfulUploads,
       })
@@ -204,22 +208,11 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
               <FormItem>
                 <FormLabel className="flex items-center gap-2">
                   <Euro className="h-4 w-4 text-emerald-500" />
-                  Presupuesto
+                  Presupuesto estimado
                 </FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Rango estimado" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="0-500">Menos de 500€</SelectItem>
-                    <SelectItem value="500-1000">500€ - 1.000€</SelectItem>
-                    <SelectItem value="1000-2500">1.000€ - 2.500€</SelectItem>
-                    <SelectItem value="2500-5000">2.500€ - 5.000€</SelectItem>
-                    <SelectItem value="5000+">Más de 5.000€</SelectItem>
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <RangoPrecio value={field.value} onChange={field.onChange} />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}

@@ -25,9 +25,17 @@ import { CelebracionNotificacion } from "@/components/celebracion-notificacion"
 import { useToast } from "@/hooks/use-toast"
 import { ToastAction } from "@/components/ui/toast"
 
-// Notificaciones que merecen celebración a pantalla completa (con sonido):
-// recibir una entrega (cliente) y cobrar un trabajo (profesional).
-const TIPOS_CELEBRABLES = ["trabajo_entregado", "pago_liberado", "pago_recibido"]
+// Notificaciones que merecen un aviso destacado a pantalla completa: los hitos
+// buenos (entrega recibida, cobro) y también la resolución de una disputa, que
+// el overlay muestra en verde/rojo/ámbar según el desenlace.
+const TIPOS_CELEBRABLES = [
+  "trabajo_entregado",
+  "pago_liberado",
+  "pago_recibido",
+  "disputa_ganada",
+  "disputa_perdida",
+  "disputa_resuelta",
+]
 const CELEBRADAS_KEY = "diime_notifs_celebradas"
 
 const Navbar = () => {
