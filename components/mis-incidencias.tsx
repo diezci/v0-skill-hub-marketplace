@@ -4,15 +4,27 @@ import { useEffect, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Loader2, ShieldAlert, Briefcase, Clock, CheckCircle2, Scale } from "lucide-react"
-import { obtenerMisIncidencias } from "@/app/actions/incidencias"
+import { Loader2, ShieldAlert, Briefcase, Clock, CheckCircle2, Scale, XCircle } from "lucide-react"
+import { obtenerMisIncidencias, retirarIncidencia } from "@/app/actions/incidencias"
 import { ReportarIncidenciaDialog } from "@/components/reportar-incidencia-dialog"
+import { useToast } from "@/hooks/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 const ESTADO_CONFIG: Record<string, { label: string; cls: string; icon: any }> = {
   abierta: { label: "Abierta", cls: "bg-amber-500/15 text-amber-600 border-amber-500/30", icon: Clock },
   en_revision: { label: "En revisión", cls: "bg-blue-500/15 text-blue-600 border-blue-500/30", icon: Scale },
   resuelta: { label: "Resuelta", cls: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30", icon: CheckCircle2 },
   cerrada: { label: "Cerrada", cls: "bg-muted text-muted-foreground border-border", icon: CheckCircle2 },
+  retirada: { label: "Retirada", cls: "bg-muted text-muted-foreground border-border", icon: XCircle },
 }
 
 const CATEGORIA_LABEL: Record<string, string> = {
@@ -34,6 +46,9 @@ const PRIORIDAD_CLS: Record<string, string> = {
 export default function MisIncidencias() {
   const [incidencias, setIncidencias] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [aRetirar, setARetirar] = useState<any>(null)
+  const [retirando, setRetirando] = useState(false)
+  const { toast } = useToast()
 
   async function cargar() {
     setLoading(true)
@@ -45,6 +60,20 @@ export default function MisIncidencias() {
   useEffect(() => {
     cargar()
   }, [])
+
+  const handleRetirar = async () => {
+    if (!aRetirar) return
+    setRetirando(true)
+    const res = await retirarIncidencia(aRetirar.id)
+    setRetirando(false)
+    setARetirar(null)
+    if (res.error) {
+      toast({ title: "No se pudo retirar", description: res.error, variant: "destructive" })
+    } else {
+      toast({ title: "Incidencia retirada", description: "Se ha retirado del equipo de Diime." })
+      await cargar()
+    }
+  }
 
   const formatFecha = (f: string) =>
     new Date(f).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })
@@ -124,12 +153,46 @@ export default function MisIncidencias() {
                   {inc.fecha_resolucion && (
                     <p className="text-xs text-muted-foreground">Resuelta el {formatFecha(inc.fecha_resolucion)}</p>
                   )}
+
+                  {/* Se puede retirar mientras el equipo no la haya resuelto ni cerrado. */}
+                  {(inc.estado === "abierta" || inc.estado === "en_revision") && (
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setARetirar(inc)}
+                        className="text-xs text-destructive hover:underline inline-flex items-center gap-1"
+                      >
+                        <XCircle className="h-3.5 w-3.5" /> Retirar incidencia
+                      </button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )
           })}
         </div>
       )}
+
+      <AlertDialog open={!!aRetirar} onOpenChange={(o) => !o && setARetirar(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Retirar la incidencia?</AlertDialogTitle>
+            <AlertDialogDescription>
+              El equipo de Diime dejará de revisarla. Podrás reportarla de nuevo más adelante si lo necesitas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={retirando}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRetirar}
+              disabled={retirando}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Retirar incidencia
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
