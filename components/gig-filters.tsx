@@ -1,7 +1,6 @@
 "use client"
 
 import { Card, CardContent } from "@/components/ui/card"
-import { Slider } from "@/components/ui/slider"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,10 +11,7 @@ import type { ProfesionalesFiltros } from "@/components/profesionales-content"
 import { PROVINCIAS_ES } from "@/lib/provincias"
 import { CATEGORIAS_SERVICIO } from "@/lib/categorias"
 import { SelectorCategoriasAgrupado } from "@/components/selector-categorias-agrupado"
-import { formatearPrecioEuros } from "@/lib/utils"
-
-// Tope del filtro de tarifa por hora. El extremo derecho representa "y más".
-const PRECIO_MAX = 100000
+import { RangoPrecio } from "@/components/rango-precio"
 
 // Re-exportada por compatibilidad con quien ya la importe desde aquí.
 export { PROVINCIAS_ES }
@@ -61,10 +57,6 @@ const GigFilters = ({ filtros, onChange, onReset }: GigFiltersProps) => {
         ? filtros.niveles.filter((id) => id !== levelId)
         : [...filtros.niveles, levelId],
     })
-  }
-
-  const handlePriceChange = (values: number[]) => {
-    onChange({ precioMin: values[0], precioMax: values[1] })
   }
 
   return (
@@ -171,24 +163,10 @@ const GigFilters = ({ filtros, onChange, onReset }: GigFiltersProps) => {
             <AccordionItem value="price">
               <AccordionTrigger>Rango de Precio (€/h)</AccordionTrigger>
               <AccordionContent>
-                <div className="space-y-4 pt-1">
-                  <Slider
-                    max={PRECIO_MAX}
-                    step={500}
-                    value={[filtros.precioMin, Math.min(filtros.precioMax, PRECIO_MAX)]}
-                    onValueChange={handlePriceChange}
-                  />
-                  <div className="flex items-center justify-between gap-2 text-sm">
-                    <span className="rounded-md border px-2 py-1 tabular-nums">
-                      {formatearPrecioEuros(filtros.precioMin)}
-                    </span>
-                    <span className="text-muted-foreground">a</span>
-                    <span className="rounded-md border px-2 py-1 tabular-nums">
-                      {formatearPrecioEuros(filtros.precioMax)}
-                      {filtros.precioMax >= PRECIO_MAX && "+"}
-                    </span>
-                  </div>
-                </div>
+                <RangoPrecio
+                  value={[filtros.precioMin, filtros.precioMax]}
+                  onChange={([min, max]) => onChange({ precioMin: min, precioMax: max })}
+                />
               </AccordionContent>
             </AccordionItem>
 

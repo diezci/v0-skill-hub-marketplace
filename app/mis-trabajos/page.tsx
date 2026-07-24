@@ -66,6 +66,7 @@ import { createClient } from "@/lib/supabase/client"
 import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
 import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
 import MisDisputas from "@/components/mis-disputas"
+import { obtenerMisDisputas } from "@/app/actions/disputes"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
 import { calcularPagoProveedor, PLATFORM_CONFIG } from "@/lib/comisiones"
 
@@ -118,6 +119,7 @@ export default function MisTrabajosPage() {
   const [loading, setLoading] = useState(true)
   // Pestaña activa controlada: las tarjetas-resumen también la seleccionan.
   const [activeTab, setActiveTab] = useState("activos")
+  const [nDisputas, setNDisputas] = useState<number | null>(null)
   const [selectedTrabajo, setSelectedTrabajo] = useState<any>(null)
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false)
   const [deliveryDialogOpen, setDeliveryDialogOpen] = useState(false)
@@ -131,6 +133,10 @@ export default function MisTrabajosPage() {
 
   useEffect(() => {
     loadTrabajos()
+
+    // El total de disputas para el contador de la pestaña, sin esperar a que el
+    // usuario la abra (MisDisputas solo se monta al activarla).
+    obtenerMisDisputas().then((res) => setNDisputas((res.data || []).length))
 
     // Refresco en vivo: cancelaciones, pagos y confirmaciones del cliente
     // aparecen sin recargar la página.
@@ -394,7 +400,7 @@ export default function MisTrabajosPage() {
               </TabsTrigger>
               <TabsTrigger value="disputas" className="gap-2">
                 <Scale className="h-4 w-4" />
-                Disputas
+                Disputas{nDisputas !== null ? ` (${nDisputas})` : ""}
               </TabsTrigger>
             </TabsList>
 
@@ -481,7 +487,7 @@ export default function MisTrabajosPage() {
           {/* Seguimiento de disputas: las que ha abierto el profesional y las
               que el cliente ha abierto contra él. */}
           <TabsContent value="disputas" className="space-y-4">
-            <MisDisputas rol="proveedor" />
+            <MisDisputas rol="proveedor" onCount={setNDisputas} />
           </TabsContent>
           </Tabs>
 
