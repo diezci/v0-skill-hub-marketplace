@@ -63,7 +63,15 @@ function textoResolucion(resolucion: string | null, soyCliente: boolean): string
   return "Resuelta por el equipo de Diime."
 }
 
-export default function MisDisputas({ rol }: { rol: "cliente" | "proveedor" }) {
+export default function MisDisputas({
+  rol,
+  onCount,
+}: {
+  rol: "cliente" | "proveedor"
+  // Total de disputas del usuario, para que el contenedor pueda pintar un
+  // contador en la pestaña sin volver a consultar.
+  onCount?: (n: number) => void
+}) {
   const [disputas, setDisputas] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -71,7 +79,9 @@ export default function MisDisputas({ rol }: { rol: "cliente" | "proveedor" }) {
     let activo = true
     obtenerMisDisputas().then((res) => {
       if (!activo) return
-      setDisputas(res.data || [])
+      const data = res.data || []
+      setDisputas(data)
+      onCount?.(data.length)
       setLoading(false)
     })
     return () => {
