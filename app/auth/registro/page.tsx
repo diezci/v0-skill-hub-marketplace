@@ -53,6 +53,10 @@ export default function RegistroPage() {
   const [tipoEntidad, setTipoEntidad] = useState<"particular" | "empresa">("particular")
   const [documento, setDocumento] = useState("")
   const [nombreEmpresa, setNombreEmpresa] = useState("")
+  // DNI/NIE de la persona que actúa en nombre de la empresa (en un particular
+  // ese dato ya es `documento`).
+  const [documentoPersonal, setDocumentoPersonal] = useState("")
+  const [cargoEmpresa, setCargoEmpresa] = useState("")
   const [telefonoPrefijo, setTelefonoPrefijo] = useState("+34")
   const [telefonoNumero, setTelefonoNumero] = useState("")
   const [ubicacion, setUbicacion] = useState("")
@@ -90,6 +94,14 @@ export default function RegistroPage() {
       return
     }
 
+    // Detrás de una empresa siempre hay una persona que responde de lo que hace
+    // en la plataforma: su documento es obligatorio.
+    if (tipoEntidad === "empresa" && !documentoPersonal.trim()) {
+      setError("Indica tu DNI/NIE como persona que actúa en nombre de la empresa")
+      setIsLoading(false)
+      return
+    }
+
     try {
       const { registrarUsuario } = await import("@/app/actions/auth")
 
@@ -102,6 +114,8 @@ export default function RegistroPage() {
         apellido,
         tipoEntidad,
         documento,
+        documentoPersonal: tipoEntidad === "empresa" ? documentoPersonal : undefined,
+        cargoEmpresa: tipoEntidad === "empresa" ? cargoEmpresa || undefined : undefined,
         nombreEmpresa: tipoEntidad === "empresa" ? nombreEmpresa : undefined,
         tokenInvitacion: tokenInvitacion || undefined,
         telefono,
@@ -285,6 +299,35 @@ export default function RegistroPage() {
                       : "Documento Nacional de Identidad o NIE"}
                   </p>
                 </div>
+
+                {/* Detrás de una empresa siempre actúa una persona: se identifica
+                    aquí, y es la que figurará como representante en las facturas. */}
+                {tipoEntidad === "empresa" && (
+                  <div className="grid gap-2 rounded-lg border bg-muted/30 p-3">
+                    <Label htmlFor="documento-personal">Tu DNI/NIE (persona que actúa por la empresa)</Label>
+                    <Input
+                      id="documento-personal"
+                      type="text"
+                      placeholder="12345678X"
+                      required
+                      value={documentoPersonal}
+                      onChange={(e) => setDocumentoPersonal(e.target.value.toUpperCase())}
+                    />
+                    <Label htmlFor="cargo-empresa" className="mt-1">
+                      Tu cargo (opcional)
+                    </Label>
+                    <Input
+                      id="cargo-empresa"
+                      type="text"
+                      placeholder="Administrador, Gerente..."
+                      value={cargoEmpresa}
+                      onChange={(e) => setCargoEmpresa(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      La empresa factura y contrata, pero necesitamos saber quién actúa en su nombre.
+                    </p>
+                  </div>
+                )}
 
                 {tipoEntidad === "empresa" && (
                   <div className="grid gap-2">

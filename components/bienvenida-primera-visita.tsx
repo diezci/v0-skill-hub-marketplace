@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { FileText, Users, ShieldCheck, CheckCircle2, HardHat } from "lucide-react"
+import { FileText, Users, ShieldCheck, CheckCircle2, HardHat, Check } from "lucide-react"
 
 const VISTA_KEY = "diime_bienvenida_vista"
 
@@ -33,6 +33,16 @@ const PASOS = [
     titulo: "Confirma y valora",
     texto: "Cuando el trabajo esté hecho, lo confirmas, se libera el pago y valoras al profesional.",
   },
+]
+
+// Lo que gana el profesional. El orden importa: primero el mercado (por qué
+// entrar), luego el cobro (la objeción real de quien ya trabaja por su cuenta).
+const VENTAJAS_PROFESIONAL = [
+  "Más mercado: demandas de tu especialidad y tu provincia, sin buscar clientes.",
+  "Cobro asegurado: el cliente paga antes de que empieces y el dinero queda en custodia.",
+  "Tus proyectos en un sitio: progreso, entregas, calendario y mensajes con cada cliente.",
+  "Factura y condiciones por escrito en cada trabajo, y valoraciones que te traen el siguiente.",
+  "Pujar es gratis: solo hay comisión cuando cobras, y si hay desacuerdo media Diime.",
 ]
 
 export function BienvenidaPrimeraVisita() {
@@ -88,12 +98,19 @@ export function BienvenidaPrimeraVisita() {
           })}
         </ol>
 
-        <div className="rounded-lg border bg-muted/40 p-3 flex gap-3">
-          <HardHat className="h-4.5 w-4.5 shrink-0 text-muted-foreground mt-0.5" />
-          <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">¿Eres profesional?</span> Crea tu perfil, elige tus
-            servicios y las provincias que cubres, y te avisamos de las demandas que encajen contigo.
+        <div className="rounded-lg border bg-muted/40 p-3 space-y-2">
+          <p className="text-sm font-medium flex items-center gap-2">
+            <HardHat className="h-4 w-4 text-muted-foreground" />
+            ¿Eres profesional? Esto te aporta Diime
           </p>
+          <ul className="space-y-1.5">
+            {VENTAJAS_PROFESIONAL.map((v) => (
+              <li key={v} className="text-sm text-muted-foreground flex gap-2">
+                <Check className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
+                <span>{v}</span>
+              </li>
+            ))}
+          </ul>
         </div>
 
         <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-1">

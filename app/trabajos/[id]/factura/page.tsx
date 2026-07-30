@@ -10,6 +10,71 @@ export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = { title: "Factura | Diime" }
 
+type DatosFacturacion = {
+  empresa_nombre: string | null
+  empresa_cif: string | null
+  empresa_ubicacion: string | null
+  empresa_email: string | null
+  persona_nombre: string | null
+  persona_apellido: string | null
+  persona_documento: string | null
+  persona_cargo: string | null
+} | null
+
+/**
+ * Bloque de una parte de la factura. Si actúa por una empresa, la factura se
+ * emite a nombre de la empresa (razón social + CIF) y debajo se identifica a la
+ * persona que actúa en su nombre, que es quien responde de lo acordado. Si es
+ * un particular o autónomo, factura él mismo con su NIF.
+ */
+function ParteFactura({
+  titulo,
+  facturacion,
+  perfil,
+  emailFallback,
+}: {
+  titulo: string
+  facturacion: DatosFacturacion
+  perfil: { nombre?: string | null; apellido?: string | null; ubicacion?: string | null } | null
+  emailFallback?: string | null
+}) {
+  const esEmpresa = !!facturacion?.empresa_nombre
+  const persona = [facturacion?.persona_nombre ?? perfil?.nombre, facturacion?.persona_apellido ?? perfil?.apellido]
+    .filter(Boolean)
+    .join(" ")
+
+  return (
+    <div>
+      <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">{titulo}</p>
+      {esEmpresa ? (
+        <>
+          <p className="font-medium">{facturacion!.empresa_nombre}</p>
+          {facturacion!.empresa_cif && <p className="text-muted-foreground">CIF: {facturacion!.empresa_cif}</p>}
+          {facturacion!.empresa_ubicacion && (
+            <p className="text-muted-foreground">{facturacion!.empresa_ubicacion}</p>
+          )}
+          {facturacion!.empresa_email && <p className="text-muted-foreground">{facturacion!.empresa_email}</p>}
+          {persona && (
+            <p className="text-muted-foreground mt-1">
+              En su nombre: {persona}
+              {facturacion!.persona_cargo ? ` (${facturacion!.persona_cargo})` : ""}
+            </p>
+          )}
+        </>
+      ) : (
+        <>
+          <p className="font-medium">{persona}</p>
+          {facturacion?.persona_documento && (
+            <p className="text-muted-foreground">NIF: {facturacion.persona_documento}</p>
+          )}
+          {emailFallback && <p className="text-muted-foreground">{emailFallback}</p>}
+          {perfil?.ubicacion && <p className="text-muted-foreground">{perfil.ubicacion}</p>}
+        </>
+      )}
+    </div>
+  )
+}
+
 const ETIQUETA_ESTADO_PAGO: Record<string, string> = {
   pendiente: "Pendiente de pago",
   fondos_retenidos: "Pagado · retenido en custodia",
@@ -23,7 +88,19 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
   const datos = await obtenerDatosContratacion(id)
   if (!datos) notFound()
 
-  const { trabajo, cliente, profesional, oferta, solicitud, escrow, esCliente, esProfesional, esAdmin } = datos
+  const {
+    trabajo,
+    cliente,
+    profesional,
+    oferta,
+    solicitud,
+    escrow,
+    esCliente,
+    esProfesional,
+    esAdmin,
+    facturacionCliente,
+    facturacionProfesional,
+  } = datos
   const { comisionCliente, totalCliente } = calcularTotalCliente(trabajo.precio_acordado || 0)
   const { comisionProveedor, pagoNeto } = calcularPagoProveedor(trabajo.precio_acordado || 0)
   const anio = new Date(escrow?.fecha_retencion || trabajo.created_at).getFullYear()
@@ -65,23 +142,21 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
 
-        {/* Partes */}
+        {/* Partes. Si una actúa por una empresa, la factura va a nombre de la
+            empresa (con su CIF) y se identifica a la persona que actúa por ella. */}
         <div className="grid sm:grid-cols-2 gap-4 text-sm">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Facturar a (cliente)</p>
-            <p className="font-medium">
-              {cliente?.nombre} {cliente?.apellido}
-            </p>
-            {cliente?.email && <p className="text-muted-foreground">{cliente.email}</p>}
-            {cliente?.ubicacion && <p className="text-muted-foreground">{cliente.ubicacion}</p>}
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Servicio prestado por</p>
-            <p className="font-medium">
-              {profesional?.nombre} {profesional?.apellido}
-            </p>
-            {profesional?.email && <p className="text-muted-foreground">{profesional.email}</p>}
-          </div>
+          <ParteFactura
+            titulo="Facturar a (cliente)"
+            facturacion={facturacionCliente}
+            perfil={cliente}
+            emailFallback={cliente?.email}
+          />
+          <ParteFactura
+            titulo="Servicio prestado por"
+            facturacion={facturacionProfesional}
+            perfil={profesional}
+            emailFallback={profesional?.email}
+          />
         </div>
 
         {/* Detalle del servicio contratado: la propuesta del profesional que el
