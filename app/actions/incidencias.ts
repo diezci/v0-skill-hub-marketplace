@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache"
 
 export type IncidenciaCategoria = "fraude" | "abuso" | "pago" | "tecnico" | "perfil" | "otro"
 export type IncidenciaPrioridad = "baja" | "media" | "alta" | "critica"
-export type IncidenciaEstado = "abierta" | "en_revision" | "resuelta" | "cerrada"
+export type IncidenciaEstado = "abierta" | "en_revision" | "resuelta" | "cerrada" | "retirada"
 
 // Trabajos del usuario (como cliente o proveedor) para asociar la incidencia.
 // La otra parte del trabajo se sugiere como usuario reportado.
@@ -113,6 +113,36 @@ export async function obtenerMisIncidencias() {
   )
 
   return { data: conTrabajo }
+}
+
+// Retirar una incidencia que reportó el propio usuario, mientras un admin no la
+// haya resuelto o cerrado. La validación (autor + estado) la hace la función
+// SECURITY DEFINER retirar_incidencia, porque las incidencias solo las puede
+// actualizar un admin por RLS.
+export async function retirarIncidencia(incidenciaId: string) {
+  const supabase = await createClient()
+  if (!supabase) return { error: "No se pudo conectar" }
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: resultado, error } = await supabase.rpc("retirar_incidencia", {
+    p_incidencia_id: incidenciaId,
+  })
+  if (error) return { error: error.message }
+  if (resultado !== "ok") {
+    const motivos: Record<string, string> = {
+      no_encontrada: "La incidencia no existe.",
+      no_autorizado: "Solo quien reportó la incidencia puede retirarla.",
+      no_retirable: "Esta incidencia ya la ha gestionado el equipo: no se puede retirar.",
+    }
+    return { error: motivos[resultado as string] || "No se ha podido retirar la incidencia." }
+  }
+
+  revalidatePath("/incidencias")
+  revalidatePath("/admin/incidencias")
+  return { success: true }
 }
 
 // Comprueba si el usuario actual es admin de la plataforma (columna es_admin).
