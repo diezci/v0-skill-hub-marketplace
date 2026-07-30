@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 // Solo las partes del trabajo (o un admin) pueden verlos.
 export async function obtenerDatosContratacion(trabajoId: string) {
   const supabase = await createClient()
+  if (!supabase) return null
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -40,6 +41,14 @@ export async function obtenerDatosContratacion(trabajoId: string) {
       .maybeSingle(),
   ])
 
+  // Datos de facturación de ambas partes: si actúan por una empresa, la factura
+  // va a nombre de la empresa (con su CIF) indicando quién actúa en su nombre.
+  // Va por RPC porque `empresas` tiene RLS y cada parte no puede leer la empresa
+  // de la otra; la función solo responde a las partes de este trabajo.
+  const { data: facturacion } = await supabase.rpc("facturacion_trabajo", { p_trabajo_id: trabajo.id })
+  const facturacionPor = (parte: "cliente" | "profesional") =>
+    (facturacion as any[] | null)?.find((f) => f.parte === parte) ?? null
+
   // Rol del que consulta: condiciona qué información económica se muestra
   // (cada parte solo ve su propia comisión; un admin lo ve todo).
   const esCliente = trabajo.cliente_id === user.id
@@ -53,6 +62,8 @@ export async function obtenerDatosContratacion(trabajoId: string) {
     oferta: ofertaR.data,
     solicitud: solicitudR.data,
     escrow: escrowR.data,
+    facturacionCliente: facturacionPor("cliente"),
+    facturacionProfesional: facturacionPor("profesional"),
     esCliente,
     esProfesional,
     esAdmin: !esCliente && !esProfesional,
