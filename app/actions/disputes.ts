@@ -87,6 +87,16 @@ export async function crearDisputa(data: {
 
   const tipo = trabajo.cliente_id === user.id ? "cliente" : "proveedor"
 
+  // Estado del escrow antes de congelarlo, para poder restaurarlo si el autor
+  // retira la disputa (el trabajo previo es el trabajo.estado de arriba).
+  const { data: escrowPrevio } = await supabase
+    .from("transacciones_escrow")
+    .select("estado")
+    .eq("trabajo_id", data.trabajo_id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
   const { data: disputa, error } = await supabase
     .from("disputas")
     .insert({
@@ -96,6 +106,8 @@ export async function crearDisputa(data: {
       tipo,
       motivo,
       estado: "abierta",
+      estado_trabajo_previo: trabajo.estado,
+      estado_escrow_previo: escrowPrevio?.estado ?? null,
     })
     .select()
     .single()
@@ -260,6 +272,75 @@ export async function obtenerMisDisputas() {
   return { data: enriquecidas }
 }
 
+// Retirar una disputa que abrió el propio usuario, mientras siga abierta. La
+// validación (autor + estado) y la restauración del trabajo/escrow las hace la
+// función SECURITY DEFINER retirar_disputa; aquí solo avisamos a la otra parte
+// y a los admins de que ya no hay nada que revisar.
+export async function retirarDisputa(disputaId: string) {
+  const supabase = await createClient()
+  if (!supabase) return { error: "No se pudo conectar" }
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  // Datos para las notificaciones antes de retirarla.
+  const { data: disputa } = await supabase
+    .from("disputas")
+    .select("trabajo_id, cliente_id, profesional_id, tipo")
+    .eq("id", disputaId)
+    .maybeSingle()
+
+  const { data: resultado, error } = await supabase.rpc("retirar_disputa", { p_disputa_id: disputaId })
+  if (error) return { error: error.message }
+  if (resultado !== "ok") {
+    const motivos: Record<string, string> = {
+      no_encontrada: "La disputa no existe.",
+      no_abierta: "Esta disputa ya no está abierta: no se puede retirar.",
+      no_autorizado: "Solo quien abrió la disputa puede retirarla.",
+    }
+    return { error: motivos[resultado as string] || "No se ha podido retirar la disputa." }
+  }
+
+  if (disputa) {
+    const { data: trabajo } = await supabase
+      .from("trabajos")
+      .select("titulo")
+      .eq("id", disputa.trabajo_id)
+      .maybeSingle()
+    const titulo = trabajo?.titulo ?? "un trabajo"
+    const otraParteId = user.id === disputa.cliente_id ? disputa.profesional_id : disputa.cliente_id
+    const { crearNotificacion } = await import("./notificaciones")
+    if (otraParteId) {
+      await crearNotificacion({
+        usuarioId: otraParteId,
+        tipo: "disputa_retirada",
+        titulo: "Disputa retirada",
+        mensaje: `Se ha retirado la disputa sobre "${titulo}". El trabajo continúa con normalidad.`,
+        link: otraParteId === disputa.cliente_id ? "/mis-solicitudes" : "/mis-trabajos",
+      })
+    }
+    const { data: admins } = await supabase.from("profiles").select("id").eq("es_admin", true)
+    if (admins?.length) {
+      await supabase.from("notificaciones").insert(
+        admins.map((a: { id: string }) => ({
+          usuario_id: a.id,
+          tipo: "disputa_retirada_admin",
+          titulo: "Disputa retirada",
+          mensaje: `Se ha retirado la disputa sobre "${titulo}"; ya no requiere revisión.`,
+          link: "/admin/disputas",
+          leida: false,
+        })),
+      )
+    }
+  }
+
+  revalidatePath("/admin/disputas")
+  revalidatePath("/mis-trabajos")
+  revalidatePath("/mis-solicitudes")
+  return { success: true }
+}
+
 // Lista de disputas para el panel admin (con datos básicos del trabajo y partes).
 export async function obtenerDisputas() {
   const supabase = await createClient()
@@ -418,7 +499,11 @@ export async function resolverDisputa(data: {
     .eq("id", data.disputa_id)
     .maybeSingle()
   if (!disputa) return { error: "Disputa no encontrada" }
+  // Solo se resuelve una disputa abierta: una ya resuelta o retirada por su
+  // autor no debe volver a mover dinero.
   if (disputa.estado === "resuelta") return { error: "Esta disputa ya está resuelta" }
+  if (disputa.estado === "retirada") return { error: "Esta disputa ha sido retirada por quien la abrió" }
+  if (disputa.estado !== "abierta") return { error: "Esta disputa no está abierta" }
 
   const { data: escrow } = await supabase
     .from("transacciones_escrow")

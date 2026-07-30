@@ -5,12 +5,29 @@ import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Scale, Briefcase, Clock, CheckCircle2, XCircle, FileText, ArrowRight } from "lucide-react"
-import { obtenerMisDisputas } from "@/app/actions/disputes"
+import { obtenerMisDisputas, retirarDisputa } from "@/app/actions/disputes"
+import { useToast } from "@/hooks/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 const ESTADO_ABIERTA = {
   label: "En revisión por Diime",
   cls: "bg-amber-500/15 text-amber-600 border-amber-500/30",
   icon: Clock,
+}
+
+const ESTADO_RETIRADA = {
+  label: "Retirada",
+  cls: "bg-muted text-muted-foreground border-border",
+  icon: XCircle,
 }
 
 // Una disputa resuelta no se presenta igual si la ganaste que si la perdiste:
@@ -74,6 +91,17 @@ export default function MisDisputas({
 }) {
   const [disputas, setDisputas] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [retirandoId, setRetirandoId] = useState<string | null>(null)
+  const [aRetirar, setARetirar] = useState<any>(null)
+  const { toast } = useToast()
+
+  const cargar = () =>
+    obtenerMisDisputas().then((res) => {
+      const data = res.data || []
+      setDisputas(data)
+      onCount?.(data.length)
+      setLoading(false)
+    })
 
   useEffect(() => {
     let activo = true
@@ -88,6 +116,20 @@ export default function MisDisputas({
       activo = false
     }
   }, [])
+
+  const handleRetirar = async () => {
+    if (!aRetirar) return
+    setRetirandoId(aRetirar.id)
+    const res = await retirarDisputa(aRetirar.id)
+    setRetirandoId(null)
+    setARetirar(null)
+    if (res.error) {
+      toast({ title: "No se pudo retirar", description: res.error, variant: "destructive" })
+    } else {
+      toast({ title: "Disputa retirada", description: "El trabajo continúa con normalidad." })
+      await cargar()
+    }
+  }
 
   const formatFecha = (f: string) =>
     new Date(f).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })
@@ -115,7 +157,7 @@ export default function MisDisputas({
     )
   }
 
-  const abiertas = disputas.filter((d) => d.estado !== "resuelta").length
+  const abiertas = disputas.filter((d) => d.estado === "abierta").length
 
   return (
     <div className="space-y-4">
@@ -131,7 +173,12 @@ export default function MisDisputas({
 
       {disputas.map((d) => {
         const soyCliente = rol === "cliente"
-        const estado = d.estado === "resuelta" ? configResuelta(d.resolucion, soyCliente) : ESTADO_ABIERTA
+        const estado =
+          d.estado === "resuelta"
+            ? configResuelta(d.resolucion, soyCliente)
+            : d.estado === "retirada"
+              ? ESTADO_RETIRADA
+              : ESTADO_ABIERTA
         const EstadoIcon = estado.icon
         return (
           <Card key={d.id}>
@@ -196,11 +243,43 @@ export default function MisDisputas({
                   <Briefcase className="h-3.5 w-3.5" /> Aportar pruebas en el chat
                   <ArrowRight className="h-3 w-3" />
                 </Link>
+                {/* Solo el que la abrió puede retirarla, y solo mientras esté abierta. */}
+                {d.la_abri_yo && d.estado === "abierta" && (
+                  <button
+                    type="button"
+                    onClick={() => setARetirar(d)}
+                    disabled={retirandoId === d.id}
+                    className="text-xs text-destructive hover:underline inline-flex items-center gap-1 disabled:opacity-50"
+                  >
+                    <XCircle className="h-3.5 w-3.5" /> Retirar disputa
+                  </button>
+                )}
               </div>
             </CardContent>
           </Card>
         )
       })}
+
+      <AlertDialog open={!!aRetirar} onOpenChange={(o) => !o && setARetirar(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Retirar la disputa?</AlertDialogTitle>
+            <AlertDialogDescription>
+              El equipo de Diime dejará de revisarla y el trabajo continuará donde estaba, con el pago retenido en
+              custodia. Si vuelve a hacer falta, podrás abrir una disputa nueva.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRetirar}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Retirar disputa
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
