@@ -161,48 +161,6 @@ export async function registrarUsuario(formData: {
   return { data: { success: true, user: authData.user } }
 }
 
-export async function crearPerfilProfesional(formData: {
-  titulo: string
-  categoria?: string
-  bio?: string
-  habilidades?: string[]
-  tarifaHora?: number
-  anosExperiencia?: number
-}) {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser()
-
-  if (userError || !user) {
-    return { error: "Debes iniciar sesión para crear un perfil profesional" }
-  }
-
-  // Check if professional profile already exists
-  const { data: existing } = await supabase.from("profesionales").select("id").eq("id", user.id).single()
-
-  if (existing) {
-    return { error: "Ya tienes un perfil profesional creado" }
-  }
-
-  const { error: profError } = await supabase.from("profesionales").insert({
-    id: user.id,
-    titulo: formData.titulo,
-    tarifa_por_hora: formData.tarifaHora || 0,
-    años_experiencia: formData.anosExperiencia || 0,
-    habilidades: formData.habilidades || [],
-    disponible: true,
-  })
-
-  if (profError) {
-    return { error: profError.message }
-  }
-
-  return { data: { success: true } }
-}
-
 export async function resetPassword(email: string) {
   const supabase = await createClient()
   
@@ -262,70 +220,6 @@ export async function signInWithGoogle() {
   return { data: { url: data.url } }
 }
 
-export async function registrarCliente(formData: {
-  email: string
-  password: string
-  fullName: string
-  phone?: string
-  city: string
-}) {
-  const [nombre, ...apellidoParts] = formData.fullName.split(" ")
-  const apellido = apellidoParts.join(" ")
-
-  return registrarUsuario({
-    email: formData.email,
-    password: formData.password,
-    nombre,
-    apellido: apellido || "",
-    tipoEntidad: "particular",
-    documento: "", // Will need to be added by user later
-    telefono: formData.phone,
-    ubicacion: formData.city,
-  })
-}
-
-export async function registrarProfesional(formData: {
-  email: string
-  password: string
-  fullName: string
-  category: string
-  skills: string
-  bio: string
-  hourlyRate: string
-}) {
-  const [nombre, ...apellidoParts] = formData.fullName.split(" ")
-  const apellido = apellidoParts.join(" ")
-
-  // First create the user account
-  const result = await registrarUsuario({
-    email: formData.email,
-    password: formData.password,
-    nombre,
-    apellido: apellido || "",
-    tipoEntidad: "particular",
-    documento: "", // Will need to be added by user later
-  })
-
-  if (result.error) {
-    return result
-  }
-
-  // Then create the professional profile
-  const habilidades = formData.skills.split(",").map((s) => s.trim())
-
-  const profResult = await crearPerfilProfesional({
-    titulo: `Profesional de ${formData.category}`,
-    habilidades,
-    tarifaHora: Number.parseFloat(formData.hourlyRate),
-    anosExperiencia: 0,
-  })
-
-  if (profResult.error) {
-    return profResult
-  }
-
-  return result
-}
 
 // Company management functions
 export async function obtenerEmpresa() {
