@@ -7,7 +7,6 @@ import { Menu, X, Search, Megaphone, Inbox, MessageSquare, FolderKanban, LogOut,
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { SelectorIdioma } from "@/components/selector-idioma"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -297,7 +296,6 @@ const Navbar = () => {
           </nav>
 
           <div className="hidden md:flex items-center gap-2">
-            <SelectorIdioma />
             <ThemeToggle />
             {isAuthenticated ? (
               <DropdownMenu>
@@ -374,7 +372,6 @@ const Navbar = () => {
           </div>
 
           <div className="flex md:hidden items-center gap-2">
-            <SelectorIdioma />
             <ThemeToggle />
             <Button variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)}>
               {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
