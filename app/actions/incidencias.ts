@@ -188,9 +188,16 @@ export async function obtenerIncidencias() {
   if (ids.length > 0) {
     const { data: perfiles } = await supabase
       .from("profiles")
-      .select("id, nombre, apellido, email")
+      .select("id, nombre, apellido")
       .in("id", ids)
-    for (const p of perfiles || []) mapa[p.id] = p
+    // El correo va por RPC: aquí quien mira es un admin, y la función se lo da.
+    const { data: contactos } = await supabase.rpc("contacto_perfiles", { p_ids: ids })
+    for (const p of perfiles || []) {
+      mapa[p.id] = {
+        ...p,
+        email: (contactos as any[] | null)?.find((c: any) => c.id === p.id)?.email ?? null,
+      }
+    }
   }
 
   const enriquecidas = (data || []).map((i: any) => ({

@@ -400,17 +400,31 @@ export async function obtenerDetalleDisputa(disputaId: string) {
     .eq("id", disputa.trabajo_id)
     .maybeSingle()
 
-  const { data: cliente } = await supabase
+  const { data: clienteBase } = await supabase
     .from("profiles")
-    .select("id, nombre, apellido, foto_perfil, email, telefono, ubicacion")
+    .select("id, nombre, apellido, foto_perfil, ubicacion")
     .eq("id", disputa.cliente_id)
     .maybeSingle()
 
-  const { data: profesional } = await supabase
+  const { data: profesionalBase } = await supabase
     .from("profiles")
-    .select("id, nombre, apellido, foto_perfil, email, telefono, ubicacion")
+    .select("id, nombre, apellido, foto_perfil, ubicacion")
     .eq("id", disputa.profesional_id)
     .maybeSingle()
+
+  // Contacto de ambas partes: para resolver una disputa hace falta, pero ya no
+  // se lee de `profiles` (ver scripts/043). La RPC solo responde a las partes
+  // del trabajo y a un admin, que son quienes abren esta vista.
+  const { data: contactos } = await supabase.rpc("contacto_perfiles", {
+    p_ids: [disputa.cliente_id, disputa.profesional_id],
+  })
+  const conContacto = (base: any) => {
+    if (!base) return base
+    const c = (contactos as any[] | null)?.find((x) => x.id === base.id)
+    return { ...base, email: c?.email ?? null, telefono: c?.telefono ?? null }
+  }
+  const cliente = conContacto(clienteBase)
+  const profesional = conContacto(profesionalBase)
 
   const { data: escrow } = await supabase
     .from("transacciones_escrow")

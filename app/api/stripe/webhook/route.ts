@@ -112,13 +112,25 @@ export async function POST(request: Request) {
         })
       }
       if (escrowActualizado.profesional_id) {
-        await supabase.from("notificaciones").insert({
+        const avisoPago = {
           usuario_id: escrowActualizado.profesional_id,
           tipo: "pago_recibido",
           titulo: "El cliente ha pagado: puedes empezar",
           mensaje: `El pago de "${trabajoPagado?.titulo ?? "un trabajo"}" ya está retenido en custodia. El trabajo pasa a En Progreso.`,
           link: "/mis-trabajos",
           leida: false,
+        }
+        await supabase.from("notificaciones").insert(avisoPago)
+
+        // Este webhook no tiene sesión de usuario, así que nunca pasa por
+        // `crearNotificacion`: el correo se manda aquí.
+        const { enviarAvisoPorEmail } = await import("@/lib/emails/enviar")
+        await enviarAvisoPorEmail({
+          usuarioId: avisoPago.usuario_id,
+          tipo: avisoPago.tipo,
+          titulo: avisoPago.titulo,
+          mensaje: avisoPago.mensaje,
+          link: avisoPago.link,
         })
       }
 

@@ -65,18 +65,31 @@ export default function AdminUsuariosPage() {
     try {
       // Nota: 'verificado' vive en profiles (no en profesionales) y no hay relación
       // FK profiles<->empresas, así que esos embeds rompían la consulta entera.
+      // Sin `select("*")`: email y teléfono ya no se leen de `profiles`
+      // (ver scripts/043). Un admin sí puede pedirlos por RPC.
       const { data, error } = await supabase
         .from("profiles")
-        .select("*, profesional:profesionales(titulo, rating_promedio, total_reseñas)")
+        .select(
+          "id, nombre, apellido, ubicacion, foto_perfil, tipo_usuario, es_admin, verificado, created_at, profesional:profesionales(titulo, rating_promedio, total_reseñas)",
+        )
         .order("created_at", { ascending: false })
 
       if (error) throw error
 
+      const { data: contactos } = await supabase.rpc("contacto_perfiles", {
+        p_ids: ((data as any[]) || []).map((u: any) => u.id),
+      })
+
       // Transform the data to handle the array/single object difference
-      const transformedData = ((data as any[]) || []).map((user: any) => ({
-        ...user,
-        profesional: Array.isArray(user.profesional) ? user.profesional[0] : user.profesional,
-      }))
+      const transformedData = ((data as any[]) || []).map((user: any) => {
+        const c = (contactos as any[] | null)?.find((x: any) => x.id === user.id)
+        return {
+          ...user,
+          email: c?.email ?? "",
+          telefono: c?.telefono ?? null,
+          profesional: Array.isArray(user.profesional) ? user.profesional[0] : user.profesional,
+        }
+      })
 
       setUsuarios(transformedData)
     } catch (error) {

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Check, ShieldCheck } from "lucide-react"
+import { COOKIES_EVENTO, consentimientoCookies } from "@/components/banner-cookies"
 
 const VISTA_KEY = "diime_bienvenida_vista"
 
@@ -51,11 +52,24 @@ export function BienvenidaPrimeraVisita() {
 
   useEffect(() => {
     if (enAuth) return
-    try {
-      if (!localStorage.getItem(VISTA_KEY)) setAbierto(true)
-    } catch {
-      // Sin localStorage (modo privado restrictivo): no insistimos.
+
+    const abrirSiToca = () => {
+      try {
+        if (!localStorage.getItem(VISTA_KEY)) setAbierto(true)
+      } catch {
+        // Sin localStorage (modo privado restrictivo): no insistimos.
+      }
     }
+
+    // El banner de cookies va primero: es lo que hay que poder contestar antes
+    // de nada, y dos capas a la vez se estorban. Si aún no hay respuesta,
+    // esperamos a que la haya.
+    if (consentimientoCookies() === null) {
+      window.addEventListener(COOKIES_EVENTO, abrirSiToca)
+      return () => window.removeEventListener(COOKIES_EVENTO, abrirSiToca)
+    }
+
+    abrirSiToca()
   }, [enAuth])
 
   const cerrar = () => {

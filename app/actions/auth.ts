@@ -299,12 +299,22 @@ export async function obtenerMiembrosEmpresa() {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, nombre, apellido, email, foto_perfil, fecha_registro")
+    .select("id, nombre, apellido, foto_perfil, fecha_registro")
     .eq("empresa_id", profile.empresa_id)
 
   if (error) {
     return { error: error.message }
   }
 
-  return { data }
+  // El correo de los compañeros de empresa ya no se lee de `profiles`; la RPC lo
+  // da a quien comparte empresa, que es exactamente este caso.
+  const { data: contactos } = await supabase.rpc("contacto_perfiles", {
+    p_ids: (data || []).map((m: any) => m.id),
+  })
+  const conEmail = (data || []).map((m: any) => ({
+    ...m,
+    email: (contactos as any[] | null)?.find((c) => c.id === m.id)?.email ?? null,
+  }))
+
+  return { data: conEmail }
 }

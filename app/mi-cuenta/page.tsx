@@ -18,6 +18,7 @@ import {
   BadgeCheck,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
+import { PreferenciaEmails } from "@/components/preferencia-emails"
 import { redirect } from "next/navigation"
 import { formatearFecha } from "@/lib/utils"
 
@@ -38,7 +39,7 @@ export default async function MiCuentaPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("nombre, apellido, verificado, created_at")
+    .select("nombre, apellido, verificado, created_at, email_notificaciones")
     .eq("id", user.id)
     .maybeSingle()
 
@@ -94,6 +95,17 @@ export default async function MiCuentaPage() {
                 </Link>
               </Button>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Avisos */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Avisos</CardTitle>
+            <CardDescription>Cómo te avisamos de lo que pasa en tus proyectos</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PreferenciaEmails inicial={profile?.email_notificaciones !== false} />
           </CardContent>
         </Card>
 
