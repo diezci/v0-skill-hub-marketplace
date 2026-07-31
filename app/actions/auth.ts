@@ -9,14 +9,21 @@ export async function registrarUsuario(formData: {
   nombre: string
   apellido: string
   tipoEntidad: "particular" | "empresa"
+  // Para un particular es su DNI/NIE. Para una empresa es el CIF de la empresa.
   documento: string
+  // DNI/NIE de la PERSONA que registra la empresa y actúa en su nombre. Solo
+  // aplica a tipoEntidad "empresa" (en un particular ya lo es `documento`):
+  // detrás de una empresa siempre hay alguien que responde de lo que hace.
+  documentoPersonal?: string
+  cargoEmpresa?: string
   nombreEmpresa?: string
   tokenInvitacion?: string
   telefono?: string
   ubicacion?: string
 }) {
   const supabase = await createClient()
-  
+  if (!supabase) return { error: "No se pudo conectar con la base de datos" }
+
   // Use NEXT_PUBLIC_SITE_URL for production, fallback to VERCEL_URL, then localhost
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL 
     || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
@@ -74,12 +81,17 @@ export async function registrarUsuario(formData: {
       empresaId = empresaIdPorToken as string
     } else if (formData.nombreEmpresa) {
       // Create new company
+      // Se guardan también contacto y ubicación: son los datos fiscales que
+      // luego salen en la factura a nombre de la empresa.
       const { data: newEmpresa, error: empresaError } = await supabase
         .from("empresas")
         .insert({
           nombre: formData.nombreEmpresa,
           cif: formData.documento,
           propietario_id: authData.user.id,
+          email: formData.email,
+          telefono: formData.telefono || null,
+          ubicacion: formData.ubicacion || null,
         })
         .select()
         .single()
@@ -92,6 +104,11 @@ export async function registrarUsuario(formData: {
     }
   }
 
+  // El documento que se guarda en el perfil es SIEMPRE el de la persona: si se
+  // registra una empresa, `documento` es el CIF y el DNI va en documentoPersonal.
+  const documentoDeLaPersona =
+    formData.tipoEntidad === "empresa" ? formData.documentoPersonal || null : formData.documento || null
+
   const { error: profileError } = await supabase
     .from("profiles")
     .upsert(
@@ -103,6 +120,11 @@ export async function registrarUsuario(formData: {
         telefono: formData.telefono || null,
         ubicacion: formData.ubicacion || null,
         tipo_usuario: "cliente",
+        documento: documentoDeLaPersona,
+        // Vínculo con la empresa en cuyo nombre actúa (antes se calculaba y se
+        // descartaba, así que la empresa quedaba huérfana).
+        empresa_id: empresaId,
+        cargo_empresa: formData.cargoEmpresa || null,
       },
       { onConflict: "id" },
     )
@@ -112,6 +134,28 @@ export async function registrarUsuario(formData: {
   // We swallow these specific errors silently — the trigger handles the base row.
   if (profileError && !profileError.message?.includes("row-level security") && profileError.code !== "23505") {
     return { error: profileError.message }
+  }
+
+  // El vínculo con la empresa no puede perderse en silencio: si se traga el
+  // error de arriba (trigger o RLS), la empresa quedaría huérfana y las facturas
+  // no saldrían a su nombre. Se reintenta explícitamente y, si tampoco cuela, se
+  // avisa en vez de dejar una cuenta de empresa a medias.
+  if (empresaId) {
+    const { error: vinculoError } = await supabase
+      .from("profiles")
+      .update({
+        empresa_id: empresaId,
+        documento: documentoDeLaPersona,
+        cargo_empresa: formData.cargoEmpresa || null,
+      })
+      .eq("id", authData.user.id)
+
+    if (vinculoError) {
+      return {
+        error:
+          "Tu cuenta se ha creado, pero no se ha podido vincular con la empresa. Inicia sesión y complétalo desde Mi Empresa.",
+      }
+    }
   }
 
   return { data: { success: true, user: authData.user } }
