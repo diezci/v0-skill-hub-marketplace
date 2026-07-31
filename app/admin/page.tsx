@@ -62,7 +62,9 @@ export default function AdminDashboard() {
       // Total usuarios
       const { count: usuarios } = await supabase
         .from("profiles")
-        .select("*", { count: "exact", head: true })
+        // `id` en vez de `*`: con las columnas personales revocadas, expandir `*`
+        // haría fallar la consulta aunque solo se quiera el recuento.
+        .select("id", { count: "exact", head: true })
 
       // Total profesionales
       const { count: profesionales } = await supabase

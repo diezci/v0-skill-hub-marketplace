@@ -19,8 +19,8 @@ export async function obtenerDatosContratacion(trabajoId: string) {
   }
 
   const [clienteR, profesionalR, proDatosR, ofertaR, solicitudR, escrowR] = await Promise.all([
-    supabase.from("profiles").select("nombre, apellido, email, ubicacion").eq("id", trabajo.cliente_id).maybeSingle(),
-    supabase.from("profiles").select("nombre, apellido, email, ubicacion").eq("id", trabajo.profesional_id).maybeSingle(),
+    supabase.from("profiles").select("nombre, apellido, ubicacion").eq("id", trabajo.cliente_id).maybeSingle(),
+    supabase.from("profiles").select("nombre, apellido, ubicacion").eq("id", trabajo.profesional_id).maybeSingle(),
     supabase.from("profesionales").select("titulo").eq("id", trabajo.profesional_id).maybeSingle(),
     trabajo.oferta_id
       ? supabase.from("ofertas").select("*").eq("id", trabajo.oferta_id).maybeSingle()
@@ -54,10 +54,19 @@ export async function obtenerDatosContratacion(trabajoId: string) {
   const esCliente = trabajo.cliente_id === user.id
   const esProfesional = trabajo.profesional_id === user.id
 
+  // El correo ya no se lee de `profiles` (ver scripts/043). Va por RPC, que solo
+  // responde a las partes del trabajo y a un admin: justo quienes llegan aquí.
+  const { data: contactos } = await supabase.rpc("contacto_perfiles", {
+    p_ids: [trabajo.cliente_id, trabajo.profesional_id],
+  })
+  const emailDe = (id: string) => (contactos as any[] | null)?.find((c) => c.id === id)?.email ?? null
+
   return {
     trabajo,
-    cliente: clienteR.data,
-    profesional: profesionalR.data,
+    cliente: clienteR.data ? { ...clienteR.data, email: emailDe(trabajo.cliente_id) } : clienteR.data,
+    profesional: profesionalR.data
+      ? { ...profesionalR.data, email: emailDe(trabajo.profesional_id) }
+      : profesionalR.data,
     tituloProfesional: proDatosR.data?.titulo ?? null,
     oferta: ofertaR.data,
     solicitud: solicitudR.data,

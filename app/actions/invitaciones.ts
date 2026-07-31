@@ -77,12 +77,15 @@ export async function buscarYEnviarInvitaciones(solicitudId: string) {
   }
 
   const zona = solicitud.ubicacion ? ` en ${solicitud.ubicacion}` : ""
+  const titulo = "Nueva demanda en tu área"
+  const mensaje = `Se ha publicado "${solicitud.titulo}" (${categoriaNombre})${zona}. Échale un vistazo y envía tu oferta.`
+
   const { error: insertError } = await supabase.from("notificaciones").insert(
     destinatarios.map((p) => ({
       usuario_id: p.id,
       tipo: "demanda_nueva",
-      titulo: "Nueva demanda en tu área",
-      mensaje: `Se ha publicado "${solicitud.titulo}" (${categoriaNombre})${zona}. Échale un vistazo y envía tu oferta.`,
+      titulo,
+      mensaje,
       link: "/demandas",
       leida: false,
     })),
@@ -90,6 +93,20 @@ export async function buscarYEnviarInvitaciones(solicitudId: string) {
 
   if (insertError) {
     return { error: insertError.message }
+  }
+
+  // Este aviso no pasa por `crearNotificacion` (es un alta masiva), así que el
+  // correo se manda aquí. En serie y sin cortar si uno falla: son pocos
+  // profesionales por demanda y así un rebote no deja al resto sin avisar.
+  const { enviarAvisoPorEmail } = await import("@/lib/emails/enviar")
+  for (const p of destinatarios) {
+    await enviarAvisoPorEmail({
+      usuarioId: p.id,
+      tipo: "demanda_nueva",
+      titulo,
+      mensaje,
+      link: "/demandas",
+    })
   }
 
   return {
