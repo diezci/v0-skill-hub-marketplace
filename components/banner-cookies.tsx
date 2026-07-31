@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Cookie } from "lucide-react"
+import { useT } from "@/components/idioma-provider"
 
 export const COOKIES_KEY = "diime_cookies_consentimiento"
 // Se avisa por evento para que la bienvenida no se solape con el banner: lo
@@ -26,6 +27,7 @@ export function consentimientoCookies(): ConsentimientoCookies | null {
 }
 
 export function BannerCookies() {
+  const t = useT()
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
@@ -54,10 +56,9 @@ export function BannerCookies() {
       <div className="container mx-auto max-w-4xl px-4 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
         <Cookie className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400 hidden sm:block" />
         <p className="text-sm text-muted-foreground flex-1">
-          Usamos cookies necesarias para que Diime funcione (mantener tu sesión, por ejemplo). Nos gustaría usar además
-          cookies opcionales para entender cómo se usa la web.{" "}
+          {t("cookies.texto")}{" "}
           <Link href="/legal/cookies" className="underline underline-offset-2 hover:text-foreground">
-            Más información
+            {t("cookies.masInfo")}
           </Link>
           .
         </p>
@@ -65,14 +66,14 @@ export function BannerCookies() {
             sea tan fácil como aceptar. */}
         <div className="flex gap-2 shrink-0">
           <Button variant="outline" size="sm" className="flex-1 sm:flex-none bg-transparent" onClick={() => decidir("rechazadas")}>
-            Solo las necesarias
+            {t("cookies.soloNecesarias")}
           </Button>
           <Button
             size="sm"
             className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700"
             onClick={() => decidir("aceptadas")}
           >
-            Aceptar todas
+            {t("cookies.aceptarTodas")}
           </Button>
         </div>
       </div>

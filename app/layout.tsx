@@ -5,6 +5,8 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AppChrome } from "@/components/app-chrome"
 import { Toaster } from "@/components/ui/toaster"
+import { IdiomaProvider } from "@/components/idioma-provider"
+import { idiomaActual } from "@/lib/i18n-servidor"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-space" })
@@ -31,19 +33,26 @@ export const viewport: Viewport = {
   ],
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // El idioma se resuelve aquí, en el servidor, y baja al árbol de cliente por
+  // el provider: así el HTML ya sale traducido y `lang` es correcto para
+  // lectores de pantalla y buscadores.
+  const idioma = await idiomaActual()
+
   return (
-    <html lang="es" suppressHydrationWarning className={`${inter.variable} ${spaceGrotesk.variable} bg-background`}>
+    <html lang={idioma} suppressHydrationWarning className={`${inter.variable} ${spaceGrotesk.variable} bg-background`}>
       <body className="font-sans antialiased">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-          <div className="flex flex-col min-h-screen">
-            <AppChrome>{children}</AppChrome>
-          </div>
-          <Toaster />
+          <IdiomaProvider idioma={idioma}>
+            <div className="flex flex-col min-h-screen">
+              <AppChrome>{children}</AppChrome>
+            </div>
+            <Toaster />
+          </IdiomaProvider>
         </ThemeProvider>
       </body>
     </html>

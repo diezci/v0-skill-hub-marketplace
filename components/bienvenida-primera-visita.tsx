@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Check, ShieldCheck } from "lucide-react"
 import { COOKIES_EVENTO, consentimientoCookies } from "@/components/banner-cookies"
+import { useT } from "@/components/idioma-provider"
 
 const VISTA_KEY = "diime_bienvenida_vista"
 
@@ -18,31 +19,22 @@ const LADOS = [
     id: "cliente",
     imagen: "/woman-middle-age.jpg",
     alt: "Clienta sonriendo",
-    etiqueta: "Necesito un servicio",
-    ventajas: [
-      "Publicas gratis y recibes varias ofertas con precio y plazo.",
-      "Profesionales verificados de tu provincia y especialidad.",
-      "Pagas protegido: el dinero queda en custodia hasta que confirmes.",
-      "Si algo no encaja, media el equipo de Diime.",
-    ],
-    cta: { texto: "Publicar una demanda", href: "/" },
+    etiqueta: "bienvenida.cliente.etiqueta",
+    ventajas: ["bienvenida.cliente.1", "bienvenida.cliente.2", "bienvenida.cliente.3", "bienvenida.cliente.4"],
+    cta: { texto: "bienvenida.cliente.cta", href: "/" },
   },
   {
     id: "profesional",
     imagen: "/contractor-man.jpg",
     alt: "Profesional de la construcción en una obra",
-    etiqueta: "Soy profesional",
-    ventajas: [
-      "Más mercado: demandas de tu especialidad y tu zona, sin buscarlas.",
-      "Cobro asegurado: el cliente paga antes de que empieces.",
-      "Gestionas todos tus proyectos, entregas y mensajes en un sitio.",
-      "Pujar es gratis.",
-    ],
-    cta: { texto: "Crear perfil profesional", href: "/convertirse-profesional" },
+    etiqueta: "bienvenida.pro.etiqueta",
+    ventajas: ["bienvenida.pro.1", "bienvenida.pro.2", "bienvenida.pro.3", "bienvenida.pro.4"],
+    cta: { texto: "bienvenida.pro.cta", href: "/convertirse-profesional" },
   },
 ]
 
 export function BienvenidaPrimeraVisita() {
+  const t = useT()
   const [abierto, setAbierto] = useState(false)
   const pathname = usePathname()
 
@@ -83,11 +75,8 @@ export function BienvenidaPrimeraVisita() {
     <Dialog open={abierto} onOpenChange={(o) => !o && cerrar()}>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl">Bienvenido a Diime</DialogTitle>
-          <DialogDescription>
-            Conectamos a quien necesita un servicio con profesionales verificados, con el pago protegido de principio
-            a fin.
-          </DialogDescription>
+          <DialogTitle className="text-2xl">{t("bienvenida.titulo")}</DialogTitle>
+          <DialogDescription>{t("bienvenida.subtitulo")}</DialogDescription>
         </DialogHeader>
 
         <div className="grid sm:grid-cols-2 gap-4">
@@ -98,7 +87,7 @@ export function BienvenidaPrimeraVisita() {
                 <img src={lado.imagen} alt={lado.alt} className="absolute inset-0 h-full w-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
                 <p className="absolute bottom-2 left-3 right-3 text-white font-semibold drop-shadow">
-                  {lado.etiqueta}
+                  {t(lado.etiqueta)}
                 </p>
               </div>
 
@@ -106,7 +95,7 @@ export function BienvenidaPrimeraVisita() {
                 {lado.ventajas.map((v) => (
                   <li key={v} className="flex gap-2 text-sm text-muted-foreground">
                     <Check className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
-                    <span className="leading-snug">{v}</span>
+                    <span className="leading-snug">{t(v)}</span>
                   </li>
                 ))}
               </ul>
@@ -118,7 +107,7 @@ export function BienvenidaPrimeraVisita() {
                   className={lado.id === "cliente" ? "w-full bg-emerald-600 hover:bg-emerald-700" : "w-full bg-transparent"}
                   onClick={cerrar}
                 >
-                  <Link href={lado.cta.href}>{lado.cta.texto}</Link>
+                  <Link href={lado.cta.href}>{t(lado.cta.texto)}</Link>
                 </Button>
               </div>
             </div>
@@ -127,7 +116,7 @@ export function BienvenidaPrimeraVisita() {
 
         <p className="text-xs text-muted-foreground flex items-center justify-center gap-1.5">
           <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-          El pago se retiene en custodia y solo se libera cuando el cliente confirma el trabajo.
+          {t("bienvenida.pie")}
         </p>
       </DialogContent>
     </Dialog>
