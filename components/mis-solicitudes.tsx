@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { formatearPrecioEuros, formatearRangoPresupuesto } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
@@ -22,7 +22,7 @@ import { obtenerSolicitudesPorUsuario, actualizarSolicitud, eliminarSolicitud } 
 import { aceptarOferta, rechazarOferta } from "@/app/actions/ofertas"
 import { crearConversacion } from "@/app/actions/messages"
 import { liberarFondosEscrow } from "@/app/actions/escrow"
-import { rechazarEntrega } from "@/app/actions/disputes"
+import { rechazarEntrega, obtenerMisDisputas } from "@/app/actions/disputes"
 import { obtenerMisTrabajos, actualizarProgresoTrabajo, marcarTrabajoEntregado, confirmarTrabajoCompletado } from "@/app/actions/trabajos"
 import { crearResena } from "@/app/actions/reviews"
 import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
@@ -58,6 +58,9 @@ const cnCard = (base: string, activa: boolean) =>
 
 export default function MisSolicitudes() {
   const [activeTab, setActiveTab] = useState("solicitudes")
+  // Lo reporta <MisDisputas onCount>. null = aún cargando, para no enseñar un 0
+  // que luego cambie.
+  const [disputasCount, setDisputasCount] = useState<number | null>(null)
   const [solicitudes, setSolicitudes] = useState<any[]>([])
   const [trabajos, setTrabajos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -162,10 +165,15 @@ export default function MisSolicitudes() {
     async function cargarDatos(inicial: boolean) {
       if (inicial) setLoading(true)
 
-      const [solicitudesResult, trabajosResult] = await Promise.all([
+      const [solicitudesResult, trabajosResult, disputasResult] = await Promise.all([
         obtenerSolicitudesPorUsuario(),
-        obtenerMisTrabajos()
+        obtenerMisTrabajos(),
+        // El contador de la tarjeta de Disputas tiene que estar desde el
+        // principio: <MisDisputas> solo se monta al abrir esa pestaña, así que
+        // no puede ser quien lo alimente la primera vez.
+        obtenerMisDisputas(),
       ])
+      setDisputasCount((disputasResult.data || []).length)
 
       // Solo datos reales (aunque estén vacíos): nada de datos de ejemplo.
       setSolicitudes(solicitudesResult.data || [])
@@ -372,9 +380,10 @@ export default function MisSolicitudes() {
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards: mismos estados (y orden) que las pestañas, y clicables
-          para saltar directamente a la pestaña correspondiente. */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Estas tarjetas SON la navegación: cada una salta a su pestaña. Antes
+          había además una barra de pestañas debajo con exactamente los mismos
+          cinco destinos, que solo duplicaba esto. */}
+      <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-4">
         <button type="button" className="text-left" onClick={() => setActiveTab("solicitudes")}>
         <Card
           className={cnCard(
@@ -462,38 +471,35 @@ export default function MisSolicitudes() {
           </CardContent>
         </Card>
         </button>
+
+        {/* Disputas: sin esta tarjeta no habría forma cómoda de llegar a las
+            disputas de mis demandas, que es justo lo que se quiere mirar
+            rápido cuando hay una abierta. */}
+        <button type="button" className="text-left" onClick={() => setActiveTab("disputas")}>
+        <Card
+          className={cnCard(
+            "bg-gradient-to-br from-rose-500/10 to-rose-600/5 border-rose-500/20",
+            activeTab === "disputas",
+          )}
+        >
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Disputas</p>
+                <p className="text-3xl font-bold">{disputasCount ?? "—"}</p>
+                <p className="text-xs text-muted-foreground">en curso</p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-rose-500/20 flex items-center justify-center">
+                <Scale className="h-6 w-6 text-rose-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        </button>
       </div>
 
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 h-auto">
-          <TabsTrigger value="solicitudes" className="gap-2">
-            <FileText className="h-4 w-4" />
-            Abiertas
-          </TabsTrigger>
-          <TabsTrigger value="en-progreso" className="gap-2">
-            <Loader2 className="h-4 w-4" />
-            En Progreso
-          </TabsTrigger>
-          <TabsTrigger value="por-confirmar" className="gap-2">
-            <Package className="h-4 w-4" />
-            Por Confirmar
-            {solicitudesPorConfirmar.length > 0 && (
-              <span className="h-4 min-w-4 px-1 rounded-full bg-purple-500 text-white text-[10px] font-bold flex items-center justify-center">
-                {solicitudesPorConfirmar.length}
-              </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="historial" className="gap-2">
-            <CheckCircle2 className="h-4 w-4" />
-            Historial
-          </TabsTrigger>
-          <TabsTrigger value="disputas" className="gap-2">
-            <Scale className="h-4 w-4" />
-            Disputas
-          </TabsTrigger>
-        </TabsList>
-
         {/* Solicitudes Tab */}
         <TabsContent value="solicitudes" className="space-y-4">
           {solicitudesPendientes.length === 0 ? (
@@ -1113,7 +1119,7 @@ export default function MisSolicitudes() {
         {/* Seguimiento de disputas: las que ha abierto el cliente y las que el
             profesional ha abierto contra él. */}
         <TabsContent value="disputas" className="space-y-4">
-          <MisDisputas rol="cliente" />
+          <MisDisputas rol="cliente" onCount={setDisputasCount} />
         </TabsContent>
       </Tabs>
 
