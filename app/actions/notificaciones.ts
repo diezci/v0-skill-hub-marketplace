@@ -21,7 +21,7 @@ export async function crearNotificacion(params: {
   // No notificarse a uno mismo.
   if (params.usuarioId === user.id) return
 
-  await supabase.from("notificaciones").insert({
+  const { error } = await supabase.from("notificaciones").insert({
     usuario_id: params.usuarioId,
     tipo: params.tipo,
     titulo: params.titulo,
@@ -29,6 +29,32 @@ export async function crearNotificacion(params: {
     link: params.link ?? null,
     leida: false,
   })
+  if (error) return
+
+  // El mismo aviso, por correo, si es de los que lo merecen. Va aquí porque es
+  // el paso por el que ya pasan casi todos los avisos. `enviarAvisoPorEmail` no
+  // lanza nunca: si no hay correo configurado o Resend falla, el aviso de la
+  // web ya está guardado y la acción que lo provocó sigue adelante.
+  const { enviarAvisoPorEmail } = await import("@/lib/emails/enviar")
+  await enviarAvisoPorEmail(params)
+}
+
+// Activa o desactiva los avisos por correo. Los avisos se siguen viendo en la
+// web: esto solo decide si además se mandan por email.
+export async function actualizarPreferenciaEmails(activo: boolean) {
+  const supabase = await createClient()
+  if (!supabase) return { error: "Base de datos no disponible" }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { error } = await supabase.from("profiles").update({ email_notificaciones: activo }).eq("id", user.id)
+  if (error) return { error: error.message }
+
+  revalidatePath("/mi-cuenta")
+  return { success: true }
 }
 
 // Resumen para el navbar: últimas notificaciones, cuántas sin leer (total y por

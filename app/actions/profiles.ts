@@ -49,7 +49,7 @@ export async function obtenerProfesionalPorId(id: string) {
     .from("profesionales")
     .select(`
       *,
-      perfil:profiles(nombre, apellido, ubicacion, foto_perfil, foto_portada, email, telefono)
+      perfil:profiles(nombre, apellido, ubicacion, foto_perfil, foto_portada)
     `)
     .eq("id", id)
     .single()
@@ -73,9 +73,15 @@ export async function obtenerProfesionalPorId(id: string) {
     .eq("profesional_id", id)
     .order("created_at", { ascending: false })
 
+  // El teléfono ya no se puede leer de `profiles`. El botón "Llamar" de la ficha
+  // sigue funcionando vía RPC, que solo lo devuelve si esa persona está dada de
+  // alta como profesional (es decir, lo publica para que le llamen).
+  const { data: telefono } = await supabase.rpc("telefono_publico", { p_id: id })
+
   return {
     data: {
       ...profesional,
+      perfil: profesional.perfil ? { ...profesional.perfil, telefono: telefono ?? null } : profesional.perfil,
       portfolio: portfolio || [],
       reviews: reviews || [],
     },
@@ -230,11 +236,22 @@ export async function obtenerPerfilActual() {
     return { error: "No autenticado" }
   }
 
-  const { data: profile, error: profileError } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+  // Sin `select("*")`: email, teléfono y documento ya no son legibles
+  // directamente en `profiles` (ver scripts/043). Los propios se piden por RPC.
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select(
+      "id, nombre, apellido, foto_perfil, foto_portada, ubicacion, bio, tipo_usuario, verificado, fecha_registro, ultima_conexion, created_at, updated_at, es_admin, empresa_id, cargo_empresa",
+    )
+    .eq("id", user.id)
+    .single()
 
   if (profileError) {
     return { error: profileError.message }
   }
+
+  const { data: contacto } = await supabase.rpc("contacto_perfiles", { p_ids: [user.id] })
+  const mio = (contacto as any[] | null)?.[0] ?? null
 
   const { data: profesional } = await supabase.from("profesionales").select("*").eq("id", user.id).single()
 
@@ -247,6 +264,9 @@ export async function obtenerPerfilActual() {
   return {
     data: {
       ...profile,
+      email: mio?.email ?? user.email ?? null,
+      telefono: mio?.telefono ?? null,
+      documento: mio?.documento ?? null,
       profesional: normalizedProfesional,
     },
   }
