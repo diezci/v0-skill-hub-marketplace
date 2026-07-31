@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 const GOOGLE_OAUTH_ENABLED = true
 
@@ -64,6 +64,13 @@ export default function RegistroPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  // /convertirse-profesional manda aquí a quien aún no tiene cuenta: primero el
+  // registro normal y después el perfil profesional. Se lee de la URL sin
+  // useSearchParams para no forzar una frontera de Suspense en esta página.
+  const [quiereSerProfesional, setQuiereSerProfesional] = useState(false)
+  useEffect(() => {
+    setQuiereSerProfesional(new URLSearchParams(window.location.search).get("siguiente") === "profesional")
+  }, [])
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -126,7 +133,9 @@ export default function RegistroPage() {
         throw new Error(result.error)
       }
 
-      router.push("/auth/registro-exitoso")
+      // Si venía de "quiero ser profesional", se arrastra la intención para
+      // invitarle a completar su perfil profesional nada más registrarse.
+      router.push(quiereSerProfesional ? "/auth/registro-exitoso?siguiente=profesional" : "/auth/registro-exitoso")
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "Error al crear la cuenta")
     } finally {
