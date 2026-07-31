@@ -103,7 +103,9 @@ async function obtenerMapaPerfiles(supabase: any, clienteIds: (string | null)[])
 
   const { data } = await supabase
     .from("profiles")
-    .select("id, nombre, apellido, ubicacion, telefono, email, foto_perfil")
+    // Sin teléfono ni email: estas fichas acompañan a listados de demandas que
+    // ve cualquiera, y el contacto del cliente no tiene por qué viajar ahí.
+    .select("id, nombre, apellido, ubicacion, foto_perfil")
     .in("id", ids)
   const mapa: Record<string, any> = {}
   for (const p of data || []) {

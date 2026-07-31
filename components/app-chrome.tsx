@@ -6,6 +6,7 @@ import Navbar from "@/components/navbar"
 import Footer from "@/components/footer"
 import { ChatWidget } from "@/components/chat-widget"
 import { BienvenidaPrimeraVisita } from "@/components/bienvenida-primera-visita"
+import { BannerCookies } from "@/components/banner-cookies"
 
 // El panel de administración (/admin) tiene su propio layout completo con barra
 // lateral. Allí no mostramos el navbar/footer/chat público ni el padding del
@@ -27,6 +28,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
       <main className="flex-1 pt-16">{children}</main>
       <Footer />
       <ChatWidget />
+      <BannerCookies />
     </>
   )
 }

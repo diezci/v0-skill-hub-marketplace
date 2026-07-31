@@ -49,6 +49,20 @@ export async function rechazarYNotificarOfertasPerdedoras(
 
   if (avisos.length > 0) {
     await supabase.from("notificaciones").insert(avisos)
+
+    // Alta masiva: no pasa por `crearNotificacion`, así que el correo se manda
+    // aquí. Quien ha dedicado tiempo a preparar una oferta merece enterarse sin
+    // tener que entrar a mirar.
+    const { enviarAvisoPorEmail } = await import("@/lib/emails/enviar")
+    for (const aviso of avisos) {
+      await enviarAvisoPorEmail({
+        usuarioId: aviso.usuario_id,
+        tipo: aviso.tipo,
+        titulo: aviso.titulo,
+        mensaje: aviso.mensaje,
+        link: aviso.link,
+      })
+    }
   }
 
   return { notificadas: avisos.length }

@@ -66,7 +66,6 @@ export default async function ProfilePage({
     foto_perfil: profile.perfil?.foto_perfil || "",
     foto_portada: profile.perfil?.foto_portada || "",
     telefono: profile.perfil?.telefono || "",
-    email: profile.perfil?.email || "",
     rating: profile.rating_promedio || 0,
     total_reviews: profile.total_reviews || 0,
     proyectos_completados: profile.proyectos_completados || 0,
