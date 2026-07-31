@@ -59,18 +59,19 @@ export async function registrarUsuario(formData: {
 
   if (formData.tipoEntidad === "empresa") {
     if (formData.tokenInvitacion) {
-      // Join existing company using invitation token
-      const { data: empresa, error: empresaError } = await supabase
-        .from("empresas")
-        .select("id")
-        .eq("token_invitacion", formData.tokenInvitacion)
-        .single()
+      // Unirse a una empresa existente con el token de invitación. Va por RPC
+      // porque `empresas` tiene RLS: quien usa el token todavía no es su
+      // propietario, así que no puede leer la tabla. La función devuelve solo
+      // el id de la empresa cuyo token coincide (nunca el CIF ni otros tokens).
+      const { data: empresaIdPorToken, error: empresaError } = await supabase.rpc("empresa_id_por_token", {
+        p_token: formData.tokenInvitacion,
+      })
 
-      if (empresaError || !empresa) {
+      if (empresaError || !empresaIdPorToken) {
         return { error: "Token de invitación inválido" }
       }
 
-      empresaId = empresa.id
+      empresaId = empresaIdPorToken as string
     } else if (formData.nombreEmpresa) {
       // Create new company
       const { data: newEmpresa, error: empresaError } = await supabase
