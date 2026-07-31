@@ -238,6 +238,22 @@ export const GRUPOS_CATEGORIAS_IDS = GRUPOS_CATEGORIAS.map((g) => ({
   categorias: g.subcategorias.map((s) => ({ id: slugify(s.nombre), label: s.nombre })),
 }))
 
+// Las categorías principales en formato {id, label}, para los atajos del
+// homepage y para traducir el ?categoria= de la URL.
+export const CATEGORIAS_PRINCIPALES = TAXONOMIA_SERVICIOS.map((cat) => ({
+  id: slugify(cat.nombre),
+  label: cat.nombre,
+}))
+
+// Ids de todas las subcategorías que cuelgan de una categoría principal, dado
+// su slug. Es lo que necesita el filtro de /profesionales, que trabaja con
+// subcategorías: pinchar "Exteriores y jardín" marca las 6 que contiene.
+export function subcategoriaIdsDeCategoriaPrincipal(slugCategoria: string): string[] {
+  const cat = TAXONOMIA_SERVICIOS.find((c) => slugify(c.nombre) === slugCategoria)
+  if (!cat) return []
+  return cat.bloques.flatMap((b) => b.subcategorias.map((s) => slugify(s.nombre)))
+}
+
 // Categoría principal a la que pertenece una subcategoría (por nombre).
 export function categoriaPrincipalDe(subcategoria: string): string | null {
   for (const cat of TAXONOMIA_SERVICIOS) {

@@ -10,7 +10,7 @@ import { Slider } from "@/components/ui/slider"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent } from "@/components/ui/tabs"
 import {
   Clock,
   CheckCircle2,
@@ -66,7 +66,6 @@ import { createClient } from "@/lib/supabase/client"
 import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
 import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
 import MisDisputas from "@/components/mis-disputas"
-import { obtenerMisDisputas } from "@/app/actions/disputes"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
 import { calcularPagoProveedor, PLATFORM_CONFIG } from "@/lib/comisiones"
 
@@ -119,7 +118,6 @@ export default function MisTrabajosPage() {
   const [loading, setLoading] = useState(true)
   // Pestaña activa controlada: las tarjetas-resumen también la seleccionan.
   const [activeTab, setActiveTab] = useState("activos")
-  const [nDisputas, setNDisputas] = useState<number | null>(null)
   const [selectedTrabajo, setSelectedTrabajo] = useState<any>(null)
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false)
   const [deliveryDialogOpen, setDeliveryDialogOpen] = useState(false)
@@ -133,10 +131,6 @@ export default function MisTrabajosPage() {
 
   useEffect(() => {
     loadTrabajos()
-
-    // El total de disputas para el contador de la pestaña, sin esperar a que el
-    // usuario la abra (MisDisputas solo se monta al activarla).
-    obtenerMisDisputas().then((res) => setNDisputas((res.data || []).length))
 
     // Refresco en vivo: cancelaciones, pagos y confirmaciones del cliente
     // aparecen sin recargar la página.
@@ -275,6 +269,7 @@ export default function MisTrabajosPage() {
   const trabajosEnProgreso = trabajos.filter((t) => t.estado === "en_progreso")
   const trabajosEntregados = trabajos.filter((t) => t.estado === "entregado")
   const trabajosCompletados = trabajos.filter((t) => t.estado === "completado")
+  const trabajosEnDisputa = trabajos.filter((t) => t.estado === "en_disputa")
 
   // Importes NETOS para el proveedor (tras la comisión del 5% de la plataforma).
   const netoDe = (t: any) =>
@@ -286,6 +281,9 @@ export default function MisTrabajosPage() {
     .reduce((sum, t) => sum + netoDe(t), 0)
   // Total neto (a cobrar) de los trabajos activos (ya pagados y en curso).
   const totalActivosNeto = trabajosEnProgreso.reduce((sum, t) => sum + netoDe(t), 0)
+  // Dinero retenido por una disputa abierta: es lo que está en juego mientras
+  // Diime decide, y lo primero que se quiere ver de un vistazo.
+  const totalEnDisputa = trabajosEnDisputa.reduce((sum, t) => sum + netoDe(t), 0)
 
   if (loading) {
     return (
@@ -306,9 +304,10 @@ export default function MisTrabajosPage() {
           </p>
         </div>
 
-        {/* Summary Cards: mismos estados (y orden) que las pestañas de abajo,
-            y clicables para saltar a la pestaña correspondiente. */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-8">
+        {/* Estas tarjetas SON la navegación: cada una salta a su pestaña. Antes
+            había además una barra de pestañas debajo con los mismos cuatro
+            destinos, que solo duplicaba esto. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-8">
           <button type="button" className="text-left" onClick={() => setActiveTab("activos")}>
             <Card
               className={`w-full border-blue-500/20 bg-blue-500/5 transition hover:shadow-md ${
@@ -379,31 +378,37 @@ export default function MisTrabajosPage() {
               </CardContent>
             </Card>
           </button>
+
+          {/* Disputas: en euros, porque lo que importa es cuánto dinero está
+              retenido mientras se resuelve, no solo cuántos expedientes hay. */}
+          <button type="button" className="text-left" onClick={() => setActiveTab("disputas")}>
+            <Card
+              className={`w-full border-rose-500/20 bg-rose-500/5 transition hover:shadow-md ${
+                activeTab === "disputas" ? "ring-2 ring-primary/50" : ""
+              }`}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-rose-500/10">
+                    <Scale className="h-5 w-5 text-rose-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">En disputa · retenido</p>
+                    <p className="text-2xl font-bold">{formatCurrency(totalEnDisputa)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {trabajosEnDisputa.length} trabajo{trabajosEnDisputa.length !== 1 ? "s" : ""} en disputa
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </button>
         </div>
 
         {/* Two-column layout: jobs list on left, calendar on right */}
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-6">
           {/* Left column: Tabs with job lists */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="bg-muted/50 grid w-full grid-cols-2 sm:grid-cols-4 h-auto">
-              <TabsTrigger value="activos" className="gap-2">
-                <Briefcase className="h-4 w-4" />
-                Activos ({trabajosEnProgreso.length})
-              </TabsTrigger>
-              <TabsTrigger value="entregados" className="gap-2">
-                <Package className="h-4 w-4" />
-                Entregados ({trabajosEntregados.length})
-              </TabsTrigger>
-              <TabsTrigger value="completados" className="gap-2">
-                <CheckCircle2 className="h-4 w-4" />
-                Completados ({trabajosCompletados.length})
-              </TabsTrigger>
-              <TabsTrigger value="disputas" className="gap-2">
-                <Scale className="h-4 w-4" />
-                Disputas{nDisputas !== null ? ` (${nDisputas})` : ""}
-              </TabsTrigger>
-            </TabsList>
-
           {/* Active Jobs */}
           <TabsContent value="activos" className="space-y-4">
             {trabajosEnProgreso.length === 0 ? (
@@ -487,7 +492,7 @@ export default function MisTrabajosPage() {
           {/* Seguimiento de disputas: las que ha abierto el profesional y las
               que el cliente ha abierto contra él. */}
           <TabsContent value="disputas" className="space-y-4">
-            <MisDisputas rol="proveedor" onCount={setNDisputas} />
+            <MisDisputas rol="proveedor" />
           </TabsContent>
           </Tabs>
 
