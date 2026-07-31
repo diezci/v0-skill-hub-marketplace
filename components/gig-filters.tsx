@@ -1,7 +1,6 @@
 "use client"
 
 import { Card, CardContent } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
@@ -21,21 +20,6 @@ const ID_A_NOMBRE: Record<string, string> = Object.fromEntries(CATEGORIAS_SERVIC
 const NOMBRE_A_ID: Record<string, string> = Object.fromEntries(CATEGORIAS_SERVICIO.map((c) => [c.label, c.id]))
 
 
-const levels = [
-  { id: "any", label: "Cualquier Nivel" },
-  { id: "certificado", label: "Profesional Certificado" },
-  { id: "experto", label: "Experto Verificado" },
-  { id: "maestro", label: "Maestro Artesano" },
-]
-
-const radios = [
-  { id: "5", label: "Menos de 5 km" },
-  { id: "10", label: "Menos de 10 km" },
-  { id: "25", label: "Menos de 25 km" },
-  { id: "50", label: "Menos de 50 km" },
-  { id: "any", label: "Toda la provincia" },
-]
-
 interface GigFiltersProps {
   filtros: ProfesionalesFiltros
   onChange: (cambios: Partial<ProfesionalesFiltros>) => void
@@ -51,14 +35,6 @@ const GigFilters = ({ filtros, onChange, onReset }: GigFiltersProps) => {
     })
   }
 
-  const handleLevelChange = (levelId: string) => {
-    onChange({
-      niveles: filtros.niveles.includes(levelId)
-        ? filtros.niveles.filter((id) => id !== levelId)
-        : [...filtros.niveles, levelId],
-    })
-  }
-
   return (
     <Card className="sticky top-24">
       <CardContent className="p-6">
@@ -70,7 +46,7 @@ const GigFilters = ({ filtros, onChange, onReset }: GigFiltersProps) => {
         </div>
 
         <div className="space-y-6">
-          <Accordion type="multiple" defaultValue={["category", "ubicacion", "price", "level"]}>
+          <Accordion type="multiple" defaultValue={["category", "ubicacion", "price"]}>
             <AccordionItem value="search">
               <AccordionTrigger>Buscar</AccordionTrigger>
               <AccordionContent>
@@ -107,21 +83,6 @@ const GigFilters = ({ filtros, onChange, onReset }: GigFiltersProps) => {
                         {PROVINCIAS_ES.map((p) => (
                           <SelectItem key={p} value={p}>
                             {p}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">Radio de búsqueda</label>
-                    <Select value={filtros.radio} onValueChange={(v) => onChange({ radio: v })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona radio" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {radios.map((r) => (
-                          <SelectItem key={r.id} value={r.id}>
-                            {r.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -167,26 +128,6 @@ const GigFilters = ({ filtros, onChange, onReset }: GigFiltersProps) => {
                   value={[filtros.precioMin, filtros.precioMax]}
                   onChange={([min, max]) => onChange({ precioMin: min, precioMax: max })}
                 />
-              </AccordionContent>
-            </AccordionItem>
-
-            <AccordionItem value="level">
-              <AccordionTrigger>Nivel Profesional</AccordionTrigger>
-              <AccordionContent>
-                <div className="space-y-2">
-                  {levels.map((level) => (
-                    <div key={level.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`level-${level.id}`}
-                        checked={filtros.niveles.includes(level.id)}
-                        onCheckedChange={() => handleLevelChange(level.id)}
-                      />
-                      <label htmlFor={`level-${level.id}`} className="text-sm cursor-pointer">
-                        {level.label}
-                      </label>
-                    </div>
-                  ))}
-                </div>
               </AccordionContent>
             </AccordionItem>
           </Accordion>

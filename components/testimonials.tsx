@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Star, ChevronLeft, ChevronRight, Quote } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useT } from "@/components/idioma-provider"
 
 const testimonials = [
   {
@@ -46,6 +47,7 @@ const testimonials = [
 ]
 
 const Testimonials = () => {
+  const traducir = useT()
   const [current, setCurrent] = useState(0)
 
   // Auto-rotate every 7 seconds
@@ -68,9 +70,9 @@ const Testimonials = () => {
           Testimonios
         </span>
         <h2 className="text-3xl md:text-4xl font-bold mb-3 tracking-tight text-balance">
-          Lo que dicen quienes ya nos usan
+          {traducir("testimonios.titulo")}
         </h2>
-        <p className="text-muted-foreground text-lg">Miles de clientes y profesionales confian en Diime cada dia</p>
+        <p className="text-muted-foreground text-lg">{traducir("testimonios.subtitulo")}</p>
       </div>
 
       <div className="max-w-3xl mx-auto relative">
