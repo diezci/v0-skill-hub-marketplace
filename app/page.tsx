@@ -7,14 +7,17 @@ import CtaSection from "@/components/cta-section"
 import { CheckCircle2, Users, Star, Shield } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { getT } from "@/lib/i18n-servidor"
 
-const trustStats = [
-  { value: "5,000+", label: "Profesionales", icon: Users },
-  { value: "4.9", label: "Valoracion media", icon: Star },
-  { value: "100%", label: "Pagos seguros", icon: Shield },
-]
+export default async function Home() {
+  const { t } = await getT()
 
-export default function Home() {
+  const trustStats = [
+    { value: "5,000+", label: t("home.stat.profesionales"), icon: Users },
+    { value: "4.9", label: t("home.stat.valoracion"), icon: Star },
+    { value: "100%", label: t("home.stat.pagos"), icon: Shield },
+  ]
+
   return (
     <div className="flex flex-col">
       {/* Hero Section with embedded form */}
@@ -29,19 +32,18 @@ export default function Home() {
             {/* Badge */}
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium mb-6 border border-primary/20">
               <CheckCircle2 className="h-3.5 w-3.5" />
-              Profesionales verificados en toda España
+              {t("home.badge")}
             </div>
 
             {/* Headline */}
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 tracking-tight text-balance leading-[1.05]">
-              Publica tu <span className="gradient-text">demanda</span>
-              <br className="hidden md:block" /> y recibe ofertas en minutos
+              {t("home.titulo1")} <span className="gradient-text">{t("home.tituloResaltado")}</span>
+              <br className="hidden md:block" /> {t("home.titulo2")}
             </h1>
 
             {/* Subheadline */}
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto text-pretty">
-              Describe lo que necesitas y conecta con profesionales cualificados al instante. Rapido, seguro y sin
-              complicaciones.
+              {t("home.subtitulo")}
             </p>
           </div>
 

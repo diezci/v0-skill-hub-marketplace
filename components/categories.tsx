@@ -5,6 +5,7 @@ import { ArrowRight, Hammer, House, Trees, Car, Laptop, PartyPopper, Shirt, Layo
 import type { LucideIcon } from "lucide-react"
 import Link from "next/link"
 import { TAXONOMIA_SERVICIOS } from "@/lib/categorias"
+import { useT } from "@/components/idioma-provider"
 
 // Atajos del homepage. Se DERIVAN de lib/categorias.ts en vez de escribirse a
 // mano: antes había aquí 9 subcategorías sueltas ("Albañilería", "Fontanería"…)
@@ -49,20 +50,20 @@ const categorias = TAXONOMIA_SERVICIOS.map((cat) => {
 })
 
 const Categories = () => {
+  const t = useT()
+
   return (
     <section className="container mx-auto px-4 py-16 md:py-20">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
         <div className="max-w-xl">
-          <h2 className="text-3xl md:text-4xl font-bold mb-3 tracking-tight text-balance">Explora por especialidad</h2>
-          <p className="text-muted-foreground text-lg">
-            Encuentra al profesional adecuado para cualquier tipo de servicio
-          </p>
+          <h2 className="text-3xl md:text-4xl font-bold mb-3 tracking-tight text-balance">{t("categorias.titulo")}</h2>
+          <p className="text-muted-foreground text-lg">{t("categorias.subtitulo")}</p>
         </div>
         <Link
           href="/profesionales"
           className="text-sm font-medium text-primary hover:gap-3 transition-all flex items-center gap-2 self-start md:self-auto"
         >
-          Ver todos los profesionales
+          {t("categorias.verTodos")}
           <ArrowRight className="h-4 w-4" />
         </Link>
       </div>
@@ -81,7 +82,7 @@ const Categories = () => {
                 <h3 className="font-semibold text-base mb-1 leading-tight">{cat.nombre}</h3>
                 <p className="text-xs text-muted-foreground leading-snug line-clamp-2">{cat.ejemplos}</p>
                 <p className="text-[11px] text-muted-foreground/70 mt-2">
-                  {cat.total} servicio{cat.total !== 1 ? "s" : ""}
+                  {cat.total} {cat.total !== 1 ? t("categorias.servicios") : t("categorias.servicio")}
                 </p>
               </Card>
             </Link>

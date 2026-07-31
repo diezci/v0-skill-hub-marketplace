@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Star, MapPin, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
 import { obtenerProfesionalesDestacados } from "@/app/actions/profiles"
+import { useT } from "@/components/idioma-provider"
 
 interface FeaturedGig {
   id: string
@@ -142,6 +143,7 @@ const GigCard = ({ gig }: { gig: FeaturedGig }) => (
 )
 
 const FeaturedGigs = () => {
+  const t = useT()
   const [gigs, setGigs] = useState<FeaturedGig[]>(fallbackGigs)
   const [loading, setLoading] = useState(true)
 
@@ -183,8 +185,8 @@ const FeaturedGigs = () => {
     <section className="container mx-auto px-4 py-16">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h2 className="text-2xl md:text-3xl font-bold mb-2">Profesionales destacados</h2>
-          <p className="text-muted-foreground">Los mejor valorados por nuestros clientes</p>
+          <h2 className="text-2xl md:text-3xl font-bold mb-2">{t("destacados.titulo")}</h2>
+          <p className="text-muted-foreground">{t("destacados.subtitulo")}</p>
         </div>
         <Link
           href="/profesionales"
