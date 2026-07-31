@@ -1,15 +1,14 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import GigFilters from "@/components/gig-filters"
 import GigListing from "@/components/gig-listing"
+import { subcategoriaIdsDeCategoriaPrincipal } from "@/lib/categorias"
 
 export type ProfesionalesFiltros = {
   search: string
   provincia: string
-  radio: string
   categorias: string[]
-  niveles: string[]
   precioMin: number
   precioMax: number
 }
@@ -17,9 +16,7 @@ export type ProfesionalesFiltros = {
 const FILTROS_INICIALES: ProfesionalesFiltros = {
   search: "",
   provincia: "",
-  radio: "any",
   categorias: [],
-  niveles: [],
   precioMin: 0,
   // Igual que el tope del slider (PRECIO_MAX en gig-filters): así, de inicio,
   // el filtro de tarifa no excluye a nadie.
@@ -28,6 +25,21 @@ const FILTROS_INICIALES: ProfesionalesFiltros = {
 
 export default function ProfesionalesContent() {
   const [filtros, setFiltros] = useState<ProfesionalesFiltros>(FILTROS_INICIALES)
+
+  // Atajo desde el homepage: /profesionales?categoria=exteriores-y-jardin deja
+  // marcadas las subcategorías de esa categoría principal (el filtro trabaja
+  // con subcategorías). Antes las tarjetas del home enlazaban con ?category=,
+  // que no leía nadie, así que pinchar una categoría no filtraba nada.
+  //
+  // Se lee de window.location en un efecto y no con useSearchParams a
+  // propósito: esta página no tiene frontera de Suspense y useSearchParams
+  // obligaría a añadirla.
+  useEffect(() => {
+    const slug = new URLSearchParams(window.location.search).get("categoria")
+    if (!slug) return
+    const ids = subcategoriaIdsDeCategoriaPrincipal(slug)
+    if (ids.length > 0) setFiltros((f) => ({ ...f, categorias: ids }))
+  }, [])
 
   const update = useMemo(
     () => (cambios: Partial<ProfesionalesFiltros>) => setFiltros((f) => ({ ...f, ...cambios })),

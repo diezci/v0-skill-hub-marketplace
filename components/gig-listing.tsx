@@ -35,13 +35,6 @@ const CATEGORIA_ID_TO_LABEL: Record<string, string> = Object.fromEntries(
   CATEGORIAS_SERVICIO.map((c) => [c.id, c.label]),
 )
 
-const NIVEL_ID_TOKENS: Record<string, string[]> = {
-  any: [],
-  certificado: ["certificado", "colegiado"],
-  experto: ["experto", "verificado", "especialista"],
-  maestro: ["maestro"],
-}
-
 interface GigListingProps {
   filtros?: ProfesionalesFiltros
 }
@@ -134,14 +127,6 @@ const GigListing = ({ filtros }: GigListingProps) => {
       if (filtros.categorias.length > 0) {
         const categoriaLabels = filtros.categorias.map((id) => CATEGORIA_ID_TO_LABEL[id] || id)
         if (!categoriaLabels.some((label) => coincideCategoria(label, g.title, g.habilidades))) return false
-      }
-      // Niveles
-      if (filtros.niveles.length > 0 && !filtros.niveles.includes("any")) {
-        const levelLower = g.freelancer.level.toLowerCase()
-        const matches = filtros.niveles.some((id) =>
-          NIVEL_ID_TOKENS[id]?.some((tok) => levelLower.includes(tok)),
-        )
-        if (!matches) return false
       }
       // Precio
       if (g.price < filtros.precioMin || g.price > filtros.precioMax) return false
