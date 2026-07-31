@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import Navbar from "@/components/navbar"
 import Footer from "@/components/footer"
 import { ChatWidget } from "@/components/chat-widget"
+import { BienvenidaPrimeraVisita } from "@/components/bienvenida-primera-visita"
 
 // El panel de administración (/admin) tiene su propio layout completo con barra
 // lateral. Allí no mostramos el navbar/footer/chat público ni el padding del
@@ -18,6 +19,10 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      {/* Explicación breve para quien llega por primera vez. Va aquí, y no en el
+          homepage, para que también la vea quien entra por un enlace directo a
+          /demandas o a un perfil. */}
+      <BienvenidaPrimeraVisita />
       <Navbar />
       <main className="flex-1 pt-16">{children}</main>
       <Footer />
