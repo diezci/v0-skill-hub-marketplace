@@ -15,8 +15,8 @@ const VISTA_KEY = "diime_bienvenida_vista"
 const LADOS = [
   {
     id: "cliente",
-    imagen: "/woman-homeowner.png",
-    alt: "Propietaria con las llaves de su vivienda",
+    imagen: "/woman-middle-age.jpg",
+    alt: "Clienta sonriendo",
     etiqueta: "Necesito un servicio",
     ventajas: [
       "Publicas gratis y recibes varias ofertas con precio y plazo.",
@@ -35,7 +35,7 @@ const LADOS = [
       "Más mercado: demandas de tu especialidad y tu zona, sin buscarlas.",
       "Cobro asegurado: el cliente paga antes de que empieces.",
       "Gestionas todos tus proyectos, entregas y mensajes en un sitio.",
-      "Pujar es gratis: solo hay comisión cuando cobras.",
+      "Pujar es gratis.",
     ],
     cta: { texto: "Crear perfil profesional", href: "/convertirse-profesional" },
   },
