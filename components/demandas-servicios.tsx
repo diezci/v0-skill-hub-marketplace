@@ -42,6 +42,9 @@ import { calcularPagoProveedor, PLATFORM_CONFIG, formatearPrecio } from "@/lib/c
 import { Checkbox } from "@/components/ui/checkbox"
 import { crearOferta } from "@/app/actions/ofertas"
 import { obtenerSolicitudesAbiertas } from "@/app/actions/solicitudes"
+import { crearConversacion } from "@/app/actions/messages"
+import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import { PROVINCIAS_ES } from "@/lib/provincias"
 import { SelectCategoriaJerarquico } from "@/components/select-categoria-jerarquico"
@@ -52,6 +55,7 @@ type Demanda = {
   titulo: string
   descripcion: string
   categoria: { nombre: string }
+  cliente_id: string
   cliente: { nombre: string; apellido: string; foto_perfil?: string }
   ubicacion: string
   presupuesto_min: number
@@ -108,6 +112,8 @@ export default function DemandasServicios() {
   const [dialogDetalles, setDialogDetalles] = useState(false)
   const [dialogPerfilCliente, setDialogPerfilCliente] = useState(false)
   const [clienteSeleccionado, setClienteSeleccionado] = useState<any>(null)
+  const [contactando, setContactando] = useState(false)
+  const router = useRouter()
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   // Aceptación explícita de los gastos de servicio, requerida en cada oferta.
@@ -184,6 +190,40 @@ export default function DemandasServicios() {
   const handleVerDetalles = (demanda: Demanda) => {
     setDemandaSeleccionada(demanda)
     setDialogDetalles(true)
+  }
+
+  // "Contactar" no hacía nada: solo cerraba el diálogo. Abre (o recupera) el
+  // chat con quien publicó la demanda y lleva a la conversación.
+  const handleContactar = async (demanda: Demanda) => {
+    if (!demanda.cliente_id) {
+      toast({ title: "No disponible", description: "No se ha podido identificar a quien publicó la demanda." })
+      return
+    }
+    setContactando(true)
+    try {
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        toast({ title: "Inicia sesión", description: "Necesitas una cuenta para escribir al cliente." })
+        router.push("/auth/login")
+        return
+      }
+      if (user.id === demanda.cliente_id) {
+        toast({ title: "Es tu demanda", description: "No puedes escribirte a ti mismo." })
+        return
+      }
+      const res = await crearConversacion({ otroUsuarioId: demanda.cliente_id })
+      if (res.error || !res.data?.id) {
+        toast({ title: "Error", description: res.error || "No se pudo abrir el chat.", variant: "destructive" })
+        return
+      }
+      setDialogDetalles(false)
+      router.push(`/mensajes?c=${res.data.id}`)
+    } finally {
+      setContactando(false)
+    }
   }
 
   const handleEnviarOferta = (demanda: Demanda) => {
@@ -531,7 +571,7 @@ export default function DemandasServicios() {
 
       {/* Dialog Ver Detalles */}
       <Dialog open={dialogDetalles} onOpenChange={setDialogDetalles}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex items-center gap-2 mb-2">
               <Badge variant="outline">{demandaSeleccionada?.categoria?.nombre}</Badge>
@@ -623,7 +663,11 @@ export default function DemandasServicios() {
                 <Send className="h-4 w-4 mr-2" />
                 Enviar presupuesto
               </Button>
-              <Button variant="outline" onClick={() => setDialogDetalles(false)}>
+              <Button
+                variant="outline"
+                disabled={contactando}
+                onClick={() => demandaSeleccionada && handleContactar(demandaSeleccionada)}
+              >
                 <MessageSquare className="h-4 w-4 mr-2" />
                 Contactar
               </Button>
@@ -634,7 +678,7 @@ export default function DemandasServicios() {
 
       {/* Dialog Perfil Cliente */}
       <Dialog open={dialogPerfilCliente} onOpenChange={setDialogPerfilCliente}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Perfil del cliente</DialogTitle>
           </DialogHeader>
@@ -793,7 +837,7 @@ export default function DemandasServicios() {
 
       {/* Dialog Enviar Oferta */}
       <Dialog open={dialogAbierto} onOpenChange={setDialogAbierto}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Enviar presupuesto</DialogTitle>
             <DialogDescription>Para: {demandaSeleccionada?.titulo}</DialogDescription>

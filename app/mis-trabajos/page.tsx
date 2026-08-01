@@ -308,9 +308,9 @@ export default function MisTrabajosPage() {
             había además una barra de pestañas debajo con los mismos cuatro
             destinos, que solo duplicaba esto. */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-8">
-          <button type="button" className="text-left" onClick={() => setActiveTab("activos")}>
+          <button type="button" className="text-left h-full" onClick={() => setActiveTab("activos")}>
             <Card
-              className={`w-full border-blue-500/20 bg-blue-500/5 transition hover:shadow-md ${
+              className={`w-full h-full border-blue-500/20 bg-blue-500/5 transition hover:shadow-md ${
                 activeTab === "activos" ? "ring-2 ring-primary/50" : ""
               }`}
             >
@@ -332,9 +332,9 @@ export default function MisTrabajosPage() {
             </Card>
           </button>
 
-          <button type="button" className="text-left" onClick={() => setActiveTab("entregados")}>
+          <button type="button" className="text-left h-full" onClick={() => setActiveTab("entregados")}>
             <Card
-              className={`w-full border-purple-500/20 bg-purple-500/5 transition hover:shadow-md ${
+              className={`w-full h-full border-purple-500/20 bg-purple-500/5 transition hover:shadow-md ${
                 activeTab === "entregados" ? "ring-2 ring-primary/50" : ""
               }`}
             >
@@ -355,9 +355,9 @@ export default function MisTrabajosPage() {
             </Card>
           </button>
 
-          <button type="button" className="text-left" onClick={() => setActiveTab("completados")}>
+          <button type="button" className="text-left h-full" onClick={() => setActiveTab("completados")}>
             <Card
-              className={`w-full border-emerald-500/20 bg-emerald-500/5 transition hover:shadow-md ${
+              className={`w-full h-full border-emerald-500/20 bg-emerald-500/5 transition hover:shadow-md ${
                 activeTab === "completados" ? "ring-2 ring-primary/50" : ""
               }`}
             >
@@ -381,9 +381,9 @@ export default function MisTrabajosPage() {
 
           {/* Disputas: en euros, porque lo que importa es cuánto dinero está
               retenido mientras se resuelve, no solo cuántos expedientes hay. */}
-          <button type="button" className="text-left" onClick={() => setActiveTab("disputas")}>
+          <button type="button" className="text-left h-full" onClick={() => setActiveTab("disputas")}>
             <Card
-              className={`w-full border-rose-500/20 bg-rose-500/5 transition hover:shadow-md ${
+              className={`w-full h-full border-rose-500/20 bg-rose-500/5 transition hover:shadow-md ${
                 activeTab === "disputas" ? "ring-2 ring-primary/50" : ""
               }`}
             >
