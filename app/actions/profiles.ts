@@ -21,7 +21,7 @@ export async function obtenerProfesionales(filtros?: {
     .from("profesionales")
     .select(`
       *,
-      perfil:profiles(nombre, apellido, ubicacion, foto_perfil, bio, verificado)
+      perfil:profiles(nombre, apellido, ubicacion, foto_perfil, foto_portada, bio, verificado)
     `)
     .order("rating_promedio", { ascending: false })
 

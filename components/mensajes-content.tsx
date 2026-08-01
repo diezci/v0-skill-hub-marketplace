@@ -669,8 +669,11 @@ export default function MensajesContent() {
                 </DropdownMenu>
               </div>
 
-              {/* Mensajes - scrollable area */}
-              <div className="flex-1 min-h-0 overflow-hidden">
+              {/* Mensajes - scrollable area. min-w-0: es un hijo flex y, sin esto,
+                  un mensaje con una palabra muy larga (una URL, un número) no
+                  se encoge, empuja toda la fila y recorta el panel de la
+                  derecha en vez de quedarse dentro de su burbuja. */}
+              <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
                 <ScrollArea className="h-full w-full">
                   <div className="p-4 space-y-4">
                   {loadingMessages ? (
@@ -784,7 +787,7 @@ export default function MensajesContent() {
                                         : "bg-card border rounded-bl-md",
                                     )}
                                   >
-                                    <p className="text-sm whitespace-pre-wrap">{msg.contenido}</p>
+                                    <p className="text-sm whitespace-pre-wrap break-words">{msg.contenido}</p>
                                   </div>
                                 )}
 
@@ -954,17 +957,23 @@ export default function MensajesContent() {
                   <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Acerca de
                   </h4>
+                  {/* dt shrink-0 + dd min-w-0/truncate: sin esto, una ubicación
+                      larga o varios idiomas empujan la fila más ancha que el
+                      panel y el texto se recorta a lo bruto contra el borde,
+                      en vez de acortarse con "…". */}
                   <dl className="space-y-2.5 text-sm">
                     {getOtherUser(selectedConversation)?.ubicacion && (
-                      <div className="flex items-center justify-between">
-                        <dt className="text-muted-foreground">Ubicación</dt>
-                        <dd className="font-medium">{getOtherUser(selectedConversation)?.ubicacion}</dd>
+                      <div className="flex items-center justify-between gap-2">
+                        <dt className="text-muted-foreground shrink-0">Ubicación</dt>
+                        <dd className="font-medium min-w-0 truncate text-right">
+                          {getOtherUser(selectedConversation)?.ubicacion}
+                        </dd>
                       </div>
                     )}
                     {getOtherUser(selectedConversation)?.created_at && (
-                      <div className="flex items-center justify-between">
-                        <dt className="text-muted-foreground">Miembro desde</dt>
-                        <dd className="font-medium">
+                      <div className="flex items-center justify-between gap-2">
+                        <dt className="text-muted-foreground shrink-0">Miembro desde</dt>
+                        <dd className="font-medium min-w-0 truncate text-right">
                           {new Date(getOtherUser(selectedConversation)!.created_at!).toLocaleDateString("es-ES", {
                             month: "short",
                             year: "numeric",
@@ -973,9 +982,9 @@ export default function MensajesContent() {
                       </div>
                     )}
                     {(selectedConversation.otro_profesional?.idiomas?.length ?? 0) > 0 && (
-                      <div className="flex items-center justify-between">
-                        <dt className="text-muted-foreground">Idiomas</dt>
-                        <dd className="font-medium">
+                      <div className="flex items-center justify-between gap-2">
+                        <dt className="text-muted-foreground shrink-0">Idiomas</dt>
+                        <dd className="font-medium min-w-0 truncate text-right">
                           {selectedConversation.otro_profesional!.idiomas!.join(", ")}
                         </dd>
                       </div>
