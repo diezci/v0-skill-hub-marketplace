@@ -173,7 +173,12 @@ export default function MisSolicitudes() {
         // no puede ser quien lo alimente la primera vez.
         obtenerMisDisputas(),
       ])
-      setDisputasCount((disputasResult.data || []).length)
+      // Solo las que están EN CURSO y en las que soy el cliente: la tarjeta
+      // dice "en curso" y esta sección es la del cliente. Antes se contaban
+      // todas, incluidas las resueltas y las que eran mías como profesional.
+      setDisputasCount(
+        (disputasResult.data || []).filter((d: any) => d.soy_cliente && d.estado === "abierta").length,
+      )
 
       // Solo datos reales (aunque estén vacíos): nada de datos de ejemplo.
       setSolicitudes(solicitudesResult.data || [])

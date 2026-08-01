@@ -85,8 +85,9 @@ export default function MisDisputas({
   onCount,
 }: {
   rol: "cliente" | "proveedor"
-  // Total de disputas del usuario, para que el contenedor pueda pintar un
-  // contador en la pestaña sin volver a consultar.
+  // Disputas EN CURSO de este rol, para el contador del contenedor. Antes se
+  // reportaba el total (incluidas las ya resueltas y retiradas), y la tarjeta
+  // las pintaba como "en curso".
   onCount?: (n: number) => void
 }) {
   const [disputas, setDisputas] = useState<any[]>([])
@@ -95,11 +96,18 @@ export default function MisDisputas({
   const [aRetirar, setARetirar] = useState<any>(null)
   const { toast } = useToast()
 
+  // `obtenerMisDisputas` devuelve las disputas en las que participo, sea como
+  // cliente o como profesional. Cada sección debe mostrar solo las suyas: en
+  // Mis Demandas, aquellas en las que soy el cliente; en Gestión de Proyectos,
+  // en las que soy el profesional. Sin esto, una disputa aparecía en las dos.
+  const mias = (data: any[]) => data.filter((d) => (rol === "cliente" ? d.soy_cliente : !d.soy_cliente))
+  const enCurso = (data: any[]) => data.filter((d) => d.estado === "abierta").length
+
   const cargar = () =>
     obtenerMisDisputas().then((res) => {
-      const data = res.data || []
+      const data = mias(res.data || [])
       setDisputas(data)
-      onCount?.(data.length)
+      onCount?.(enCurso(data))
       setLoading(false)
     })
 
@@ -107,15 +115,15 @@ export default function MisDisputas({
     let activo = true
     obtenerMisDisputas().then((res) => {
       if (!activo) return
-      const data = res.data || []
+      const data = mias(res.data || [])
       setDisputas(data)
-      onCount?.(data.length)
+      onCount?.(enCurso(data))
       setLoading(false)
     })
     return () => {
       activo = false
     }
-  }, [])
+  }, [rol])
 
   const handleRetirar = async () => {
     if (!aRetirar) return
@@ -172,7 +180,10 @@ export default function MisDisputas({
       )}
 
       {disputas.map((d) => {
-        const soyCliente = rol === "cliente"
+        // Mi papel en ESTA disputa, no el de la sección en la que estoy: si se
+        // deduce de la sección, una disputa que perdiste como profesional se
+        // anuncia como "Resuelta a tu favor" al verla desde Mis Demandas.
+        const soyCliente: boolean = !!d.soy_cliente
         const estado =
           d.estado === "resuelta"
             ? configResuelta(d.resolucion, soyCliente)
