@@ -95,7 +95,10 @@ const GigListing = ({ filtros }: GigListingProps) => {
           category: habilidades[0] || "",
           habilidades,
           provincia: p.perfil?.ubicacion || "",
-          image: p.perfil?.foto_perfil || FALLBACK_IMG,
+          // La imagen grande de la tarjeta es la portada; el avatar pequeño es
+          // la foto de perfil. Antes ambas usaban foto_perfil, así que salían
+          // duplicadas.
+          image: p.perfil?.foto_portada || p.perfil?.foto_perfil || FALLBACK_IMG,
           rating: Number(p.rating_promedio) || 0,
           reviews: p.total_reseñas || 0,
           esReal: true,
