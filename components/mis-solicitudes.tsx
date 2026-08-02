@@ -579,6 +579,17 @@ export default function MisSolicitudes() {
                     </div>
                   )}
 
+                  {/* Cancelación de mutuo acuerdo con el trabajo aún sin pagar.
+                      Estas demandas siguen en estado "abierta", así que viven en
+                      ESTA pestaña y no en "En Progreso": sin esto, el cliente
+                      recibía el aviso de cancelación y no tenía dónde aceptarla
+                      ni rechazarla. */}
+                  {solicitud.trabajo?.estado === "pendiente_pago" && (
+                    <div className="mb-4">
+                      <CancelacionTrabajo trabajo={solicitud.trabajo} onChange={refrescarSolicitudes} />
+                    </div>
+                  )}
+
                   <p className="text-sm text-muted-foreground mb-4">{solicitud.descripcion}</p>
 
                   {/* Archivos que el cliente adjuntó al publicar la demanda */}
