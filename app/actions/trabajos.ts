@@ -247,11 +247,17 @@ async function postMensajeTrabajo(supabase: any, userId: string, trabajo: any, c
   }
   if (!conv) return
 
+  // `leido: true` a propósito. Estos mensajes los escribe el sistema, no una
+  // persona, y cada uno ya viene acompañado de su notificación, que es la que
+  // lleva a donde hay que actuar (Mis Demandas o Gestión de proyectos). Si
+  // además contaran como mensaje sin leer, el aviso de una cancelación
+  // aparecería en Mensajes —donde no se puede aceptar ni rechazar— en vez de
+  // en la sección que la resuelve. Se siguen viendo en el chat como registro.
   await supabase.from("mensajes").insert({
     conversacion_id: conv.id,
     remitente_id: userId,
     contenido,
-    leido: false,
+    leido: true,
   })
   await supabase
     .from("conversaciones")
