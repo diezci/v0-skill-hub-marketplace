@@ -264,6 +264,10 @@ export async function obtenerMisDisputas() {
         trabajo_titulo: trabajo?.titulo ?? "Trabajo",
         trabajo_estado: trabajo?.estado ?? null,
         la_abri_yo: d.tipo === miRol,
+        // Mi papel EN ESTA disputa. Es imprescindible: el mismo fallo se lee al
+        // revés según seas cliente o profesional, y hasta ahora la pantalla lo
+        // deducía de en qué sección estabas, no de la disputa.
+        soy_cliente: d.cliente_id === user.id,
         otra_parte: perfiles[otraParteId] || null,
       }
     }),
