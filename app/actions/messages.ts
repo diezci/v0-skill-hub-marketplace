@@ -259,6 +259,14 @@ export async function crearConversacion(params: {
     return { error: "No autenticado" }
   }
 
+  // Nadie puede abrir un chat consigo mismo. Se comprueba aquí, en el servidor,
+  // y no solo en los botones: la constraint UNIQUE (participante_1,
+  // participante_2) no lo impide, y una conversación con uno mismo deja la
+  // bandeja en un estado sin sentido (no hay "otra parte" que mostrar).
+  if (params.otroUsuarioId === user.id) {
+    return { error: "No puedes iniciar una conversación contigo mismo." }
+  }
+
   // Reutilizar cualquier conversación existente entre ambos usuarios (en
   // cualquier dirección). Existe una constraint UNIQUE (participante_1,
   // participante_2), así que no debemos crear duplicados.

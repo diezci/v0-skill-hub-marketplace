@@ -18,6 +18,7 @@ export async function crearOferta(formData: {
   acepta_gastos?: boolean
 }) {
   const supabase = await createClient()
+  if (!supabase) return { error: "Base de datos no disponible" }
 
   const {
     data: { user },
@@ -30,6 +31,19 @@ export async function crearOferta(formData: {
 
   if (!profesional) {
     return { error: "Debes crear un perfil profesional antes de enviar ofertas. Ve a 'Mi Perfil' para configurarlo." }
+  }
+
+  // No se puja por la propia demanda: acabarías siendo cliente y profesional
+  // del mismo trabajo, con el escrow pagándote a ti mismo. Se comprueba en el
+  // servidor porque ocultar el botón no basta.
+  const { data: solicitudDeLaOferta } = await supabase
+    .from("solicitudes")
+    .select("cliente_id")
+    .eq("id", formData.solicitud_id)
+    .maybeSingle()
+
+  if (solicitudDeLaOferta?.cliente_id === user.id) {
+    return { error: "No puedes enviar una oferta a tu propia demanda." }
   }
 
   // Importes y tiempos siempre positivos.
