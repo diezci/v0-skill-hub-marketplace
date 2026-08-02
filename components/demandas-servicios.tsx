@@ -113,6 +113,7 @@ export default function DemandasServicios() {
   const [dialogPerfilCliente, setDialogPerfilCliente] = useState(false)
   const [clienteSeleccionado, setClienteSeleccionado] = useState<any>(null)
   const [contactando, setContactando] = useState(false)
+  const [usuarioActualId, setUsuarioActualId] = useState<string | null>(null)
   const router = useRouter()
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -132,6 +133,15 @@ export default function DemandasServicios() {
   useEffect(() => {
     async function cargarDemandas() {
       setLoading(true)
+      // Quién soy, para no ofrecerme pujar ni escribirme en mis propias
+      // demandas (el servidor lo rechaza igualmente, pero el botón no debería
+      // ni aparecer).
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      setUsuarioActualId(user?.id ?? null)
+
       const result = await obtenerSolicitudesAbiertas()
       // Solo demandas reales: nada de datos de ejemplo.
       setDemandas(result.data || [])
@@ -540,10 +550,21 @@ export default function DemandasServicios() {
 
                     {/* Actions */}
                     <div className="flex md:flex-col gap-2 md:w-32 shrink-0">
-                      <Button className="flex-1 md:flex-none" onClick={() => handleEnviarOferta(demanda)}>
-                        <Send className="h-4 w-4 mr-2" />
-                        Ofertar
-                      </Button>
+                      {/* En tu propia demanda no se ofrece pujar: serías cliente
+                          y profesional del mismo trabajo. */}
+                      {demanda.cliente_id === usuarioActualId ? (
+                        <Badge
+                          variant="outline"
+                          className="flex-1 md:flex-none justify-center py-2 text-xs font-normal"
+                        >
+                          Es tu demanda
+                        </Badge>
+                      ) : (
+                        <Button className="flex-1 md:flex-none" onClick={() => handleEnviarOferta(demanda)}>
+                          <Send className="h-4 w-4 mr-2" />
+                          Ofertar
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         className="flex-1 md:flex-none bg-transparent"
@@ -651,27 +672,34 @@ export default function DemandasServicios() {
               </div>
             </div>
 
-            <div className="flex gap-3">
-              <Button
-                type="button"
-                className="flex-1"
-                onClick={() => {
-                  setDialogDetalles(false)
-                  if (demandaSeleccionada) handleEnviarOferta(demandaSeleccionada)
-                }}
-              >
-                <Send className="h-4 w-4 mr-2" />
-                Enviar presupuesto
-              </Button>
-              <Button
-                variant="outline"
-                disabled={contactando}
-                onClick={() => demandaSeleccionada && handleContactar(demandaSeleccionada)}
-              >
-                <MessageSquare className="h-4 w-4 mr-2" />
-                Contactar
-              </Button>
-            </div>
+            {/* En tu propia demanda no tiene sentido ni ofertar ni escribirte. */}
+            {demandaSeleccionada?.cliente_id === usuarioActualId ? (
+              <p className="text-sm text-muted-foreground text-center py-2">
+                Esta demanda la has publicado tú. Puedes gestionarla desde Mis Demandas.
+              </p>
+            ) : (
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  className="flex-1"
+                  onClick={() => {
+                    setDialogDetalles(false)
+                    if (demandaSeleccionada) handleEnviarOferta(demandaSeleccionada)
+                  }}
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  Enviar presupuesto
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={contactando}
+                  onClick={() => demandaSeleccionada && handleContactar(demandaSeleccionada)}
+                >
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Contactar
+                </Button>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
