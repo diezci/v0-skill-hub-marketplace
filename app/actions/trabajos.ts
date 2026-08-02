@@ -319,8 +319,13 @@ export async function solicitarCancelacion(trabajoId: string, razon: string) {
       usuarioId: otroId,
       tipo: "cancelacion_solicitada",
       titulo: "Solicitud de cancelación",
+      // Antes de pagar, la demanda sigue en estado "abierta" y por tanto en la
+      // pestaña Abiertas, no en En Progreso: decir "En Progreso" mandaba al
+      // cliente a una pestaña donde su demanda no estaba.
       mensaje: `La otra parte quiere cancelar "${trabajo.titulo}". Acepta o rechaza la cancelación en ${
-        otroEsCliente ? "Mis Demandas (pestaña En Progreso)" : "Gestión de proyectos (pestaña Activos)"
+        otroEsCliente
+          ? `Mis Demandas (pestaña ${trabajo.estado === "pendiente_pago" ? "Abiertas" : "En Progreso"})`
+          : "Gestión de proyectos (pestaña Activos)"
       }.`,
       link: otroEsCliente ? "/mis-solicitudes" : "/mis-trabajos",
     })
