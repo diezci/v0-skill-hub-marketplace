@@ -16,6 +16,7 @@ import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import type { ProfesionalesFiltros } from "@/components/profesionales-content"
 import { CATEGORIAS_SERVICIO } from "@/lib/categorias"
+import { PRECIO_HORA_MAX } from "@/lib/precios"
 
 
 // Coincidencia difusa categoría↔profesional (mismo criterio que las
@@ -131,8 +132,11 @@ const GigListing = ({ filtros }: GigListingProps) => {
         const categoriaLabels = filtros.categorias.map((id) => CATEGORIA_ID_TO_LABEL[id] || id)
         if (!categoriaLabels.some((label) => coincideCategoria(label, g.title, g.habilidades))) return false
       }
-      // Precio
-      if (g.price < filtros.precioMin || g.price > filtros.precioMax) return false
+      // Precio (€/h). El tope del slider se muestra como "1.000€+", así que
+      // ahí significa "sin límite": si no, un profesional con una tarifa por
+      // encima del tope desaparecería del listado aun con el filtro al máximo.
+      if (g.price < filtros.precioMin) return false
+      if (filtros.precioMax < PRECIO_HORA_MAX && g.price > filtros.precioMax) return false
       // Búsqueda
       if (filtros.search) {
         const q = filtros.search.toLowerCase()
