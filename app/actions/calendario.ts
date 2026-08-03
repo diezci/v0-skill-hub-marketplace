@@ -10,6 +10,10 @@ export interface TrabajoCalendario {
   monto: number
   fecha_inicio: string | null
   fecha_estimada_fin: string | null
+  // Fecha REAL de cierre (se rellena al completar o cancelar). Manda sobre la
+  // estimada en el calendario: si un trabajo se termina antes de tiempo, la
+  // marca debe moverse al día en que se terminó, no quedarse en la previsión.
+  fecha_fin: string | null
   horas_estimadas: number | null
   horas_registradas: number | null
   notas_privadas_proveedor: string | null
@@ -54,6 +58,7 @@ export async function obtenerTrabajosCalendario(): Promise<{
       monto:precio_acordado,
       fecha_inicio,
       fecha_estimada_fin,
+      fecha_fin,
       horas_estimadas,
       horas_registradas,
       notas_privadas_proveedor,
@@ -77,7 +82,9 @@ export async function obtenerTrabajosCalendario(): Promise<{
     return { data: [], error: error.message }
   }
 
-  return { data: data as TrabajoCalendario[] }
+  // `as unknown as`: los embeds (cliente, solicitud) llegan tipados como array
+  // desde PostgREST aunque sean uno a uno, así que el cast directo no compila.
+  return { data: data as unknown as TrabajoCalendario[] }
 }
 
 export async function actualizarEstimacionTrabajo(
