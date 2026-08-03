@@ -11,6 +11,7 @@ import { PROVINCIAS_ES } from "@/lib/provincias"
 import { CATEGORIAS_SERVICIO } from "@/lib/categorias"
 import { SelectorCategoriasAgrupado } from "@/components/selector-categorias-agrupado"
 import { RangoPrecio } from "@/components/rango-precio"
+import { PRECIO_HORA_MAX, PASO_PRECIO_HORA } from "@/lib/precios"
 
 // Re-exportada por compatibilidad con quien ya la importe desde aquí.
 export { PROVINCIAS_ES }
@@ -124,9 +125,13 @@ const GigFilters = ({ filtros, onChange, onReset }: GigFiltersProps) => {
             <AccordionItem value="price">
               <AccordionTrigger>Rango de Precio (€/h)</AccordionTrigger>
               <AccordionContent>
+                {/* Aquí el precio es POR HORA, no el presupuesto de un
+                    proyecto: su tope es PRECIO_HORA_MAX, no PRECIO_MAX. */}
                 <RangoPrecio
                   value={[filtros.precioMin, filtros.precioMax]}
                   onChange={([min, max]) => onChange({ precioMin: min, precioMax: max })}
+                  max={PRECIO_HORA_MAX}
+                  paso={PASO_PRECIO_HORA}
                 />
               </AccordionContent>
             </AccordionItem>
