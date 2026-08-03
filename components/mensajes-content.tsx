@@ -84,6 +84,9 @@ interface Conversation {
 export default function MensajesContent() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
+  // Panel "Acerca de" en móvil: allí no hay sitio para la columna de la derecha,
+  // así que se abre a pantalla completa desde la cabecera del chat.
+  const [panelMovil, setPanelMovil] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [messageInput, setMessageInput] = useState("")
   const [loading, setLoading] = useState(true)
@@ -603,6 +606,15 @@ export default function MensajesContent() {
                     <ArrowLeft className="h-5 w-5" />
                   </Button>
 
+                  {/* En móvil el panel de la derecha no cabe y está oculto, así
+                      que la foto y el nombre son el acceso a él. En escritorio
+                      el panel ya se ve al lado, así que no hace falta pulsar. */}
+                  <button
+                    type="button"
+                    className="flex items-center gap-3 text-left lg:pointer-events-none"
+                    onClick={() => setPanelMovil(true)}
+                    aria-label="Ver perfil y proyectos con este usuario"
+                  >
                   <Avatar className="h-10 w-10">
                     <AvatarImage src={getOtherUser(selectedConversation)?.foto_perfil || "/placeholder.svg"} />
                     <AvatarFallback>
@@ -643,6 +655,7 @@ export default function MensajesContent() {
                       )}
                     </div>
                   </div>
+                  </button>
                 </div>
 
                 <DropdownMenu>
@@ -893,9 +906,26 @@ export default function MensajesContent() {
           )}
         </div>
 
-        {/* Panel lateral "Acerca de" estilo Fiverr */}
+        {/* Panel lateral "Acerca de". El MISMO marcado sirve para escritorio y
+            para móvil, sin duplicar contenido: en escritorio es la columna de la
+            derecha; en móvil está oculto y se abre a pantalla completa al tocar
+            la cabecera del chat. */}
         {selectedConversation && (
-          <aside className="hidden lg:flex w-80 xl:w-96 flex-col border-l border-border bg-card/30 shrink-0">
+          <aside
+            className={cn(
+              "flex-col border-l border-border bg-card/30 shrink-0",
+              "hidden lg:flex w-80 xl:w-96",
+              panelMovil && "!flex fixed inset-0 z-50 w-full border-l-0 bg-background lg:static lg:w-80 lg:bg-card/30",
+            )}
+          >
+            {panelMovil && (
+              <div className="flex items-center justify-between border-b px-4 h-14 shrink-0 lg:hidden">
+                <span className="font-medium">Perfil</span>
+                <Button variant="ghost" size="icon" onClick={() => setPanelMovil(false)} aria-label="Cerrar">
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+            )}
             <ScrollArea className="h-full">
               <div className="p-6 space-y-6">
                 {/* Header del usuario */}
