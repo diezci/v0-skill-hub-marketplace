@@ -174,15 +174,22 @@ export function ProjectCalendar() {
           meta: "Inicio del trabajo",
         })
       }
-      if (t.fecha_estimada_fin) {
-        list.push({
-          id: `t-fin-${t.id}`,
-          titulo,
-          tipo: "trabajo_entrega",
-          fecha: t.fecha_estimada_fin.split("T")[0],
-          color: "amber",
-          meta: "Entrega prevista",
-        })
+      {
+        // Si el trabajo ya está cerrado, manda su fecha real: terminarlo antes
+        // de tiempo (o cancelarlo) movía la marca solo en teoría, porque el
+        // calendario seguía pintando la fecha estimada.
+        const cerrado = t.estado === "completado" || t.estado === "cancelado"
+        const fechaCierre = cerrado ? (t as any).fecha_fin || t.fecha_estimada_fin : t.fecha_estimada_fin
+        if (fechaCierre) {
+          list.push({
+            id: `t-fin-${t.id}`,
+            titulo,
+            tipo: "trabajo_entrega",
+            fecha: String(fechaCierre).split("T")[0],
+            color: cerrado ? (t.estado === "cancelado" ? "red" : "emerald") : "amber",
+            meta: cerrado ? (t.estado === "cancelado" ? "Cancelado" : "Completado") : "Entrega prevista",
+          })
+        }
       }
     })
     servicios.forEach((s) => {
