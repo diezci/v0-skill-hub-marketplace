@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import GigFilters from "@/components/gig-filters"
 import GigListing from "@/components/gig-listing"
 import { subcategoriaIdsDeCategoriaPrincipal } from "@/lib/categorias"
+import { PRECIO_HORA_MAX } from "@/lib/precios"
 
 export type ProfesionalesFiltros = {
   search: string
@@ -18,9 +19,10 @@ const FILTROS_INICIALES: ProfesionalesFiltros = {
   provincia: "",
   categorias: [],
   precioMin: 0,
-  // Igual que el tope del slider (PRECIO_MAX en gig-filters): así, de inicio,
-  // el filtro de tarifa no excluye a nadie.
-  precioMax: 100000,
+  // El mismo tope que el slider: así, de inicio, el filtro de tarifa no
+  // excluye a nadie. Aquí el precio es por HORA, de ahí PRECIO_HORA_MAX y no
+  // PRECIO_MAX (que es el presupuesto total de un proyecto).
+  precioMax: PRECIO_HORA_MAX,
 }
 
 export default function ProfesionalesContent() {
