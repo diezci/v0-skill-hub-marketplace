@@ -7,6 +7,7 @@ import { AppChrome } from "@/components/app-chrome"
 import { Toaster } from "@/components/ui/toaster"
 import { IdiomaProvider } from "@/components/idioma-provider"
 import { idiomaActual } from "@/lib/i18n-servidor"
+import { RegistrarSW } from "@/components/registrar-sw"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-space" })
@@ -20,9 +21,24 @@ export const metadata: Metadata = {
     icon: [
       { url: "/icon.png", type: "image/png", sizes: "any" },
       { url: "/icon.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
-    apple: "/apple-icon.png",
+    // iOS ignora el manifest para el icono de la pantalla de inicio: usa este.
+    apple: "/icons/apple-touch-icon.png",
     shortcut: "/icon.png",
+  },
+  // iOS tampoco lee `display: standalone` del manifest; necesita lo suyo para
+  // abrir sin barra de navegador al añadirla a la pantalla de inicio.
+  appleWebApp: {
+    capable: true,
+    title: "Diime",
+    statusBarStyle: "black-translucent",
+  },
+  other: {
+    // Next emite el nombre moderno (`mobile-web-app-capable`); las versiones
+    // antiguas de iOS solo entienden el prefijado, así que van los dos.
+    "apple-mobile-web-app-capable": "yes",
   },
 }
 
@@ -52,6 +68,7 @@ export default async function RootLayout({
               <AppChrome>{children}</AppChrome>
             </div>
             <Toaster />
+            <RegistrarSW />
           </IdiomaProvider>
         </ThemeProvider>
       </body>
