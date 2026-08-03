@@ -100,7 +100,12 @@ export default function MisDisputas({
   // cliente o como profesional. Cada sección debe mostrar solo las suyas: en
   // Mis Demandas, aquellas en las que soy el cliente; en Gestión de Proyectos,
   // en las que soy el profesional. Sin esto, una disputa aparecía en las dos.
-  const mias = (data: any[]) => data.filter((d) => (rol === "cliente" ? d.soy_cliente : !d.soy_cliente))
+  // Solo las disputas EN CURSO. Una resuelta o retirada ya no es algo que
+  // atender: el trabajo vuelve a su sitio (Historial en Mis Demandas,
+  // Completados en Gestión de Proyectos) y verlo además aquí daba la sensación
+  // de tener conflictos abiertos que ya no existen.
+  const mias = (data: any[]) =>
+    data.filter((d) => (rol === "cliente" ? d.soy_cliente : !d.soy_cliente) && d.estado === "abierta")
   const enCurso = (data: any[]) => data.filter((d) => d.estado === "abierta").length
 
   const cargar = () =>

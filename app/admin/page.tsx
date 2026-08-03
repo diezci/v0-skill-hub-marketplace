@@ -248,8 +248,11 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {statCards.map((card) => {
           const content = (
-            <Card 
-              className={`relative overflow-hidden transition-all hover:shadow-md ${
+            <Card
+              // h-full: el envoltorio se estira con la rejilla pero la Card no,
+              // así que las tarjetas sin subtítulo quedaban más bajas que las
+              // que sí lo tienen ("de 20 totales", "retenidos en custodia"…).
+              className={`relative flex h-full flex-col overflow-hidden transition-all hover:shadow-md ${
                 card.href ? "cursor-pointer hover:border-primary/50" : ""
               }`}
             >
@@ -278,11 +281,13 @@ export default function AdminDashboard() {
           )
 
           return card.href ? (
-            <Link key={card.title} href={card.href}>
+            <Link key={card.title} href={card.href} className="h-full">
               {content}
             </Link>
           ) : (
-            <div key={card.title}>{content}</div>
+            <div key={card.title} className="h-full">
+              {content}
+            </div>
           )
         })}
       </div>

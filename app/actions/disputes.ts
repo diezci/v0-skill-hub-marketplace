@@ -507,6 +507,7 @@ export async function resolverDisputa(data: {
   monto_reembolso?: number
 }) {
   const supabase = await createClient()
+  if (!supabase) return { error: "Base de datos no disponible" }
   const auth = await requireAdmin(supabase)
   if ("error" in auth) return { error: auth.error }
   const adminId = auth.user.id
@@ -563,18 +564,59 @@ export async function resolverDisputa(data: {
         })
       }
 
+      // En una resolución PARCIAL el trabajo sí se ha hecho a medias: lo que no
+      // se devuelve al cliente le corresponde al proveedor y hay que liberarlo.
+      // Antes solo se registraba el reembolso, así que el escrow se quedaba en
+      // "reembolsado", sin fecha_liberacion y con el pago_neto_proveedor del
+      // importe COMPLETO: el proveedor veía el trabajo como si nadie le fuera a
+      // pagar y la plataforma se apuntaba comisión sobre dinero que no cobró.
+      const quedaParaProveedor = Math.max(base - montoReembolso, 0)
+      const { comisionProveedor, pagoNeto } = calcularPagoProveedor(quedaParaProveedor)
+      const ahora = new Date().toISOString()
+
       await supabase
         .from("transacciones_escrow")
-        .update({
-          estado: "reembolsado",
-          monto_reembolsado: montoReembolso,
-          fecha_reembolso: new Date().toISOString(),
-        })
+        .update(
+          data.resolucion === "parcial"
+            ? {
+                // "completado": el dinero ya está repartido entre las dos partes.
+                estado: "completado",
+                monto_reembolsado: montoReembolso,
+                fecha_reembolso: ahora,
+                // La comisión se calcula sobre lo que el proveedor cobra de
+                // verdad, no sobre el precio pactado.
+                comision_proveedor: comisionProveedor,
+                pago_neto_proveedor: pagoNeto,
+                fecha_liberacion: ahora,
+              }
+            : {
+                estado: "reembolsado",
+                monto_reembolsado: montoReembolso,
+                fecha_reembolso: ahora,
+                // Reembolso total: el proveedor no cobra nada, así que tampoco
+                // hay comisión que aplicarle.
+                comision_proveedor: 0,
+                pago_neto_proveedor: 0,
+              },
+        )
         .eq("id", escrow?.id)
+
       await supabase
         .from("trabajos")
-        .update({ estado: data.resolucion === "parcial" ? "completado" : "rechazado", fecha_fin: new Date().toISOString() })
+        .update({ estado: data.resolucion === "parcial" ? "completado" : "rechazado", fecha_fin: ahora })
         .eq("id", disputa.trabajo_id)
+
+      // Una resolución parcial cierra el trabajo: la demanda pasa a completada,
+      // como en la resolución a favor del proveedor. Si no, se quedaba "en
+      // progreso" para siempre en Mis Demandas.
+      if (data.resolucion === "parcial") {
+        const { data: t } = await supabase
+          .from("trabajos")
+          .select("solicitud_id")
+          .eq("id", disputa.trabajo_id)
+          .maybeSingle()
+        if (t?.solicitud_id) await supabase.from("solicitudes").update({ estado: "completada" }).eq("id", t.solicitud_id)
+      }
     }
 
     // Cerrar la disputa con la decisión y la nota del empleado.
@@ -662,11 +704,16 @@ async function notificarResolucionDisputa({
       : `La disputa de "${titulo}" se ha resuelto de forma parcial: te hemos reembolsado ${formatearPrecio(
           montoReembolso,
         )}.${motivo}`
+    // Al proveedor lo que le importa es cuánto cobra él, no cuánto se devuelve.
+    // La comisión va sobre lo que cobra de verdad, no sobre el precio pactado.
+    const netoParcial = calcularPagoProveedor(Math.max(base - montoReembolso, 0)).pagoNeto
     mensajeProfesional = sinImportes
       ? `La disputa de "${titulo}" se ha resuelto de forma parcial.${motivo}`
       : `La disputa de "${titulo}" se ha resuelto de forma parcial: se han reembolsado ${formatearPrecio(
           montoReembolso,
-        )} al cliente sobre un precio acordado de ${formatearPrecio(base)}.${motivo}`
+        )} al cliente y se te ha liberado el resto, ${formatearPrecio(
+          netoParcial,
+        )} netos tras la comisión.${motivo}`
   }
 
   // La decisión de Diime es mediación privada: hay que dejar claro a ambas
