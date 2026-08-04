@@ -24,7 +24,10 @@ export function RangoPrecio({
 }) {
   const [minSel, maxSel] = value
   return (
-    <div className="space-y-3 pt-1">
+    // px-2: los tiradores del deslizador quedaban pegados al borde del
+    // contenedor, que recorta (el acordeón usa overflow-hidden para animarse),
+    // así que se les comía el contorno y se veían planos por fuera.
+    <div className="space-y-3 pt-1 px-2">
       <Slider
         max={max}
         step={paso}
