@@ -847,7 +847,11 @@ function TrabajoCard({
 
           {/* Actions Sidebar */}
           {(onUpdateProgress || onMarkDelivered || onContactar || showPendingConfirmation) && (
-            <div className="lg:w-56 p-6 bg-muted/30 border-t lg:border-t-0 lg:border-l flex flex-col gap-3">
+            // justify-center: en un trabajo completado esta columna solo lleva
+            // "Contactar Cliente", y alineado arriba quedaba flotando con todo
+            // el hueco debajo. Centrado se ve equilibrado, y cuando hay varios
+            // botones (trabajo en curso) el resultado es el mismo de antes.
+            <div className="lg:w-56 p-6 bg-muted/30 border-t lg:border-t-0 lg:border-l flex flex-col justify-center gap-3">
               {trabajo.estado === "en_progreso" && onUpdateProgress && (
                 <>
                   <Button onClick={onUpdateProgress} variant="outline" className="w-full bg-transparent">

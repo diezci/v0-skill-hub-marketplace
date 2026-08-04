@@ -4,19 +4,11 @@ import Categories from "@/components/categories"
 import Testimonials from "@/components/testimonials"
 import HowItWorks from "@/components/how-it-works"
 import CtaSection from "@/components/cta-section"
-import { CheckCircle2, Users, Star, Shield } from "lucide-react"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
+import { CheckCircle2 } from "lucide-react"
 import { getT } from "@/lib/i18n-servidor"
 
 export default async function Home() {
   const { t } = await getT()
-
-  const trustStats = [
-    { value: "5,000+", label: t("home.stat.profesionales"), icon: Users },
-    { value: "4.9", label: t("home.stat.valoracion"), icon: Star },
-    { value: "100%", label: t("home.stat.pagos"), icon: Shield },
-  ]
 
   return (
     <div className="flex flex-col">
@@ -50,24 +42,6 @@ export default async function Home() {
           {/* Embedded form */}
           <SolicitudServicioForm embedded />
 
-          {/* Trust stats */}
-          <div className="grid grid-cols-3 gap-4 md:gap-8 max-w-2xl mx-auto mt-14 pt-10 border-t border-border/50">
-            {trustStats.map((stat) => {
-              const Icon = stat.icon
-              return (
-                <div key={stat.label} className="text-center">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <Icon className="h-5 w-5 text-primary" />
-                    <span className="text-2xl md:text-3xl font-bold tracking-tight">{stat.value}</span>
-                  </div>
-                  <p className="text-xs md:text-sm text-muted-foreground">{stat.label}</p>
-                </div>
-              )
-            })}
-          </div>
-
-          {/* Secondary CTA for professionals */}
-          
         </div>
       </section>
 
