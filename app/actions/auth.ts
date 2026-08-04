@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 
 export async function registrarUsuario(formData: {
@@ -220,6 +221,55 @@ export async function signInWithGoogle() {
   return { data: { url: data.url } }
 }
 
+
+// Baja de la cuenta a petición de la propia persona.
+//
+// Apple no acepta en la App Store (guía 5.1.1(v)) que el borrado haya que
+// pedírselo a soporte: tiene que poder completarlo el usuario desde la app.
+//
+// Todo el peso está en la función `eliminar_mi_cuenta()` de la base de datos
+// (scripts/046), que es SECURITY DEFINER y actúa siempre sobre auth.uid(): así
+// nadie puede dar de baja a otro. Allí se explica por qué se anonimiza en vez de
+// borrar filas —borrarlas se llevaría en cascada los trabajos y facturas de la
+// otra parte— y allí están las dos comprobaciones que pueden impedir la baja:
+// trabajos en curso o con dinero en custodia, y disputas abiertas.
+export async function eliminarMiCuenta() {
+  const supabase = await createClient()
+  if (!supabase) return { error: "No se pudo conectar con la base de datos" }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return { error: "Debes iniciar sesión" }
+
+  const { error } = await supabase.rpc("eliminar_mi_cuenta")
+
+  if (error) {
+    // Los mensajes de las comprobaciones ya vienen redactados en castellano y
+    // dicen qué hay que hacer antes, así que se enseñan tal cual.
+    return { error: error.message }
+  }
+
+  // La sesión en curso seguiría siendo válida hasta que caducara el token, así
+  // que se cierra aquí mismo.
+  //
+  // `scope: "local"` a propósito: el cierre normal llama al endpoint /logout de
+  // Supabase con el token del usuario, y ese usuario acaba de quedar baneado
+  // dentro de la función, así que la llamada falla y la cookie se queda puesta
+  // (probado: se volvía al inicio con la sesión todavía activa). En local no se
+  // llama a nadie, solo se borra la sesión de las cookies, que es lo que hace
+  // falta: el acceso ya está cortado en el servidor.
+  await supabase.auth.signOut({ scope: "local" })
+
+  // Y por si acaso, se barren a mano las cookies de sesión que hayan quedado.
+  const cookieStore = await cookies()
+  for (const c of cookieStore.getAll()) {
+    if (c.name.startsWith("sb-")) cookieStore.delete(c.name)
+  }
+
+  return { data: { success: true } }
+}
 
 // Company management functions
 export async function obtenerEmpresa() {
