@@ -67,6 +67,7 @@ import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
 import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
 import MisDisputas from "@/components/mis-disputas"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
+import { EnlacePerfil } from "@/components/enlace-perfil"
 import { calcularPagoProveedor, PLATFORM_CONFIG } from "@/lib/comisiones"
 
 type EstadoTrabajo = "pendiente_pago" | "en_progreso" | "entregado" | "completado" | "cancelado" | "en_disputa"
@@ -723,7 +724,7 @@ function TrabajoCard({
           {/* Main Content */}
           <div className="flex-1 p-6">
             <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-3">
+              <EnlacePerfil usuarioId={trabajo.cliente_id} className="flex items-center gap-3">
                 <Avatar className="h-12 w-12 border-2 border-background">
                   <AvatarImage src={trabajo.cliente?.foto_perfil || "/placeholder.svg"} />
                   <AvatarFallback>
@@ -737,7 +738,7 @@ function TrabajoCard({
                     {trabajo.cliente?.nombre} {trabajo.cliente?.apellido}
                   </p>
                 </div>
-              </div>
+              </EnlacePerfil>
               <Badge className={`${config?.color} text-white`}>
                 <Icon className="h-3 w-3 mr-1" />
                 {config?.label}

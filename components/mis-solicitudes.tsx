@@ -29,6 +29,7 @@ import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
 import MisDisputas from "@/components/mis-disputas"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
 import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
+import { EnlacePerfil } from "@/components/enlace-perfil"
 import { calcularTotalCliente, PLATFORM_CONFIG } from "@/lib/comisiones"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
@@ -648,7 +649,9 @@ export default function MisSolicitudes() {
                                   <div className="flex items-start justify-between gap-2">
                                     <div>
                                       <p className="font-semibold">
-                                        {oferta.profesional?.profiles?.nombre} {oferta.profesional?.profiles?.apellido}
+                                        <EnlacePerfil usuarioId={oferta.profesional_id}>
+                                          {oferta.profesional?.profiles?.nombre} {oferta.profesional?.profiles?.apellido}
+                                        </EnlacePerfil>
                                       </p>
                                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                         {oferta.profesional?.rating_promedio != null && (
@@ -825,7 +828,9 @@ export default function MisSolicitudes() {
                       </Avatar>
                       <div className="flex-1">
                         <p className="font-semibold">
-                          {trabajo?.profesional?.nombre} {trabajo?.profesional?.apellido}
+                          <EnlacePerfil usuarioId={trabajo?.profesional_id}>
+                            {trabajo?.profesional?.nombre} {trabajo?.profesional?.apellido}
+                          </EnlacePerfil>
                         </p>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
