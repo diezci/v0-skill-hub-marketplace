@@ -972,7 +972,10 @@ export default function MensajesContent() {
                     variant="outline"
                     size="sm"
                     className="text-xs"
-                    onClick={() => router.push(`/profesional/${getOtherUserId(selectedConversation)}`)}
+                    // A /usuario y no a /profesional: la otra parte puede ser un
+                    // cliente, y esa ruta daba 404 con quien no es profesional.
+                    // /usuario redirige a la ficha profesional si lo es.
+                    onClick={() => router.push(`/usuario/${getOtherUserId(selectedConversation)}`)}
                   >
                     Ver perfil
                   </Button>
