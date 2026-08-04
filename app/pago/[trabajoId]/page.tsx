@@ -73,6 +73,10 @@ export default function PagoPage() {
     }
     setStatus("complete")
     setTimeout(() => {
+      // Volver arriba antes de navegar: el checkout embebido de Stripe deja la
+      // página desplazada, y el navegador conservaba esa posición al llegar a
+      // Mis Demandas, que aparecía a media altura como si hubiera saltado sola.
+      window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
       router.push("/mis-solicitudes")
     }, 3000)
   }, [router, sessionId])

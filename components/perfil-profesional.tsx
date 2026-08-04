@@ -184,7 +184,13 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
           apellido: data.apellido || "",
           titulo: data.profesional?.titulo || "",
           ubicacion: data.ubicacion || "",
-          bio: data.profesional?.bio || "",
+          // La descripción vive en `profiles`, que es donde la escribe
+          // actualizarPerfil. Leerla de `profesionales` hacía que el formulario
+          // volviera vacío aunque el guardado hubiera ido bien (y por eso la
+          // ficha pública sí la mostraba: esa lee de profiles).
+          // Se conserva el valor antiguo como respaldo por si alguna ficha
+          // quedó con la descripción en la tabla de profesionales.
+          bio: data.bio || data.profesional?.bio || "",
           foto_perfil: data.foto_perfil || "",
           foto_portada: data.foto_portada || "",
           telefono: data.telefono || "",

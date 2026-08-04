@@ -27,6 +27,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Clock, MessageSquare, MapPin, Calendar, FileText, Loader2, Pencil, Trash2, Check, Paperclip, X, Eye } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { obtenerOfertasPorProfesional, actualizarOferta, eliminarOferta } from "@/app/actions/ofertas"
 import { crearConversacion } from "@/app/actions/messages"
 import { uploadFile } from "@/lib/upload-helpers"
@@ -199,8 +200,19 @@ export default function MisOfertas() {
                           </Badge>
                         )}
                       </div>
-                      <CardDescription className="text-base">
-                        {oferta.solicitud?.cliente?.nombre} {oferta.solicitud?.cliente?.apellido}
+                      {/* Miniatura del cliente: pone cara a la demanda de un
+                          vistazo, sin tener que abrirla. */}
+                      <CardDescription className="text-base flex items-center gap-2">
+                        <Avatar className="h-6 w-6 shrink-0">
+                          <AvatarImage src={oferta.solicitud?.cliente?.foto_perfil || "/placeholder.svg"} />
+                          <AvatarFallback className="text-[10px]">
+                            {oferta.solicitud?.cliente?.nombre?.[0]}
+                            {oferta.solicitud?.cliente?.apellido?.[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="truncate">
+                          {oferta.solicitud?.cliente?.nombre} {oferta.solicitud?.cliente?.apellido}
+                        </span>
                       </CardDescription>
                     </div>
                     <div className="text-left sm:text-right shrink-0">
@@ -333,7 +345,14 @@ export default function MisOfertas() {
                       No seleccionada
                     </Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-0.5">
+                  <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    <Avatar className="h-5 w-5 shrink-0">
+                      <AvatarImage src={oferta.solicitud?.cliente?.foto_perfil || "/placeholder.svg"} />
+                      <AvatarFallback className="text-[9px]">
+                        {oferta.solicitud?.cliente?.nombre?.[0]}
+                        {oferta.solicitud?.cliente?.apellido?.[0]}
+                      </AvatarFallback>
+                    </Avatar>
                     {oferta.solicitud?.cliente?.nombre} {oferta.solicitud?.cliente?.apellido}
                     {" · "}Ofertaste {formatearPrecioEuros(oferta.precio)}
                     {oferta.updated_at &&
