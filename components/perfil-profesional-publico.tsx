@@ -20,6 +20,7 @@ import {
   Award,
   Euro,
   Loader2,
+  UserX,
 } from "lucide-react"
 import { crearConversacion } from "@/app/actions/messages"
 import { createClient } from "@/lib/supabase/client"
@@ -97,10 +98,19 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
             <div className="flex-1 sm:pt-14">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-2xl font-bold">{nombreCompleto}</h1>
-                {perfil.verificado && (
-                  <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 gap-1">
-                    <BadgeCheck className="h-3.5 w-3.5" /> Verificado
+                {/* El nombre se conserva a propósito al darse de baja (ver
+                    scripts/046): quien trabajó con esta persona tiene que poder
+                    identificarla si necesita reclamar. */}
+                {perfil.cuenta_eliminada ? (
+                  <Badge variant="outline" className="bg-muted text-muted-foreground border-border gap-1">
+                    <UserX className="h-3.5 w-3.5" /> Cuenta eliminada
                   </Badge>
+                ) : (
+                  perfil.verificado && (
+                    <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 gap-1">
+                      <BadgeCheck className="h-3.5 w-3.5" /> Verificado
+                    </Badge>
+                  )
                 )}
               </div>
               <p className="text-muted-foreground">{perfil.titulo || "Profesional"}</p>
@@ -125,15 +135,25 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
             </div>
           </div>
 
-          <div className="flex gap-3 mt-5">
-            <Button className="flex-1 sm:flex-none" onClick={handleEnviarMensaje} disabled={contactando}>
-              {contactando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MessageSquare className="h-4 w-4 mr-2" />}
-              Enviar mensaje
-            </Button>
-            <Button variant="outline" className="flex-1 sm:flex-none bg-transparent" onClick={handleLlamar}>
-              <Phone className="h-4 w-4 mr-2" /> Contactar
-            </Button>
-          </div>
+          {perfil.cuenta_eliminada ? (
+            <div className="mt-5 rounded-lg border bg-muted/40 p-4 flex items-start gap-3 text-sm">
+              <UserX className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+              <p className="text-muted-foreground">
+                Esta persona ha cerrado su cuenta en Diime. No se la puede contactar ni contratar. Su perfil se
+                mantiene visible sin datos de contacto para quienes trabajaron con ella.
+              </p>
+            </div>
+          ) : (
+            <div className="flex gap-3 mt-5">
+              <Button className="flex-1 sm:flex-none" onClick={handleEnviarMensaje} disabled={contactando}>
+                {contactando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MessageSquare className="h-4 w-4 mr-2" />}
+                Enviar mensaje
+              </Button>
+              <Button variant="outline" className="flex-1 sm:flex-none bg-transparent" onClick={handleLlamar}>
+                <Phone className="h-4 w-4 mr-2" /> Contactar
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 

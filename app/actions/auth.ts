@@ -222,17 +222,58 @@ export async function signInWithGoogle() {
 }
 
 
+export type ConsecuenciasBaja = {
+  es_profesional: boolean
+  demandas_a_borrar: number
+  ofertas_a_retirar: number
+  trabajos_proveedor: number
+  importe_a_devolver: number
+  trabajos_cliente_con_dinero: number
+  importe_en_custodia: number
+  trabajos_cliente_sin_pagar: number
+  disputas_abiertas: number
+}
+
+// Qué le va a pasar EXACTAMENTE a esta persona si se da de baja. Se enseña antes
+// de pedir la confirmación: un aviso genérico no sirve cuando lo que está en
+// juego es dinero de otro.
+export async function consecuenciasDeEliminarMiCuenta() {
+  const supabase = await createClient()
+  if (!supabase) return { error: "No se pudo conectar con la base de datos" }
+
+  const { data, error } = await supabase.rpc("consecuencias_de_eliminar_mi_cuenta")
+  if (error) return { error: error.message }
+
+  const c = data as any
+  return {
+    data: {
+      es_profesional: !!c.es_profesional,
+      demandas_a_borrar: Number(c.demandas_a_borrar ?? 0),
+      ofertas_a_retirar: Number(c.ofertas_a_retirar ?? 0),
+      trabajos_proveedor: Number(c.trabajos_proveedor ?? 0),
+      importe_a_devolver: Number(c.importe_a_devolver ?? 0),
+      trabajos_cliente_con_dinero: Number(c.trabajos_cliente_con_dinero ?? 0),
+      importe_en_custodia: Number(c.importe_en_custodia ?? 0),
+      trabajos_cliente_sin_pagar: Number(c.trabajos_cliente_sin_pagar ?? 0),
+      disputas_abiertas: Number(c.disputas_abiertas ?? 0),
+    } satisfies ConsecuenciasBaja,
+  }
+}
+
 // Baja de la cuenta a petición de la propia persona.
 //
 // Apple no acepta en la App Store (guía 5.1.1(v)) que el borrado haya que
 // pedírselo a soporte: tiene que poder completarlo el usuario desde la app.
 //
-// Todo el peso está en la función `eliminar_mi_cuenta()` de la base de datos
-// (scripts/046), que es SECURITY DEFINER y actúa siempre sobre auth.uid(): así
-// nadie puede dar de baja a otro. Allí se explica por qué se anonimiza en vez de
-// borrar filas —borrarlas se llevaría en cascada los trabajos y facturas de la
-// otra parte— y allí están las dos comprobaciones que pueden impedir la baja:
-// trabajos en curso o con dinero en custodia, y disputas abiertas.
+// El orden importa: primero se cierra el dinero (reembolsos de Stripe y avisos a
+// la otra parte, que tienen que salir de aquí y no de la base de datos), y solo
+// al final se llama a `eliminar_mi_cuenta()` (scripts/046), que es lo que corta
+// el acceso. Si se hiciera al revés, el usuario quedaría baneado a mitad y los
+// reembolsos se quedarían sin hacer.
+//
+// Lo que NO se borra —nombre, NIF, dirección, correo, y los trabajos y facturas
+// cerrados— está explicado en scripts/046: la otra parte tiene que poder
+// reclamar contra alguien con nombre y apellidos.
 export async function eliminarMiCuenta() {
   const supabase = await createClient()
   if (!supabase) return { error: "No se pudo conectar con la base de datos" }
@@ -242,6 +283,97 @@ export async function eliminarMiCuenta() {
   } = await supabase.auth.getUser()
 
   if (!user) return { error: "Debes iniciar sesión" }
+
+  const { crearNotificacion } = await import("./notificaciones")
+  const { reembolsarPorCancelacion } = await import("./escrow")
+
+  const { data: perfil } = await supabase
+    .from("profiles")
+    .select("nombre, apellido")
+    .eq("id", user.id)
+    .maybeSingle()
+  const quienSeVa = `${perfil?.nombre ?? ""} ${perfil?.apellido ?? ""}`.trim() || "El otro usuario"
+
+  const { data: trabajosVivos } = await supabase
+    .from("trabajos")
+    .select("id, titulo, estado, cliente_id, profesional_id")
+    .or(`cliente_id.eq.${user.id},profesional_id.eq.${user.id}`)
+    .in("estado", ["pendiente_pago", "en_progreso", "entregado"])
+
+  for (const t of trabajosVivos ?? []) {
+    const titulo = t.titulo ?? "un trabajo"
+
+    if (t.profesional_id === user.id) {
+      // Se va el proveedor: el trabajo no lo va a hacer nadie, así que se
+      // cancela y el cliente recupera hasta el último euro (incluida la
+      // comisión: no llegó a prestarse ningún servicio).
+      const refund = await reembolsarPorCancelacion(t.id)
+      if ((refund as any)?.error) {
+        return {
+          error: `No se ha podido devolver el dinero de "${titulo}". No se ha dado de baja la cuenta; inténtalo de nuevo o escríbenos.`,
+        }
+      }
+
+      await supabase
+        .from("trabajos")
+        .update({ estado: "cancelado", updated_at: new Date().toISOString() })
+        .eq("id", t.id)
+
+      const devuelto = Number((refund as any)?.reembolso ?? 0)
+      await crearNotificacion({
+        usuarioId: t.cliente_id,
+        tipo: "trabajo_cancelado",
+        titulo: "El profesional se ha dado de baja",
+        mensaje:
+          devuelto > 0
+            ? `${quienSeVa} ha cerrado su cuenta, así que "${titulo}" queda cancelado y se te devuelven ${devuelto.toFixed(2)}€. El reembolso tarda unos días en verse en tu banco.`
+            : `${quienSeVa} ha cerrado su cuenta, así que "${titulo}" queda cancelado. No habías llegado a pagar nada.`,
+        link: "/mis-solicitudes",
+      })
+      continue
+    }
+
+    // Se va el cliente.
+    if (t.estado === "pendiente_pago") {
+      // Todavía no había pagado: no hay dinero de por medio, se cancela y ya.
+      await supabase
+        .from("trabajos")
+        .update({ estado: "cancelado", updated_at: new Date().toISOString() })
+        .eq("id", t.id)
+
+      await crearNotificacion({
+        usuarioId: t.profesional_id,
+        tipo: "trabajo_cancelado",
+        titulo: "El cliente se ha dado de baja",
+        mensaje: `${quienSeVa} ha cerrado su cuenta antes de pagar, así que "${titulo}" queda cancelado.`,
+        link: "/mis-trabajos",
+      })
+      continue
+    }
+
+    // Hay dinero en custodia y el cliente ya no está para confirmar la entrega.
+    // No se toca: lo decide Diime caso por caso, porque el trabajo puede estar
+    // hecho (y habría que pagar al proveedor) o a medias.
+    await crearNotificacion({
+      usuarioId: t.profesional_id,
+      tipo: "revision_diime",
+      titulo: "El cliente se ha dado de baja: lo revisa Diime",
+      mensaje: `${quienSeVa} ha cerrado su cuenta y ya no puede confirmar la recepción de "${titulo}". El dinero sigue retenido en custodia y Diime decidirá qué hacer con él. Te avisaremos.`,
+      link: "/mis-trabajos",
+    })
+
+    await supabase.from("incidencias").insert({
+      reportado_por: user.id,
+      asunto: `Baja de cliente con pago en custodia: ${titulo}`,
+      descripcion:
+        `El cliente ${quienSeVa} ha cerrado su cuenta con el trabajo "${titulo}" en estado "${t.estado}" y el pago retenido en custodia. ` +
+        `Nadie va a confirmar la recepción, así que hay que decidir a mano si se libera al proveedor o se reembolsa.`,
+      categoria: "pago",
+      prioridad: "alta",
+      trabajo_id: t.id,
+      usuario_reportado: null,
+    })
+  }
 
   const { error } = await supabase.rpc("eliminar_mi_cuenta")
 

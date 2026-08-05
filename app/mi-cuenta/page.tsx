@@ -200,7 +200,8 @@ export default async function MiCuentaPage() {
             <div>
               <h3 className="text-sm font-medium mb-1">Eliminar mi cuenta</h3>
               <p className="text-sm text-muted-foreground mb-3">
-                Borra tus datos personales y cierra tu acceso al instante. No hace falta pedírselo a soporte.
+                Cierra tu cuenta al instante, sin pedírselo a soporte. Antes de confirmar te diremos exactamente qué
+                pasa con tus demandas, tus trabajos en marcha y el dinero que haya de por medio.
               </p>
               <EliminarCuentaDialog />
             </div>

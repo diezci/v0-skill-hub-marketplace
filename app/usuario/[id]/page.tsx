@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { MapPin, CalendarDays, BadgeCheck, Briefcase } from "lucide-react"
+import { MapPin, CalendarDays, BadgeCheck, Briefcase, UserX } from "lucide-react"
 import { formatearFecha } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
@@ -29,7 +29,7 @@ export default async function PerfilUsuario({ params }: { params: Promise<{ id: 
 
   const { data: perfil } = await supabase
     .from("profiles")
-    .select("id, nombre, apellido, foto_perfil, foto_portada, ubicacion, bio, verificado, created_at")
+    .select("id, nombre, apellido, foto_perfil, foto_portada, ubicacion, bio, verificado, created_at, cuenta_eliminada")
     .eq("id", id)
     .maybeSingle()
 
@@ -67,10 +67,19 @@ export default async function PerfilUsuario({ params }: { params: Promise<{ id: 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-2xl font-bold truncate">{nombre}</h1>
-                <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30">
-                  Cliente
-                </Badge>
-                {perfil.verificado && (
+                {/* El nombre se conserva a propósito (ver scripts/046): quien
+                    trabajó con esta persona tiene que poder identificarla para
+                    reclamar. Pero deja claro que ya no está. */}
+                {perfil.cuenta_eliminada ? (
+                  <Badge variant="outline" className="bg-muted text-muted-foreground border-border gap-1">
+                    <UserX className="h-3.5 w-3.5" /> Cuenta eliminada
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30">
+                    Cliente
+                  </Badge>
+                )}
+                {perfil.verificado && !perfil.cuenta_eliminada && (
                   <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 gap-1">
                     <BadgeCheck className="h-3.5 w-3.5" /> Verificado
                   </Badge>

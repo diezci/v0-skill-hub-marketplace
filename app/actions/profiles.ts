@@ -53,7 +53,7 @@ export async function obtenerProfesionalPorId(id: string) {
     .from("profesionales")
     .select(`
       *,
-      perfil:profiles(nombre, apellido, ubicacion, foto_perfil, foto_portada)
+      perfil:profiles(nombre, apellido, ubicacion, foto_perfil, foto_portada, cuenta_eliminada)
     `)
     .eq("id", id)
     .single()
