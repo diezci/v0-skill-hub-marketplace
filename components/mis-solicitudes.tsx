@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { formatearPrecioEuros, formatearRangoPresupuesto } from "@/lib/utils"
+import { calcularPagoProveedor } from "@/lib/comisiones"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
@@ -259,7 +260,12 @@ export default function MisSolicitudes() {
       })
       setShowConfirmDialog(false)
       setActionLoading(false)
-      
+
+      // Recargar antes de nada: sin esto el trabajo seguía apareciendo en "Por
+      // Confirmar" y el Historial marcaba 0, aunque en la base de datos ya
+      // estuviera completado. Solo se arreglaba recargando la página a mano.
+      await refrescarSolicitudes()
+
       // Show review dialog
       setShowReviewDialog(true)
     }
@@ -325,8 +331,8 @@ export default function MisSolicitudes() {
       })
     } else {
       toast({
-        title: "Valoracion enviada",
-        description: "Gracias por tu valoracion. Ayuda a otros clientes a elegir mejor.",
+        title: "Valoración enviada",
+        description: "Gracias por tu valoración. Ayuda a otros clientes a elegir mejor.",
       })
     }
 
@@ -446,7 +452,9 @@ export default function MisSolicitudes() {
               <div>
                 <p className="text-sm text-muted-foreground">Por Confirmar</p>
                 <p className="text-3xl font-bold">{solicitudesPorConfirmar.length}</p>
-                <p className="text-xs text-muted-foreground">entregas por revisar</p>
+                <p className="text-xs text-muted-foreground">
+                  {solicitudesPorConfirmar.length === 1 ? "entrega por revisar" : "entregas por revisar"}
+                </p>
               </div>
               <div className="h-12 w-12 rounded-full bg-purple-500/20 flex items-center justify-center">
                 <Package className="h-6 w-6 text-purple-500" />
@@ -468,7 +476,9 @@ export default function MisSolicitudes() {
               <div>
                 <p className="text-sm text-muted-foreground">Historial</p>
                 <p className="text-3xl font-bold">{solicitudesCompletadas.length}</p>
-                <p className="text-xs text-muted-foreground">completados</p>
+                <p className="text-xs text-muted-foreground">
+                  {solicitudesCompletadas.length === 1 ? "completado" : "completados"}
+                </p>
               </div>
               <div className="h-12 w-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
                 <CheckCircle2 className="h-6 w-6 text-emerald-500" />
@@ -1021,9 +1031,19 @@ export default function MisSolicitudes() {
                             <AlertDialogContent>
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Confirmar finalización del trabajo</AlertDialogTitle>
+                                {/* El importe que sale de la custodia es el precio
+                                    acordado, pero al profesional no le llega entero:
+                                    Diime le descuenta su comisión. Decir "el pago de
+                                    400€ será liberado al profesional" cuando él cobra
+                                    380€ es engañoso, y además contradice el aviso que
+                                    recibe él, que sí da el neto. */}
                                 <AlertDialogDescription>
-                                  Al confirmar, el pago de {formatearPrecioEuros(trabajo?.precio_acordado)} será liberado al profesional.
-                                  Esta acción no se puede deshacer. ¿Estás seguro de que el trabajo ha sido completado satisfactoriamente?
+                                  Al confirmar se libera el pago de{" "}
+                                  {formatearPrecioEuros(trabajo?.precio_acordado)} que tienes en custodia; el
+                                  profesional recibirá{" "}
+                                  {formatearPrecioEuros(calcularPagoProveedor(trabajo?.precio_acordado || 0).pagoNeto)}{" "}
+                                  una vez descontada la comisión de Diime. Esta acción no se puede deshacer. ¿Confirmas
+                                  que el trabajo se ha completado satisfactoriamente?
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
@@ -1108,7 +1128,9 @@ export default function MisSolicitudes() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-bold">{solicitud.trabajo?.precio_acordado || solicitud.presupuesto_max}EUR</p>
+                        <p className="text-lg font-bold">
+                          {formatearPrecioEuros(solicitud.trabajo?.precio_acordado || solicitud.presupuesto_max)}
+                        </p>
                         {hasReview ? (
                           <Badge variant="outline" className="bg-transparent mt-2 text-emerald-500 border-emerald-500/50">
                             <Check className="h-3 w-3 mr-1" />
@@ -1125,7 +1147,7 @@ export default function MisSolicitudes() {
                             }}
                           >
                             <Star className="h-4 w-4 mr-1" />
-                            Dejar Valoracion
+                            Dejar valoración
                           </Button>
                         )}
                       </div>
@@ -1150,13 +1172,13 @@ export default function MisSolicitudes() {
           <DialogHeader>
             <DialogTitle>Valorar al profesional</DialogTitle>
             <DialogDescription>
-              Tu valoracion ayuda a otros clientes y motiva a los profesionales a dar lo mejor de si.
+              Tu valoración ayuda a otros clientes y motiva a los profesionales a dar lo mejor de sí.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
             {/* Star Rating */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Puntuacion</label>
+              <label className="text-sm font-medium">Puntuación</label>
               <div className="flex items-center justify-center gap-2">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
@@ -1208,7 +1230,7 @@ export default function MisSolicitudes() {
             </Button>
             <Button onClick={handleSubmitReview} disabled={actionLoading || !reviewComentario.trim()}>
               {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-              Enviar Valoracion
+              Enviar valoración
             </Button>
           </DialogFooter>
         </DialogContent>
