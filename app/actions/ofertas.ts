@@ -3,6 +3,18 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
+// NOTA SOBRE `solicitudes.total_ofertas`: aquí no se toca, a propósito.
+//
+// Esta acción la ejecuta el PROFESIONAL, y la RLS de `solicitudes` solo deja
+// escribir al dueño de la demanda, así que desde aquí es imposible mantener el
+// contador (probado: el update se acepta sin error y no cambia nada). Antes
+// había una llamada a `increment_total_ofertas`, una función que ni siquiera
+// existe en la base de datos, con el error ignorado; por eso el contador
+// llevaba desfasado desde el principio.
+//
+// El número se calcula al leer, con la RPC `contar_ofertas_por_solicitud`
+// (ver obtenerSolicitudesAbiertas y scripts/047).
+
 export async function crearOferta(formData: {
   solicitud_id: string
   precio: number
@@ -96,8 +108,6 @@ export async function crearOferta(formData: {
     return { error: error.message }
   }
 
-  // Update total_ofertas in solicitud
-  await supabase.rpc("increment_total_ofertas", { solicitud_uuid: formData.solicitud_id })
 
   // Notificar al cliente dueño de la demanda.
   const { data: solicitud } = await supabase
@@ -316,7 +326,31 @@ export async function eliminarOferta(ofertaId: string) {
   const { error } = await supabase.from("ofertas").delete().eq("id", ofertaId).eq("profesional_id", user.id)
   if (error) return { error: error.message }
 
+  // El cliente puede estar comparando ofertas ahora mismo: si una desaparece de
+  // su lista sin avisar, parece un fallo de la web.
+  if (oferta.solicitud_id) {
+    const { data: solicitud } = await supabase
+      .from("solicitudes")
+      .select("cliente_id, titulo, estado")
+      .eq("id", oferta.solicitud_id)
+      .maybeSingle()
+
+    // Solo si la demanda sigue viva: en una ya contratada el aviso sobraría.
+    if (solicitud?.cliente_id && solicitud.estado === "abierta") {
+      const { crearNotificacion } = await import("./notificaciones")
+      await crearNotificacion({
+        usuarioId: solicitud.cliente_id,
+        tipo: "oferta_retirada",
+        titulo: "Un profesional ha retirado su oferta",
+        mensaje: `Una de las ofertas que habías recibido en "${solicitud.titulo}" ya no está disponible.`,
+        link: "/mis-solicitudes",
+      })
+    }
+  }
+
   revalidatePath("/mis-trabajos")
+  revalidatePath("/mis-ofertas")
+  revalidatePath("/mis-solicitudes")
   revalidatePath("/demandas")
   return { success: true }
 }

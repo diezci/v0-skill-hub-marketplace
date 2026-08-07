@@ -206,9 +206,54 @@ export async function actualizarSolicitud(
 
   if (error) return { error: error.message }
 
+  // Quien ya ha pujado lo hizo sobre otras condiciones: si cambian el precio,
+  // el plazo o el sitio, tiene que poder revisar su oferta.
+  await avisarAQuienHaPujado(supabase, {
+    solicitudId: id,
+    tipo: "demanda_actualizada",
+    titulo: "Han cambiado una demanda en la que pujaste",
+    mensaje: `El cliente ha modificado "${data?.titulo ?? "una demanda"}". Revisa tu oferta por si ya no encaja con las nuevas condiciones.`,
+    link: "/mis-ofertas",
+  })
+
   revalidatePath("/mis-solicitudes")
+  revalidatePath("/mis-ofertas")
   revalidatePath("/demandas")
   return { data }
+}
+
+// Avisa a los profesionales con una puja viva en una demanda. Se usa al editarla
+// y al borrarla: en los dos casos han dedicado tiempo a preparar una oferta y se
+// quedaban sin enterarse de nada.
+async function avisarAQuienHaPujado(
+  supabase: any,
+  aviso: { solicitudId: string; tipo: string; titulo: string; mensaje: string; link: string },
+) {
+  const { data: ofertas } = await supabase
+    .from("ofertas")
+    .select("profesional_id")
+    .eq("solicitud_id", aviso.solicitudId)
+    .in("estado", ["pendiente", "enviada", "en_negociacion"])
+
+  const destinatarios = [...new Set(((ofertas as any[] | null) || []).map((o) => o.profesional_id).filter(Boolean))]
+  if (destinatarios.length === 0) return
+
+  await supabase.from("notificaciones").insert(
+    destinatarios.map((id) => ({
+      usuario_id: id,
+      tipo: aviso.tipo,
+      titulo: aviso.titulo,
+      mensaje: aviso.mensaje,
+      link: aviso.link,
+      leida: false,
+    })),
+  )
+
+  // Alta masiva: no pasa por `crearNotificacion`, así que el correo va aquí.
+  const { enviarAvisoPorEmail } = await import("@/lib/emails/enviar")
+  for (const usuarioId of destinatarios) {
+    await enviarAvisoPorEmail({ usuarioId, ...aviso })
+  }
 }
 
 export async function eliminarSolicitud(id: string) {
@@ -222,7 +267,7 @@ export async function eliminarSolicitud(id: string) {
 
   const { data: solicitud } = await supabase
     .from("solicitudes")
-    .select("cliente_id, estado")
+    .select("cliente_id, estado, titulo")
     .eq("id", id)
     .maybeSingle()
 
@@ -233,10 +278,22 @@ export async function eliminarSolicitud(id: string) {
     return { error: "No puedes borrar una demanda con un trabajo en curso." }
   }
 
+  // El aviso va ANTES del borrado: `ofertas.solicitud_id` es ON DELETE CASCADE,
+  // así que después ya no habría a quién avisar. Sin esto, la puja de un
+  // profesional desaparecía de su lista sin explicación.
+  await avisarAQuienHaPujado(supabase, {
+    solicitudId: id,
+    tipo: "demanda_retirada",
+    titulo: "Han retirado una demanda en la que pujaste",
+    mensaje: `El cliente ha borrado "${solicitud.titulo}", así que tu oferta ya no sigue adelante. Puedes seguir pujando en otras demandas.`,
+    link: "/mis-ofertas",
+  })
+
   const { error } = await supabase.from("solicitudes").delete().eq("id", id).eq("cliente_id", user.id)
   if (error) return { error: error.message }
 
   revalidatePath("/mis-solicitudes")
+  revalidatePath("/mis-ofertas")
   revalidatePath("/demandas")
   return { success: true }
 }
@@ -309,24 +366,28 @@ export async function obtenerSolicitudesAbiertas() {
     (data || []).map((s: any) => s.cliente_id),
   )
 
-  // Get offer counts separately and enrich with categoria/cliente
-  const dataWithCounts = await Promise.all(
-    (data || []).map(async (solicitud: any) => {
-      const { count } = await supabase
-        .from("ofertas")
-        .select("*", { count: "exact", head: true })
-        .eq("solicitud_id", solicitud.id)
-      const perfil = solicitud.cliente_id ? mapaPerfiles[solicitud.cliente_id] : null
-      return {
-        ...solicitud,
-        categoria: solicitud.categoria_id ? mapaCategorias[solicitud.categoria_id] || null : null,
-        cliente: perfil,
-        telefono: perfil?.telefono || "",
-        email: perfil?.email || "",
-        total_ofertas: count || 0,
-      }
-    }),
+  // Cuántas pujas tiene cada demanda. Va por RPC porque la RLS de `ofertas`
+  // solo deja ver las propias y las de las demandas de uno: contándolas con un
+  // SELECT normal, un profesional veía "0 ofertas" en TODAS las demandas
+  // ajenas, tuvieran las que tuvieran. La función solo devuelve el número.
+  const { data: conteos } = await supabase.rpc("contar_ofertas_por_solicitud", {
+    p_ids: (data || []).map((s: any) => s.id),
+  })
+  const totalPorSolicitud = new Map<string, number>(
+    ((conteos as any[] | null) || []).map((c) => [c.solicitud_id, Number(c.total) || 0]),
   )
+
+  const dataWithCounts = (data || []).map((solicitud: any) => {
+    const perfil = solicitud.cliente_id ? mapaPerfiles[solicitud.cliente_id] : null
+    return {
+      ...solicitud,
+      categoria: solicitud.categoria_id ? mapaCategorias[solicitud.categoria_id] || null : null,
+      cliente: perfil,
+      telefono: perfil?.telefono || "",
+      email: perfil?.email || "",
+      total_ofertas: totalPorSolicitud.get(solicitud.id) ?? 0,
+    }
+  })
 
   return { data: dataWithCounts }
 }
