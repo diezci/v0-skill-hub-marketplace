@@ -1417,6 +1417,21 @@ export default function MisSolicitudes() {
             <AlertDialogTitle>¿Borrar esta demanda?</AlertDialogTitle>
             <AlertDialogDescription>
               Se eliminará "{deleteSolicitud?.titulo}" de forma permanente. Esta acción no se puede deshacer.
+              {/* Las ofertas se borran en cascada con la demanda: hay que decirlo
+                  antes, no después. */}
+              {(() => {
+                const vivas = (deleteSolicitud?.ofertas || []).filter(
+                  (o: any) => !["aceptada", "rechazada", "retirada"].includes(o.estado),
+                ).length
+                if (vivas === 0) return null
+                return (
+                  <span className="block mt-2 text-destructive">
+                    {vivas === 1
+                      ? "Perderás la oferta que has recibido, y avisaremos al profesional que la envió."
+                      : `Perderás las ${vivas} ofertas que has recibido, y avisaremos a los profesionales que las enviaron.`}
+                  </span>
+                )
+              })()}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
