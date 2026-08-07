@@ -7,7 +7,10 @@ const Footer = () => {
     platform: [
       { name: "Buscar profesionales", href: "/profesionales" },
       { name: "Ver demandas", href: "/demandas" },
-      { name: "Publicar proyecto", href: "/solicitar-servicio" },
+      // Baja hasta el formulario de la portada. Había una página aparte
+      // (/solicitar-servicio) con un asistente por pasos que hacía lo mismo:
+      // eran dos interfaces para publicar la misma demanda.
+      { name: "Publicar proyecto", href: "/#publicar-demanda" },
     ],
     professionals: [
       { name: "Crear perfil", href: "/convertirse-profesional" },
