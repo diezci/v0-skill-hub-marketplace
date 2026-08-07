@@ -3,6 +3,7 @@ import Link from "next/link"
 import LogoutButton from "@/components/logout-button"
 import { CambiarContrasenaForm } from "@/components/cambiar-contrasena-form"
 import { ReportarIncidenciaDialog } from "@/components/reportar-incidencia-dialog"
+import { EliminarCuentaDialog } from "@/components/eliminar-cuenta-dialog"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -14,7 +15,6 @@ import {
   Briefcase,
   Bell,
   ShieldAlert,
-  Trash2,
   BadgeCheck,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
@@ -186,7 +186,7 @@ export default async function MiCuentaPage() {
         <Card className="border-destructive/30">
           <CardHeader>
             <CardTitle className="text-destructive">Zona de peligro</CardTitle>
-            <CardDescription>Cerrar sesión o solicitar la baja de tu cuenta</CardDescription>
+            <CardDescription>Cerrar sesión o darte de baja</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div>
@@ -200,20 +200,10 @@ export default async function MiCuentaPage() {
             <div>
               <h3 className="text-sm font-medium mb-1">Eliminar mi cuenta</h3>
               <p className="text-sm text-muted-foreground mb-3">
-                Enviamos tu solicitud a soporte, que la gestionará manualmente para asegurarse de que no queden
-                trabajos, pagos o disputas abiertas.
+                Cierra tu cuenta al instante, sin pedírselo a soporte. Antes de confirmar te diremos exactamente qué
+                pasa con tus demandas, tus trabajos en marcha y el dinero que haya de por medio.
               </p>
-              <ReportarIncidenciaDialog
-                asuntoInicial="Solicitud de eliminación de cuenta"
-                categoriaInicial="otro"
-                descripcionPlaceholder="Confírmanos que quieres eliminar tu cuenta y por qué, así podemos gestionarlo cuanto antes..."
-                trigger={
-                  <Button variant="outline" className="bg-transparent text-destructive border-destructive/40 hover:bg-destructive/10 gap-2">
-                    <Trash2 className="h-4 w-4" />
-                    Solicitar eliminación de cuenta
-                  </Button>
-                }
-              />
+              <EliminarCuentaDialog />
             </div>
           </CardContent>
         </Card>

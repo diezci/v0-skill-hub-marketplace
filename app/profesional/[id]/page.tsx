@@ -75,6 +75,7 @@ export default async function ProfilePage({
     nivel: profile.verificado ? "Experto Verificado" : "Profesional",
     disponibilidad: profile.disponible ? "Disponible" : "No disponible",
     verificado: profile.verificado || false,
+    cuenta_eliminada: profile.perfil?.cuenta_eliminada || null,
     habilidades: profile.habilidades || [],
     certificaciones: profile.certificaciones || [],
     idiomas: profile.idiomas || [],

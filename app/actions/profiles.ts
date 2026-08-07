@@ -17,12 +17,16 @@ export async function obtenerProfesionales(filtros?: {
   }
 
   // Todos los que tienen ficha de profesional (perfil profesional creado).
+  // `disponible` es lo que deja fuera a quien se ha dado de baja: al eliminar la
+  // cuenta la ficha no se borra (arrastraría en cascada los trabajos y facturas
+  // del cliente), se vacía y se marca como no disponible. Ver scripts/046.
   let query = supabase
     .from("profesionales")
     .select(`
       *,
       perfil:profiles(nombre, apellido, ubicacion, foto_perfil, foto_portada, bio, verificado)
     `)
+    .eq("disponible", true)
     .order("rating_promedio", { ascending: false })
 
   if (filtros?.rating_min) {
@@ -49,7 +53,7 @@ export async function obtenerProfesionalPorId(id: string) {
     .from("profesionales")
     .select(`
       *,
-      perfil:profiles(nombre, apellido, ubicacion, foto_perfil, foto_portada)
+      perfil:profiles(nombre, apellido, ubicacion, foto_perfil, foto_portada, cuenta_eliminada)
     `)
     .eq("id", id)
     .single()
