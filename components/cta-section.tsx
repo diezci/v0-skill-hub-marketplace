@@ -29,7 +29,10 @@ const CtaSection = () => {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/solicitar-servicio">
+            {/* Sube al formulario de la propia portada: es donde se publica.
+                Con la ruta delante y no solo "#...": el Link del App Router no
+                salta al ancla cuando el href es únicamente el hash. */}
+            <Link href="/#publicar-demanda">
               <Button
                 size="lg"
                 className="rounded-xl bg-white text-emerald-700 hover:bg-white/90 h-12 px-8 text-base font-semibold shadow-xl"

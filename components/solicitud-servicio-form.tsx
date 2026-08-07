@@ -304,7 +304,14 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
 
   if (embedded) {
     return (
-      <Card className="max-w-3xl mx-auto shadow-xl border-0 bg-card/80 backdrop-blur">
+      // El id es el destino de "Publicar proyecto" (pie de página y banda final):
+      // este formulario ES la página de publicar demanda, así que en vez de
+      // llevar a otro sitio se baja hasta aquí. scroll-mt-24 deja hueco para la
+      // barra superior, que es fija y si no taparía el título.
+      <Card
+        id="publicar-demanda"
+        className="max-w-3xl mx-auto shadow-xl border-0 bg-card/80 backdrop-blur scroll-mt-24"
+      >
         <CardContent className="p-6 md:p-8">{formContent}</CardContent>
       </Card>
     )
