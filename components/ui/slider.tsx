@@ -32,6 +32,15 @@ function Slider({
       max={max}
       className={cn(
         'relative flex w-full touch-none items-center select-none data-[disabled]:opacity-50 data-[orientation=vertical]:h-full data-[orientation=vertical]:min-h-44 data-[orientation=vertical]:w-auto data-[orientation=vertical]:flex-col',
+        // Los tiradores van en posición absoluta, así que NO cuentan para el
+        // alto: sin esto la raíz mide lo que la barra (6px) y los tiradores
+        // (16px) sobresalen 5px por arriba y por abajo. En cuanto algún padre
+        // recorta —el acordeón de los filtros usa overflow:hidden para su
+        // animación— se les come el borde superior y se ven aplastados.
+        // Medido: tirador en y=1043, recorte en y=1044. Dando a la raíz el alto
+        // del tirador, este cabe entero dentro y ya no depende del padding del
+        // contenedor de turno.
+        'data-[orientation=horizontal]:min-h-4',
         className,
       )}
       {...props}
