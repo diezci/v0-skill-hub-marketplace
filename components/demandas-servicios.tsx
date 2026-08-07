@@ -543,7 +543,9 @@ export default function DemandasServicios() {
                         </div>
                         <div className="flex items-center gap-1">
                           <Users className="h-3.5 w-3.5" />
-                          <span>{demanda.total_ofertas} ofertas</span>
+                          <span>
+                            {demanda.total_ofertas} {demanda.total_ofertas === 1 ? "oferta" : "ofertas"}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -668,7 +670,10 @@ export default function DemandasServicios() {
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Users className="h-4 w-4 text-muted-foreground" />
-                <span>{demandaSeleccionada?.total_ofertas} ofertas recibidas</span>
+                <span>
+                  {demandaSeleccionada?.total_ofertas}{" "}
+                  {demandaSeleccionada?.total_ofertas === 1 ? "oferta recibida" : "ofertas recibidas"}
+                </span>
               </div>
             </div>
 

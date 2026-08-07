@@ -1,4 +1,5 @@
 import MisOfertas from "@/components/mis-ofertas"
+import { AvisoSinCobertura } from "@/components/aviso-sin-cobertura"
 
 export const metadata = {
   title: "Mis Pujas | Diime",
@@ -15,6 +16,7 @@ export default function MisPujasPage() {
           aceptadas.
         </p>
       </div>
+      <AvisoSinCobertura />
       <MisOfertas />
     </div>
   )
