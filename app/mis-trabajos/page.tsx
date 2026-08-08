@@ -237,8 +237,13 @@ export default function MisTrabajosPage() {
   }
 
 
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString("es-ES", {
+  // Sin fecha salía "1 ene 1970": new Date(null) es la época de Unix. Un trabajo
+  // puede no tener fecha de inicio todavía (se pone al confirmarse el pago).
+  const formatDate = (date: string | null | undefined) => {
+    if (!date) return "Sin fecha"
+    const d = new Date(date)
+    if (Number.isNaN(d.getTime())) return "Sin fecha"
+    return d.toLocaleDateString("es-ES", {
       day: "numeric",
       month: "short",
       year: "numeric",

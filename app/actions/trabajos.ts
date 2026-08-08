@@ -151,12 +151,49 @@ export async function obtenerMisTrabajos() {
         ...trabajo,
         cliente,
         profesional,
-        transaccion_escrow: escrow,
+        // Cada parte solo se lleva su lado del dinero. Lo que Diime le cobra al
+        // cliente y lo que le descuenta al profesional son dos acuerdos
+        // distintos, y ninguno de los dos tiene por qué conocer el del otro.
+        // Se recorta aquí y no solo en la pantalla: esta acción la llaman
+        // componentes de cliente, así que la fila entera acabaría viajando al
+        // navegador y bastaría con mirar la respuesta para verlo todo.
+        transaccion_escrow: recortarEscrowSegunRol(escrow, trabajo.cliente_id === user.id),
       }
     }),
   )
 
   return { data: dataWithProfiles }
+}
+
+// Campos del escrow que puede ver cada parte.
+//
+//   cliente     -> lo que ha pagado él (monto, comision_cliente)
+//   profesional -> lo que va a cobrar él (pago_neto_proveedor, comision_proveedor)
+//
+// `monto_base` (el precio acordado) lo ven los dos: es lo que han pactado entre
+// ellos, no una condición de la plataforma.
+function recortarEscrowSegunRol(escrow: any, esElCliente: boolean) {
+  if (!escrow) return escrow
+
+  const comunes = {
+    id: escrow.id,
+    trabajo_id: escrow.trabajo_id,
+    estado: escrow.estado,
+    monto_base: escrow.monto_base,
+    fecha_retencion: escrow.fecha_retencion,
+    fecha_liberacion: escrow.fecha_liberacion,
+    fecha_reembolso: escrow.fecha_reembolso,
+    monto_reembolsado: escrow.monto_reembolsado,
+    created_at: escrow.created_at,
+  }
+
+  return esElCliente
+    ? { ...comunes, monto: escrow.monto, comision_cliente: escrow.comision_cliente }
+    : {
+        ...comunes,
+        comision_proveedor: escrow.comision_proveedor,
+        pago_neto_proveedor: escrow.pago_neto_proveedor,
+      }
 }
 
 export async function actualizarEstadoTrabajo(trabajoId: string, estado: string) {

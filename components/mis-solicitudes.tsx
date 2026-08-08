@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { formatearPrecioEuros, formatearRangoPresupuesto } from "@/lib/utils"
-import { calcularPagoProveedor } from "@/lib/comisiones"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
@@ -1031,19 +1030,16 @@ export default function MisSolicitudes() {
                             <AlertDialogContent>
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Confirmar finalización del trabajo</AlertDialogTitle>
-                                {/* El importe que sale de la custodia es el precio
-                                    acordado, pero al profesional no le llega entero:
-                                    Diime le descuenta su comisión. Decir "el pago de
-                                    400€ será liberado al profesional" cuando él cobra
-                                    380€ es engañoso, y además contradice el aviso que
-                                    recibe él, que sí da el neto. */}
+                                {/* Se habla del importe que SALE DE LA CUSTODIA, no de
+                                    lo que acaba cobrando el profesional: lo que Diime
+                                    le descuenta a él es cosa entre Diime y él, y el
+                                    cliente no tiene por qué saberlo. Por eso "se
+                                    libera" y no "el profesional recibirá". */}
                                 <AlertDialogDescription>
                                   Al confirmar se libera el pago de{" "}
-                                  {formatearPrecioEuros(trabajo?.precio_acordado)} que tienes en custodia; el
-                                  profesional recibirá{" "}
-                                  {formatearPrecioEuros(calcularPagoProveedor(trabajo?.precio_acordado || 0).pagoNeto)}{" "}
-                                  una vez descontada la comisión de Diime. Esta acción no se puede deshacer. ¿Confirmas
-                                  que el trabajo se ha completado satisfactoriamente?
+                                  {formatearPrecioEuros(trabajo?.precio_acordado)} que tienes en custodia y el trabajo
+                                  queda cerrado. Esta acción no se puede deshacer. ¿Confirmas que el trabajo se ha
+                                  completado satisfactoriamente?
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
