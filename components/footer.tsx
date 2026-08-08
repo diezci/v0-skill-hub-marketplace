@@ -45,15 +45,19 @@ const Footer = () => {
             <p className="text-sm text-muted-foreground leading-relaxed mb-4 max-w-xs">
               La plataforma que conecta profesionales cualificados con clientes que buscan calidad y confianza.
             </p>
-            <div className="flex flex-col gap-2 text-sm text-muted-foreground">
+            <div className="flex flex-col text-sm text-muted-foreground">
+              {/* Los enlaces del pie miden 40px de alto para poder pulsarlos con
+                  el dedo: medían 17-20px, muy por debajo de lo que recomiendan
+                  Apple y Google, y son los únicos enlaces de casi toda la web
+                  que fallaban esa medida. */}
               <a
                 href="mailto:contacto@diime.es"
-                className="inline-flex items-center gap-2 hover:text-foreground transition-colors"
+                className="inline-flex min-h-[40px] items-center gap-2 hover:text-foreground transition-colors"
               >
                 <Mail className="h-4 w-4" />
                 contacto@diime.es
               </a>
-              <span className="inline-flex items-center gap-2">
+              <span className="inline-flex min-h-[40px] items-center gap-2">
                 <Shield className="h-4 w-4 text-primary" />
                 Pagos protegidos con escrow
               </span>
@@ -63,12 +67,12 @@ const Footer = () => {
           {/* Links */}
           <div>
             <h4 className="font-semibold mb-4 text-sm">Plataforma</h4>
-            <ul className="space-y-2.5">
+            <ul>
               {links.platform.map((link) => (
                 <li key={link.name}>
                   <Link
                     href={link.href}
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    className="inline-flex min-h-[40px] items-center text-sm text-muted-foreground hover:text-primary transition-colors"
                   >
                     {link.name}
                   </Link>
@@ -79,12 +83,12 @@ const Footer = () => {
 
           <div>
             <h4 className="font-semibold mb-4 text-sm">Profesionales</h4>
-            <ul className="space-y-2.5">
+            <ul>
               {links.professionals.map((link) => (
                 <li key={link.name}>
                   <Link
                     href={link.href}
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    className="inline-flex min-h-[40px] items-center text-sm text-muted-foreground hover:text-primary transition-colors"
                   >
                     {link.name}
                   </Link>
@@ -95,12 +99,12 @@ const Footer = () => {
 
           <div>
             <h4 className="font-semibold mb-4 text-sm">Empresa</h4>
-            <ul className="space-y-2.5">
+            <ul>
               {links.company.map((link) => (
                 <li key={link.name}>
                   <Link
                     href={link.href}
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    className="inline-flex min-h-[40px] items-center text-sm text-muted-foreground hover:text-primary transition-colors"
                   >
                     {link.name}
                   </Link>
@@ -111,12 +115,12 @@ const Footer = () => {
 
           <div>
             <h4 className="font-semibold mb-4 text-sm">Legal</h4>
-            <ul className="space-y-2.5">
+            <ul>
               {links.legal.map((link) => (
                 <li key={link.name}>
                   <Link
                     href={link.href}
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    className="inline-flex min-h-[40px] items-center text-sm text-muted-foreground hover:text-primary transition-colors"
                   >
                     {link.name}
                   </Link>

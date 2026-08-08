@@ -10,7 +10,13 @@
   --card-foreground: hsl(0 0% 9%);
   --popover: hsl(0 0% 100%);
   --popover-foreground: hsl(0 0% 9%);
-  --primary: hsl(142 76% 36%);
+  /* En claro el verde va un punto más oscuro que en oscuro: a 36% de luminosidad
+     el texto verde sobre blanco quedaba en 3.33:1 de contraste, por debajo del
+     4.5:1 que pide la WCAG para texto normal, y se notaba en los rótulos de
+     sección, los enlaces "Ver todos" y las tarifas €/h. A 30% sube a 4.61:1
+     sin cambiar el color de marca de forma apreciable. En oscuro se queda como
+     estaba (5.94:1 sobre el fondo negro, de sobra). */
+  --primary: hsl(142 76% 30%);
   --primary-foreground: hsl(0 0% 100%);
   --secondary: hsl(0 0% 96%);
   --secondary-foreground: hsl(0 0% 9%);

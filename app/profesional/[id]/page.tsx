@@ -87,7 +87,10 @@ export default async function ProfilePage({
     })),
     reviews: (profile.reviews || []).map((review: any) => ({
       id: review.id,
-      cliente: `${review.cliente?.nombre || ""} ${review.cliente?.apellido?.charAt(0) || ""}.`,
+      // El punto solo si hay inicial: si no, la reseña salía firmada como "Lale .".
+      cliente: [review.cliente?.nombre, review.cliente?.apellido?.charAt(0) ? `${review.cliente.apellido.charAt(0)}.` : null]
+        .filter(Boolean)
+        .join(" "),
       avatar: review.cliente?.foto_perfil || "",
       rating: review.rating,
       fecha: review.created_at

@@ -529,8 +529,12 @@ export default function DemandasServicios() {
                               {demanda.cliente?.nombre?.charAt(0)}
                             </AvatarFallback>
                           </Avatar>
+                          {/* La inicial solo si hay apellido: sin él salía
+                              "Lale ." y "Daniel Cano .", con el punto suelto. */}
                           <span className="underline-offset-2 hover:underline">
-                            {demanda.cliente?.nombre} {demanda.cliente?.apellido?.charAt(0)}.
+                            {[demanda.cliente?.nombre, demanda.cliente?.apellido?.charAt(0) ? `${demanda.cliente.apellido.charAt(0)}.` : null]
+                              .filter(Boolean)
+                              .join(" ")}
                           </span>
                         </button>
                         <div className="flex items-center gap-1">
