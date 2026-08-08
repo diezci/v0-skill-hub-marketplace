@@ -95,7 +95,9 @@ const GigFilters = ({ filtros, onChange, onReset }: GigFiltersProps) => {
                         key={ciudad}
                         type="button"
                         onClick={() => onChange({ provincia: ciudad })}
-                        className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
+                        // min-h-8: son botones de filtro de verdad y medían 24px
+                        // de alto, incómodos de acertar con el dedo.
+                        className={`inline-flex min-h-8 items-center px-3 text-xs rounded-full transition-colors ${
                           filtros.provincia === ciudad
                             ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
                             : "bg-muted hover:bg-emerald-500/10 hover:text-emerald-700 dark:hover:text-emerald-400"
