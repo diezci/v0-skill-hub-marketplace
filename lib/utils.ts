@@ -54,9 +54,20 @@ export function formatearPrecioEuros(
 }
 
 /**
- * Formatea el rango de presupuesto de una demanda de forma fiel a lo que el
- * cliente eligió: "Hasta 500€" (sin mínimo), "Más de 5.000€" (sin máximo),
- * "900€ - 1.500€" (rango completo) o "A convenir" (sin presupuesto).
+ * Formatea el presupuesto de una demanda enseñando las cifras que publicó el
+ * cliente, sin añadirle interpretaciones:
+ *
+ *   900€ - 1.500€   rango completo
+ *   1.500€          una sola cifra (mínimo y máximo coinciden, o solo hay una)
+ *   Hasta 500€      solo puso techo, no suelo
+ *   A convenir      no puso ninguna cifra
+ *
+ * Antes, una demanda con mínimo pero sin máximo se enseñaba como "Más de
+ * 5.000€", que no es lo que el cliente había publicado: el formulario tiraba el
+ * máximo cuando el tirador quedaba en el tope de la barra, y el texto se
+ * inventaba el "más de" para rellenar el hueco. Ya no se tira (ver
+ * solicitud-servicio-form), pero quedan demandas antiguas sin máximo, y para
+ * esas se enseña la cifra a secas.
  */
 export function formatearRangoPresupuesto(
   min: number | string | null | undefined,
@@ -67,8 +78,13 @@ export function formatearRangoPresupuesto(
   const hayMin = nMin !== null && !Number.isNaN(nMin) && nMin > 0
   const hayMax = nMax !== null && !Number.isNaN(nMax) && nMax > 0
 
-  if (hayMin && hayMax) return `${formatearPrecioEuros(nMin)} - ${formatearPrecioEuros(nMax)}`
+  if (hayMin && hayMax) {
+    // Cuando el cliente deja los dos tiradores juntos ha publicado un importe
+    // exacto: repetirlo ("1.500€ - 1.500€") sobra.
+    if (nMin === nMax) return formatearPrecioEuros(nMin)
+    return `${formatearPrecioEuros(nMin)} - ${formatearPrecioEuros(nMax)}`
+  }
   if (!hayMin && hayMax) return `Hasta ${formatearPrecioEuros(nMax)}`
-  if (hayMin && !hayMax) return `Más de ${formatearPrecioEuros(nMin)}`
+  if (hayMin && !hayMax) return formatearPrecioEuros(nMin)
   return "A convenir"
 }

@@ -87,9 +87,16 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
         titulo: values.title,
         descripcion: values.description,
         ubicacion: values.location,
-        // 0 no acota; el tope (PRECIO_MAX) significa "o más", sin límite superior.
-        presupuesto_min: presMin > 0 ? presMin : undefined,
-        presupuesto_max: presMax >= PRECIO_MAX ? undefined : presMax,
+        // Se guardan las cifras que el cliente ha marcado, tal cual. Antes, si
+        // dejaba el tirador derecho en el tope se tiraba el máximo, y la tarjeta
+        // acababa enseñando "Más de 5.000€" en vez del rango publicado.
+        //
+        // La barra entera de lado a lado es la posición de partida: quien no la
+        // toca no está diciendo "de 0 a 100.000", está diciendo que no lo tiene
+        // decidido, y eso se publica como "A convenir".
+        ...(presMin <= 0 && presMax >= PRECIO_MAX
+          ? { presupuesto_min: undefined, presupuesto_max: undefined }
+          : { presupuesto_min: presMin > 0 ? presMin : undefined, presupuesto_max: presMax }),
         urgencia: values.urgency,
         archivos_adjuntos: successfulUploads,
       })
