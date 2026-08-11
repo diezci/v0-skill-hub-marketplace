@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
     return {
       title: `${nombre} - ${profile.titulo || "Profesional"} | Diime`,
-      description: `${profile.bio || "Profesional verificado en Diime"} - ${profile.proyectos_completados || 0} proyectos completados.`,
+      description: `${profile.perfil?.bio || "Profesional verificado en Diime"} - ${profile.proyectos_completados || 0} proyectos completados.`,
     }
   } catch {
     return { title: "Perfil | Diime" }
@@ -62,7 +62,9 @@ export default async function ProfilePage({
     apellido: profile.perfil?.apellido || "",
     titulo: profile.titulo || "",
     ubicacion: profile.perfil?.ubicacion || "",
-    bio: profile.bio || "",
+    // La descripción vive en `profiles.bio`: la tabla `profesionales` no tiene
+    // columna bio, así que leerla de ahí dejaba "Sobre mí" siempre en blanco.
+    bio: profile.perfil?.bio || "",
     foto_perfil: profile.perfil?.foto_perfil || "",
     foto_portada: profile.perfil?.foto_portada || "",
     telefono: profile.perfil?.telefono || "",
