@@ -134,6 +134,7 @@ const GigFilters = ({ filtros, onChange, onReset }: GigFiltersProps) => {
                   onChange={([min, max]) => onChange({ precioMin: min, precioMax: max })}
                   max={PRECIO_HORA_MAX}
                   paso={PASO_PRECIO_HORA}
+                  etiqueta="Tarifa por hora"
                 />
               </AccordionContent>
             </AccordionItem>
