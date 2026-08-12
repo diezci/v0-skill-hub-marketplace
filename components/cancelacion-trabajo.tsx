@@ -29,9 +29,21 @@ interface CancelacionTrabajoProps {
     cancelacion_razon?: string | null
   }
   onChange?: () => void
+  /**
+   * Qué parte pintar. Este componente devuelve dos cosas muy distintas: un
+   * aviso con varios párrafos y dos botones, o un único botón pequeño.
+   *
+   * En Gestión de proyectos los botones viven en una columna lateral de 224 px,
+   * y el aviso metido ahí salía a dos palabras por línea. Con `variante` la
+   * página puede poner el botón en la columna estrecha y el aviso a lo ancho.
+   *
+   * Sin `variante` se comporta como siempre (lo usa Mis Demandas, donde todo va
+   * en el cuerpo de la tarjeta y hay sitio de sobra).
+   */
+  variante?: "aviso" | "boton"
 }
 
-export function CancelacionTrabajo({ trabajo, onChange }: CancelacionTrabajoProps) {
+export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionTrabajoProps) {
   const [userId, setUserId] = useState<string | null>(null)
   const [openSolicitar, setOpenSolicitar] = useState(false)
   const [razon, setRazon] = useState("")
@@ -93,27 +105,46 @@ export function CancelacionTrabajo({ trabajo, onChange }: CancelacionTrabajoProp
   const soyElSolicitante = trabajo.cancelacion_solicitada_por === userId
   const estadoCanc = trabajo.cancelacion_estado
 
+  // Con `variante` cada mitad se pinta por separado; sin ella, las dos.
+  const hayCancelacionEnCurso = estadoCanc === "pendiente" || estadoCanc === "rechazada"
+  if (variante === "aviso" && !hayCancelacionEnCurso) return null
+  if (variante === "boton" && hayCancelacionEnCurso) return null
+
+  // En la variante "aviso" el bloque es una banda que cruza la tarjeta entera,
+  // así que no lleva borde redondeado propio sino una línea de separación.
+  const enBanda = variante === "aviso"
+  const marco = enBanda
+    ? "border-b border-amber-500/30 bg-amber-500/10 px-6 py-4"
+    : "rounded-lg border border-amber-500/30 bg-amber-500/10 p-4"
+  // Los avisos de una sola frase van más apretados fuera de la banda.
+  const marcoCompacto = enBanda
+    ? "border-b border-amber-500/30 bg-amber-500/10 px-6 py-3"
+    : "rounded-lg border border-amber-500/30 bg-amber-500/10 p-3"
+
   // 1) Solicitud pendiente: el que NO la pidió debe aceptar/rechazar.
   if (estadoCanc === "pendiente" && !soyElSolicitante) {
     return (
-      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 space-y-3">
-        <div className="flex items-start gap-3">
+      <div className={`${marco} flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between`}>
+        <div className="flex items-start gap-3 min-w-0">
           <Ban className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
-          <div>
+          <div className="min-w-0">
             <p className="font-semibold text-amber-700 dark:text-amber-400">
               La otra parte quiere cancelar este trabajo
             </p>
             {trabajo.cancelacion_razon && (
               <p className="text-sm text-muted-foreground mt-0.5">Motivo: {trabajo.cancelacion_razon}</p>
             )}
-            <p className="text-sm text-muted-foreground">
+            {/* max-w-prose: a lo ancho de una tarjeta grande, una línea de texto
+                de borde a borde se lee mal. */}
+            <p className="text-sm text-muted-foreground max-w-prose mt-0.5">
               Si aceptas, el trabajo se cancela (y si el cliente ya pagó, se le reembolsa íntegramente). Si
               rechazas, se abrirá una disputa automáticamente y la resolverá el equipo de Diime según los
               términos de la contratación; en caso de duda, a favor del cliente.
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+        {/* shrink-0: los botones nunca se estrechan hasta partir su texto. */}
+        <div className="flex gap-2 shrink-0">
           <Button
             size="sm"
             className="bg-emerald-600 hover:bg-emerald-700"
@@ -141,7 +172,7 @@ export function CancelacionTrabajo({ trabajo, onChange }: CancelacionTrabajoProp
   // 2) Solicitud pendiente: el que la pidió espera respuesta.
   if (estadoCanc === "pendiente" && soyElSolicitante) {
     return (
-      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
+      <div className={`${marcoCompacto} text-sm text-amber-700 dark:text-amber-400`}>
         Has solicitado cancelar este trabajo. Esperando que la otra parte lo acepte o lo rechace.
       </div>
     )
@@ -152,7 +183,7 @@ export function CancelacionTrabajo({ trabajo, onChange }: CancelacionTrabajoProp
   //    quedara algún trabajo con el estado antiguo, se informa igualmente.
   if (estadoCanc === "rechazada") {
     return (
-      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-muted-foreground">
+      <div className={`${marcoCompacto} text-sm text-muted-foreground`}>
         La solicitud de cancelación fue rechazada y el caso pasa a disputa: lo resolverá el equipo de Diime
         según los términos de la contratación.
       </div>
