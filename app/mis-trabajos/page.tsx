@@ -724,6 +724,12 @@ function TrabajoCard({
           </p>
         </div>
       )}
+      {/* El aviso de cancelación va a lo ancho de la tarjeta, no en la columna
+          de acciones: ahí mide 224px menos el relleno y el texto salía a dos
+          palabras por línea. Además es lo más importante que puede pasarle a un
+          trabajo en curso, así que se lee antes que nada. Se pinta solo, con su
+          propia banda, o no se pinta nada. */}
+      <CancelacionTrabajo trabajo={trabajo} onChange={onRefresh} variante="aviso" />
       <CardContent className="p-0">
         <div className="flex flex-col lg:flex-row">
           {/* Main Content */}
@@ -873,7 +879,7 @@ function TrabajoCard({
                   )}
                   {/* Cancelación de mutuo acuerdo también con el trabajo en curso:
                       si el cliente acepta, se le reembolsa íntegramente. */}
-                  <CancelacionTrabajo trabajo={trabajo} onChange={onRefresh} />
+                  <CancelacionTrabajo trabajo={trabajo} onChange={onRefresh} variante="boton" />
                 </>
               )}
               {trabajo.estado === "pendiente_pago" && (
@@ -884,7 +890,7 @@ function TrabajoCard({
                       El proyecto iniciará cuando el cliente realice el pago
                     </p>
                   </div>
-                  <CancelacionTrabajo trabajo={trabajo} onChange={onRefresh} />
+                  <CancelacionTrabajo trabajo={trabajo} onChange={onRefresh} variante="boton" />
                 </div>
               )}
               {showPendingConfirmation && (
