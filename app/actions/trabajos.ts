@@ -386,7 +386,10 @@ export async function responderCancelacion(trabajoId: string, aceptar: boolean) 
   const { data: trabajo } = await supabase
     .from("trabajos")
     .select(
-      "id, cliente_id, profesional_id, estado, cancelacion_estado, cancelacion_solicitada_por, solicitud_id, oferta_id, titulo",
+      // cancelacion_razon: sin pedirla, la disputa que se abre al rechazar
+      // quedaba con "Motivo original de la cancelación: no indicado" aunque el
+      // solicitante lo hubiera escrito, y quien la resuelve se queda sin el dato.
+      "id, cliente_id, profesional_id, estado, cancelacion_estado, cancelacion_solicitada_por, cancelacion_razon, solicitud_id, oferta_id, titulo",
     )
     .eq("id", trabajoId)
     .maybeSingle()
