@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RangoPrecio } from "@/components/rango-precio"
 import { PRECIO_MAX } from "@/lib/precios"
+import { urgencia } from "@/lib/urgencias"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -70,12 +71,6 @@ type Demanda = {
   archivos?: string[]
 }
 
-const urgenciaConfig: Record<string, { label: string; color: string }> = {
-  baja: { label: "Baja", color: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" },
-  media: { label: "Media", color: "bg-amber-500/10 text-amber-500 border-amber-500/20" },
-  alta: { label: "Alta", color: "bg-orange-500/10 text-orange-500 border-orange-500/20" },
-  urgente: { label: "Urgente", color: "bg-red-500/10 text-red-500 border-red-500/20" },
-}
 
 // Mismas categorías que /profesionales, el formulario de publicar demanda y el
 // "Tipo de Servicio" del homepage: fuente única en lib/categorias.ts.
@@ -480,8 +475,8 @@ export default function DemandasServicios() {
                             <Badge variant="outline" className="text-xs font-normal">
                               {demanda.categoria?.nombre}
                             </Badge>
-                            <Badge variant="outline" className={cn("text-xs", (urgenciaConfig[demanda.urgencia] ?? urgenciaConfig.media).color)}>
-                              {(urgenciaConfig[demanda.urgencia] ?? urgenciaConfig.media).label}
+                            <Badge variant="outline" className={cn("text-xs", urgencia(demanda.urgencia).color)}>
+                              {urgencia(demanda.urgencia).corta}
                             </Badge>
                           </div>
                           <h3 className="font-semibold text-lg group-hover:text-primary transition-colors">
@@ -603,8 +598,8 @@ export default function DemandasServicios() {
             <div className="flex items-center gap-2 mb-2">
               <Badge variant="outline">{demandaSeleccionada?.categoria?.nombre}</Badge>
               {demandaSeleccionada && (
-                <Badge variant="outline" className={(urgenciaConfig[demandaSeleccionada.urgencia] ?? urgenciaConfig.media).color}>
-                  {(urgenciaConfig[demandaSeleccionada.urgencia] ?? urgenciaConfig.media).label}
+                <Badge variant="outline" className={urgencia(demandaSeleccionada.urgencia).color}>
+                  {urgencia(demandaSeleccionada.urgencia).corta}
                 </Badge>
               )}
             </div>

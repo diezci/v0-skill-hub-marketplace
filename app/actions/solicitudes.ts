@@ -161,8 +161,10 @@ export async function actualizarSolicitud(
     titulo?: string
     descripcion?: string
     ubicacion?: string
-    presupuesto_min?: number
-    presupuesto_max?: number
+    // null = borrar la cifra; undefined = no tocarla. La diferencia importa:
+    // ver el comentario del update.
+    presupuesto_min?: number | null
+    presupuesto_max?: number | null
     urgencia?: string
   },
 ) {
@@ -188,17 +190,19 @@ export async function actualizarSolicitud(
     return { error: "Solo puedes editar demandas que sigan abiertas (sin ofertas aceptadas)." }
   }
 
+  // Solo se mandan los campos que vienen. Antes se mandaban todos, y un
+  // `undefined` desaparece al serializar el JSON: la columna nunca llegaba a
+  // tocarse. Por eso vaciar el presupuesto mínimo no lo borraba —la demanda
+  // seguía enseñando el rango viejo— y no había forma de pasar de un rango a
+  // una sola cifra. Ahora `null` borra y `undefined` deja como estaba.
+  const cambios: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  for (const clave of ["titulo", "descripcion", "ubicacion", "presupuesto_min", "presupuesto_max", "urgencia"] as const) {
+    if (campos[clave] !== undefined) cambios[clave] = campos[clave]
+  }
+
   const { data, error } = await supabase
     .from("solicitudes")
-    .update({
-      titulo: campos.titulo,
-      descripcion: campos.descripcion,
-      ubicacion: campos.ubicacion,
-      presupuesto_min: campos.presupuesto_min,
-      presupuesto_max: campos.presupuesto_max,
-      urgencia: campos.urgencia,
-      updated_at: new Date().toISOString(),
-    })
+    .update(cambios)
     .eq("id", id)
     .eq("cliente_id", user.id)
     .select()

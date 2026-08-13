@@ -32,6 +32,7 @@ import { EnlacePerfil } from "@/components/enlace-perfil"
 import { obtenerOfertasPorProfesional, actualizarOferta, eliminarOferta } from "@/app/actions/ofertas"
 import { crearConversacion } from "@/app/actions/messages"
 import { uploadFile } from "@/lib/upload-helpers"
+import { urgencia } from "@/lib/urgencias"
 import { useToast } from "@/hooks/use-toast"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
 
@@ -541,8 +542,12 @@ export default function MisOfertas() {
           {verDemanda && (
             <div className="space-y-4 py-1 text-sm">
               <div className="flex flex-wrap gap-2">
+                {/* Antes se pintaba el valor de la base de datos tal cual
+                    ("alta", "media"), que no es lo que el cliente eligió. */}
                 {verDemanda.urgencia && (
-                  <Badge variant="outline" className="capitalize">{verDemanda.urgencia}</Badge>
+                  <Badge variant="outline" className={urgencia(verDemanda.urgencia).color}>
+                    {urgencia(verDemanda.urgencia).corta}
+                  </Badge>
                 )}
                 {verDemanda.ubicacion && (
                   <Badge variant="outline" className="gap-1">
