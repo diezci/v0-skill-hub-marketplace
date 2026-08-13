@@ -100,12 +100,14 @@ export default function MisDisputas({
   // cliente o como profesional. Cada sección debe mostrar solo las suyas: en
   // Mis Demandas, aquellas en las que soy el cliente; en Gestión de Proyectos,
   // en las que soy el profesional. Sin esto, una disputa aparecía en las dos.
-  // Solo las disputas EN CURSO. Una resuelta o retirada ya no es algo que
-  // atender: el trabajo vuelve a su sitio (Historial en Mis Demandas,
-  // Completados en Gestión de Proyectos) y verlo además aquí daba la sensación
-  // de tener conflictos abiertos que ya no existen.
-  const mias = (data: any[]) =>
-    data.filter((d) => (rol === "cliente" ? d.soy_cliente : !d.soy_cliente) && d.estado === "abierta")
+  //
+  // Se traen TODAS, abiertas y cerradas. Antes se descartaban las resueltas y
+  // retiradas para que la sección no diera sensación de conflictos vivos que ya
+  // no existen, pero con eso desaparecía también el historial: ni el cliente ni
+  // el proveedor podían volver a leer en qué quedó una disputa ni con qué
+  // motivo. Se resuelve separándolas en dos grupos, no escondiéndolas.
+  const mias = (data: any[]) => data.filter((d) => (rol === "cliente" ? d.soy_cliente : !d.soy_cliente))
+  // El contador de la pestaña sigue contando solo las vivas: dice "en curso".
   const enCurso = (data: any[]) => data.filter((d) => d.estado === "abierta").length
 
   const cargar = () =>
@@ -170,21 +172,13 @@ export default function MisDisputas({
     )
   }
 
-  const abiertas = disputas.filter((d) => d.estado === "abierta").length
+  // Las vivas arriba, porque son las que piden algo. Las cerradas debajo, como
+  // historial consultable: en qué quedó cada una y con qué motivo.
+  const enRevision = disputas.filter((d) => d.estado === "abierta")
+  const cerradas = disputas.filter((d) => d.estado !== "abierta")
+  const abiertas = enRevision.length
 
-  return (
-    <div className="space-y-4">
-      {abiertas > 0 && (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-muted-foreground flex items-start gap-2">
-          <Scale className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-          <span>
-            Tienes {abiertas} disputa{abiertas !== 1 ? "s" : ""} en revisión. Mientras dure, el pago sigue retenido
-            en custodia. Puedes aportar pruebas en el chat del trabajo.
-          </span>
-        </div>
-      )}
-
-      {disputas.map((d) => {
+  const tarjeta = (d: any) => {
         // Mi papel en ESTA disputa, no el de la sección en la que estoy: si se
         // deduce de la sección, una disputa que perdiste como profesional se
         // anuncia como "Resuelta a tu favor" al verla desde Mis Demandas.
@@ -273,8 +267,37 @@ export default function MisDisputas({
               </div>
             </CardContent>
           </Card>
-        )
-      })}
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {abiertas > 0 && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-muted-foreground flex items-start gap-2">
+          <Scale className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+          <span>
+            Tienes {abiertas} disputa{abiertas !== 1 ? "s" : ""} en revisión. Mientras dure, el pago sigue retenido
+            en custodia. Puedes aportar pruebas en el chat del trabajo.
+          </span>
+        </div>
+      )}
+
+      {enRevision.map(tarjeta)}
+
+      {cerradas.length > 0 && (
+        <>
+          {/* Solo se encabeza el historial cuando además hay alguna viva: con
+              únicamente cerradas, el título sobra porque no hay dos grupos que
+              distinguir. */}
+          {enRevision.length > 0 && (
+            <div className="flex items-center gap-3 pt-2">
+              <h3 className="text-sm font-medium text-muted-foreground shrink-0">Historial</h3>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+          )}
+          {cerradas.map(tarjeta)}
+        </>
+      )}
 
       <AlertDialog open={!!aRetirar} onOpenChange={(o) => !o && setARetirar(null)}>
         <AlertDialogContent>
