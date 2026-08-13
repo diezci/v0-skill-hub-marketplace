@@ -31,6 +31,7 @@ import { AdjuntosLista } from "@/components/adjuntos-lista"
 import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
 import { EnlacePerfil } from "@/components/enlace-perfil"
 import { calcularTotalCliente, PLATFORM_CONFIG } from "@/lib/comisiones"
+import { URGENCIAS } from "@/lib/urgencias"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import {
@@ -120,8 +121,10 @@ export default function MisSolicitudes() {
       titulo: editForm.titulo,
       descripcion: editForm.descripcion,
       ubicacion: editForm.ubicacion,
-      presupuesto_min: editForm.presupuesto_min ? Number.parseFloat(editForm.presupuesto_min) : undefined,
-      presupuesto_max: editForm.presupuesto_max ? Number.parseFloat(editForm.presupuesto_max) : undefined,
+      // null, no undefined: dejar el campo vacío significa "quítalo", y con
+      // undefined la cifra vieja se quedaba puesta.
+      presupuesto_min: editForm.presupuesto_min ? Number.parseFloat(editForm.presupuesto_min) : null,
+      presupuesto_max: editForm.presupuesto_max ? Number.parseFloat(editForm.presupuesto_max) : null,
       urgencia: editForm.urgencia,
     })
     if (result.error) {
@@ -1330,10 +1333,14 @@ export default function MisSolicitudes() {
                 value={editForm.urgencia}
                 onChange={(e) => setEditForm({ ...editForm, urgencia: e.target.value })}
               >
-                <option value="urgente">Urgente</option>
-                <option value="alta">Alta</option>
-                <option value="media">Media</option>
-                <option value="baja">Baja</option>
+                {/* Las mismas opciones y las mismas palabras que al publicar:
+                    antes aquí ponía "Alta/Media/Baja" y el cliente no reconocía
+                    lo que había elegido ("Esta semana", "Este mes"…). */}
+                {URGENCIAS.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.etiqueta}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

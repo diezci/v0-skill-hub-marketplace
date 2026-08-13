@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation"
 import { SelectCategoriaJerarquico } from "@/components/select-categoria-jerarquico"
 import { RangoPrecio } from "@/components/rango-precio"
 import { PRECIO_MAX } from "@/lib/precios"
+import { URGENCIAS } from "@/lib/urgencias"
 import { PROVINCIAS_ES } from "@/lib/provincias"
 
 const formSchema = z.object({
@@ -241,11 +242,11 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {/* Los valores deben coincidir con la constraint de la BD: baja | media | alta | urgente */}
-                    <SelectItem value="urgente">Urgente (1-3 días)</SelectItem>
-                    <SelectItem value="alta">Esta semana</SelectItem>
-                    <SelectItem value="media">Este mes</SelectItem>
-                    <SelectItem value="baja">Flexible</SelectItem>
+                    {URGENCIAS.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.etiqueta}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <FormMessage />
