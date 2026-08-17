@@ -66,7 +66,7 @@ export async function obtenerProfesionalPorId(id: string) {
     .from("portfolio")
     .select("*")
     .eq("profesional_id", id)
-    .order("fecha_completado", { ascending: false })
+    .order("fecha_proyecto", { ascending: false, nullsFirst: false })
 
   const { data: reviews } = await supabase
     .from("reseñas")
@@ -86,7 +86,12 @@ export async function obtenerProfesionalPorId(id: string) {
     data: {
       ...profesional,
       perfil: profesional.perfil ? { ...profesional.perfil, telefono: telefono ?? null } : profesional.perfil,
-      portfolio: portfolio || [],
+      // La base de datos guarda varias imágenes en `imagenes`; la ficha
+      // pública muestra la principal como `imagen`.
+      portfolio: (portfolio || []).map((item: any) => ({
+        ...item,
+        imagen: Array.isArray(item.imagenes) ? item.imagenes[0] || "" : "",
+      })),
       reviews: reviews || [],
     },
   }

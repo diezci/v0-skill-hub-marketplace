@@ -256,6 +256,11 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
                       )}
                       <div className="p-3">
                         <p className="font-medium text-sm">{p.titulo}</p>
+                        {p.trabajo_id && (
+                          <Badge className="mt-2 gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                            <BadgeCheck className="h-3.5 w-3.5" /> Verificado por Diime
+                          </Badge>
+                        )}
                         <p className="text-xs text-muted-foreground line-clamp-2">{p.descripcion}</p>
                       </div>
                     </div>

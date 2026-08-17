@@ -32,12 +32,23 @@ import {
   LogOut,
   Trash2,
   Bell,
+  BadgeCheck,
+  FileUp,
+  ClipboardCheck,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { actualizarPerfil, obtenerPerfilActual } from "@/app/actions/profiles"
 import { SelectorCategorias, SelectorProvincias } from "@/components/selector-cobertura"
-import { crearItemPortfolio, obtenerPortfolioPorProfesional, eliminarItemPortfolio } from "@/app/actions/portfolio"
+import { SelectCategoriaJerarquico } from "@/components/select-categoria-jerarquico"
+import { PROVINCIAS_ES } from "@/lib/provincias"
+import {
+  actualizarItemPortfolio,
+  crearItemPortfolio,
+  obtenerPortfolioPorProfesional,
+  obtenerTrabajosCompletadosParaPortfolio,
+  eliminarItemPortfolio,
+} from "@/app/actions/portfolio"
 import {
   Dialog,
   DialogContent,
@@ -158,9 +169,13 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
   // Portfolio: el alta/baja vive aquí porque /mi-perfil es el único editor de perfil.
   const [profesionalId, setProfesionalId] = useState<string | null>(null)
   const [showPortfolioDialog, setShowPortfolioDialog] = useState(false)
+  const [editingPortfolioId, setEditingPortfolioId] = useState<string | null>(null)
   const [savingPortfolio, setSavingPortfolio] = useState(false)
   const [uploadingPortfolioImg, setUploadingPortfolioImg] = useState(false)
   const [deletingPortfolioId, setDeletingPortfolioId] = useState<string | null>(null)
+  const [trabajosDiime, setTrabajosDiime] = useState<any[]>([])
+  const [loadingTrabajosDiime, setLoadingTrabajosDiime] = useState(false)
+  const [showTrabajosDiime, setShowTrabajosDiime] = useState(false)
   const PORTFOLIO_VACIO = {
     titulo: "",
     descripcion: "",
@@ -170,6 +185,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     ubicacion: "",
     duracion: "",
     presupuesto: "",
+    trabajo_id: "",
   }
   const [newPortfolioItem, setNewPortfolioItem] = useState(PORTFOLIO_VACIO)
 
@@ -257,17 +273,19 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
   }
 
   const handleAddPortfolio = async () => {
-    if (!newPortfolioItem.titulo || !newPortfolioItem.descripcion || !newPortfolioItem.imagen_url) {
+    if (!newPortfolioItem.titulo || !newPortfolioItem.descripcion) {
       toast({
         title: "Campos requeridos",
-        description: "Completa título, descripción e imagen.",
+        description: "Completa título y descripción.",
         variant: "destructive",
       })
       return
     }
 
     setSavingPortfolio(true)
-    const result = await crearItemPortfolio(newPortfolioItem)
+    const result = editingPortfolioId
+      ? await actualizarItemPortfolio(editingPortfolioId, newPortfolioItem)
+      : await crearItemPortfolio(newPortfolioItem)
     setSavingPortfolio(false)
 
     if (result.error) {
@@ -275,10 +293,59 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
       return
     }
 
-    toast({ title: "Proyecto añadido", description: "Ya aparece en tu portfolio." })
+    toast({
+      title: editingPortfolioId ? "Proyecto actualizado" : "Proyecto añadido",
+      description: "Ya aparece en tu portfolio.",
+    })
     setShowPortfolioDialog(false)
     setNewPortfolioItem(PORTFOLIO_VACIO)
+    setEditingPortfolioId(null)
     if (profesionalId) await cargarPortfolio(profesionalId)
+  }
+
+  const handleEditPortfolio = (item: any) => {
+    setEditingPortfolioId(item.id)
+    setNewPortfolioItem({
+      titulo: item.titulo || "",
+      descripcion: item.descripcion || "",
+      imagen_url: item.imagen || "",
+      categoria: item.categoria || "",
+      fecha_completado: item.fecha_proyecto || "",
+      ubicacion: item.ubicacion || "",
+      duracion: item.duracion || "",
+      presupuesto: item.presupuesto != null ? String(item.presupuesto) : "",
+      trabajo_id: item.trabajo_id || "",
+    })
+    setShowPortfolioDialog(true)
+  }
+
+  const cargarTrabajosDiime = async () => {
+    setShowTrabajosDiime(true)
+    if (trabajosDiime.length > 0) return
+    setLoadingTrabajosDiime(true)
+    const result = await obtenerTrabajosCompletadosParaPortfolio()
+    setLoadingTrabajosDiime(false)
+    if (result.error) {
+      toast({ title: "No se pudieron cargar tus trabajos", description: result.error, variant: "destructive" })
+      return
+    }
+    setTrabajosDiime(result.data || [])
+  }
+
+  const seleccionarTrabajoDiime = (trabajo: any) => {
+    const archivos = Array.isArray(trabajo.oferta?.archivos) ? trabajo.oferta.archivos : []
+    setNewPortfolioItem({
+      ...newPortfolioItem,
+      titulo: trabajo.titulo || "",
+      descripcion: trabajo.descripcion || "",
+      imagen_url: archivos[0] || "",
+      categoria: "",
+      fecha_completado: trabajo.fecha_fin || "",
+      ubicacion: trabajo.ubicacion || "",
+      presupuesto: trabajo.precio_acordado != null ? String(trabajo.precio_acordado) : "",
+      trabajo_id: trabajo.id,
+    })
+    setShowTrabajosDiime(false)
   }
 
   const handleDeletePortfolio = async (itemId: string) => {
@@ -956,7 +1023,16 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
             <TabsContent value="portfolio" className="pt-6">
               {editable && (
                 <div className="flex justify-end mb-4">
-                  <Button size="sm" className="gap-2" onClick={() => setShowPortfolioDialog(true)}>
+                  <Button
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => {
+                      setEditingPortfolioId(null)
+                      setNewPortfolioItem(PORTFOLIO_VACIO)
+                      setShowTrabajosDiime(false)
+                      setShowPortfolioDialog(true)
+                    }}
+                  >
                     <Plus className="h-4 w-4" />
                     Añadir proyecto
                   </Button>
@@ -983,24 +1059,40 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                         className="w-full h-full object-cover transition-transform group-hover:scale-105"
                       />
                       {editable && (
-                        <Button
-                          size="icon"
-                          variant="destructive"
-                          className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                          aria-label={`Eliminar ${item.titulo}`}
-                          disabled={deletingPortfolioId === item.id}
-                          onClick={() => handleDeletePortfolio(item.id)}
-                        >
-                          {deletingPortfolioId === item.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
-                        </Button>
+                        <div className="absolute top-2 right-2 flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                          <Button
+                            size="icon"
+                            variant="secondary"
+                            className="h-8 w-8"
+                            aria-label={`Editar ${item.titulo}`}
+                            onClick={() => handleEditPortfolio(item)}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="destructive"
+                            className="h-8 w-8"
+                            aria-label={`Eliminar ${item.titulo}`}
+                            disabled={deletingPortfolioId === item.id}
+                            onClick={() => handleDeletePortfolio(item.id)}
+                          >
+                            {deletingPortfolioId === item.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
                       )}
                     </div>
                     <CardContent className="p-4">
                       <h4 className="font-semibold">{item.titulo}</h4>
+                      {item.trabajo_id && (
+                        <Badge className="mt-2 gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                          <BadgeCheck className="h-3.5 w-3.5" /> Verificado por Diime
+                        </Badge>
+                      )}
                       <p className="text-sm text-muted-foreground">{item.descripcion}</p>
                       {(item.ubicacion || item.duracion) && (
                         <p className="text-xs text-muted-foreground mt-2">
@@ -1129,13 +1221,53 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
       <Dialog open={showPortfolioDialog} onOpenChange={setShowPortfolioDialog}>
         <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Añadir proyecto al portfolio</DialogTitle>
+            <DialogTitle>{editingPortfolioId ? "Editar proyecto del portfolio" : "Añadir proyecto al portfolio"}</DialogTitle>
             <DialogDescription>
               Muestra un trabajo que ya hayas realizado. Aparecerá en tu perfil público.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
+            {!editingPortfolioId && (
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium">¿Ya hiciste este trabajo en Diime?</p>
+                    <p className="text-xs text-muted-foreground">Importa sus datos y añádelo como trabajo verificado.</p>
+                  </div>
+                  <Button type="button" size="sm" variant="outline" className="gap-2" onClick={cargarTrabajosDiime}>
+                    <ClipboardCheck className="h-4 w-4" /> Seleccionar trabajo
+                  </Button>
+                </div>
+                {showTrabajosDiime && (
+                  <div className="mt-3 space-y-2 border-t pt-3">
+                    {loadingTrabajosDiime ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Cargando trabajos…</div>
+                    ) : trabajosDiime.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Aún no tienes trabajos finalizados en Diime.</p>
+                    ) : (
+                      trabajosDiime.map((trabajo) => (
+                        <button
+                          key={trabajo.id}
+                          type="button"
+                          onClick={() => seleccionarTrabajoDiime(trabajo)}
+                          className="w-full rounded-md border p-2.5 text-left transition-colors hover:bg-muted"
+                        >
+                          <span className="flex items-center gap-1.5 text-sm font-medium"><BadgeCheck className="h-4 w-4 text-emerald-600" /> {trabajo.titulo}</span>
+                          {trabajo.ubicacion && <span className="block mt-0.5 text-xs text-muted-foreground">{trabajo.ubicacion}</span>}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {newPortfolioItem.trabajo_id && (
+              <div className="flex items-center gap-2 rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400">
+                <BadgeCheck className="h-4 w-4 shrink-0" /> Trabajo verificado por Diime
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="pf-titulo">Título del proyecto *</Label>
               <Input
@@ -1158,7 +1290,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="pf-imagen">Imagen del proyecto *</Label>
+              <Label htmlFor="pf-imagen">Adjuntar archivos</Label>
               {newPortfolioItem.imagen_url ? (
                 <div className="relative h-40 rounded-md overflow-hidden border">
                   <img
@@ -1170,34 +1302,43 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                     size="icon"
                     variant="destructive"
                     className="absolute top-2 right-2 h-7 w-7"
-                    aria-label="Quitar imagen"
-                    onClick={() => setNewPortfolioItem({ ...newPortfolioItem, imagen_url: "" })}
+                    aria-label="Quitar archivo"
+                    onClick={() => {
+                      setNewPortfolioItem({ ...newPortfolioItem, imagen_url: "" })
+                    }}
                   >
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
+                <div>
                   <Input
                     id="pf-imagen"
                     type="file"
                     accept="image/*"
+                    className="sr-only"
                     disabled={uploadingPortfolioImg}
                     onChange={handlePortfolioImageUpload}
                   />
-                  {uploadingPortfolioImg && <Loader2 className="h-4 w-4 animate-spin shrink-0" />}
+                  <Label
+                    htmlFor="pf-imagen"
+                    className="flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed bg-muted/30 px-4 text-center transition-colors hover:bg-muted"
+                  >
+                    {uploadingPortfolioImg ? <Loader2 className="mb-2 h-5 w-5 animate-spin" /> : <FileUp className="mb-2 h-5 w-5 text-muted-foreground" />}
+                    <span className="text-sm font-medium">{uploadingPortfolioImg ? "Subiendo archivo…" : "Adjuntar archivos"}</span>
+                    <span className="mt-1 text-xs text-muted-foreground">Añade una imagen para enseñar el resultado (opcional).</span>
+                  </Label>
                 </div>
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="pf-categoria">Categoría</Label>
-                <Input
-                  id="pf-categoria"
+                <Label>Servicio</Label>
+                <SelectCategoriaJerarquico
                   value={newPortfolioItem.categoria}
-                  onChange={(e) => setNewPortfolioItem({ ...newPortfolioItem, categoria: e.target.value })}
-                  placeholder="Ej: Albañilería"
+                  onChange={(categoria) => setNewPortfolioItem({ ...newPortfolioItem, categoria })}
+                  placeholder="Selecciona un servicio"
                 />
               </div>
               <div className="space-y-1.5">
@@ -1211,15 +1352,18 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="pf-ubicacion">Ubicación</Label>
-                <Input
-                  id="pf-ubicacion"
+                <Select
                   value={newPortfolioItem.ubicacion}
-                  onChange={(e) => setNewPortfolioItem({ ...newPortfolioItem, ubicacion: e.target.value })}
-                  placeholder="Madrid, España"
-                />
+                  onValueChange={(ubicacion) => setNewPortfolioItem({ ...newPortfolioItem, ubicacion })}
+                >
+                  <SelectTrigger id="pf-ubicacion"><SelectValue placeholder="Selecciona una provincia" /></SelectTrigger>
+                  <SelectContent>
+                    {PROVINCIAS_ES.map((provincia) => <SelectItem key={provincia} value={provincia}>{provincia}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="pf-duracion">Duración</Label>
@@ -1250,7 +1394,10 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
             <Button
               variant="outline"
               className="bg-transparent"
-              onClick={() => setShowPortfolioDialog(false)}
+              onClick={() => {
+                setShowPortfolioDialog(false)
+                setEditingPortfolioId(null)
+              }}
               disabled={savingPortfolio}
             >
               Cancelar
@@ -1262,7 +1409,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                   Guardando...
                 </>
               ) : (
-                "Añadir proyecto"
+                editingPortfolioId ? "Guardar proyecto" : "Añadir proyecto"
               )}
             </Button>
           </DialogFooter>
