@@ -26,5 +26,14 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Native signing material and release artifacts. These files contain private
+# keys or are generated locally and must never be committed.
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+/android/key.properties
+/android/app/release/
+
 # El ejemplo sí se versiona: solo lleva nombres de variables, ningún valor.
 !.env.example

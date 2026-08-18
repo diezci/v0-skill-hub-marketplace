@@ -136,6 +136,119 @@
   }
 }
 
+/* El contenedor Capacitor marca el documento con data-native. En web no cambia
+   nada; dentro de iOS/Android se respetan las zonas seguras y aparece una barra
+   inferior propia de app, consistente con el diseño oscuro y verde de Diime. */
+.native-only {
+  display: none;
+}
+
+html[data-native="true"] body {
+  overscroll-behavior-y: none;
+  padding-top: env(safe-area-inset-top);
+}
+
+html[data-native="true"] header.fixed {
+  top: env(safe-area-inset-top);
+}
+
+html[data-native="true"] .web-only-chrome {
+  display: none;
+}
+
+html[data-native="true"] main {
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+}
+
+html[data-native="true"] nav.native-only {
+  position: fixed;
+  z-index: 60;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: end;
+  min-height: calc(4.75rem + env(safe-area-inset-bottom));
+  padding: 0.45rem 0.35rem calc(0.45rem + env(safe-area-inset-bottom));
+  border-top: 1px solid hsl(0 0% 18% / 0.9);
+  background: hsl(0 0% 5% / 0.94);
+  box-shadow: 0 -12px 40px hsl(0 0% 0% / 0.24);
+  backdrop-filter: blur(22px);
+}
+
+.native-nav-item {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  color: hsl(0 0% 64%);
+  font-size: 0.65rem;
+  font-weight: 600;
+  line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.native-nav-icon {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  border-radius: 999px;
+  transition: color 160ms ease, background-color 160ms ease, transform 160ms ease;
+}
+
+.native-nav-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.native-nav-item.is-active {
+  color: hsl(142 76% 54%);
+}
+
+.native-nav-item.is-active .native-nav-icon {
+  background: hsl(142 76% 46% / 0.14);
+}
+
+.native-nav-item.is-primary .native-nav-icon {
+  width: 3rem;
+  height: 3rem;
+  margin-top: -1.25rem;
+  color: hsl(0 0% 4%);
+  background: hsl(142 76% 46%);
+  box-shadow: 0 8px 24px hsl(142 76% 36% / 0.34);
+}
+
+.native-nav-item:active .native-nav-icon {
+  transform: scale(0.92);
+}
+
+html[data-native="true"] .native-share-action {
+  position: fixed;
+  z-index: 60;
+  display: grid;
+  right: 1rem;
+  bottom: calc(5.75rem + env(safe-area-inset-bottom));
+  left: auto;
+  width: 2.75rem;
+  height: 2.75rem;
+  place-items: center;
+  border: 1px solid hsl(0 0% 24%);
+  border-radius: 999px;
+  color: hsl(0 0% 96%);
+  background: hsl(0 0% 8% / 0.94);
+  box-shadow: 0 10px 28px hsl(0 0% 0% / 0.3);
+  backdrop-filter: blur(18px);
+}
+
+html[data-native="true"] .native-share-action svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
 .animate-fade-in {
   animation: fadeIn 0.4s ease-out;
 }

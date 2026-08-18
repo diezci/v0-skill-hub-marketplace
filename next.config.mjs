@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // La navegación inferior de la app ocupa esa esquina; el indicador de
+  // desarrollo se desactiva para que las previsualizaciones nativas sean fieles.
+  devIndicators: false,
   typescript: {
     ignoreBuildErrors: true,
   },

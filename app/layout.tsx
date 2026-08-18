@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { IdiomaProvider } from "@/components/idioma-provider"
 import { idiomaActual } from "@/lib/i18n-servidor"
 import { RegistrarSW } from "@/components/registrar-sw"
+import { CapacitorBridge } from "@/components/capacitor-bridge"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-space" })
@@ -43,6 +44,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
     { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
@@ -69,6 +71,7 @@ export default async function RootLayout({
             </div>
             <Toaster />
             <RegistrarSW />
+            <CapacitorBridge />
           </IdiomaProvider>
         </ThemeProvider>
       </body>

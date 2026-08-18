@@ -2,6 +2,8 @@
 
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
+import { Capacitor } from "@capacitor/core"
+import { Browser } from "@capacitor/browser"
 
 // Botones de "entrar con…" compartidos por /auth/login y /auth/registro, que
 // antes tenían cada uno su copia del de Google.
@@ -61,10 +63,12 @@ export function BotonesOAuth({
     onError("")
 
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const esAppNativa = Capacitor.isNativePlatform()
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: proveedor,
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: esAppNativa ? "es.diime.app://auth/callback" : `${window.location.origin}/auth/callback`,
+          skipBrowserRedirect: esAppNativa,
           // Solo Google admite estos parámetros; a Apple no se le mandan.
           ...(proveedor === "google"
             ? { queryParams: { access_type: "offline", prompt: "consent" } }
@@ -72,6 +76,9 @@ export function BotonesOAuth({
         },
       })
       if (error) throw error
+      if (esAppNativa && data.url) {
+        await Browser.open({ url: data.url, presentationStyle: "popover" })
+      }
       // Si no hay error el navegador se va al proveedor: no se quita el
       // "cargando" a propósito, para que no se pueda pulsar dos veces.
     } catch (e: unknown) {
