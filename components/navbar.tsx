@@ -373,7 +373,31 @@ const Navbar = () => {
 
           <div className="flex md:hidden items-center gap-2">
             <ThemeToggle />
-            <Button variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)}>
+            {isAuthenticated ? (
+              <Link
+                href="/mi-perfil"
+                aria-label="Mi perfil"
+                title="Mi perfil"
+                className="native-account-link rounded-full outline-none ring-offset-2 ring-offset-background focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+              >
+                <Avatar className="h-9 w-9 border border-border">
+                  <AvatarImage src={userPhoto || undefined} alt={userName || "Mi perfil"} />
+                  <AvatarFallback className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-sm font-semibold">
+                    {iniciales}
+                  </AvatarFallback>
+                </Avatar>
+              </Link>
+            ) : (
+              <Link
+                href="/auth/login"
+                aria-label="Entrar o acceder a mi perfil"
+                title="Mi perfil"
+                className="native-account-link h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground"
+              >
+                <UserCircle className="h-5 w-5" />
+              </Link>
+            )}
+            <Button className="native-menu-toggle" variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)}>
               {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
           </div>
