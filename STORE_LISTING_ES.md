@@ -132,6 +132,8 @@ Recursos ya preparados en `store-assets/`:
 - Captura base de iPhone ajustada a un tamaño 6,9 pulgadas aceptado por App
   Store. Es solo una previsualización: todavía muestra el aviso de cookies de
   la versión web anterior y debe regenerarse después del despliegue.
+- Captura nativa de onboarding en iPhone 17 Pro Max (`1320×2868`, JPEG sin
+  transparencia), generada después del despliegue y utilizable en App Store.
 
 Faltan una segunda captura Android y las capturas con sesión de resultados,
 ofertas, chat y trabajo. Para obtenerlas sin datos reales hacen falta las dos
