@@ -30,7 +30,9 @@ depuración de WebView ni copias de seguridad de datos de la app.
 No son cambios que deban automatizarse con credenciales o claves inventadas:
 
 1. Crear la app en Apple Developer/App Store Connect y Google Play Console con
-   el identificador ya confirmado `es.diime.app` y los datos legales del titular.
+   el identificador ya confirmado `es.diime.app`; la identidad legal y el estatus
+   de comerciante están fijados en `STORE_COMPLIANCE_ES.md` y queda verificarlos
+   en las cuentas del titular.
 2. Asignar el Apple Development Team, activar **Sign in with Apple** para el
    identificador y configurarlo también en Supabase.
 3. Añadir `es.diime.app://auth/callback` a las Redirect URLs de Supabase y
