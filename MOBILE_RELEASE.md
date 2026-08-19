@@ -142,6 +142,14 @@ El client secret del flujo OAuth caduca como máximo a los seis meses. Hay que
 rotarlo antes del vencimiento conservando la key `.p8`; perderla obliga a crear
 y configurar una key nueva.
 
+La key de Apple se creó el 19 de agosto de 2026 con Key ID `9ZYU8FCRKX` y Team
+ID `DKX23L5985`. La copia principal está en
+`~/Documents/Diime-Release/AuthKey_9ZYU8FCRKX.p8` y la segunda en iCloud Drive
+(`Diime-Release/AuthKey_9ZYU8FCRKX-backup.p8`); ambas tienen permisos `600` y el
+mismo SHA-256. El client secret de `es.diime.web` está guardado en el Llavero
+como `Diime Apple OAuth Client Secret` y debe rotarse antes del
+**15 de febrero de 2027 a las 14:58 UTC**.
+
 Incrementa `CURRENT_PROJECT_VERSION` en cada upload, aunque se mantenga la
 versión comercial. `Info.plist` ya declara que no se usa cifrado no exento y los
 paquetes de Capacitor incluyen sus manifiestos de privacidad. La app incorpora
