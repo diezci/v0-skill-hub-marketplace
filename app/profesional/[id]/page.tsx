@@ -86,6 +86,11 @@ export default async function ProfilePage({
       titulo: item.titulo,
       descripcion: item.descripcion,
       imagen: item.imagen_url || (Array.isArray(item.imagenes) ? item.imagenes[0] : ""),
+      trabajo_id: item.trabajo_id,
+      contexto_proveedor: item.contexto_proveedor,
+      ubicacion: item.ubicacion,
+      duracion: item.duracion,
+      presupuesto: item.presupuesto,
     })),
     reviews: (profile.reviews || []).map((review: any) => ({
       id: review.id,

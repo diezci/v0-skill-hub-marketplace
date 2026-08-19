@@ -28,6 +28,7 @@ import { BloquearUsuarioButton } from "@/components/bloquear-usuario-button"
 import { ReportarIncidenciaDialog } from "@/components/reportar-incidencia-dialog"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
+import { formatearRangoPortfolio } from "@/lib/utils"
 
 interface PerfilPublicoProps {
   perfil: any
@@ -290,6 +291,20 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
                           </Badge>
                         )}
                         <p className="text-xs text-muted-foreground line-clamp-2">{p.descripcion}</p>
+                        {(p.duracion || formatearRangoPortfolio(p.presupuesto)) && (
+                          <div className="mt-3 flex flex-wrap gap-2 border-t pt-3 text-xs">
+                            {p.duracion && (
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-muted-foreground">
+                                <Clock className="h-3.5 w-3.5" /> Tiempo: {p.duracion}
+                              </span>
+                            )}
+                            {formatearRangoPortfolio(p.presupuesto) && (
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-muted-foreground">
+                                <Euro className="h-3.5 w-3.5" /> Coste aprox.: {formatearRangoPortfolio(p.presupuesto)}
+                              </span>
+                            )}
+                          </div>
+                        )}
                         {p.contexto_proveedor && (
                           <div className="mt-3 border-t pt-3">
                             <p className="text-xs font-medium">Aporte del profesional</p>

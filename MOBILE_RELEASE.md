@@ -14,11 +14,11 @@ El identificador configurado en iOS y Android es `es.diime.app`.
 | Web de producción | Build OK | `pnpm build`, 44 rutas generadas; ver deuda técnica abajo |
 | Supabase de producción | Migraciones aplicadas | Portfolio verificado y bloqueo: columna, RLS, 3 políticas, 3 triggers y 5 funciones comprobados |
 | Sincronización Capacitor | OK | 8 plugins sincronizados en iOS y Android |
-| Android | OK sin firma | API 36, AAB release y `lintRelease` sin errores |
+| Android | AAB firmado | API 36, bundle release firmado y certificado verificado con `jarsigner` |
 | Android en dispositivo virtual | OK | Instalado y ejecutado en Android 16/API 36 |
 | iOS en simulador | Build y ejecución OK | Xcode 26.5, iOS 26.5 e iPhone 17 Pro; lanzamiento inicial solo iPhone |
 | iOS para dispositivo | Release validado sin firma | La firma y el Archive requieren el Team del titular |
-| Firma de tienda | Pendiente | Requiere las cuentas y claves privadas del titular |
+| Firma de tienda | Google lista; Apple pendiente | Clave de subida Google respaldada; Apple requiere el Team del titular |
 
 Se han configurado iconos adaptativos/monocromos, splash oscuro, barras del
 sistema, zonas seguras, teclado, navegación atrás, compartir, vibración, estado
@@ -35,14 +35,12 @@ No son cambios que deban automatizarse con credenciales o claves inventadas:
    identificador y configurarlo también en Supabase.
 3. Añadir `es.diime.app://auth/callback` a las Redirect URLs de Supabase y
    desplegar la web con `NEXT_PUBLIC_APPLE_LOGIN=true` cuando Apple esté activo.
-4. Crear y guardar fuera del repositorio la clave de subida de Google Play,
-   completar `android/key.properties` y activar Play App Signing.
-5. Facilitar dos cuentas de demostración a revisión (cliente y profesional) y
+4. Facilitar dos cuentas de demostración a revisión (cliente y profesional) y
    datos de prueba que permitan recorrer ofertas, chat y un trabajo sin cobrar
    dinero real.
-6. Completar las declaraciones de privacidad/Data safety, clasificación por
+5. Completar las declaraciones de privacidad/Data safety, clasificación por
    edades, DSA/trader status y disponibilidad territorial con información real.
-7. Probar registro, Google/Apple, publicación, reporte, mensajería, adjuntos,
+6. Probar registro, Google/Apple, publicación, reporte, mensajería, adjuntos,
    pago/reembolso y borrado de cuenta en un iPhone y un Android reales.
 
 ## Compilar Android
@@ -85,6 +83,12 @@ la terminal y no sobrescribe una clave existente:
 El AAB queda en
 `android/app/build/outputs/bundle/release/app-release.aab` y el informe en
 `android/app/build/reports/lint-results-release.html`.
+
+La clave de subida Google se generó el 19 de agosto de 2026. La copia principal
+está en `~/Documents/Diime-Release/diime-upload.jks`, la segunda en iCloud Drive
+(`Diime-Release/diime-upload-backup.jks`) y la contraseña en el Llavero de
+macOS. Ambas copias tienen el mismo SHA-256 y permisos solo para el usuario. El
+AAB firmado estable está en `~/Documents/Diime-Release/diime-1.0-1-signed.aab`.
 
 Antes de cada nueva versión incrementa `versionCode` y `versionName` en
 `android/app/build.gradle`.

@@ -88,3 +88,28 @@ export function formatearRangoPresupuesto(
   if (hayMin && !hayMax) return formatearPrecioEuros(nMin)
   return "A convenir"
 }
+
+/**
+ * Convierte el importe de un trabajo del portfolio en una horquilla pública.
+ * El profesional conserva el importe real para editarlo, pero el perfil solo
+ * enseña una referencia redondeada (aprox. ±15 %) para no presentarlo como una
+ * tarifa cerrada aplicable a otros encargos.
+ */
+export function formatearRangoPortfolio(valor: number | string | null | undefined): string | null {
+  if (valor === null || valor === undefined || valor === "") return null
+  const importe = typeof valor === "string" ? Number(valor) : valor
+  if (!Number.isFinite(importe) || importe <= 0) return null
+
+  const paso =
+    importe < 100 ? 10 :
+    importe < 500 ? 25 :
+    importe < 2_000 ? 100 :
+    importe < 10_000 ? 500 :
+    importe < 50_000 ? 1_000 : 5_000
+
+  const minimo = Math.max(0, Math.floor((importe * 0.85) / paso) * paso)
+  let maximo = Math.ceil((importe * 1.15) / paso) * paso
+  if (maximo <= minimo) maximo = minimo + paso
+
+  return `${formatearPrecioEuros(minimo)} – ${formatearPrecioEuros(maximo)}`
+}

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { formatearPrecioEuros } from "@/lib/utils"
+import { cn, formatearPrecioEuros, formatearRangoPortfolio } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -36,7 +36,6 @@ import {
   FileUp,
   ClipboardCheck,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { actualizarPerfil, obtenerPerfilActual } from "@/app/actions/profiles"
 import { SelectorCategorias, SelectorProvincias } from "@/components/selector-cobertura"
@@ -1107,6 +1106,11 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                       {(item.ubicacion || item.duracion) && (
                         <p className="text-xs text-muted-foreground mt-2">
                           {[item.ubicacion, item.duracion].filter(Boolean).join(" · ")}
+                        </p>
+                      )}
+                      {formatearRangoPortfolio(item.presupuesto) && (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Coste publicado aproximado: {formatearRangoPortfolio(item.presupuesto)}
                         </p>
                       )}
                     </CardContent>
