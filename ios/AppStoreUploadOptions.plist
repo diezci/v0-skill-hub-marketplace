@@ -10,6 +10,8 @@
 	<string>app-store-connect</string>
 	<key>signingStyle</key>
 	<string>automatic</string>
+	<key>signingCertificate</key>
+	<string>6D0D4CA567EE53C080D86A33BD3F4F10D14AF0A7</string>
 	<key>teamID</key>
 	<string>DKX23L5985</string>
 	<key>uploadSymbols</key>
