@@ -12,6 +12,7 @@ El identificador configurado en iOS y Android es `es.diime.app`.
 | Área | Estado | Evidencia |
 | --- | --- | --- |
 | Web de producción | Build OK | `pnpm build`, 44 rutas generadas; ver deuda técnica abajo |
+| Supabase de producción | Migraciones aplicadas | Portfolio verificado y bloqueo: columna, RLS, 3 políticas, 3 triggers y 5 funciones comprobados |
 | Sincronización Capacitor | OK | 8 plugins sincronizados en iOS y Android |
 | Android | OK sin firma | API 36, AAB release y `lintRelease` sin errores |
 | Android en dispositivo virtual | OK | Instalado y ejecutado en Android 16/API 36 |
@@ -36,16 +37,12 @@ No son cambios que deban automatizarse con credenciales o claves inventadas:
    desplegar la web con `NEXT_PUBLIC_APPLE_LOGIN=true` cuando Apple esté activo.
 4. Crear y guardar fuera del repositorio la clave de subida de Google Play,
    completar `android/key.properties` y activar Play App Signing.
-5. Aplicar `supabase/migrations/037_portfolio_contexto_proveedor.sql` y
-   `supabase/migrations/038_bloqueo_usuarios.sql` con acceso de
-   propietario al proyecto Supabase. El repositorio solo dispone de la clave
-   pública, que no puede ni debe ejecutar migraciones.
-6. Facilitar dos cuentas de demostración a revisión (cliente y profesional) y
+5. Facilitar dos cuentas de demostración a revisión (cliente y profesional) y
    datos de prueba que permitan recorrer ofertas, chat y un trabajo sin cobrar
    dinero real.
-7. Completar las declaraciones de privacidad/Data safety, clasificación por
+6. Completar las declaraciones de privacidad/Data safety, clasificación por
    edades, DSA/trader status y disponibilidad territorial con información real.
-8. Probar registro, Google/Apple, publicación, reporte, mensajería, adjuntos,
+7. Probar registro, Google/Apple, publicación, reporte, mensajería, adjuntos,
    pago/reembolso y borrado de cuenta en un iPhone y un Android reales.
 
 ## Compilar Android
