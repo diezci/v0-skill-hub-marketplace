@@ -17,8 +17,8 @@ El identificador configurado en iOS y Android es `es.diime.app`.
 | Android | AAB firmado | API 36, bundle release firmado y certificado verificado con `jarsigner` |
 | Android en dispositivo virtual | OK | Instalado y ejecutado en Android 16/API 36 |
 | iOS en simulador | Build y ejecución OK | Xcode 26.5, iOS 26.5 e iPhone 17 Pro; lanzamiento inicial solo iPhone |
-| iOS para dispositivo | Release validado sin firma | La firma y el Archive requieren el Team del titular |
-| Firma de tienda | Google lista; Apple pendiente | Clave de subida Google respaldada; Apple requiere el Team del titular |
+| iOS para dispositivo | Build 1 subido | App Store Connect aceptó `1.0 (1)` el 19 de agosto de 2026 y está procesándolo |
+| Firma de tienda | Google y Apple listas | Clave Google respaldada; Apple Distribution local fijado en las opciones de exportación |
 
 Se han configurado iconos adaptativos/monocromos, splash oscuro, barras del
 sistema, zonas seguras, teclado, navegación atrás, compartir, vibración, estado
@@ -165,6 +165,12 @@ para iPad.
   moderación.
 - No envíes la versión iOS mientras Google aparezca como login y Apple siga
   oculto: Apple suele exigir una opción equivalente de Sign in with Apple.
+- El primer build iOS se firmó con el certificado local `Apple Distribution` y
+  se subió a la ficha `6803130630`. No usar el certificado de distribución
+  gestionado en la nube de esta cuenta: con el nombre acentuado del titular
+  generó requisitos de firma inválidos (`90035`). Las opciones de exportación
+  fijan el certificado local comprobado para evitar que Xcode vuelva a
+  seleccionarlo.
 - El build web actual omite la validación de tipos y el repositorio conserva
   errores TypeScript previos, principalmente por clientes Supabase anulables;
   `pnpm lint` tampoco tiene aún ESLint instalado. No impiden generar el wrapper,
