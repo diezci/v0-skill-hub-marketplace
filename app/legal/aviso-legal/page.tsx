@@ -19,7 +19,6 @@ export default function AvisoLegal() {
           </p>
           <ul className="list-disc pl-6 mt-3 space-y-1">
             <li>Nombre: Juan Díez García</li>
-            <li>NIF: [redacted]</li>
             <li>Domicilio: Calle Pedro Muguruza 8, 2.º B, 28036 Madrid, España</li>
             <li>Correo electrónico: <a href="mailto:contacto@diime.es" className="text-primary hover:underline">contacto@diime.es</a></li>
             <li>Teléfono: <a href="tel:+34657738042" className="text-primary hover:underline">+34 657 738 042</a></li>
