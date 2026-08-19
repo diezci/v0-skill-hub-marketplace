@@ -2,7 +2,7 @@
 
 Este archivo prepara los metadatos comerciales. Las declaraciones técnicas de
 privacidad, edad y DSA ya están auditadas en `STORE_COMPLIANCE_ES.md`; siguen
-pendientes los datos legales del titular y las credenciales de revisión. No
+pendientes la verificación del titular en las consolas y las credenciales de revisión. No
 copies a las consolas los elementos marcados como **CONFIRMAR** sin revisarlos.
 
 ## Metadatos comunes
@@ -25,7 +25,7 @@ copies a las consolas los elementos marcados como **CONFIRMAR** sin revisarlos.
 - **Texto promocional:** Encuentra profesionales, compara ofertas y gestiona tus servicios desde un solo lugar.
 - **Palabras clave:** profesionales,servicios,reformas,limpieza,reparaciones,ofertas,trabajo,España
 - **SKU propuesto:** DIIME-IOS-001
-- **Copyright:** **CONFIRMAR titular legal y año**
+- **Copyright:** 2026 Juan Díez García
 
 ### Google Play
 
@@ -92,8 +92,8 @@ Resumen confirmado:
 - Tarjeta/cuenta bancaria: **No recopilada por Diime**; Stripe aloja el campo.
 - Historial de la transacción: **Sí recopilado**.
 - Analítica opcional: **No activada**.
-- Falta exclusivamente que el titular aporte su nombre legal, forma jurídica,
-  NIF/CIF, domicilio profesional, teléfono y, si aplica, D-U-N-S.
+- Titular confirmado como persona física y comerciante DSA; los datos exactos
+  que deben copiarse y verificarse están en `STORE_COMPLIANCE_ES.md`.
 
 ## Clasificación y cumplimiento
 

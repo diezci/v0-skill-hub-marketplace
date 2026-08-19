@@ -24,29 +24,25 @@ Seleccionar **Sí, comerciante (trader)**. Diime se explota como marketplace de
 servicios, intermedia contratos y pagos y aplica comisiones; no es una actividad
 puramente personal o no profesional.
 
-### Datos que debe proporcionar el titular
+### Datos confirmados del titular
 
-El repositorio no acredita una identidad legal concreta y no se debe inventar.
-Antes de confirmar la ficha hacen falta estos datos, escritos exactamente como
-aparezcan en el documento de verificación:
+- **Tipo de titular:** persona física.
+- **Nombre legal:** Juan Díez García.
+- **NIF:** [redacted].
+- **Domicilio público:** Calle Pedro Muguruza 8, 2.º B, 28036 Madrid, España.
+- **Teléfono público:** +34 657 738 042.
+- **Email público:** `contacto@diime.es`.
+- **D-U-N-S:** no aplica si la cuenta Apple se da de alta como persona física.
 
-- Tipo de titular: persona/autónomo o sociedad.
-- Nombre legal completo o razón social.
-- NIF/NIE o CIF.
-- Domicilio profesional o apartado postal que pueda mostrarse públicamente.
-- Teléfono público con prefijo internacional.
-- Email público: propuesta actual `contacto@diime.es`.
-- Si es una organización Apple: número D-U-N-S asociado a la misma razón social
-  y domicilio.
+En Apple, completar **Business → Digital Services Act → Trader status**, elegir
+persona física y comerciante, copiar estos datos exactamente, verificar email y
+teléfono, aportar el documento que solicite y certificar que los servicios
+ofrecidos cumplen la legislación de la UE. En Google, elegir cuenta personal y
+hacer coincidir el perfil de desarrollador con la misma identidad.
 
-En Apple, completar **Business → Digital Services Act → Trader status**, verificar
-email y teléfono, aportar el documento que solicite y certificar que los servicios
-ofrecidos cumplen la legislación de la UE. En Google, el tipo de cuenta y los
-datos del perfil de desarrollador deben coincidir con la misma persona o entidad.
-
-No publicar una dirección personal por error. Si el titular trabaja desde casa,
-resolver primero un domicilio profesional o apartado postal válido para las
-verificaciones de la tienda.
+El titular ha confirmado que este domicilio y teléfono pueden utilizarse como
+datos públicos del comerciante. Si cambian, hay que actualizar la web y ambas
+tiendas antes de la siguiente publicación.
 
 ## Edad y público objetivo
 
@@ -172,9 +168,10 @@ instaladas, Device or other IDs, anuncios ni personalización publicitaria.
   transacción, no el número completo de tarjeta.
 - Proveedores activos: Supabase, Stripe, Vercel Blob/hosting y Resend.
 
-## Pendiente exclusivo del titular
+## Verificación pendiente en las consolas
 
-Todo lo técnico queda fijado. Para poder pulsar las confirmaciones finales de
-DSA y publicar los avisos legales solo faltan los seis datos de identidad de la
-sección «Datos que debe proporcionar el titular». No deben inferirse del nombre
-de un perfil, de Git o de una captura de pantalla.
+La identidad del titular y el estatus de comerciante ya están confirmados. El
+aviso legal y la identificación del responsable de privacidad están preparados.
+Solo queda copiar estos datos en App Store Connect y Google Play Console, superar
+la verificación documental, de email y teléfono que solicite cada plataforma y
+aceptar sus declaraciones finales desde las cuentas del titular.

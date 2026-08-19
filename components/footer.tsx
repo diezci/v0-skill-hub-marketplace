@@ -24,6 +24,7 @@ const Footer = () => {
       { name: "Centro de ayuda", href: "/ayuda" },
     ],
     legal: [
+      { name: "Aviso legal", href: "/legal/aviso-legal" },
       { name: "Términos y condiciones", href: "/legal/terminos" },
       { name: "Normas de la comunidad", href: "/legal/normas-comunidad" },
       { name: "Política de privacidad", href: "/legal/privacidad" },
