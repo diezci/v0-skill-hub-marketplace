@@ -16,7 +16,14 @@ export default function Privacidad() {
         </section>
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">2. Datos que recogemos</h2>
-          <p>Recogemos: nombre, apellidos, email, teléfono, DNI/NIE, ubicación, foto de perfil, historial de transacciones y valoraciones. También recogemos datos técnicos de uso de la plataforma (dirección IP, tipo de dispositivo, páginas visitadas).</p>
+          <p>
+            Recogemos nombre, apellidos, email, teléfono, DNI/NIE, provincia o ubicación indicada manualmente, foto de
+            perfil, datos de empresa cuando corresponda, confirmaciones legales, contenido publicado, mensajes,
+            archivos, eventos del calendario de Diime, incidencias, valoraciones e historial de transacciones. Para
+            acreditar el requisito de edad guardamos la fecha y la versión del texto que confirmaste; no te pedimos ni
+            almacenamos tu fecha de nacimiento. También se generan datos técnicos necesarios para prestar y proteger el
+            servicio, como dirección IP, tipo de dispositivo, páginas solicitadas y registros de error.
+          </p>
         </section>
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">3. Finalidad del tratamiento</h2>
@@ -32,7 +39,13 @@ export default function Privacidad() {
         </section>
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">6. Proveedores</h2>
-          <p>Diime utiliza proveedores necesarios para prestar el servicio, entre ellos Supabase para autenticación y base de datos, Stripe para pagos, Vercel para alojamiento y analítica técnica, y Resend para comunicaciones transaccionales. Cada proveedor recibe únicamente los datos necesarios para su función y está sujeto a sus obligaciones contractuales y de privacidad.</p>
+          <p>
+            Diime utiliza proveedores necesarios para prestar el servicio: Supabase para autenticación y base de datos,
+            Stripe para pagos, Vercel para alojamiento, archivos y registros técnicos, y Resend para comunicaciones
+            transaccionales. Cada proveedor recibe únicamente los datos necesarios para su función y está sujeto a sus
+            obligaciones contractuales y de privacidad. Stripe recoge los datos de tarjeta en su propio formulario;
+            Diime recibe el identificador y el estado de la transacción, pero no el número completo de la tarjeta.
+          </p>
         </section>
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">7. Eliminación y opciones de privacidad</h2>
@@ -40,7 +53,13 @@ export default function Privacidad() {
         </section>
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">8. Seguimiento y permisos del dispositivo</h2>
-          <p>Diime no utiliza los datos para rastrearte entre aplicaciones o sitios de otras empresas y no vende datos personales. La app no solicita ubicación GPS; la provincia se introduce manualmente. Los archivos o imágenes solo se comparten cuando la persona los selecciona expresamente.</p>
+          <p>
+            Diime no utiliza los datos para rastrearte entre aplicaciones o sitios de otras empresas, no muestra
+            publicidad y no vende datos personales. La app no solicita ubicación GPS; la provincia se introduce
+            manualmente. En Android solo se declara acceso a Internet y no se solicita acceso persistente a toda la
+            biblioteca de fotos. Los archivos o imágenes solo se transmiten cuando la persona los selecciona o captura
+            expresamente para adjuntarlos.
+          </p>
         </section>
       </div>
     </div>

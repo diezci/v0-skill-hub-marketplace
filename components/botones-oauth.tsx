@@ -53,15 +53,21 @@ export function BotonesOAuth({
   onCargando,
   onError,
   aceptaTerminos = true,
+  confirmaMayoriaEdad = true,
 }: {
   cargando: boolean
   onCargando: (v: boolean) => void
   onError: (mensaje: string) => void
   aceptaTerminos?: boolean
+  confirmaMayoriaEdad?: boolean
 }) {
   const entrarCon = async (proveedor: "google" | "apple") => {
     if (!aceptaTerminos) {
       onError("Acepta los Términos y las Normas de la comunidad para crear una cuenta.")
+      return
+    }
+    if (!confirmaMayoriaEdad) {
+      onError("Confirma que tienes 18 años o más para crear una cuenta.")
       return
     }
     const supabase = createClient()
@@ -71,13 +77,19 @@ export function BotonesOAuth({
     try {
       const esAppNativa = Capacitor.isNativePlatform()
       const callbackWeb = new URL("/auth/callback", window.location.origin)
+      const callbackNativo = new URL("es.diime.app://auth/callback")
       const requested = new URLSearchParams(window.location.search).get("next")
       if (requested?.startsWith("/") && !requested.startsWith("//")) callbackWeb.searchParams.set("next", requested)
-      if (window.location.pathname === "/auth/registro") callbackWeb.searchParams.set("terms", "1")
+      if (window.location.pathname === "/auth/registro") {
+        callbackWeb.searchParams.set("terms", "1")
+        callbackWeb.searchParams.set("age", "1")
+        callbackNativo.searchParams.set("terms", "1")
+        callbackNativo.searchParams.set("age", "1")
+      }
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: proveedor,
         options: {
-          redirectTo: esAppNativa ? "es.diime.app://auth/callback" : callbackWeb.toString(),
+          redirectTo: esAppNativa ? callbackNativo.toString() : callbackWeb.toString(),
           skipBrowserRedirect: esAppNativa,
           // Solo Google admite estos parámetros; a Apple no se le mandan.
           ...(proveedor === "google"
@@ -105,7 +117,7 @@ export function BotonesOAuth({
         variant="outline"
         className="w-full h-11 bg-transparent"
         onClick={() => entrarCon("google")}
-        disabled={cargando || !aceptaTerminos}
+        disabled={cargando || !aceptaTerminos || !confirmaMayoriaEdad}
       >
         <IconoGoogle />
         Continuar con Google
@@ -119,7 +131,7 @@ export function BotonesOAuth({
           variant="outline"
           className="w-full h-11 bg-transparent"
           onClick={() => entrarCon("apple")}
-          disabled={cargando || !aceptaTerminos}
+          disabled={cargando || !aceptaTerminos || !confirmaMayoriaEdad}
         >
           <IconoApple />
           Continuar con Apple

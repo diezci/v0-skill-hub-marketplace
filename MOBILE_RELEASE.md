@@ -29,8 +29,8 @@ depuración de WebView ni copias de seguridad de datos de la app.
 
 No son cambios que deban automatizarse con credenciales o claves inventadas:
 
-1. Confirmar `es.diime.app` y crear la app en Apple Developer/App Store Connect y
-   Google Play Console con los datos legales del titular.
+1. Crear la app en Apple Developer/App Store Connect y Google Play Console con
+   el identificador ya confirmado `es.diime.app` y los datos legales del titular.
 2. Asignar el Apple Development Team, activar **Sign in with Apple** para el
    identificador y configurarlo también en Supabase.
 3. Añadir `es.diime.app://auth/callback` a las Redirect URLs de Supabase y
@@ -38,8 +38,8 @@ No son cambios que deban automatizarse con credenciales o claves inventadas:
 4. Facilitar dos cuentas de demostración a revisión (cliente y profesional) y
    datos de prueba que permitan recorrer ofertas, chat y un trabajo sin cobrar
    dinero real.
-5. Completar las declaraciones de privacidad/Data safety, clasificación por
-   edades, DSA/trader status y disponibilidad territorial con información real.
+5. Copiar las declaraciones ya auditadas de `STORE_COMPLIANCE_ES.md`, completar
+   DSA como comerciante con la identidad legal real y elegir disponibilidad.
 6. Probar registro, Google/Apple, publicación, reporte, mensajería, adjuntos,
    pago/reembolso y borrado de cuenta en un iPhone y un Android reales.
 
@@ -132,10 +132,10 @@ para iPad.
   sesión.
 - Los usuarios pueden reportar problemas generales sin haber contratado un
   trabajo; el panel de administración permite gestionarlos.
-- El registro exige aceptar Términos, Privacidad y Normas de la comunidad. Se
-  han añadido filtro preventivo, reporte y bloqueo desde perfiles y
-  conversaciones; falta aplicar la migración indicada y verificar el SLA
-  operativo de moderación.
+- El registro exige confirmar 18 años o más y aceptar Términos, Privacidad y
+  Normas de la comunidad. Se han añadido filtro preventivo, reporte y bloqueo
+  desde perfiles y conversaciones; hay que mantener el SLA operativo de
+  moderación.
 - No envíes la versión iOS mientras Google aparezca como login y Apple siga
   oculto: Apple suele exigir una opción equivalente de Sign in with Apple.
 - El build web actual omite la validación de tipos y el repositorio conserva

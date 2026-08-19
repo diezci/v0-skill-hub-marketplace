@@ -20,7 +20,13 @@ export default function Terminos() {
         </section>
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">3. Registro y cuenta de usuario</h2>
-          <p>Para utilizar ciertas funcionalidades de Diime es necesario registrarse y crear una cuenta. El usuario se compromete a proporcionar información veraz, actual y completa durante el proceso de registro y a mantenerla actualizada. Cada usuario es responsable de mantener la confidencialidad de su contraseña.</p>
+          <p>
+            Para registrarte y utilizar Diime debes tener al menos 18 años y capacidad legal para contratar. Si actúas
+            por una empresa, debes estar autorizado para representarla. Durante el alta se te pedirá una confirmación
+            expresa de mayoría de edad; las cuentas no pueden ser utilizadas por menores. El usuario se compromete a
+            proporcionar información veraz, actual y completa, mantenerla actualizada y proteger la confidencialidad de
+            su contraseña.
+          </p>
         </section>
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">4. Sistema de pagos escrow</h2>

@@ -63,6 +63,7 @@ export default function RegistroPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [aceptaTerminos, setAceptaTerminos] = useState(false)
+  const [confirmaMayoriaEdad, setConfirmaMayoriaEdad] = useState(false)
   const router = useRouter()
   // /convertirse-profesional manda aquí a quien aún no tiene cuenta: primero el
   // registro normal y después el perfil profesional. Se lee de la URL sin
@@ -91,6 +92,12 @@ export default function RegistroPage() {
 
     if (!aceptaTerminos) {
       setError("Debes aceptar los Términos y las Normas de la comunidad.")
+      setIsLoading(false)
+      return
+    }
+
+    if (!confirmaMayoriaEdad) {
+      setError("Para crear una cuenta debes confirmar que tienes 18 años o más.")
       setIsLoading(false)
       return
     }
@@ -134,6 +141,7 @@ export default function RegistroPage() {
         telefono,
         ubicacion,
         aceptaTerminos,
+        confirmaMayoriaEdad,
       })
 
       if (result.error) {
@@ -170,6 +178,18 @@ export default function RegistroPage() {
           <CardContent>
             <form onSubmit={handleSignUp}>
               <div className="flex flex-col gap-4">
+                <label className="flex items-start gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-sm">
+                  <Checkbox
+                    checked={confirmaMayoriaEdad}
+                    onCheckedChange={(value) => setConfirmaMayoriaEdad(value === true)}
+                    className="mt-0.5"
+                  />
+                  <span className="text-muted-foreground">
+                    Confirmo que tengo <strong className="text-foreground">18 años o más</strong> y capacidad legal
+                    para contratar servicios.
+                  </span>
+                </label>
+
                 <label className="flex items-start gap-3 rounded-lg border bg-muted/30 p-3 text-sm">
                   <Checkbox
                     checked={aceptaTerminos}
@@ -198,6 +218,7 @@ export default function RegistroPage() {
                   onCargando={setIsLoading}
                   onError={(m) => setError(m || null)}
                   aceptaTerminos={aceptaTerminos}
+                  confirmaMayoriaEdad={confirmaMayoriaEdad}
                 />
 
                 <div className="relative">
@@ -404,7 +425,11 @@ export default function RegistroPage() {
                   <div className="text-sm text-red-600 bg-red-50 border border-red-200 p-3 rounded-md">{error}</div>
                 )}
 
-                <Button type="submit" className="w-full" disabled={isLoading || !aceptaTerminos}>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isLoading || !aceptaTerminos || !confirmaMayoriaEdad}
+                >
                   {isLoading ? "Creando cuenta..." : "Crear Cuenta"}
                 </Button>
               </div>

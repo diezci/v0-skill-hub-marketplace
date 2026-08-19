@@ -13,11 +13,22 @@ export async function GET(request: Request) {
     const { data: sessionData, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
 
     if (sessionData.user && !sessionError) {
-      if (requestUrl.searchParams.get("terms") === "1") {
+      const aceptaTerminos = requestUrl.searchParams.get("terms") === "1"
+      const confirmaMayoriaEdad = requestUrl.searchParams.get("age") === "1"
+      const aceptacionLegal = new Date().toISOString()
+
+      if (aceptaTerminos || confirmaMayoriaEdad) {
         await supabase.auth.updateUser({
           data: {
-            terms_accepted_at: new Date().toISOString(),
-            terms_version: "2026-08",
+            ...(aceptaTerminos
+              ? { terms_accepted_at: aceptacionLegal, terms_version: "2026-08" }
+              : {}),
+            ...(confirmaMayoriaEdad
+              ? {
+                  mayor_edad_confirmada_at: aceptacionLegal,
+                  mayor_edad_version: "18-plus-2026-08",
+                }
+              : {}),
           },
         })
       }
@@ -27,7 +38,15 @@ export async function GET(request: Request) {
         .eq("id", sessionData.user.id)
         .single()
 
-      if (!existingProfile) {
+      if (existingProfile && confirmaMayoriaEdad) {
+        await supabase
+          .from("profiles")
+          .update({
+            mayor_edad_confirmada_at: aceptacionLegal,
+            mayor_edad_version: "18-plus-2026-08",
+          })
+          .eq("id", sessionData.user.id)
+      } else if (!existingProfile) {
         // Extract name from user metadata
         const fullName = sessionData.user.user_metadata?.full_name || sessionData.user.email?.split("@")[0] || "Usuario"
         const [nombre, ...apellidoParts] = fullName.split(" ")
@@ -40,6 +59,8 @@ export async function GET(request: Request) {
           email: sessionData.user.email,
           foto_perfil: sessionData.user.user_metadata?.avatar_url || null,
           tipo_usuario: "cliente",
+          mayor_edad_confirmada_at: confirmaMayoriaEdad ? aceptacionLegal : null,
+          mayor_edad_version: confirmaMayoriaEdad ? "18-plus-2026-08" : null,
         })
       }
     }

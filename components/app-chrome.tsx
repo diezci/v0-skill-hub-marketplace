@@ -10,6 +10,7 @@ import { BannerCookies } from "@/components/banner-cookies"
 import { AvisosEnPantalla } from "@/components/avisos-en-pantalla"
 import { NativeBottomNav } from "@/components/native-bottom-nav"
 import { NativeShareAction } from "@/components/native-share-action"
+import { ConfirmarMayoriaEdad } from "@/components/confirmar-mayoria-edad"
 
 // El panel de administración (/admin) tiene su propio layout completo con barra
 // lateral. Allí no mostramos el navbar/footer/chat público ni el padding del
@@ -35,6 +36,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
       <NativeBottomNav />
       <BannerCookies />
       <AvisosEnPantalla />
+      <ConfirmarMayoriaEdad />
     </>
   )
 }

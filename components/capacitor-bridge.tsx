@@ -66,12 +66,32 @@ export function CapacitorBridge() {
     App.addListener("appUrlOpen", async ({ url }) => {
       if (!url.startsWith(DEEP_LINK)) return
       await Browser.close().catch(() => {})
-      const code = new URL(url).searchParams.get("code")
+      const callbackUrl = new URL(url)
+      const code = callbackUrl.searchParams.get("code")
       if (!code) {
         window.location.assign("/auth/login?error=oauth")
         return
       }
-      const { error } = await createClient().auth.exchangeCodeForSession(code)
+      const supabase = createClient()
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+      if (!error && data.user && callbackUrl.searchParams.get("age") === "1") {
+        const aceptacionLegal = new Date().toISOString()
+        await supabase.auth.updateUser({
+          data: {
+            terms_accepted_at: aceptacionLegal,
+            terms_version: "2026-08",
+            mayor_edad_confirmada_at: aceptacionLegal,
+            mayor_edad_version: "18-plus-2026-08",
+          },
+        })
+        await supabase
+          .from("profiles")
+          .update({
+            mayor_edad_confirmada_at: aceptacionLegal,
+            mayor_edad_version: "18-plus-2026-08",
+          })
+          .eq("id", data.user.id)
+      }
       window.location.assign(error ? "/auth/login?error=oauth" : "/")
     }).then((handle) => cleanups.push(() => void handle.remove()))
 

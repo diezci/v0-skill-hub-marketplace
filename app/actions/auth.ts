@@ -22,12 +22,18 @@ export async function registrarUsuario(formData: {
   telefono?: string
   ubicacion?: string
   aceptaTerminos: boolean
+  confirmaMayoriaEdad: boolean
 }) {
   const supabase = await createClient()
   if (!supabase) return { error: "No se pudo conectar con la base de datos" }
   if (!formData.aceptaTerminos) {
     return { error: "Debes aceptar los Términos y las Normas de la comunidad." }
   }
+  if (!formData.confirmaMayoriaEdad) {
+    return { error: "Para crear una cuenta debes confirmar que tienes 18 años o más." }
+  }
+
+  const aceptacionLegal = new Date().toISOString()
 
   // Use NEXT_PUBLIC_SITE_URL for production, fallback to VERCEL_URL, then localhost
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL 
@@ -46,8 +52,10 @@ export async function registrarUsuario(formData: {
         documento: formData.documento,
         telefono: formData.telefono,
         ubicacion: formData.ubicacion,
-        terms_accepted_at: new Date().toISOString(),
+        terms_accepted_at: aceptacionLegal,
         terms_version: "2026-08",
+        mayor_edad_confirmada_at: aceptacionLegal,
+        mayor_edad_version: "18-plus-2026-08",
       },
     },
   })
@@ -132,6 +140,8 @@ export async function registrarUsuario(formData: {
         // descartaba, así que la empresa quedaba huérfana).
         empresa_id: empresaId,
         cargo_empresa: formData.cargoEmpresa || null,
+        mayor_edad_confirmada_at: aceptacionLegal,
+        mayor_edad_version: "18-plus-2026-08",
       },
       { onConflict: "id" },
     )
@@ -199,6 +209,35 @@ export async function updatePassword(newPassword: string) {
   }
 
   return { data: { success: true } }
+}
+
+export async function confirmarMayoriaEdad() {
+  const supabase = await createClient()
+  if (!supabase) return { error: "No se pudo conectar con la base de datos" }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return { error: "Debes iniciar sesión" }
+
+  const confirmadoAt = new Date().toISOString()
+  const version = "18-plus-2026-08"
+
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .update({ mayor_edad_confirmada_at: confirmadoAt, mayor_edad_version: version })
+    .eq("id", user.id)
+
+  if (profileError) return { error: "No se ha podido guardar la confirmación. Inténtalo de nuevo." }
+
+  const { error: authError } = await supabase.auth.updateUser({
+    data: { mayor_edad_confirmada_at: confirmadoAt, mayor_edad_version: version },
+  })
+
+  if (authError) return { error: "La confirmación se guardó, pero no se pudo actualizar la sesión." }
+
+  return { data: { confirmadoAt } }
 }
 
 export async function signInWithGoogle() {
