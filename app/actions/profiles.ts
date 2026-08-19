@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { CATEGORIAS_SERVICIO_NOMBRES } from "@/lib/categorias"
 import { PROVINCIAS_ES } from "@/lib/provincias"
+import { errorContenidoProhibido } from "@/lib/moderacion"
 
 export async function obtenerProfesionales(filtros?: {
   categoria?: string
@@ -129,6 +130,16 @@ export async function actualizarPerfil(formData: {
   if (!user) {
     return { error: "No autenticado" }
   }
+
+  const errorModeracion = errorContenidoProhibido(
+    formData.nombre,
+    formData.apellido,
+    formData.bio,
+    formData.titulo,
+    ...(formData.habilidades || []),
+    ...(formData.certificaciones || []),
+  )
+  if (errorModeracion) return { error: errorModeracion }
 
   // Categorías y provincias solo pueden ser valores de la taxonomía y del
   // listado de provincias: son la base del emparejamiento con las demandas, y

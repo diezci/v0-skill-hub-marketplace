@@ -32,6 +32,8 @@ interface ReportarIncidenciaDialogProps {
   descripcionPlaceholder?: string
 }
 
+const SIN_TRABAJO = "__sin_trabajo__"
+
 export function ReportarIncidenciaDialog({
   trabajoId,
   usuarioReportadoId,
@@ -46,10 +48,11 @@ export function ReportarIncidenciaDialog({
   const [categoria, setCategoria] = useState<IncidenciaCategoria>(categoriaInicial)
   const [prioridad, setPrioridad] = useState<IncidenciaPrioridad>("media")
   const [submitting, setSubmitting] = useState(false)
-  // Toda incidencia se vincula a un trabajo concreto. Si el diálogo se abre
-  // desde la ficha de un trabajo, viene fijado; si no, el usuario lo elige.
+  // Una incidencia puede referirse a un trabajo o ser un reporte general. Esto
+  // permite denunciar abuso, perfiles o contenido incluso antes de contratar,
+  // algo imprescindible para la moderación de una app con contenido de usuarios.
   const [trabajos, setTrabajos] = useState<any[]>([])
-  const [trabajoSel, setTrabajoSel] = useState<string>(trabajoId || "")
+  const [trabajoSel, setTrabajoSel] = useState<string>(trabajoId || SIN_TRABAJO)
   const { toast } = useToast()
 
   // Cargar los trabajos del usuario solo cuando no venga un trabajo fijado.
@@ -63,15 +66,7 @@ export function ReportarIncidenciaDialog({
       toast({ title: "Faltan datos", description: "Completa asunto y descripción", variant: "destructive" })
       return
     }
-    const trabajoElegido = trabajoId || trabajoSel
-    if (!trabajoElegido) {
-      toast({
-        title: "Selecciona un trabajo",
-        description: "Cada incidencia debe estar vinculada a un trabajo concreto.",
-        variant: "destructive",
-      })
-      return
-    }
+    const trabajoElegido = trabajoId || (trabajoSel === SIN_TRABAJO ? null : trabajoSel)
     // Reportar automáticamente a la otra parte del trabajo (si no viene dada).
     const otraParte =
       usuarioReportadoId || trabajos.find((t) => t.id === trabajoElegido)?.otra_parte_id || null
@@ -96,7 +91,7 @@ export function ReportarIncidenciaDialog({
       setDescripcion("")
       setCategoria(categoriaInicial)
       setPrioridad("media")
-      setTrabajoSel(trabajoId || "")
+      setTrabajoSel(trabajoId || SIN_TRABAJO)
     }
     setSubmitting(false)
   }
@@ -124,21 +119,21 @@ export function ReportarIncidenciaDialog({
 
         <div className="space-y-4 py-2">
           {/* Selector de trabajo: solo cuando el diálogo no viene ya asociado a
-              uno. Cada incidencia debe vincularse a un trabajo concreto. */}
+              uno. Los reportes generales se guardan con trabajo_id nulo. */}
           {!trabajoId && (
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Trabajo relacionado</label>
+              <label className="text-sm font-medium">Trabajo relacionado (opcional)</label>
               {trabajos.length === 0 ? (
                 <p className="text-sm text-muted-foreground rounded-md border border-dashed p-3">
-                  No tienes trabajos todavía. Las incidencias se vinculan a un trabajo contratado; cuando tengas uno
-                  activo podrás reportar aquí cualquier problema.
+                  Puedes enviar un reporte general aunque todavía no tengas trabajos contratados.
                 </p>
               ) : (
                 <Select value={trabajoSel} onValueChange={setTrabajoSel}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecciona el trabajo" />
+                    <SelectValue placeholder="Sin trabajo relacionado" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value={SIN_TRABAJO}>Sin trabajo relacionado</SelectItem>
                     {trabajos.map((t) => (
                       <SelectItem key={t.id} value={t.id}>
                         {t.titulo}
@@ -208,7 +203,7 @@ export function ReportarIncidenciaDialog({
           <Button variant="outline" onClick={() => setOpen(false)} className="bg-transparent">
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={submitting || (!trabajoId && trabajos.length === 0)}>
+          <Button onClick={handleSubmit} disabled={submitting}>
             {submitting ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />

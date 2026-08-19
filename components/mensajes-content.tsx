@@ -25,6 +25,7 @@ import {
   Pin,
   Trash2,
   Star,
+  ShieldAlert,
 } from "lucide-react"
 import {
   Dialog,
@@ -49,6 +50,8 @@ import { obtenerTrabajosConUsuario } from "@/app/actions/trabajos"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
+import { BloquearUsuarioButton } from "@/components/bloquear-usuario-button"
+import { ReportarIncidenciaDialog } from "@/components/reportar-incidencia-dialog"
 
 interface Message {
   id: string
@@ -247,15 +250,7 @@ export default function MensajesContent() {
     const result = await enviarMensaje(selectedConversation.id, newMessage)
 
     if (result.error) {
-      const newMsg: Message = {
-        id: `msg-${Date.now()}`,
-        remitente_id: currentUserId,
-        contenido: newMessage,
-        created_at: new Date().toISOString(),
-        leido: false,
-        tipo: "texto",
-      }
-      setMessages([...messages, newMsg])
+      toast({ title: "No se pudo enviar", description: result.error, variant: "destructive" })
     } else if (result.data) {
       setMessages([...messages, result.data as Message])
     }
@@ -983,6 +978,21 @@ export default function MensajesContent() {
                     <Star className="h-3.5 w-3.5 mr-1" />
                     Valorar
                   </Button>
+                  <ReportarIncidenciaDialog
+                    trabajoId={selectedConversation.trabajo_id}
+                    usuarioReportadoId={getOtherUserId(selectedConversation)}
+                    asuntoInicial={`Reporte sobre ${getOtherUser(selectedConversation)?.nombre || "un usuario"}`}
+                    categoriaInicial="abuso"
+                    trigger={
+                      <Button variant="outline" size="sm" className="bg-transparent text-xs">
+                        <ShieldAlert className="mr-1 h-3.5 w-3.5" /> Reportar
+                      </Button>
+                    }
+                  />
+                  <BloquearUsuarioButton
+                    usuarioId={getOtherUserId(selectedConversation)}
+                    className="h-9 bg-transparent px-3 text-xs"
+                  />
                 </div>
 
                 {/* Información del usuario */}

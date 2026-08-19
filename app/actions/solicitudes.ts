@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { buscarYEnviarInvitaciones } from "./invitaciones"
+import { errorContenidoProhibido } from "@/lib/moderacion"
 
 export async function crearSolicitud(formData: {
   titulo: string
@@ -25,6 +26,9 @@ export async function crearSolicitud(formData: {
   if (!user) {
     return { error: "No autenticado. Por favor inicia sesión para publicar un proyecto." }
   }
+
+  const errorModeracion = errorContenidoProhibido(formData.titulo, formData.descripcion)
+  if (errorModeracion) return { error: errorModeracion }
 
   let categoria_uuid = null
   if (formData.categoria_id) {
@@ -175,6 +179,9 @@ export async function actualizarSolicitud(
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { error: "No autenticado" }
+
+  const errorModeracion = errorContenidoProhibido(campos.titulo, campos.descripcion)
+  if (errorModeracion) return { error: errorModeracion }
 
   // Solo se puede editar una demanda propia que siga abierta (sin trabajo en curso).
   const { data: solicitud } = await supabase

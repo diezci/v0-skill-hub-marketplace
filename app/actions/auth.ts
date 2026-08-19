@@ -21,9 +21,13 @@ export async function registrarUsuario(formData: {
   tokenInvitacion?: string
   telefono?: string
   ubicacion?: string
+  aceptaTerminos: boolean
 }) {
   const supabase = await createClient()
   if (!supabase) return { error: "No se pudo conectar con la base de datos" }
+  if (!formData.aceptaTerminos) {
+    return { error: "Debes aceptar los Términos y las Normas de la comunidad." }
+  }
 
   // Use NEXT_PUBLIC_SITE_URL for production, fallback to VERCEL_URL, then localhost
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL 
@@ -42,6 +46,8 @@ export async function registrarUsuario(formData: {
         documento: formData.documento,
         telefono: formData.telefono,
         ubicacion: formData.ubicacion,
+        terms_accepted_at: new Date().toISOString(),
+        terms_version: "2026-08",
       },
     },
   })

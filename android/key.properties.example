@@ -1,0 +1,7 @@
+# Copia este archivo como android/key.properties y sustituye los valores.
+# El .jks y key.properties están excluidos de Git: guárdalos además en un
+# gestor de contraseñas o copia de seguridad segura.
+storeFile=/ruta/segura/diime-upload.jks
+storePassword=CONTRASENA_DEL_ALMACEN
+keyAlias=diime-upload
+keyPassword=CONTRASENA_DE_LA_CLAVE

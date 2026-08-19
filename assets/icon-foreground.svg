@@ -1,0 +1,8 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Letra de marca trazada como vector, sin depender de fuentes instaladas. -->
+  <path
+    fill="#ffffff"
+    fill-rule="evenodd"
+    d="M330 240h170c165 0 260 100 260 272S665 784 500 784H330V240Zm120 120v304h50c90 0 140-54 140-152s-50-152-140-152h-50Z"
+  />
+</svg>

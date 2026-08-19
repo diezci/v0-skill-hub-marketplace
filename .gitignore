@@ -2,6 +2,8 @@
 
 # dependencies
 /node_modules
+.DS_Store
+/.claude/
 
 # next.js
 /.next/
@@ -34,6 +36,7 @@ next-env.d.ts
 *.mobileprovision
 /android/key.properties
 /android/app/release/
+/ios/App/diime-ios-simulator.png
 
 # El ejemplo sí se versiona: solo lleva nombres de variables, ningún valor.
 !.env.example

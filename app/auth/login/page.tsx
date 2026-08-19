@@ -70,7 +70,9 @@ export default function LoginPage() {
         password,
       })
       if (error) throw error
-      router.push("/")
+      const requested = new URLSearchParams(window.location.search).get("next")
+      const destination = requested?.startsWith("/") && !requested.startsWith("//") ? requested : "/"
+      router.push(destination)
       router.refresh()
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "Error al iniciar sesión")

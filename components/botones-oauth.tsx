@@ -52,22 +52,32 @@ export function BotonesOAuth({
   cargando,
   onCargando,
   onError,
+  aceptaTerminos = true,
 }: {
   cargando: boolean
   onCargando: (v: boolean) => void
   onError: (mensaje: string) => void
+  aceptaTerminos?: boolean
 }) {
   const entrarCon = async (proveedor: "google" | "apple") => {
+    if (!aceptaTerminos) {
+      onError("Acepta los Términos y las Normas de la comunidad para crear una cuenta.")
+      return
+    }
     const supabase = createClient()
     onCargando(true)
     onError("")
 
     try {
       const esAppNativa = Capacitor.isNativePlatform()
+      const callbackWeb = new URL("/auth/callback", window.location.origin)
+      const requested = new URLSearchParams(window.location.search).get("next")
+      if (requested?.startsWith("/") && !requested.startsWith("//")) callbackWeb.searchParams.set("next", requested)
+      if (window.location.pathname === "/auth/registro") callbackWeb.searchParams.set("terms", "1")
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: proveedor,
         options: {
-          redirectTo: esAppNativa ? "es.diime.app://auth/callback" : `${window.location.origin}/auth/callback`,
+          redirectTo: esAppNativa ? "es.diime.app://auth/callback" : callbackWeb.toString(),
           skipBrowserRedirect: esAppNativa,
           // Solo Google admite estos parámetros; a Apple no se le mandan.
           ...(proveedor === "google"
@@ -95,7 +105,7 @@ export function BotonesOAuth({
         variant="outline"
         className="w-full h-11 bg-transparent"
         onClick={() => entrarCon("google")}
-        disabled={cargando}
+        disabled={cargando || !aceptaTerminos}
       >
         <IconoGoogle />
         Continuar con Google
@@ -109,7 +119,7 @@ export function BotonesOAuth({
           variant="outline"
           className="w-full h-11 bg-transparent"
           onClick={() => entrarCon("apple")}
-          disabled={cargando}
+          disabled={cargando || !aceptaTerminos}
         >
           <IconoApple />
           Continuar con Apple

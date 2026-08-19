@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { errorContenidoProhibido } from "@/lib/moderacion"
 
 export async function obtenerConversaciones() {
   const supabase = await createClient()
@@ -13,6 +14,9 @@ export async function obtenerConversaciones() {
   if (!user) {
     return { error: "No autenticado", data: [] }
   }
+
+  const { data: incompatibles } = await supabase.rpc("usuarios_incompatibles")
+  const idsIncompatibles = new Set((incompatibles || []) as string[])
 
   // Get conversations where user is a participant
   const { data: conversaciones, error } = await supabase
@@ -36,7 +40,10 @@ export async function obtenerConversaciones() {
 
   // Enrich conversations with participant info and project details
   const enrichedConversations = await Promise.all(
-    (conversaciones || []).map(async (conv) => {
+    (conversaciones || []).filter((conv) => {
+      const otro = conv.participante_1 === user.id ? conv.participante_2 : conv.participante_1
+      return !idsIncompatibles.has(otro)
+    }).map(async (conv) => {
       const otherParticipantId = conv.participante_1 === user.id ? conv.participante_2 : conv.participante_1
 
       // Get both participants' profiles (the chat UI uses participante1/2).
@@ -165,6 +172,10 @@ export async function obtenerMensajes(conversacionId: string) {
     return { error: "No tienes acceso a esta conversación", data: [] }
   }
 
+  const otroUsuarioId = conv.participante_1 === user.id ? conv.participante_2 : conv.participante_1
+  const { data: bloqueada } = await supabase.rpc("interaccion_bloqueada_con", { p_otro: otroUsuarioId })
+  if (bloqueada) return { error: "La conversación está bloqueada.", data: [] }
+
   const { data: mensajes, error } = await supabase
     .from("mensajes")
     .select("*")
@@ -200,6 +211,9 @@ export async function enviarMensaje(
     return { error: "No autenticado" }
   }
 
+  const errorModeracion = errorContenidoProhibido(contenido, adjunto?.nombre)
+  if (errorModeracion) return { error: errorModeracion }
+
   // Verify user is part of this conversation
   const { data: conv } = await supabase
     .from("conversaciones")
@@ -210,6 +224,10 @@ export async function enviarMensaje(
   if (!conv || (conv.participante_1 !== user.id && conv.participante_2 !== user.id)) {
     return { error: "No tienes acceso a esta conversación" }
   }
+
+  const otroUsuarioId = conv.participante_1 === user.id ? conv.participante_2 : conv.participante_1
+  const { data: bloqueada } = await supabase.rpc("interaccion_bloqueada_con", { p_otro: otroUsuarioId })
+  if (bloqueada) return { error: "No puedes enviar mensajes a este usuario." }
 
   const { data: mensaje, error } = await supabase
     .from("mensajes")
@@ -259,6 +277,9 @@ export async function crearConversacion(params: {
     return { error: "No autenticado" }
   }
 
+  const errorModeracion = errorContenidoProhibido(params.mensajeInicial)
+  if (errorModeracion) return { error: errorModeracion }
+
   // Nadie puede abrir un chat consigo mismo. Se comprueba aquí, en el servidor,
   // y no solo en los botones: la constraint UNIQUE (participante_1,
   // participante_2) no lo impide, y una conversación con uno mismo deja la
@@ -266,6 +287,9 @@ export async function crearConversacion(params: {
   if (params.otroUsuarioId === user.id) {
     return { error: "No puedes iniciar una conversación contigo mismo." }
   }
+
+  const { data: bloqueada } = await supabase.rpc("interaccion_bloqueada_con", { p_otro: params.otroUsuarioId })
+  if (bloqueada) return { error: "No puedes iniciar una conversación con este usuario." }
 
   // Reutilizar cualquier conversación existente entre ambos usuarios (en
   // cualquier dirección). Existe una constraint UNIQUE (participante_1,

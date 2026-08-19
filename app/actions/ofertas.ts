@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { errorContenidoProhibido } from "@/lib/moderacion"
 
 // NOTA SOBRE `solicitudes.total_ofertas`: aquí no se toca, a propósito.
 //
@@ -38,6 +39,14 @@ export async function crearOferta(formData: {
   if (!user) {
     return { error: "No autenticado. Por favor inicia sesión." }
   }
+
+  const errorModeracion = errorContenidoProhibido(
+    formData.descripcion,
+    formData.materiales_incluidos,
+    formData.condiciones_pago,
+    formData.notas,
+  )
+  if (errorModeracion) return { error: errorModeracion }
 
   const { data: profesional } = await supabase.from("profesionales").select("id").eq("id", user.id).single()
 
@@ -237,6 +246,9 @@ export async function actualizarOferta(
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { error: "No autenticado" }
+
+  const errorModeracion = errorContenidoProhibido(campos.descripcion)
+  if (errorModeracion) return { error: errorModeracion }
 
   // Solo el profesional dueño y mientras la oferta no esté aceptada.
   const { data: oferta } = await supabase

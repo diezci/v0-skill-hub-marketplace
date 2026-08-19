@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { errorContenidoProhibido } from "@/lib/moderacion"
 
 // La tabla guarda `imagenes` (text[]), `fecha_proyecto` (date) y `presupuesto` (numeric).
 // El formulario trabaja con una sola imagen y un importe escrito a mano, así que se traduce aquí.
@@ -23,6 +24,7 @@ export async function crearItemPortfolio(data: {
   duracion?: string
   presupuesto?: string
   trabajo_id?: string
+  contexto_proveedor?: string
 }) {
   const supabase = await createClient()
   if (!supabase) return { error: "Base de datos no disponible" }
@@ -34,23 +36,36 @@ export async function crearItemPortfolio(data: {
     return { error: "No autenticado" }
   }
 
-  const titulo = data.titulo.trim()
-  const descripcion = data.descripcion.trim()
+  let titulo = data.titulo.trim()
+  let descripcion = data.descripcion.trim()
+  let categoria = data.categoria.trim() || null
+  let ubicacion = data.ubicacion?.trim() || null
   if (!titulo || !descripcion) {
     return { error: "Completa título y descripción." }
   }
+  const errorModeracion = errorContenidoProhibido(titulo, descripcion, data.contexto_proveedor)
+  if (errorModeracion) return { error: errorModeracion }
 
   let trabajoId: string | null = null
   if (data.trabajo_id) {
     const { data: trabajo } = await supabase
       .from("trabajos")
-      .select("id")
+      .select("id, solicitud:solicitudes(titulo, descripcion, ubicacion, categoria:categorias(nombre))")
       .eq("id", data.trabajo_id)
       .eq("profesional_id", user.id)
       .eq("estado", "completado")
       .maybeSingle()
-    if (!trabajo) return { error: "Ese trabajo no está disponible para el portfolio." }
+    const solicitud = trabajo?.solicitud as any
+    if (!trabajo || !solicitud?.titulo || !solicitud?.descripcion) {
+      return { error: "Ese trabajo no está disponible para el portfolio." }
+    }
     trabajoId = trabajo.id
+    // Un trabajo verificado siempre conserva la demanda que publicó el
+    // cliente; el profesional solo puede ampliar el contexto en su campo.
+    titulo = solicitud.titulo
+    descripcion = solicitud.descripcion
+    categoria = solicitud.categoria?.nombre || categoria
+    ubicacion = solicitud.ubicacion || ubicacion
   }
 
   const { data: portfolio, error } = await supabase
@@ -60,12 +75,13 @@ export async function crearItemPortfolio(data: {
       trabajo_id: trabajoId,
       titulo,
       descripcion,
-      categoria: data.categoria.trim() || null,
+      categoria,
       imagenes: data.imagen_url ? [data.imagen_url] : [],
-      ubicacion: data.ubicacion?.trim() || null,
+      ubicacion,
       duracion: data.duracion?.trim() || null,
       presupuesto: parsePresupuesto(data.presupuesto),
       fecha_proyecto: data.fecha_completado || null,
+      contexto_proveedor: data.contexto_proveedor?.trim() || null,
     })
     .select()
     .single()
@@ -91,6 +107,7 @@ export async function actualizarItemPortfolio(
     duracion?: string
     presupuesto?: string
     trabajo_id?: string
+    contexto_proveedor?: string
   },
 ) {
   const supabase = await createClient()
@@ -101,23 +118,34 @@ export async function actualizarItemPortfolio(
   } = await supabase.auth.getUser()
   if (!user) return { error: "No autenticado" }
 
-  const titulo = data.titulo.trim()
-  const descripcion = data.descripcion.trim()
+  let titulo = data.titulo.trim()
+  let descripcion = data.descripcion.trim()
+  let categoria = data.categoria.trim() || null
+  let ubicacion = data.ubicacion?.trim() || null
   if (!titulo || !descripcion) {
     return { error: "Completa título y descripción." }
   }
+  const errorModeracion = errorContenidoProhibido(titulo, descripcion, data.contexto_proveedor)
+  if (errorModeracion) return { error: errorModeracion }
 
   let trabajoId: string | null = null
   if (data.trabajo_id) {
     const { data: trabajo } = await supabase
       .from("trabajos")
-      .select("id")
+      .select("id, solicitud:solicitudes(titulo, descripcion, ubicacion, categoria:categorias(nombre))")
       .eq("id", data.trabajo_id)
       .eq("profesional_id", user.id)
       .eq("estado", "completado")
       .maybeSingle()
-    if (!trabajo) return { error: "Ese trabajo no está disponible para el portfolio." }
+    const solicitud = trabajo?.solicitud as any
+    if (!trabajo || !solicitud?.titulo || !solicitud?.descripcion) {
+      return { error: "Ese trabajo no está disponible para el portfolio." }
+    }
     trabajoId = trabajo.id
+    titulo = solicitud.titulo
+    descripcion = solicitud.descripcion
+    categoria = solicitud.categoria?.nombre || categoria
+    ubicacion = solicitud.ubicacion || ubicacion
   }
 
   const { data: portfolio, error } = await supabase
@@ -126,12 +154,13 @@ export async function actualizarItemPortfolio(
       titulo,
       descripcion,
       trabajo_id: trabajoId,
-      categoria: data.categoria.trim() || null,
+      categoria,
       imagenes: data.imagen_url ? [data.imagen_url] : [],
-      ubicacion: data.ubicacion?.trim() || null,
+      ubicacion,
       duracion: data.duracion?.trim() || null,
       presupuesto: parsePresupuesto(data.presupuesto),
       fecha_proyecto: data.fecha_completado || null,
+      contexto_proveedor: data.contexto_proveedor?.trim() || null,
     })
     .eq("id", itemId)
     .eq("profesional_id", user.id)
@@ -155,7 +184,7 @@ export async function obtenerTrabajosCompletadosParaPortfolio() {
 
   const { data, error } = await supabase
     .from("trabajos")
-    .select("id, titulo, descripcion, ubicacion, precio_acordado, fecha_fin, oferta:ofertas(archivos)")
+    .select("id, ubicacion, precio_acordado, fecha_fin, oferta:ofertas(archivos), solicitud:solicitudes(titulo, descripcion, ubicacion, categoria:categorias(nombre))")
     .eq("profesional_id", user.id)
     .eq("estado", "completado")
     .order("fecha_fin", { ascending: false, nullsFirst: false })

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { Checkbox } from "@/components/ui/checkbox"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -61,6 +62,7 @@ export default function RegistroPage() {
   const [tokenInvitacion, setTokenInvitacion] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [aceptaTerminos, setAceptaTerminos] = useState(false)
   const router = useRouter()
   // /convertirse-profesional manda aquí a quien aún no tiene cuenta: primero el
   // registro normal y después el perfil profesional. Se lee de la URL sin
@@ -83,6 +85,12 @@ export default function RegistroPage() {
 
     if (password.length < 6) {
       setError("La contraseña debe tener al menos 6 caracteres")
+      setIsLoading(false)
+      return
+    }
+
+    if (!aceptaTerminos) {
+      setError("Debes aceptar los Términos y las Normas de la comunidad.")
       setIsLoading(false)
       return
     }
@@ -125,6 +133,7 @@ export default function RegistroPage() {
         tokenInvitacion: tokenInvitacion || undefined,
         telefono,
         ubicacion,
+        aceptaTerminos,
       })
 
       if (result.error) {
@@ -161,7 +170,35 @@ export default function RegistroPage() {
           <CardContent>
             <form onSubmit={handleSignUp}>
               <div className="flex flex-col gap-4">
-                <BotonesOAuth cargando={isLoading} onCargando={setIsLoading} onError={(m) => setError(m || null)} />
+                <label className="flex items-start gap-3 rounded-lg border bg-muted/30 p-3 text-sm">
+                  <Checkbox
+                    checked={aceptaTerminos}
+                    onCheckedChange={(value) => setAceptaTerminos(value === true)}
+                    className="mt-0.5"
+                  />
+                  <span className="text-muted-foreground">
+                    Acepto los{" "}
+                    <Link href="/legal/terminos" target="_blank" className="text-primary underline underline-offset-4">
+                      Términos
+                    </Link>
+                    , la{" "}
+                    <Link href="/legal/privacidad" target="_blank" className="text-primary underline underline-offset-4">
+                      Política de privacidad
+                    </Link>{" "}
+                    y las{" "}
+                    <Link href="/legal/normas-comunidad" target="_blank" className="text-primary underline underline-offset-4">
+                      Normas de la comunidad
+                    </Link>
+                    .
+                  </span>
+                </label>
+
+                <BotonesOAuth
+                  cargando={isLoading}
+                  onCargando={setIsLoading}
+                  onError={(m) => setError(m || null)}
+                  aceptaTerminos={aceptaTerminos}
+                />
 
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
@@ -367,7 +404,7 @@ export default function RegistroPage() {
                   <div className="text-sm text-red-600 bg-red-50 border border-red-200 p-3 rounded-md">{error}</div>
                 )}
 
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button type="submit" className="w-full" disabled={isLoading || !aceptaTerminos}>
                   {isLoading ? "Creando cuenta..." : "Crear Cuenta"}
                 </Button>
               </div>

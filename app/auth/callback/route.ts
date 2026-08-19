@@ -4,12 +4,23 @@ import { NextResponse } from "next/server"
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get("code")
+  const requested = requestUrl.searchParams.get("next")
+  const destination = requested?.startsWith("/") && !requested.startsWith("//") ? requested : "/"
 
   if (code) {
     const supabase = await createClient()
+    if (!supabase) return NextResponse.redirect(new URL("/auth/error?error=config", request.url))
     const { data: sessionData, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
 
     if (sessionData.user && !sessionError) {
+      if (requestUrl.searchParams.get("terms") === "1") {
+        await supabase.auth.updateUser({
+          data: {
+            terms_accepted_at: new Date().toISOString(),
+            terms_version: "2026-08",
+          },
+        })
+      }
       const { data: existingProfile } = await supabase
         .from("profiles")
         .select("id")
@@ -36,5 +47,5 @@ export async function GET(request: Request) {
 
   // Tras el login (incluido Google), aterrizar en el homepage como el login normal.
   // Los admins se redirigen a /admin desde el navbar.
-  return NextResponse.redirect(new URL("/", request.url))
+  return NextResponse.redirect(new URL(destination, request.url))
 }

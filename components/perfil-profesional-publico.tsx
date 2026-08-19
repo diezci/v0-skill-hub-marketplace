@@ -20,9 +20,12 @@ import {
   Award,
   Euro,
   Loader2,
+  ShieldAlert,
   UserX,
 } from "lucide-react"
 import { crearConversacion } from "@/app/actions/messages"
+import { BloquearUsuarioButton } from "@/components/bloquear-usuario-button"
+import { ReportarIncidenciaDialog } from "@/components/reportar-incidencia-dialog"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 
@@ -36,9 +39,11 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
   const router = useRouter()
   const { toast } = useToast()
   const [contactando, setContactando] = useState(false)
+  const [interaccionBloqueada, setInteraccionBloqueada] = useState(false)
   const nombreCompleto = `${perfil.nombre || ""} ${perfil.apellido || ""}`.trim() || "Profesional"
 
   const handleEnviarMensaje = async () => {
+    if (interaccionBloqueada) return
     setContactando(true)
     try {
       const supabase = createClient()
@@ -67,6 +72,7 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
   }
 
   const handleLlamar = () => {
+    if (interaccionBloqueada) return
     if (!perfil.telefono) {
       toast({ title: "Sin teléfono", description: "Este profesional no ha publicado un teléfono de contacto." })
       return
@@ -144,14 +150,36 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
               </p>
             </div>
           ) : (
-            <div className="flex gap-3 mt-5">
-              <Button className="flex-1 sm:flex-none" onClick={handleEnviarMensaje} disabled={contactando}>
+            <div className="mt-5 space-y-3">
+              {interaccionBloqueada && (
+                <p className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
+                  La interacción con este usuario está bloqueada. No podéis iniciar ni continuar conversaciones.
+                </p>
+              )}
+              <div className="flex flex-wrap gap-3">
+              <Button className="flex-1 sm:flex-none" onClick={handleEnviarMensaje} disabled={contactando || interaccionBloqueada}>
                 {contactando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MessageSquare className="h-4 w-4 mr-2" />}
                 Enviar mensaje
               </Button>
-              <Button variant="outline" className="flex-1 sm:flex-none bg-transparent" onClick={handleLlamar}>
+              <Button variant="outline" className="flex-1 sm:flex-none bg-transparent" onClick={handleLlamar} disabled={interaccionBloqueada}>
                 <Phone className="h-4 w-4 mr-2" /> Contactar
               </Button>
+              <ReportarIncidenciaDialog
+                usuarioReportadoId={perfil.id}
+                asuntoInicial={`Reporte sobre ${nombreCompleto}`}
+                categoriaInicial="perfil"
+                trigger={
+                  <Button variant="outline" className="flex-1 bg-transparent sm:flex-none">
+                    <ShieldAlert className="mr-2 h-4 w-4" /> Reportar
+                  </Button>
+                }
+              />
+              <BloquearUsuarioButton
+                usuarioId={perfil.id}
+                className="flex-1 bg-transparent sm:flex-none"
+                onEstado={setInteraccionBloqueada}
+              />
+              </div>
             </div>
           )}
         </CardContent>
@@ -262,6 +290,12 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
                           </Badge>
                         )}
                         <p className="text-xs text-muted-foreground line-clamp-2">{p.descripcion}</p>
+                        {p.contexto_proveedor && (
+                          <div className="mt-3 border-t pt-3">
+                            <p className="text-xs font-medium">Aporte del profesional</p>
+                            <p className="mt-1 text-xs text-muted-foreground line-clamp-3">{p.contexto_proveedor}</p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}

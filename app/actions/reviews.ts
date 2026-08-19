@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { errorContenidoProhibido } from "@/lib/moderacion"
 
 export async function crearResena(data: {
   trabajo_id: string
@@ -16,6 +17,9 @@ export async function crearResena(data: {
   if (!user) {
     return { error: "No autenticado" }
   }
+
+  const errorModeracion = errorContenidoProhibido(data.comentario, data.tipo_proyecto)
+  if (errorModeracion) return { error: errorModeracion }
 
   // Verify user is the client of this trabajo
   const { data: trabajo } = await supabase

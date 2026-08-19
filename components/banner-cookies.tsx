@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Cookie } from "lucide-react"
+import { Capacitor } from "@capacitor/core"
 import { useT } from "@/components/idioma-provider"
 
 export const COOKIES_KEY = "diime_cookies_consentimiento"
@@ -32,7 +33,23 @@ export function BannerCookies() {
 
   useEffect(() => {
     // Solo en efecto: leer localStorage al renderizar rompería la hidratación.
-    if (consentimientoCookies() === null) setVisible(true)
+    if (consentimientoCookies() !== null) return
+
+    // El wrapper nativo no activa analítica opcional: se queda con el mínimo
+    // técnico necesario y evita presentar un diálogo de cookies pensado para
+    // navegadores. La web sigue pidiendo una decisión explícita.
+    if (Capacitor.isNativePlatform()) {
+      try {
+        localStorage.setItem(COOKIES_KEY, "rechazadas")
+      } catch {
+        // Si el almacenamiento no está disponible, la política efectiva sigue
+        // siendo no cargar nada opcional.
+      }
+      window.dispatchEvent(new CustomEvent(COOKIES_EVENTO))
+      return
+    }
+
+    setVisible(true)
   }, [])
 
   const decidir = (valor: ConsentimientoCookies) => {

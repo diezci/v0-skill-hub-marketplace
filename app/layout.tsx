@@ -62,7 +62,7 @@ export default async function RootLayout({
   const idioma = await idiomaActual()
 
   return (
-    <html lang={idioma} suppressHydrationWarning className={`${inter.variable} ${spaceGrotesk.variable} bg-background`}>
+    <html lang={idioma} suppressHydrationWarning className={`${inter.variable} ${spaceGrotesk.variable} bg-background dark`}>
       <body className="font-sans antialiased">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <IdiomaProvider idioma={idioma}>

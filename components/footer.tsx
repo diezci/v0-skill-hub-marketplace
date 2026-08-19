@@ -25,8 +25,10 @@ const Footer = () => {
     ],
     legal: [
       { name: "Términos y condiciones", href: "/legal/terminos" },
+      { name: "Normas de la comunidad", href: "/legal/normas-comunidad" },
       { name: "Política de privacidad", href: "/legal/privacidad" },
       { name: "Política de cookies", href: "/legal/cookies" },
+      { name: "Eliminar una cuenta", href: "/eliminar-cuenta" },
     ],
   }
 

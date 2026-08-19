@@ -186,6 +186,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     duracion: "",
     presupuesto: "",
     trabajo_id: "",
+    contexto_proveedor: "",
   }
   const [newPortfolioItem, setNewPortfolioItem] = useState(PORTFOLIO_VACIO)
 
@@ -315,6 +316,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
       duracion: item.duracion || "",
       presupuesto: item.presupuesto != null ? String(item.presupuesto) : "",
       trabajo_id: item.trabajo_id || "",
+      contexto_proveedor: item.contexto_proveedor || "",
     })
     setShowPortfolioDialog(true)
   }
@@ -334,16 +336,18 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
 
   const seleccionarTrabajoDiime = (trabajo: any) => {
     const archivos = Array.isArray(trabajo.oferta?.archivos) ? trabajo.oferta.archivos : []
+    const solicitud = trabajo.solicitud || {}
     setNewPortfolioItem({
       ...newPortfolioItem,
-      titulo: trabajo.titulo || "",
-      descripcion: trabajo.descripcion || "",
+      titulo: solicitud.titulo || "",
+      descripcion: solicitud.descripcion || "",
       imagen_url: archivos[0] || "",
-      categoria: "",
+      categoria: solicitud.categoria?.nombre || "",
       fecha_completado: trabajo.fecha_fin || "",
-      ubicacion: trabajo.ubicacion || "",
+      ubicacion: solicitud.ubicacion || trabajo.ubicacion || "",
       presupuesto: trabajo.precio_acordado != null ? String(trabajo.precio_acordado) : "",
       trabajo_id: trabajo.id,
+      contexto_proveedor: "",
     })
     setShowTrabajosDiime(false)
   }
@@ -1094,6 +1098,12 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                         </Badge>
                       )}
                       <p className="text-sm text-muted-foreground">{item.descripcion}</p>
+                      {item.contexto_proveedor && (
+                        <div className="mt-3 border-t pt-3">
+                          <p className="text-xs font-medium text-foreground">Aporte del profesional</p>
+                          <p className="mt-1 text-sm text-muted-foreground">{item.contexto_proveedor}</p>
+                        </div>
+                      )}
                       {(item.ubicacion || item.duracion) && (
                         <p className="text-xs text-muted-foreground mt-2">
                           {[item.ubicacion, item.duracion].filter(Boolean).join(" · ")}
@@ -1253,8 +1263,8 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                           onClick={() => seleccionarTrabajoDiime(trabajo)}
                           className="w-full rounded-md border p-2.5 text-left transition-colors hover:bg-muted"
                         >
-                          <span className="flex items-center gap-1.5 text-sm font-medium"><BadgeCheck className="h-4 w-4 text-emerald-600" /> {trabajo.titulo}</span>
-                          {trabajo.ubicacion && <span className="block mt-0.5 text-xs text-muted-foreground">{trabajo.ubicacion}</span>}
+                          <span className="flex items-center gap-1.5 text-sm font-medium"><BadgeCheck className="h-4 w-4 text-emerald-600" /> {trabajo.solicitud?.titulo}</span>
+                          {(trabajo.solicitud?.ubicacion || trabajo.ubicacion) && <span className="block mt-0.5 text-xs text-muted-foreground">{trabajo.solicitud?.ubicacion || trabajo.ubicacion}</span>}
                         </button>
                       ))
                     )}
@@ -1269,25 +1279,44 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
               </div>
             )}
             <div className="space-y-1.5">
-              <Label htmlFor="pf-titulo">Título del proyecto *</Label>
+              <Label htmlFor="pf-titulo">{newPortfolioItem.trabajo_id ? "Título de la demanda" : "Título del proyecto *"}</Label>
               <Input
                 id="pf-titulo"
                 value={newPortfolioItem.titulo}
                 onChange={(e) => setNewPortfolioItem({ ...newPortfolioItem, titulo: e.target.value })}
                 placeholder="Ej: Reforma integral de cocina"
+                disabled={Boolean(newPortfolioItem.trabajo_id)}
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="pf-descripcion">Descripción *</Label>
+              <Label htmlFor="pf-descripcion">{newPortfolioItem.trabajo_id ? "Descripción de la demanda" : "Descripción *"}</Label>
               <Textarea
                 id="pf-descripcion"
                 rows={3}
                 value={newPortfolioItem.descripcion}
                 onChange={(e) => setNewPortfolioItem({ ...newPortfolioItem, descripcion: e.target.value })}
                 placeholder="Describe el proyecto, los retos y el resultado..."
+                disabled={Boolean(newPortfolioItem.trabajo_id)}
               />
+              {newPortfolioItem.trabajo_id && (
+                <p className="text-xs text-muted-foreground">Este texto lo publicó el cliente y se muestra tal cual en el portfolio.</p>
+              )}
             </div>
+
+            {newPortfolioItem.trabajo_id && (
+              <div className="space-y-1.5">
+                <Label htmlFor="pf-contexto">Tu aporte al trabajo</Label>
+                <Textarea
+                  id="pf-contexto"
+                  rows={3}
+                  value={newPortfolioItem.contexto_proveedor}
+                  onChange={(e) => setNewPortfolioItem({ ...newPortfolioItem, contexto_proveedor: e.target.value })}
+                  placeholder="Explica cómo lo realizaste, materiales empleados, retos resueltos o el resultado conseguido..."
+                />
+                <p className="text-xs text-muted-foreground">Se mostrará separado de la descripción original de la demanda.</p>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <Label htmlFor="pf-imagen">Adjuntar archivos</Label>

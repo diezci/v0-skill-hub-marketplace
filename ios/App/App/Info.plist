@@ -37,6 +37,10 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Diime necesita la cámara únicamente cuando eliges hacer una foto para adjuntarla a un perfil, demanda, oferta o conversación.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Diime accede solo a las fotos que eliges para adjuntarlas a un perfil, demanda, oferta o conversación.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
