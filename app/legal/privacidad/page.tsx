@@ -13,7 +13,7 @@ export default function Privacidad() {
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">1. Responsable del tratamiento</h2>
           <p>
-            Juan Díez García, con NIF [redacted] y domicilio en Calle Velázquez 83, 1.º izquierda, Madrid, España,
+            Juan Díez García, con domicilio en Calle Velázquez 83, 1.º izquierda, Madrid, España,
             es el responsable del tratamiento de los datos personales recogidos a través de Diime. Puedes contactar en
             <a href="mailto:contacto@diime.es" className="text-primary hover:underline"> contacto@diime.es</a> o en el
             <a href="tel:+34657738042" className="text-primary hover:underline"> +34 657 738 042</a>. El tratamiento se

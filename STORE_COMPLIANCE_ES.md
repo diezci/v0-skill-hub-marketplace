@@ -36,7 +36,7 @@ puramente personal o no profesional.
 
 - **Tipo de titular:** persona física.
 - **Nombre legal:** Juan Díez García.
-- **NIF:** [redacted].
+- **NIF del titular:** conservar únicamente para verificaciones privadas de las tiendas; no publicar.
 - **Domicilio público:** Calle Velázquez 83, 1.º izquierda, Madrid, España.
 - **Teléfono público:** +34 657 738 042.
 - **Email público:** `contacto@diime.es`.
