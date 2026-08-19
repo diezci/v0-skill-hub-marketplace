@@ -110,12 +110,37 @@ xcodebuild -project ios/App/App.xcodeproj \
   build
 ```
 
-El build se instala y arranca correctamente en el simulador iPhone 17 Pro. Para
-publicar, abre el proyecto con `pnpm cap:ios`; en Xcode selecciona `App` →
-**Signing & Capabilities**, el Team del titular y
-el identificador `es.diime.app`. Añade la capacidad **Sign in with Apple**,
-comprueba versión `1.0` / build `1`, ejecuta primero en un iPhone y después usa
-**Product → Archive → Distribute App → App Store Connect**.
+El build se instala y arranca correctamente en el simulador iPhone 17 Pro Max.
+El Release arm64 para dispositivo también compila y pasa la validación local con
+firma desactivada. El proyecto ya incluye el entitlement **Sign in with Apple**.
+Para publicar, abre el proyecto con `pnpm cap:ios`; en Xcode selecciona `App` →
+**Signing & Capabilities**, el Team del titular y el identificador
+`es.diime.app`. Comprueba versión `1.0` / build `1`, ejecuta primero en un iPhone
+y después usa **Product → Archive → Distribute App → App Store Connect**.
+
+### Valores exactos para Apple y Supabase
+
+Después de activar Apple Developer como persona física:
+
+1. Registrar un App ID explícito con descripción **Diime**, Bundle ID
+   `es.diime.app` y capacidad **Sign in with Apple** como App ID primario.
+2. Registrar el Services ID **Diime Web** con identificador `es.diime.web` y
+   asociarlo al App ID anterior.
+3. En la configuración web del Services ID usar:
+   - Domain: `ndzpkwdkbnxaedsouwzx.supabase.co`
+   - Return URL: `https://ndzpkwdkbnxaedsouwzx.supabase.co/auth/v1/callback`
+4. Crear una key denominada **Diime Sign in with Apple**, descargar una sola vez
+   el `.p8` y guardar dos copias seguras junto con su Key ID y el Team ID.
+5. En Supabase → Authentication → Providers → Apple, colocar primero el Services
+   ID en Client IDs: `es.diime.web,es.diime.app`, generar el client secret y
+   activar el proveedor.
+6. Añadir `es.diime.app://auth/callback` a las Redirect URLs de Supabase y
+   desplegar `NEXT_PUBLIC_APPLE_LOGIN=true` solo cuando una prueba completa haya
+   funcionado.
+
+El client secret del flujo OAuth caduca como máximo a los seis meses. Hay que
+rotarlo antes del vencimiento conservando la key `.p8`; perderla obliga a crear
+y configurar una key nueva.
 
 Incrementa `CURRENT_PROJECT_VERSION` en cada upload, aunque se mantenga la
 versión comercial. `Info.plist` ya declara que no se usa cifrado no exento y los

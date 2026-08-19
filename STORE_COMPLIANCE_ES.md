@@ -12,6 +12,14 @@ basan en el código y en los permisos del binario actual.
   proyecto Xcode.
 - **Android:** confirmado como `namespace` y `applicationId`.
 - **Deep link OAuth:** `es.diime.app://auth/callback`.
+- **Services ID de Apple:** `es.diime.web`.
+- **Callback Apple/Supabase:**
+  `https://ndzpkwdkbnxaedsouwzx.supabase.co/auth/v1/callback`.
+
+El proyecto Xcode ya declara el entitlement `com.apple.developer.applesignin`.
+Al activar la cuenta hay que habilitar **Sign in with Apple** en el App ID y
+asociar el Services ID; los valores y su orden en Supabase están documentados en
+`MOBILE_RELEASE.md`.
 
 El identificador queda bloqueado para las dos tiendas. No crear la ficha con un
 ID distinto: después de subir una build Apple no permite cambiar el Bundle ID.
