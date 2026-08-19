@@ -149,7 +149,20 @@ export async function registrarUsuario(formData: {
   // Profile may already be auto-created by the DB trigger, or RLS may block
   // because email confirmation is required and there's no session yet.
   // We swallow these specific errors silently — the trigger handles the base row.
-  if (profileError && !profileError.message?.includes("row-level security") && profileError.code !== "23505") {
+  // Durante un despliegue escalonado el código puede llegar unos minutos antes
+  // que la migración 039. En ese único caso la confirmación ya queda guardada
+  // en auth.user_metadata y el trigger existente conserva el perfil base; no se
+  // debe presentar como fallido un registro que en realidad se ha creado.
+  const faltanColumnasEdad =
+    profileError?.code === "PGRST204" &&
+    /mayor_edad_(confirmada_at|version)/.test(profileError.message || "")
+
+  if (
+    profileError &&
+    !profileError.message?.includes("row-level security") &&
+    profileError.code !== "23505" &&
+    !faltanColumnasEdad
+  ) {
     return { error: profileError.message }
   }
 
