@@ -12,10 +12,10 @@ import { Browser } from "@capacitor/browser"
 // Sign in with Apple en cuanto se ofrece otro login social (Google, en nuestro
 // caso), así que sin él no se puede publicar la app.
 //
-// Va detrás de NEXT_PUBLIC_APPLE_LOGIN porque el proveedor hay que darlo de alta
-// primero en Apple Developer y en Supabase: hasta entonces el botón existiría
-// pero devolvería "provider is not enabled", y es peor un botón roto que ninguno.
-export const APPLE_LOGIN_ACTIVO = process.env.NEXT_PUBLIC_APPLE_LOGIN === "true"
+// Apple Developer y Supabase ya están configurados en producción, así que el
+// botón queda activo por defecto. La variable permite apagarlo explícitamente
+// solo como medida de emergencia sin volver a modificar este componente.
+export const APPLE_LOGIN_ACTIVO = process.env.NEXT_PUBLIC_APPLE_LOGIN !== "false"
 
 function IconoGoogle() {
   return (
