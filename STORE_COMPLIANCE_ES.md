@@ -16,9 +16,9 @@ basan en el código y en los permisos del binario actual.
 - **Callback Apple/Supabase:**
   `https://ndzpkwdkbnxaedsouwzx.supabase.co/auth/v1/callback`.
 
-El proyecto Xcode ya declara el entitlement `com.apple.developer.applesignin`.
-Al activar la cuenta hay que habilitar **Sign in with Apple** en el App ID y
-asociar el Services ID; los valores y su orden en Supabase están documentados en
+El proyecto Xcode declara el entitlement `com.apple.developer.applesignin` y el
+App ID, Services ID `es.diime.web`, clave y proveedor de Supabase ya están
+activos. Los valores, copias seguras y fecha de rotación están documentados en
 `MOBILE_RELEASE.md`.
 
 El identificador queda bloqueado para las dos tiendas. No crear la ficha con un

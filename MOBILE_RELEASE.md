@@ -33,16 +33,12 @@ No son cambios que deban automatizarse con credenciales o claves inventadas:
    el identificador ya confirmado `es.diime.app`; la identidad legal y el estatus
    de comerciante están fijados en `STORE_COMPLIANCE_ES.md` y queda verificarlos
    en las cuentas del titular.
-2. Asignar el Apple Development Team, activar **Sign in with Apple** para el
-   identificador y configurarlo también en Supabase.
-3. Añadir `es.diime.app://auth/callback` a las Redirect URLs de Supabase y
-   desplegar la web con `NEXT_PUBLIC_APPLE_LOGIN=true` cuando Apple esté activo.
-4. Facilitar dos cuentas de demostración a revisión (cliente y profesional) y
+2. Facilitar dos cuentas de demostración a revisión (cliente y profesional) y
    datos de prueba que permitan recorrer ofertas, chat y un trabajo sin cobrar
    dinero real.
-5. Copiar las declaraciones ya auditadas de `STORE_COMPLIANCE_ES.md`, completar
+3. Copiar las declaraciones ya auditadas de `STORE_COMPLIANCE_ES.md`, completar
    DSA como comerciante con la identidad legal real y elegir disponibilidad.
-6. Probar registro, Google/Apple, publicación, reporte, mensajería, adjuntos,
+4. Probar registro, Google/Apple, publicación, reporte, mensajería, adjuntos,
    pago/reembolso y borrado de cuenta en un iPhone y un Android reales.
 
 ## Compilar Android
@@ -149,6 +145,12 @@ ID `DKX23L5985`. La copia principal está en
 mismo SHA-256. El client secret de `es.diime.web` está guardado en el Llavero
 como `Diime Apple OAuth Client Secret` y debe rotarse antes del
 **15 de febrero de 2027 a las 14:58 UTC**.
+
+El proveedor Apple quedó activo en Supabase con
+`es.diime.web,es.diime.app`, se añadió el deep link a la lista de retornos y el
+commit `833a95f` se desplegó en producción. Se comprobó que Apple aparece en
+login y registro y que Supabase redirige a Apple tanto para el callback web como
+para `es.diime.app://auth/callback`.
 
 Incrementa `CURRENT_PROJECT_VERSION` en cada upload, aunque se mantenga la
 versión comercial. `Info.plist` ya declara que no se usa cifrado no exento y los
