@@ -37,7 +37,10 @@ export function CapacitorBridge() {
 
     const actualizarBarras = async () => {
       const modoOscuro = root.classList.contains("dark")
-      await StatusBar.setStyle({ style: modoOscuro ? Style.Dark : Style.Light }).catch(() => {})
+      // `Style.Light` significa iconos claros (para un fondo oscuro) y
+      // `Style.Dark`, iconos oscuros (para un fondo claro). Estaba invertido y
+      // podía dejar hora, señal y batería negros sobre el fondo negro nativo.
+      await StatusBar.setStyle({ style: modoOscuro ? Style.Light : Style.Dark }).catch(() => {})
       await StatusBar.setBackgroundColor({ color: modoOscuro ? "#0a0a0a" : "#ffffff" }).catch(() => {})
     }
 
