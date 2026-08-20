@@ -152,8 +152,27 @@ html[data-native="true"] body {
   padding-top: env(safe-area-inset-top);
 }
 
+/* La zona del sistema debe ser siempre opaca. El contenido de la página puede
+   desplazarse por debajo de elementos fixed en WKWebView; sin esta máscara,
+   títulos grandes quedaban tenuemente visibles detrás de la hora, la isla
+   dinámica y la batería al hacer scroll. */
+html[data-native="true"] body::before {
+  content: "";
+  position: fixed;
+  z-index: 55;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: env(safe-area-inset-top);
+  pointer-events: none;
+  background: var(--background);
+}
+
 html[data-native="true"] header.fixed {
   top: env(safe-area-inset-top);
+  background: var(--background);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 html[data-native="true"] .web-only-chrome {
