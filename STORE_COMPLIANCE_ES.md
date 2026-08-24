@@ -32,14 +32,13 @@ Seleccionar **Sí, comerciante (trader)**. Diime se explota como marketplace de
 servicios, intermedia contratos y pagos y aplica comisiones; no es una actividad
 puramente personal o no profesional.
 
-### Datos confirmados del titular
+### Datos del titular
 
 - **Tipo de titular:** persona física.
-- **Nombre legal:** Juan Díez García.
-- **NIF del titular:** conservar únicamente para verificaciones privadas de las tiendas; no publicar.
-- **Domicilio público:** Calle Velázquez 83, 1.º izquierda, Madrid, España.
-- **Teléfono público:** +34 657 738 042.
-- **Email público:** `contacto@diime.es`.
+- Los datos legales, fiscales, de domicilio y teléfono deben conservarse fuera
+  del repositorio y facilitarse únicamente en los formularios privados que los
+  requieran.
+- **Email del servicio:** `contacto@diime.es`.
 - **D-U-N-S:** no aplica si la cuenta Apple se da de alta como persona física.
 
 En Apple, completar **Business → Digital Services Act → Trader status**, elegir
@@ -48,9 +47,9 @@ teléfono, aportar el documento que solicite y certificar que los servicios
 ofrecidos cumplen la legislación de la UE. En Google, elegir cuenta personal y
 hacer coincidir el perfil de desarrollador con la misma identidad.
 
-El titular ha confirmado que este domicilio y teléfono pueden utilizarse como
-datos públicos del comerciante. Si cambian, hay que actualizar la web y ambas
-tiendas antes de la siguiente publicación.
+No copiar un domicilio particular ni un teléfono personal en la web o en este
+repositorio. Para la información pública del comerciante se debe utilizar una
+dirección postal y un número profesionales que puedan verificarse.
 
 ## Edad y público objetivo
 

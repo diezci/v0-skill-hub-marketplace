@@ -1,4 +1,4 @@
-# Ficha de tiendas de Diime (borrador ES)
+# Ficha de tiendas de Diime (ES)
 
 Este archivo prepara los metadatos comerciales. Las declaraciones técnicas de
 privacidad, edad y DSA ya están auditadas en `STORE_COMPLIANCE_ES.md`; siguen
@@ -25,7 +25,7 @@ copies a las consolas los elementos marcados como **CONFIRMAR** sin revisarlos.
 - **Texto promocional:** Encuentra profesionales, compara ofertas y gestiona tus servicios desde un solo lugar.
 - **Palabras clave:** profesionales,servicios,reformas,limpieza,reparaciones,ofertas,trabajo,España
 - **SKU propuesto:** DIIME-IOS-001
-- **Copyright:** 2026 Juan Díez García
+- **Copyright:** 2026 Diime
 
 ### Google Play
 
@@ -76,6 +76,23 @@ La disponibilidad de profesionales depende de la categoría y la zona.
 No incluyas una contraseña real o reutilizada. Crea cuentas exclusivas para
 revisión, con datos ficticios estables y sin autenticación multifactor que impida
 el acceso del revisor.
+
+## Carga preparada para App Store Connect 1.0
+
+- **Compilación:** `1.0 (1)`.
+- **Vistas previas de la app:** opcionales; se dejan vacías en la primera
+  versión.
+- **Capturas iPhone 6,9 pulgadas:**
+  `store-assets/app-store/iphone-6.9/00-onboarding.jpg` y
+  `store-assets/app-store/iphone-6.9/01-profesionales.jpg`.
+- **Archivo de cobertura de la app de encaminamiento:** no aplica; Diime no es
+  una app de navegación ni ofrece indicaciones giro a giro, por lo que se deja
+  vacío.
+- **Información para revisión:** usar las notas anteriores. Los datos de
+  contacto y las credenciales de prueba se introducen únicamente en App Store
+  Connect y no se guardan en este repositorio.
+- **Cifrado:** el binario declara `ITSAppUsesNonExemptEncryption = false`; no usa
+  cifrado no exento.
 
 ## Privacidad, edad y DSA
 
@@ -129,14 +146,15 @@ Recursos ya preparados en `store-assets/`:
 - Icono Google Play 512×512.
 - Imagen destacada Google Play 1024×500.
 - Captura Android de teléfono ajustada a la proporción admitida.
-- Captura base de iPhone ajustada a un tamaño 6,9 pulgadas aceptado por App
-  Store. Es solo una previsualización: todavía muestra el aviso de cookies de
-  la versión web anterior y debe regenerarse después del despliegue.
 - Captura nativa de onboarding en iPhone 17 Pro Max (`1320×2868`, JPEG sin
   transparencia), generada después del despliegue y utilizable en App Store.
+- Captura nativa de búsqueda de profesionales en iPhone 17 Pro Max
+  (`1320×2868`, JPEG sin transparencia), generada desde la versión desplegada y
+  utilizable en App Store.
+- La captura antigua `01-home.jpg` queda excluida de la carga porque conserva el
+  aviso de cookies de una versión anterior.
 
-Faltan una segunda captura Android y las capturas con sesión de resultados,
-ofertas, chat y trabajo. Para obtenerlas sin datos reales hacen falta las dos
-cuentas de revisión y datos de demostración estables. Hay que regenerar el set
-completo después de desplegar esta versión, para que represente exactamente el
-binario enviado.
+Falta una segunda captura Android. Las capturas adicionales con ofertas, chat y
+trabajo se pueden añadir en una actualización posterior cuando existan las dos
+cuentas de revisión y datos de demostración ficticios estables; no son necesarias
+para enviar la versión iOS inicial.

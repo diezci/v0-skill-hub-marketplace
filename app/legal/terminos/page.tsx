@@ -70,9 +70,10 @@ export default function Terminos() {
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">10. Contacto</h2>
           <p>
-            Diime es un servicio titularidad de Juan Díez García. Para cualquier consulta relacionada
-            con estos términos, puedes escribir a <a href="mailto:contacto@diime.es" className="text-primary hover:underline">contacto@diime.es</a>.
-            Los datos completos del titular se encuentran en el <a href="/legal/aviso-legal" className="text-primary hover:underline">Aviso legal</a>.
+            Para cualquier consulta relacionada con estos términos, puedes escribir a
+            <a href="mailto:contacto@diime.es" className="text-primary hover:underline"> contacto@diime.es</a>. La
+            información general del servicio se encuentra en el
+            <a href="/legal/aviso-legal" className="text-primary hover:underline"> Aviso legal</a>.
           </p>
         </section>
       </div>
