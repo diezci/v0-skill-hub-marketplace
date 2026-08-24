@@ -12,14 +12,16 @@ export default function AvisoLegal() {
       <p className="text-sm text-muted-foreground mb-10">Última actualización: agosto de 2026</p>
       <div className="prose prose-neutral dark:prose-invert max-w-none space-y-8 text-muted-foreground leading-relaxed">
         <section>
-          <h2 className="text-lg font-semibold text-foreground mb-2">1. Información del servicio</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-2">1. Titular del sitio y del servicio</h2>
           <p>
-            Diime es un servicio digital de intermediación disponible a través del dominio diime.es. Para consultas
-            generales, legales o relacionadas con el servicio puedes utilizar el siguiente canal de contacto:
+            En cumplimiento del deber de información aplicable, se facilitan los datos de contacto del titular de
+            Diime y del dominio diime.es:
           </p>
           <ul className="list-disc pl-6 mt-3 space-y-1">
-            <li>Servicio: Diime</li>
+            <li>Nombre: Juan Díez García</li>
+            <li>Domicilio de contacto: Calle Velázquez 83, 1.º izquierda, Madrid, España</li>
             <li>Correo electrónico: <a href="mailto:contacto@diime.es" className="text-primary hover:underline">contacto@diime.es</a></li>
+            <li>Teléfono: <a href="tel:+34657738042" className="text-primary hover:underline">+34 657 738 042</a></li>
           </ul>
         </section>
         <section>

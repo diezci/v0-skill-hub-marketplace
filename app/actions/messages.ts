@@ -346,6 +346,32 @@ export async function crearConversacion(params: {
   return { data: conv }
 }
 
+export async function crearConversacionSoporte() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return { error: "No autenticado" }
+
+  // Reparto estable entre los administradores disponibles: una misma persona
+  // vuelve siempre al mismo perfil de soporte y `crearConversacion` reutiliza
+  // el chat existente en lugar de abrir duplicados.
+  const { data: admins, error } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("es_admin", true)
+    .neq("id", user.id)
+    .order("id")
+
+  if (error) return { error: "No se pudo localizar al equipo de soporte." }
+  if (!admins?.length) return { error: "No hay ningún perfil de soporte disponible." }
+
+  const semilla = user.id.replaceAll("-", "").split("").reduce((total, caracter) => total + caracter.charCodeAt(0), 0)
+  const admin = admins[semilla % admins.length]
+  return crearConversacion({ otroUsuarioId: admin.id })
+}
+
 export async function vincularConversacionATrabajo(conversacionId: string, trabajoId: string) {
   const supabase = await createClient()
 

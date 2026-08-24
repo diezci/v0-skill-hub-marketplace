@@ -84,7 +84,7 @@ interface Conversation {
   rol_otro?: "cliente" | "proveedor"
 }
 
-export default function MensajesContent() {
+export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin?: boolean }) {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   // Panel "Acerca de" en móvil: allí no hay sitio para la columna de la derecha,
@@ -396,7 +396,7 @@ export default function MensajesContent() {
 
   if (loading) {
     return (
-      <div className="h-screen bg-background flex items-center justify-center">
+      <div className={cn(enPanelAdmin ? "h-screen" : "h-[calc(100vh-4rem)]", "bg-background flex items-center justify-center")}>
         <div className="text-center space-y-4">
           <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
           <p className="text-muted-foreground">Cargando conversaciones...</p>
@@ -406,7 +406,7 @@ export default function MensajesContent() {
   }
 
   return (
-    <div className="h-[calc(100vh-4rem)] w-full flex flex-col overflow-hidden">
+    <div className={cn(enPanelAdmin ? "h-screen" : "h-[calc(100vh-4rem)]", "w-full flex flex-col overflow-hidden")}>
       <div className="flex-1 flex w-full min-h-0 min-w-0 overflow-hidden">
         {/* Sidebar de conversaciones */}
         <div

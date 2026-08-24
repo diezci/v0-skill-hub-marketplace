@@ -35,9 +35,10 @@ puramente personal o no profesional.
 ### Datos del titular
 
 - **Tipo de titular:** persona física.
-- Los datos legales, fiscales, de domicilio y teléfono deben conservarse fuera
-  del repositorio y facilitarse únicamente en los formularios privados que los
-  requieran.
+- **Nombre legal:** Juan Díez García.
+- **Domicilio de contacto autorizado:** Calle Velázquez 83, 1.º izquierda,
+  Madrid, España.
+- **Teléfono autorizado:** +34 657 738 042.
 - **Email del servicio:** `contacto@diime.es`.
 - **D-U-N-S:** no aplica si la cuenta Apple se da de alta como persona física.
 
@@ -47,9 +48,9 @@ teléfono, aportar el documento que solicite y certificar que los servicios
 ofrecidos cumplen la legislación de la UE. En Google, elegir cuenta personal y
 hacer coincidir el perfil de desarrollador con la misma identidad.
 
-No copiar un domicilio particular ni un teléfono personal en la web o en este
-repositorio. Para la información pública del comerciante se debe utilizar una
-dirección postal y un número profesionales que puedan verificarse.
+El domicilio anterior no debe volver a utilizarse. Para la información pública
+del comerciante se emplean exclusivamente los datos de contacto autorizados en
+esta sección, que deberán poder verificarse ante las tiendas.
 
 ## Edad y público objetivo
 

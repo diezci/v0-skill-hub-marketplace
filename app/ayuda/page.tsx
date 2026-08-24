@@ -1,8 +1,8 @@
 import type { Metadata } from "next"
-import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Mail, MessageCircle, HelpCircle } from "lucide-react"
+import { Mail, HelpCircle } from "lucide-react"
+import { SupportChatButton } from "@/components/support-chat-button"
 
 export const metadata: Metadata = {
   title: "Centro de ayuda | Diime",
@@ -68,12 +68,7 @@ export default function Ayuda() {
               contacto@diime.es
             </a>
           </Button>
-          <Button asChild>
-            <Link href="/mensajes">
-              <MessageCircle className="h-4 w-4 mr-2" />
-              Abrir chat de soporte
-            </Link>
-          </Button>
+          <SupportChatButton />
         </div>
       </div>
     </div>
