@@ -40,9 +40,25 @@ export default function RecuperarContrasenaPage() {
   }
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-6">
-      <div className="w-full max-w-md">
-        <Card className="shadow-xl border-0">
+    <div
+      className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-neutral-950 bg-cover bg-center bg-fixed p-6"
+      style={{ backgroundImage: "url('/background-working-gray.jpg')" }}
+    >
+      <div
+        className="absolute inset-0 bg-gradient-to-br from-neutral-950/80 via-neutral-950/50 to-emerald-950/80"
+        aria-hidden="true"
+      />
+      <div
+        className="absolute -left-24 top-1/4 h-72 w-72 rounded-full bg-emerald-400/20 blur-3xl"
+        aria-hidden="true"
+      />
+      <div
+        className="absolute -right-20 bottom-0 h-80 w-80 rounded-full bg-emerald-600/15 blur-3xl"
+        aria-hidden="true"
+      />
+
+      <div className="relative z-10 w-full max-w-md">
+        <Card className="border-white/10 bg-card/95 shadow-2xl backdrop-blur-xl">
           <CardHeader className="space-y-1 text-center pb-6">
             <CardTitle className="text-3xl font-bold tracking-tight">Recuperar Contraseña</CardTitle>
             <CardDescription className="text-base">
