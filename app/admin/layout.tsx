@@ -107,8 +107,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* Logo */}
         <div className="p-6 border-b border-border">
           <Link href="/admin" className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">D</span>
+            <div className="h-8 w-8 overflow-hidden rounded-lg ring-1 ring-white/10">
+              <img src="/brand/diime-mark-v2.png" alt="" className="h-full w-full object-cover" />
             </div>
             <span className="font-bold text-lg">Diime Admin</span>
           </Link>

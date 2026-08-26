@@ -15,18 +15,18 @@
         <!-- Android 15+ dibuja la WebView de borde a borde. Un fondo de
              ventana explícito evita destellos/bandas blancas mientras Next
              hidrata el tema oscuro y mantiene legibles ambas barras. -->
-        <item name="android:background">#0A0A0A</item>
-        <item name="android:windowBackground">#0A0A0A</item>
-        <item name="android:colorBackground">#0A0A0A</item>
-        <item name="android:statusBarColor">#0A0A0A</item>
-        <item name="android:navigationBarColor">#0A0A0A</item>
+        <item name="android:background">#080C10</item>
+        <item name="android:windowBackground">#080C10</item>
+        <item name="android:colorBackground">#080C10</item>
+        <item name="android:statusBarColor">#080C10</item>
+        <item name="android:navigationBarColor">#080C10</item>
         <item name="android:windowLightStatusBar">false</item>
     </style>
 
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
-        <item name="windowSplashScreenBackground">#0A0A0A</item>
+        <item name="windowSplashScreenBackground">#080C10</item>
         <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
         <item name="android:windowLightStatusBar">false</item>

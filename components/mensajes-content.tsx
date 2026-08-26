@@ -396,7 +396,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
 
   if (loading) {
     return (
-      <div className={cn(enPanelAdmin ? "h-screen" : "h-[calc(100vh-4rem)]", "bg-background flex items-center justify-center")}>
+      <div className={cn(enPanelAdmin ? "h-screen" : "h-full", "bg-background flex items-center justify-center")}>
         <div className="text-center space-y-4">
           <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
           <p className="text-muted-foreground">Cargando conversaciones...</p>
@@ -406,12 +406,12 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
   }
 
   return (
-    <div className={cn(enPanelAdmin ? "h-screen" : "h-[calc(100vh-4rem)]", "w-full flex flex-col overflow-hidden")}>
+    <div className={cn(enPanelAdmin ? "h-screen" : "h-full", "w-full min-h-0 flex flex-col overflow-hidden overscroll-none")}>
       <div className="flex-1 flex w-full min-h-0 min-w-0 overflow-hidden">
         {/* Sidebar de conversaciones */}
         <div
           className={cn(
-            "w-full md:w-80 lg:w-96 md:shrink-0 border-r border-border flex flex-col bg-card overflow-hidden",
+            "w-full min-h-0 md:w-80 lg:w-96 md:shrink-0 border-r border-border flex flex-col bg-card overflow-hidden",
             selectedConversation && "hidden md:flex",
           )}
         >
@@ -457,7 +457,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
           </div>
 
           {/* Lista de conversaciones - scrollable */}
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 min-h-0 overflow-hidden">
             <div className="divide-y divide-border">
               {loading ? (
                 <div className="flex items-center justify-center py-12">
@@ -590,7 +590,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
           {selectedConversation ? (
             <>
               {/* Header del chat */}
-              <div className="h-16 px-4 flex items-center justify-between border-b border-border shrink-0">
+              <div className="sticky top-0 z-10 h-16 px-4 flex items-center justify-between border-b border-border bg-background shrink-0">
                 <div className="flex items-center gap-3">
                   <Button
                     variant="ghost"
@@ -830,7 +830,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
               </div>
 
               {/* Input de mensaje */}
-              <div className="p-4 border-t border-border shrink-0">
+              <div className="sticky bottom-0 z-10 p-4 border-t border-border bg-background shrink-0">
                 <form
                   onSubmit={(e) => {
                     e.preventDefault()
@@ -908,7 +908,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
         {selectedConversation && (
           <aside
             className={cn(
-              "flex-col border-l border-border bg-card/30 shrink-0",
+              "messages-profile-panel min-h-0 overflow-hidden flex-col border-l border-border bg-card/30 shrink-0",
               "hidden lg:flex w-80 xl:w-96",
               panelMovil && "!flex fixed inset-0 z-50 w-full border-l-0 bg-background lg:static lg:w-80 lg:bg-card/30",
             )}
@@ -921,8 +921,8 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                 </Button>
               </div>
             )}
-            <ScrollArea className="h-full">
-              <div className="p-6 space-y-6">
+            <ScrollArea className="flex-1 min-h-0 w-full overflow-hidden">
+              <div className="p-6 pb-10 space-y-6">
                 {/* Header del usuario */}
                 <div className="flex flex-col items-center text-center">
                   <Avatar className="h-20 w-20 mb-3 ring-2 ring-background shadow-md">
@@ -1148,12 +1148,13 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                     <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       Archivos compartidos
                     </h4>
-                    <button className="text-xs text-primary hover:underline">Ver todos</button>
+                    <span className="text-xs text-muted-foreground">
+                      {messages.filter((m) => m.tipo === "archivo" || m.tipo === "imagen").length}
+                    </span>
                   </div>
                   <div className="space-y-2">
                     {messages
                       .filter((m) => m.tipo === "archivo" || m.tipo === "imagen")
-                      .slice(0, 3)
                       .map((m) => (
                         <a
                           key={m.id}

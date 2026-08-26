@@ -179,6 +179,32 @@ html[data-native="true"] main {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* Mensajes ocupa exactamente el viewport. El documento y el pie no deben
+   desplazarse: cada columna tiene su propia zona de scroll y las cabeceras y
+   el compositor permanecen siempre visibles. `dvh` sigue el teclado y las
+   barras móviles, evitando el salto clásico de `100vh` en Safari/WKWebView. */
+html[data-messages-view="true"],
+html[data-messages-view="true"] body {
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+html[data-native="true"][data-messages-view="true"] body {
+  padding-top: 0;
+}
+
+html[data-native="true"][data-messages-view="true"] main {
+  height: 100dvh;
+  padding-top: calc(4rem + env(safe-area-inset-top));
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+html[data-native="true"] .messages-profile-panel {
+  top: env(safe-area-inset-top);
+  bottom: env(safe-area-inset-bottom);
+}
+
 .animate-fade-in {
   animation: fadeIn 0.4s ease-out;
 }

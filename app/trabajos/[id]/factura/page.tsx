@@ -134,8 +134,8 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
             )}
           </div>
           <div className="text-right">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center ml-auto">
-              <span className="text-white font-bold text-lg">D</span>
+            <div className="h-10 w-10 overflow-hidden rounded-xl ring-1 ring-white/10 ml-auto">
+              <img src="/brand/diime-mark-v2.png" alt="" className="h-full w-full object-cover" />
             </div>
             <p className="text-sm font-semibold mt-2">Diime</p>
             <p className="text-xs text-muted-foreground">diime.es · contacto@diime.es</p>

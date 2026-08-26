@@ -9,7 +9,7 @@ export const metadata = {
 
 export default function MensajesPage() {
   return (
-    <div className="h-[calc(100vh-4rem)] w-full overflow-hidden">
+    <div className="h-full min-h-0 w-full overflow-hidden overscroll-none">
       <Suspense
         fallback={
           <div className="flex items-center justify-center h-full">

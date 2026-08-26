@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { useEffect } from "react"
 import { usePathname } from "next/navigation"
 import Navbar from "@/components/navbar"
 import Footer from "@/components/footer"
@@ -15,6 +16,18 @@ import { ConfirmarMayoriaEdad } from "@/components/confirmar-mayoria-edad"
 // navbar, para que el admin tenga una experiencia exclusivamente de administración.
 export function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const esMensajes = pathname?.startsWith("/mensajes") ?? false
+
+  // El chat es una vista de aplicación, no una página larga. Marcamos el
+  // documento para bloquear el scroll exterior y dejar que solo se desplacen
+  // la lista de conversaciones, los mensajes y el panel de archivos.
+  useEffect(() => {
+    if (!esMensajes) return
+    document.documentElement.dataset.messagesView = "true"
+    return () => {
+      delete document.documentElement.dataset.messagesView
+    }
+  }, [esMensajes])
 
   if (pathname?.startsWith("/admin")) {
     return <main className="min-h-screen">{children}</main>
@@ -27,8 +40,10 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
           /demandas o a un perfil. */}
       <BienvenidaPrimeraVisita />
       <Navbar />
-      <main className="flex-1 pt-16">{children}</main>
-      <Footer />
+      <main className={esMensajes ? "h-dvh min-h-0 flex-none overflow-hidden pt-16" : "flex-1 pt-16"}>
+        {children}
+      </main>
+      {!esMensajes && <Footer />}
       <ChatWidget />
       <BannerCookies />
       <AvisosEnPantalla />

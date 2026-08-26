@@ -59,6 +59,13 @@ const Navbar = () => {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
+  // Cualquier navegación debe cerrar el desplegable móvil, incluidas las
+  // rutas de acceso y registro. Así la siguiente pantalla no aparece detrás
+  // del menú que abrió el usuario.
+  useEffect(() => {
+    setIsOpen(false)
+  }, [pathname])
+
   useEffect(() => {
     let supabase
     try {
@@ -262,8 +269,8 @@ const Navbar = () => {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <Link href="/" className="flex items-center gap-2">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-lg">D</span>
+            <div className="h-9 w-9 overflow-hidden rounded-xl shadow-lg ring-1 ring-white/10">
+              <img src="/brand/diime-mark-v2.png" alt="" className="h-full w-full object-cover" />
             </div>
             <span className="font-bold text-xl hidden sm:block">Diime</span>
           </Link>
@@ -397,14 +404,22 @@ const Navbar = () => {
                 <UserCircle className="h-5 w-5" />
               </Link>
             )}
-            <Button className="native-menu-toggle" variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)}>
+            <Button
+              className="native-menu-toggle"
+              variant="ghost"
+              size="icon"
+              aria-label={isOpen ? "Cerrar menú" : "Abrir menú"}
+              aria-expanded={isOpen}
+              aria-controls="mobile-navigation"
+              onClick={() => setIsOpen((open) => !open)}
+            >
               {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
           </div>
         </div>
 
         {isOpen && (
-          <div className="md:hidden py-4 border-t animate-in slide-in-from-top-2">
+          <div id="mobile-navigation" className="md:hidden py-4 border-t animate-in slide-in-from-top-2">
             <nav className="flex flex-col gap-1">
               {navLinks.map((link) => {
                 const Icon = link.icon
@@ -432,12 +447,12 @@ const Navbar = () => {
               })}
               {!isAuthenticated ? (
                 <div className="flex gap-2 mt-4 pt-4 border-t">
-                  <Link href="/auth/login" className="flex-1">
+                  <Link href="/auth/login" className="flex-1" onClick={() => setIsOpen(false)}>
                     <Button variant="outline" className="w-full rounded-lg bg-transparent">
                       Entrar
                     </Button>
                   </Link>
-                  <Link href="/auth/registro" className="flex-1">
+                  <Link href="/auth/registro" className="flex-1" onClick={() => setIsOpen(false)}>
                     <Button className="w-full rounded-lg bg-emerald-600 hover:bg-emerald-700">Registrarse</Button>
                   </Link>
                 </div>

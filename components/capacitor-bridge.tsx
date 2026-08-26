@@ -41,7 +41,7 @@ export function CapacitorBridge() {
       // produce iconos claros para fondos oscuros y `Style.Light`, iconos
       // oscuros para fondos claros.
       await StatusBar.setStyle({ style: modoOscuro ? Style.Dark : Style.Light }).catch(() => {})
-      await StatusBar.setBackgroundColor({ color: modoOscuro ? "#0a0a0a" : "#ffffff" }).catch(() => {})
+      await StatusBar.setBackgroundColor({ color: modoOscuro ? "#080c10" : "#ffffff" }).catch(() => {})
     }
 
     const preparar = async () => {

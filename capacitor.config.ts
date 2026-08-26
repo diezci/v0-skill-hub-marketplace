@@ -12,7 +12,7 @@ const config: CapacitorConfig = {
   appName: "Diime",
   webDir: "native-shell",
   appendUserAgent: " DiimeNative/1.0",
-  backgroundColor: "#0a0a0a",
+  backgroundColor: "#080c10",
   loggingBehavior: process.env.CAPACITOR_DEBUG === "true" ? "debug" : "none",
   zoomEnabled: false,
   server: {
@@ -45,7 +45,7 @@ const config: CapacitorConfig = {
     SplashScreen: {
       launchAutoHide: false,
       launchShowDuration: 3000,
-      backgroundColor: "#0a0a0a",
+      backgroundColor: "#080c10",
       androidScaleType: "CENTER_CROP",
       showSpinner: false,
       splashFullScreen: true,
@@ -54,7 +54,7 @@ const config: CapacitorConfig = {
     StatusBar: {
       overlaysWebView: false,
       style: "DARK",
-      backgroundColor: "#0a0a0a",
+      backgroundColor: "#080c10",
     },
     SystemBars: {
       insetsHandling: "css",
