@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { enviarPushAUsuario } from "@/lib/push/enviar"
 
 // Crea una notificación para un usuario (puede ser distinto del actual: p. ej. el
 // profesional que oferta notifica al cliente). La RLS permite INSERT a cualquier
@@ -37,6 +38,12 @@ export async function crearNotificacion(params: {
   // web ya está guardado y la acción que lo provocó sigue adelante.
   const { enviarAvisoPorEmail } = await import("@/lib/emails/enviar")
   await enviarAvisoPorEmail(params)
+  await enviarPushAUsuario(params.usuarioId, {
+    titulo: params.titulo,
+    cuerpo: params.mensaje || "Tienes una novedad en Diime.",
+    link: params.link,
+    tipo: params.tipo,
+  })
 }
 
 // Activa o desactiva los avisos por correo. Los avisos se siguen viendo en la

@@ -42,6 +42,9 @@ const config: CapacitorConfig = {
       resize: KeyboardResize.Body,
       resizeOnFullScreen: true,
     },
+    PushNotifications: {
+      presentationOptions: ["badge", "sound", "banner", "list"],
+    },
     SplashScreen: {
       launchAutoHide: false,
       launchShowDuration: 3000,

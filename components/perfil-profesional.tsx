@@ -58,6 +58,7 @@ import {
 } from "@/components/ui/dialog"
 import { uploadFile } from "@/lib/upload-helpers"
 import { createClient } from "@/lib/supabase/client"
+import { desvincularPushActual } from "@/lib/push/client"
 import { useRouter } from "next/navigation"
 
 const provincias = [
@@ -457,6 +458,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
 
   const handleLogout = async () => {
     setLoggingOut(true)
+    await desvincularPushActual()
     const supabase = createClient()
     await supabase.auth.signOut()
     router.push("/")

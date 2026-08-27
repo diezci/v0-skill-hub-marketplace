@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { errorContenidoProhibido } from "@/lib/moderacion"
+import { enviarPushAUsuario } from "@/lib/push/enviar"
 
 export async function obtenerConversaciones() {
   const supabase = await createClient()
@@ -257,6 +258,20 @@ export async function enviarMensaje(
     })
     .eq("id", conversacionId)
 
+  const { data: remitente } = await supabase
+    .from("profiles")
+    .select("nombre, apellido")
+    .eq("id", user.id)
+    .maybeSingle()
+  const nombreRemitente = `${remitente?.nombre ?? ""} ${remitente?.apellido ?? ""}`.trim() || "Nuevo mensaje"
+  await enviarPushAUsuario(otroUsuarioId, {
+    titulo: nombreRemitente,
+    cuerpo: preview.slice(0, 160),
+    link: `/mensajes?c=${conversacionId}`,
+    conversacionId,
+    tipo: "mensaje",
+  })
+
   revalidatePath("/mensajes")
   return { data: mensaje }
 }
@@ -339,6 +354,19 @@ export async function crearConversacion(params: {
       remitente_id: user.id,
       contenido: params.mensajeInicial,
       leido: false,
+    })
+
+    const { data: remitente } = await supabase
+      .from("profiles")
+      .select("nombre, apellido")
+      .eq("id", user.id)
+      .maybeSingle()
+    await enviarPushAUsuario(params.otroUsuarioId, {
+      titulo: `${remitente?.nombre ?? ""} ${remitente?.apellido ?? ""}`.trim() || "Nuevo mensaje",
+      cuerpo: params.mensajeInicial.slice(0, 160),
+      link: `/mensajes?c=${conv.id}`,
+      conversacionId: conv.id,
+      tipo: "mensaje",
     })
   }
 

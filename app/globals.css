@@ -179,6 +179,13 @@ html[data-native="true"] main {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* En la app nativa el pie legal solo pertenece a la portada. Las secciones de
+   trabajo son vistas de aplicación y no deben terminar en una segunda zona de
+   navegación legal. En la web el pie continúa apareciendo en todas ellas. */
+html[data-native="true"] [data-app-footer]:not([data-home="true"]) {
+  display: none;
+}
+
 /* Mensajes ocupa exactamente el viewport. El documento y el pie no deben
    desplazarse: cada columna tiene su propia zona de scroll y las cabeceras y
    el compositor permanecen siempre visibles. `dvh` sigue el teclado y las

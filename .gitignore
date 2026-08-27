@@ -33,8 +33,10 @@ next-env.d.ts
 *.jks
 *.keystore
 *.p12
+*.p8
 *.mobileprovision
 /android/key.properties
+/android/app/google-services.json
 /android/app/release/
 /ios/App/diime-ios-simulator.png
 

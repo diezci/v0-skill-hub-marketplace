@@ -43,7 +43,11 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
       <main className={esMensajes ? "h-dvh min-h-0 flex-none overflow-hidden pt-16" : "flex-1 pt-16"}>
         {children}
       </main>
-      {!esMensajes && <Footer />}
+      {!esMensajes && (
+        <div data-app-footer data-home={pathname === "/" ? "true" : "false"}>
+          <Footer />
+        </div>
+      )}
       <ChatWidget />
       <BannerCookies />
       <AvisosEnPantalla />

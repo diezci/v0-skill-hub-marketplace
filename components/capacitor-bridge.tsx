@@ -7,8 +7,11 @@ import { Browser } from "@capacitor/browser"
 import { Haptics, ImpactStyle } from "@capacitor/haptics"
 import { Keyboard, KeyboardResize } from "@capacitor/keyboard"
 import { Network } from "@capacitor/network"
+import { PushNotifications } from "@capacitor/push-notifications"
 import { SplashScreen } from "@capacitor/splash-screen"
 import { StatusBar, Style } from "@capacitor/status-bar"
+import { registrarDispositivoPush } from "@/app/actions/push"
+import { guardarTokenPushActual } from "@/lib/push/client"
 import { createClient } from "@/lib/supabase/client"
 
 const DEEP_LINK = "es.diime.app://auth/callback"
@@ -34,6 +37,8 @@ export function CapacitorBridge() {
 
     let mounted = true
     const cleanups: Array<() => void> = []
+    const supabase = createClient()
+    let registrandoPush = false
 
     const actualizarBarras = async () => {
       const modoOscuro = root.classList.contains("dark")
@@ -44,6 +49,38 @@ export function CapacitorBridge() {
       await StatusBar.setBackgroundColor({ color: modoOscuro ? "#080c10" : "#ffffff" }).catch(() => {})
     }
 
+    const registrarPush = async () => {
+      if (registrandoPush) return
+      registrandoPush = true
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+        if (!user) return
+
+        if (Capacitor.getPlatform() === "android") {
+          await PushNotifications.createChannel({
+            id: "diime_messages",
+            name: "Mensajes y avisos",
+            description: "Mensajes, ofertas y novedades importantes de Diime",
+            importance: 5,
+            visibility: 1,
+            vibration: true,
+            lights: true,
+            lightColor: "#10B981",
+          }).catch(() => {})
+        }
+
+        let permiso = await PushNotifications.checkPermissions()
+        if (permiso.receive === "prompt" || permiso.receive === "prompt-with-rationale") {
+          permiso = await PushNotifications.requestPermissions()
+        }
+        if (permiso.receive === "granted") await PushNotifications.register()
+      } finally {
+        registrandoPush = false
+      }
+    }
+
     const preparar = async () => {
       await Keyboard.setResizeMode({ mode: KeyboardResize.Body }).catch(() => {})
       await actualizarBarras()
@@ -51,7 +88,47 @@ export function CapacitorBridge() {
       if (estado && mounted) root.dataset.network = estado.connected ? "online" : "offline"
       await SplashScreen.hide({ fadeOutDuration: 250 }).catch(() => {})
     }
-    preparar()
+
+    const configurarPush = async () => {
+      const registration = await PushNotifications.addListener("registration", async ({ value }) => {
+        guardarTokenPushActual(value)
+        await registrarDispositivoPush(value, Capacitor.getPlatform() as "ios" | "android")
+      })
+      if (!mounted) await registration.remove()
+      else cleanups.push(() => void registration.remove())
+
+      const registrationError = await PushNotifications.addListener("registrationError", (error) => {
+        console.error("[push] No se pudo registrar el dispositivo:", error)
+      })
+      if (!mounted) await registrationError.remove()
+      else cleanups.push(() => void registrationError.remove())
+
+      const received = await PushNotifications.addListener("pushNotificationReceived", (notification) => {
+        // La configuración nativa muestra banner, sonido y preview también en
+        // primer plano. Este evento avisa a la web para refrescar contadores.
+        window.dispatchEvent(new CustomEvent("diime:push", { detail: notification }))
+      })
+      if (!mounted) await received.remove()
+      else cleanups.push(() => void received.remove())
+
+      const action = await PushNotifications.addListener("pushNotificationActionPerformed", ({ notification }) => {
+        const link = typeof notification.data?.link === "string" ? notification.data.link : "/"
+        window.location.assign(link.startsWith("/") ? link : "/")
+      })
+      if (!mounted) await action.remove()
+      else cleanups.push(() => void action.remove())
+
+      if (mounted) await registrarPush().catch(() => {})
+    }
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((evento) => {
+      if (evento === "SIGNED_IN" || evento === "TOKEN_REFRESHED") {
+        window.setTimeout(() => registrarPush().catch(() => {}), 0)
+      }
+    })
+    cleanups.push(() => authListener.subscription.unsubscribe())
+
+    void configurarPush().finally(() => preparar())
 
     const observer = new MutationObserver(actualizarBarras)
     observer.observe(root, { attributes: true, attributeFilter: ["class"] })
@@ -75,7 +152,6 @@ export function CapacitorBridge() {
         window.location.assign("/auth/login?error=oauth")
         return
       }
-      const supabase = createClient()
       const { data, error } = await supabase.auth.exchangeCodeForSession(code)
       if (!error && data.user && callbackUrl.searchParams.get("age") === "1") {
         const aceptacionLegal = new Date().toISOString()

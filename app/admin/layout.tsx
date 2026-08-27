@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
+import { desvincularPushActual } from "@/lib/push/client"
 import { Loader2, Users, Scale, CreditCard, LayoutDashboard, LogOut, ChevronRight, ShieldAlert, MessageSquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -84,6 +85,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   const handleLogout = async () => {
+    await desvincularPushActual()
     await supabase.auth.signOut()
     router.push("/")
   }
@@ -107,8 +109,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* Logo */}
         <div className="p-6 border-b border-border">
           <Link href="/admin" className="flex items-center gap-2">
-            <div className="h-8 w-8 overflow-hidden rounded-lg ring-1 ring-white/10">
-              <img src="/brand/diime-mark-v2.png?v=june-clean-1" alt="" className="h-full w-full object-cover" />
+            <div className="h-8 w-8 shrink-0 p-0.5 rounded-lg ring-1 ring-white/10">
+              <img src="/brand/diime-mark-v2.png?v=logo-fit-2" alt="" className="h-full w-full object-contain" />
             </div>
             <span className="font-bold text-lg">Diime Admin</span>
           </Link>

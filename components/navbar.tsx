@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
+import { desvincularPushActual } from "@/lib/push/client"
 import {
   obtenerResumenNotificaciones,
   marcarNotificacionesLeidasPorLink,
@@ -140,7 +141,11 @@ const Navbar = () => {
         // Popup con preview del último mensaje de chat sin leer (fuera de
         // /mensajes y una sola vez por mensaje en esta sesión del navegador).
         const um: any = (r as any).ultimoMensajeNoLeido
-        if (um && !(pathname ?? "").startsWith("/mensajes")) {
+        if (
+          um &&
+          !(pathname ?? "").startsWith("/mensajes") &&
+          document.documentElement.dataset.native !== "true"
+        ) {
           const yaAvisado = sessionStorage.getItem("diime_ultimo_msg_avisado")
           if (yaAvisado !== um.id) {
             sessionStorage.setItem("diime_ultimo_msg_avisado", um.id)
@@ -199,6 +204,7 @@ const Navbar = () => {
 
   const handleLogout = async () => {
     try {
+      await desvincularPushActual()
       const supabase = createClient()
       await supabase.auth.signOut({ scope: "local" })
     } catch (e) {
@@ -269,8 +275,8 @@ const Navbar = () => {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <Link href="/" className="flex items-center gap-2">
-            <div className="h-9 w-9 overflow-hidden rounded-xl shadow-lg ring-1 ring-white/10">
-              <img src="/brand/diime-mark-v2.png?v=june-clean-1" alt="" className="h-full w-full object-cover" />
+            <div className="h-9 w-9 shrink-0 p-0.5 rounded-xl shadow-lg ring-1 ring-white/10">
+              <img src="/brand/diime-mark-v2.png?v=logo-fit-2" alt="" className="h-full w-full object-contain" />
             </div>
             <span className="font-bold text-xl hidden sm:block">Diime</span>
           </Link>

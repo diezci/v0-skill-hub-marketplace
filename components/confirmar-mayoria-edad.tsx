@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { createClient } from "@/lib/supabase/client"
+import { desvincularPushActual } from "@/lib/push/client"
 
 export function ConfirmarMayoriaEdad() {
   const [abierto, setAbierto] = useState(false)
@@ -60,6 +61,7 @@ export function ConfirmarMayoriaEdad() {
 
   const salir = async () => {
     setGuardando(true)
+    await desvincularPushActual()
     await createClient().auth.signOut({ scope: "local" })
     window.location.assign("/")
   }

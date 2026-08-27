@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
+import { desvincularPushActual } from "@/lib/push/client"
 
 export default function LogoutButton() {
   const router = useRouter()
@@ -12,6 +13,7 @@ export default function LogoutButton() {
 
   const handleLogout = async () => {
     setIsLoading(true)
+    await desvincularPushActual()
     const supabase = createClient()
     await supabase.auth.signOut()
     router.push("/")
