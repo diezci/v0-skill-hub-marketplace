@@ -179,7 +179,6 @@ function peticionApns(host: string, token: string, aviso: AvisoPush): Promise<{ 
         aps: {
           alert: { title: aviso.titulo, body: aviso.cuerpo },
           sound: "default",
-          badge: 1,
           "thread-id": aviso.conversacionId ? `conversacion-${aviso.conversacionId}` : "diime",
         },
         tipo: aviso.tipo || "aviso",
