@@ -21,12 +21,12 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#059669",
     categories: ["business", "productivity", "lifestyle"],
     icons: [
-      { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: "/icons/icon-192.png?v=june-clean-1", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/icons/icon-512.png?v=june-clean-1", sizes: "512x512", type: "image/png", purpose: "any" },
       // "maskable" deja que Android recorte el icono a la forma del lanzador
       // (círculo, cuadrado redondeado…). El icono lleva margen de seguridad para
       // que la "D" no se corte.
-      { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: "/icons/icon-512.png?v=june-clean-1", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
     shortcuts: [
       { name: "Publicar una demanda", url: "/" },

@@ -41,7 +41,7 @@ const Footer = () => {
           <div className="col-span-2">
             <Link href="/" className="inline-flex items-center gap-2 mb-4">
               <div className="h-9 w-9 overflow-hidden rounded-xl shadow-lg ring-1 ring-white/10">
-                <img src="/brand/diime-mark-v2.png" alt="" className="h-full w-full object-cover" />
+                <img src="/brand/diime-mark-v2.png?v=june-clean-1" alt="" className="h-full w-full object-cover" />
               </div>
               <span className="font-bold text-lg">Diime</span>
             </Link>

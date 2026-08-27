@@ -270,7 +270,7 @@ const Navbar = () => {
         <div className="flex items-center justify-between h-16">
           <Link href="/" className="flex items-center gap-2">
             <div className="h-9 w-9 overflow-hidden rounded-xl shadow-lg ring-1 ring-white/10">
-              <img src="/brand/diime-mark-v2.png" alt="" className="h-full w-full object-cover" />
+              <img src="/brand/diime-mark-v2.png?v=june-clean-1" alt="" className="h-full w-full object-cover" />
             </div>
             <span className="font-bold text-xl hidden sm:block">Diime</span>
           </Link>
