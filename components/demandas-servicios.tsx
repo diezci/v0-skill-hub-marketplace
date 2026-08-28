@@ -117,6 +117,14 @@ export default function DemandasServicios() {
   const [demandas, setDemandas] = useState<Demanda[]>([])
   const [loading, setLoading] = useState(true)
 
+  const limpiarFiltros = () => {
+    setFiltroCategoria("Todas las categorías")
+    setFiltroUbicacion("Toda España")
+    setFiltroTiempo("todos")
+    setRangoPresupuesto([0, PRECIO_MAX])
+    setBusqueda("")
+  }
+
   const [formData, setFormData] = useState({
     precio: "",
     duracion: "",
@@ -369,13 +377,7 @@ export default function DemandasServicios() {
           <Button
             variant="outline"
             className="w-full bg-transparent"
-            onClick={() => {
-              setFiltroCategoria("Todas las categorías")
-              setFiltroUbicacion("Toda España")
-              setFiltroTiempo("todos")
-              setRangoPresupuesto([0, PRECIO_MAX])
-              setBusqueda("")
-            }}
+            onClick={limpiarFiltros}
           >
             Limpiar filtros
           </Button>
@@ -407,26 +409,55 @@ export default function DemandasServicios() {
 
         {/* Mobile Filters */}
         {mostrarFiltros && (
-          <Card className="lg:hidden p-4 space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <SelectCategoriaJerarquico
-                value={filtroCategoria}
-                onChange={setFiltroCategoria}
-                opcionTodas="Todas las categorías"
-              />
-              <Select value={filtroUbicacion} onValueChange={setFiltroUbicacion}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Ubicación" />
-                </SelectTrigger>
-                <SelectContent>
-                  {UBICACIONES.map((ubi) => (
-                    <SelectItem key={ubi} value={ubi}>
-                      {ubi}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <Card className="lg:hidden p-4 space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2 min-w-0">
+                <Label className="text-sm text-muted-foreground">Categoría profesional</Label>
+                <SelectCategoriaJerarquico
+                  value={filtroCategoria}
+                  onChange={setFiltroCategoria}
+                  opcionTodas="Todas las categorías"
+                />
+              </div>
+              <div className="space-y-2 min-w-0">
+                <Label className="text-sm text-muted-foreground">Ubicación</Label>
+                <Select value={filtroUbicacion} onValueChange={setFiltroUbicacion}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Ubicación" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {UBICACIONES.map((ubi) => (
+                      <SelectItem key={ubi} value={ubi}>
+                        {ubi}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 min-w-0 sm:col-span-2">
+                <Label className="text-sm text-muted-foreground">Publicado</Label>
+                <Select value={filtroTiempo} onValueChange={setFiltroTiempo}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Cualquier momento</SelectItem>
+                    <SelectItem value="hoy">Últimas 24 horas</SelectItem>
+                    <SelectItem value="semana">Última semana</SelectItem>
+                    <SelectItem value="mes">Último mes</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm text-muted-foreground">Presupuesto</Label>
+              <RangoPrecio value={rangoPresupuesto} onChange={setRangoPresupuesto} />
+            </div>
+
+            <Button variant="outline" className="w-full bg-transparent" onClick={limpiarFiltros}>
+              Limpiar filtros
+            </Button>
           </Card>
         )}
 
