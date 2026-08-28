@@ -39,6 +39,7 @@ next-env.d.ts
 /android/app/google-services.json
 /android/app/release/
 /ios/App/diime-ios-simulator.png
+/.build/
 
 # El ejemplo sí se versiona: solo lleva nombres de variables, ningún valor.
 !.env.example

@@ -2,9 +2,19 @@ apply plugin: 'com.android.application'
 
 def keystorePropertiesFile = rootProject.file('key.properties')
 def keystoreProperties = new Properties()
-def hasReleaseSigning = keystorePropertiesFile.exists()
+def releaseKeystoreFromEnvironment = System.getenv('DIIME_ANDROID_KEYSTORE')
+def hasReleaseSigning = keystorePropertiesFile.exists() || releaseKeystoreFromEnvironment
 if (hasReleaseSigning) {
-    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+    } else {
+        // Permite firmar desde CI o desde el llavero local sin guardar
+        // contraseñas en el repositorio ni en un archivo key.properties.
+        keystoreProperties['storeFile'] = releaseKeystoreFromEnvironment
+        keystoreProperties['keyAlias'] = System.getenv('DIIME_ANDROID_KEY_ALIAS')
+        keystoreProperties['storePassword'] = System.getenv('DIIME_ANDROID_STORE_PASSWORD')
+        keystoreProperties['keyPassword'] = System.getenv('DIIME_ANDROID_KEY_PASSWORD')
+    }
 }
 
 android {
