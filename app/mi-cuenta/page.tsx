@@ -19,6 +19,7 @@ import {
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { PreferenciaEmails } from "@/components/preferencia-emails"
+import { PreferenciaPush } from "@/components/preferencia-push"
 import { redirect } from "next/navigation"
 import { formatearFecha } from "@/lib/utils"
 
@@ -158,9 +159,10 @@ export default async function MiCuentaPage() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
-              Verás un aviso en la campana del menú cuando recibas un mensaje nuevo, alguien oferte en una demanda
-              que has publicado, o te acepten una oferta que hayas enviado.
+              Verás un contador en el menú y una vista previa cuando recibas un mensaje, una oferta o una novedad de
+              tus proyectos.
             </p>
+            <PreferenciaPush />
           </CardContent>
         </Card>
 

@@ -40,6 +40,26 @@ export function CapacitorBridge() {
     const supabase = createClient()
     let registrandoPush = false
 
+    const publicarEstadoPush = (detail: Record<string, unknown>) => {
+      if (mounted) window.dispatchEvent(new CustomEvent("diime:push-state", { detail }))
+    }
+
+    const guardarRegistroPush = async (token: string) => {
+      guardarTokenPushActual(token)
+      let ultimoError: string | undefined
+      for (let intento = 0; intento < 3; intento += 1) {
+        const resultado = await registrarDispositivoPush(token, Capacitor.getPlatform() as "ios" | "android")
+        if (!resultado?.error) {
+          publicarEstadoPush({ permiso: "granted", registrado: true })
+          return true
+        }
+        ultimoError = resultado.error
+        if (intento < 2) await new Promise((resolve) => window.setTimeout(resolve, 800 * (intento + 1)))
+      }
+      publicarEstadoPush({ permiso: "granted", registrado: false, error: ultimoError })
+      return false
+    }
+
     const actualizarBarras = async () => {
       const modoOscuro = root.classList.contains("dark")
       // Capacitor nombra el estilo por el fondo recomendado: `Style.Dark`
@@ -75,6 +95,7 @@ export function CapacitorBridge() {
         if (permiso.receive === "prompt" || permiso.receive === "prompt-with-rationale") {
           permiso = await PushNotifications.requestPermissions()
         }
+        publicarEstadoPush({ permiso: permiso.receive, registrado: false })
         if (permiso.receive === "granted") await PushNotifications.register()
       } finally {
         registrandoPush = false
@@ -91,14 +112,14 @@ export function CapacitorBridge() {
 
     const configurarPush = async () => {
       const registration = await PushNotifications.addListener("registration", async ({ value }) => {
-        guardarTokenPushActual(value)
-        await registrarDispositivoPush(value, Capacitor.getPlatform() as "ios" | "android")
+        await guardarRegistroPush(value)
       })
       if (!mounted) await registration.remove()
       else cleanups.push(() => void registration.remove())
 
       const registrationError = await PushNotifications.addListener("registrationError", (error) => {
         console.error("[push] No se pudo registrar el dispositivo:", error)
+        publicarEstadoPush({ permiso: "granted", registrado: false, error: error.error })
       })
       if (!mounted) await registrationError.remove()
       else cleanups.push(() => void registrationError.remove())
@@ -141,6 +162,10 @@ export function CapacitorBridge() {
     App.addListener("backButton", ({ canGoBack }) => {
       if (canGoBack) window.history.back()
       else App.minimizeApp().catch(() => {})
+    }).then((handle) => cleanups.push(() => void handle.remove()))
+
+    App.addListener("appStateChange", ({ isActive }) => {
+      if (isActive) registrarPush().catch(() => {})
     }).then((handle) => cleanups.push(() => void handle.remove()))
 
     App.addListener("appUrlOpen", async ({ url }) => {

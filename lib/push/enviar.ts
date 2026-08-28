@@ -14,7 +14,7 @@ type AvisoPush = {
   tipo?: string
 }
 
-type ResultadoEnvio = { ok: boolean; permanente?: boolean }
+type ResultadoEnvio = { ok: boolean; permanente?: boolean; detalle?: string }
 
 const base64Url = (valor: string | Buffer) =>
   Buffer.from(valor).toString("base64").replaceAll("=", "").replaceAll("+", "-").replaceAll("/", "_")
@@ -80,7 +80,7 @@ async function tokenAccesoGoogle() {
 async function enviarAndroid(token: string, aviso: AvisoPush): Promise<ResultadoEnvio> {
   const cuenta = credencialesFirebase()
   const acceso = await tokenAccesoGoogle()
-  if (!cuenta || !acceso) return { ok: false }
+  if (!cuenta || !acceso) return { ok: false, detalle: "Firebase no está configurado" }
 
   const respuesta = await fetch(`https://fcm.googleapis.com/v1/projects/${cuenta.project_id}/messages:send`, {
     method: "POST",
@@ -111,7 +111,7 @@ async function enviarAndroid(token: string, aviso: AvisoPush): Promise<Resultado
   if (respuesta.ok) return { ok: true }
   const texto = await respuesta.text().catch(() => "")
   const permanente = respuesta.status === 404 || texto.includes("UNREGISTERED") || texto.includes("INVALID_ARGUMENT")
-  return { ok: false, permanente }
+  return { ok: false, permanente, detalle: `FCM ${respuesta.status}` }
 }
 
 let tokenApnsCache: { valor: string; caduca: number } | null = null
@@ -133,7 +133,7 @@ function tokenApns() {
 
 function peticionApns(host: string, token: string, aviso: AvisoPush): Promise<{ status: number; reason?: string }> {
   const autorizacion = tokenApns()
-  if (!autorizacion) return Promise.resolve({ status: 0 })
+  if (!autorizacion) return Promise.resolve({ status: 0, reason: "APNs no está configurado" })
 
   const bundleId = process.env.APNS_BUNDLE_ID || "es.diime.app"
   return new Promise((resolve) => {
@@ -200,15 +200,15 @@ async function enviarIos(token: string, aviso: AvisoPush): Promise<ResultadoEnvi
     const sandbox = await peticionApns("api.sandbox.push.apple.com", token, aviso)
     if (sandbox.status === 200) return { ok: true }
     const permanente = ["BadDeviceToken", "DeviceTokenNotForTopic", "Unregistered"].includes(sandbox.reason || "")
-    return { ok: false, permanente }
+    return { ok: false, permanente, detalle: sandbox.reason || `APNs ${sandbox.status}` }
   }
-  return { ok: false }
+  return { ok: false, detalle: produccion.reason || `APNs ${produccion.status}` }
 }
 
 export async function enviarPushAUsuario(usuarioId: string, aviso: AvisoPush) {
   try {
     const admin = createAdminClient()
-    if (!admin) return
+    if (!admin) return { encontrados: 0, enviados: 0, error: "Acceso de servidor no configurado" }
 
     const { data: dispositivos } = await admin
       .from("push_devices")
@@ -216,9 +216,9 @@ export async function enviarPushAUsuario(usuarioId: string, aviso: AvisoPush) {
       .eq("usuario_id", usuarioId)
       .eq("activo", true)
 
-    if (!dispositivos?.length) return
+    if (!dispositivos?.length) return { encontrados: 0, enviados: 0, error: "No hay dispositivos registrados" }
 
-    await Promise.all(
+    const resultados = await Promise.all(
       dispositivos.map(async (dispositivo: { token: string; plataforma: PlataformaPush }) => {
         const resultado =
           dispositivo.plataforma === "ios"
@@ -227,11 +227,19 @@ export async function enviarPushAUsuario(usuarioId: string, aviso: AvisoPush) {
         if (resultado.permanente) {
           await admin.from("push_devices").update({ activo: false }).eq("token", dispositivo.token)
         }
+        return resultado
       }),
     )
+    const enviados = resultados.filter((resultado) => resultado.ok).length
+    return {
+      encontrados: dispositivos.length,
+      enviados,
+      error: enviados > 0 ? undefined : resultados.map((resultado) => resultado.detalle).filter(Boolean).join(", "),
+    }
   } catch (error) {
     // Un push no entregado no puede impedir que el mensaje o la operación que
     // lo provocó se guarde correctamente.
     console.error("[push] No se pudo enviar la notificación:", error)
+    return { encontrados: 0, enviados: 0, error: "Error interno al enviar la notificación" }
   }
 }

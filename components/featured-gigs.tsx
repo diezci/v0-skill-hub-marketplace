@@ -158,7 +158,7 @@ const FeaturedGigs = () => {
         const formattedGigs = professionals.map((prof) => ({
           id: prof.id,
           title: prof.titulo_profesional,
-          description: prof.descripcion_breve || "Profesional cualificado",
+          description: prof.descripcion || "Profesional cualificado",
           price: prof.tarifa_hora || 50,
           category: prof.categoria || "Servicios",
           image: prof.foto_portada || "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80",
@@ -169,7 +169,7 @@ const FeaturedGigs = () => {
           freelancer: {
             name: prof.nombre_completo || "Profesional",
             avatar: prof.foto_perfil || "/placeholder.svg",
-            level: prof.nivel_experiencia || "Profesional",
+            level: "Profesional",
           },
         }))
         setGigs(formattedGigs)

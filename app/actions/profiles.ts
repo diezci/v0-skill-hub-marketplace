@@ -321,7 +321,7 @@ export async function obtenerProfesionalesDestacados() {
       const profIds = profesionales.map(p => p.id)
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
-        .select("id, nombre, apellido, foto_perfil, ubicacion")
+        .select("id, nombre, apellido, foto_perfil, foto_portada, ubicacion, verificado")
         .in("id", profIds)
 
       if (profilesError) {
@@ -340,10 +340,11 @@ export async function obtenerProfesionalesDestacados() {
           tarifa_hora: prof.tarifa_por_hora || 0,
           rating_promedio: prof.rating_promedio || 0,
           total_reviews: prof.total_reseñas || 0,
-          foto_portada: profile?.foto_perfil,
+          foto_portada: profile?.foto_portada,
           foto_perfil: profile?.foto_perfil,
           nombre_completo: `${profile?.nombre || ""} ${profile?.apellido || ""}`.trim() || "Profesional",
           ubicacion: profile?.ubicacion || "Ubicación no especificada",
+          verificado: !!profile?.verificado,
           categoria: "Servicios Generales",
           disponible: true,
         }

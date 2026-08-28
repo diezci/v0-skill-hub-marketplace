@@ -47,6 +47,7 @@ const Navbar = () => {
   const [userName, setUserName] = useState<string | null>(null)
   const [userPhoto, setUserPhoto] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [notificacionesNoLeidas, setNotificacionesNoLeidas] = useState(0)
   const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0)
   const [porSeccion, setPorSeccion] = useState<Record<string, number>>({})
   const [celebracion, setCelebracion] = useState<any>(null)
@@ -126,6 +127,7 @@ const Navbar = () => {
   // Cargar contadores de notificaciones y mensajes sin leer para los badges del navbar.
   useEffect(() => {
     if (!isAuthenticated || isAdmin) {
+      setNotificacionesNoLeidas(0)
       setMensajesNoLeidos(0)
       setPorSeccion({})
       return
@@ -135,6 +137,7 @@ const Navbar = () => {
       try {
         const r = await obtenerResumenNotificaciones()
         if (!activo) return
+        setNotificacionesNoLeidas(r.noLeidas || 0)
         setMensajesNoLeidos(r.mensajesNoLeidos || 0)
         setPorSeccion(r.porSeccion || {})
 
@@ -143,8 +146,7 @@ const Navbar = () => {
         const um: any = (r as any).ultimoMensajeNoLeido
         if (
           um &&
-          !(pathname ?? "").startsWith("/mensajes") &&
-          document.documentElement.dataset.native !== "true"
+          !(pathname ?? "").startsWith("/mensajes")
         ) {
           const yaAvisado = sessionStorage.getItem("diime_ultimo_msg_avisado")
           if (yaAvisado !== um.id) {
@@ -186,10 +188,15 @@ const Navbar = () => {
       }
     }
     cargar()
+    const alRecibirPush = () => void cargar()
+    window.addEventListener("diime:push", alRecibirPush)
+    window.addEventListener("diime:notification", alRecibirPush)
     // 15s para que el badge aparezca poco después de recibir una oferta/aviso.
     const id = setInterval(cargar, 15000)
     return () => {
       activo = false
+      window.removeEventListener("diime:push", alRecibirPush)
+      window.removeEventListener("diime:notification", alRecibirPush)
       clearInterval(id)
     }
   }, [isAuthenticated, isAdmin, pathname])
@@ -197,7 +204,9 @@ const Navbar = () => {
   // Al entrar en una sección, sus notificaciones se dan por vistas y el badge se apaga.
   useEffect(() => {
     if (!pathname || !(porSeccion[pathname] > 0)) return
+    const cantidad = porSeccion[pathname]
     setPorSeccion((prev) => ({ ...prev, [pathname]: 0 }))
+    setNotificacionesNoLeidas((total) => Math.max(0, total - cantidad))
     marcarNotificacionesLeidasPorLink(pathname).catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, porSeccion])
@@ -254,6 +263,7 @@ const Navbar = () => {
   // los mensajes de chat sin leer).
   const badgeDe = (path: string) =>
     (porSeccion[path] || 0) + (path === "/mensajes" ? mensajesNoLeidos : 0)
+  const totalPendiente = notificacionesNoLeidas + mensajesNoLeidos
 
   // Los perfiles admin no ven el navbar público (el panel /admin tiene su propia
   // navegación). Así su experiencia es exclusivamente la vista de administración.
@@ -411,15 +421,26 @@ const Navbar = () => {
               </Link>
             )}
             <Button
-              className="native-menu-toggle"
+              className="native-menu-toggle relative"
               variant="ghost"
               size="icon"
-              aria-label={isOpen ? "Cerrar menú" : "Abrir menú"}
+              aria-label={
+                isOpen
+                  ? "Cerrar menú"
+                  : totalPendiente > 0
+                    ? `Abrir menú, ${totalPendiente} avisos pendientes`
+                    : "Abrir menú"
+              }
               aria-expanded={isOpen}
               aria-controls="mobile-navigation"
               onClick={() => setIsOpen((open) => !open)}
             >
               {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              {totalPendiente > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-background bg-red-500 px-1 text-[10px] font-bold leading-none text-white">
+                  {totalPendiente > 99 ? "99+" : totalPendiente}
+                </span>
+              )}
             </Button>
           </div>
         </div>

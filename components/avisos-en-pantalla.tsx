@@ -42,14 +42,14 @@ export function AvisosEnPantalla() {
           },
           (payload) => {
             const aviso = payload.new as { titulo?: string; mensaje?: string; link?: string }
-            // En Capacitor el mismo aviso llega como banner nativo con sonido
-            // y preview; evitamos enseñar además un toast duplicado.
-            if (document.documentElement.dataset.native !== "true") {
-              toast({
-                title: aviso.titulo || "Nuevo aviso",
-                description: aviso.mensaje || undefined,
-              })
-            }
+            // El aviso también se enseña dentro de la app nativa. El banner del
+            // sistema puede estar desactivado por el usuario, pero este preview
+            // dentro de Diime debe seguir apareciendo siempre.
+            toast({
+              title: aviso.titulo || "Nuevo aviso",
+              description: aviso.mensaje || undefined,
+            })
+            window.dispatchEvent(new CustomEvent("diime:notification"))
             // Si el aviso afecta a la pantalla en la que ya estás, se refresca
             // para que el contenido nuevo aparezca sin recargar a mano.
             if (aviso.link && window.location.pathname === aviso.link) router.refresh()
