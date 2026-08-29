@@ -208,7 +208,10 @@ async function enviarIos(token: string, aviso: AvisoPush): Promise<ResultadoEnvi
 export async function enviarPushAUsuario(usuarioId: string, aviso: AvisoPush) {
   try {
     const admin = createAdminClient()
-    if (!admin) return { encontrados: 0, enviados: 0, error: "Acceso de servidor no configurado" }
+    if (!admin) {
+      console.warn("[push] delivery_skipped reason=server_access_not_configured")
+      return { encontrados: 0, enviados: 0, error: "Acceso de servidor no configurado" }
+    }
 
     const { data: dispositivos } = await admin
       .from("push_devices")
@@ -216,7 +219,10 @@ export async function enviarPushAUsuario(usuarioId: string, aviso: AvisoPush) {
       .eq("usuario_id", usuarioId)
       .eq("activo", true)
 
-    if (!dispositivos?.length) return { encontrados: 0, enviados: 0, error: "No hay dispositivos registrados" }
+    if (!dispositivos?.length) {
+      console.warn(`[push] delivery_skipped reason=no_registered_devices recipient=${usuarioId.slice(0, 8)}`)
+      return { encontrados: 0, enviados: 0, error: "No hay dispositivos registrados" }
+    }
 
     const resultados = await Promise.all(
       dispositivos.map(async (dispositivo: { token: string; plataforma: PlataformaPush }) => {
@@ -231,10 +237,20 @@ export async function enviarPushAUsuario(usuarioId: string, aviso: AvisoPush) {
       }),
     )
     const enviados = resultados.filter((resultado) => resultado.ok).length
+    const fallos = resultados.map((resultado) => resultado.detalle).filter(Boolean)
+    if (enviados === 0) {
+      console.warn(
+        `[push] delivery_failed recipient=${usuarioId.slice(0, 8)} devices=${dispositivos.length} reasons=${fallos.join("|") || "unknown"}`,
+      )
+    } else {
+      console.info(
+        `[push] delivery_ok recipient=${usuarioId.slice(0, 8)} delivered=${enviados}/${dispositivos.length}`,
+      )
+    }
     return {
       encontrados: dispositivos.length,
       enviados,
-      error: enviados > 0 ? undefined : resultados.map((resultado) => resultado.detalle).filter(Boolean).join(", "),
+      error: enviados > 0 ? undefined : fallos.join(", "),
     }
   } catch (error) {
     // Un push no entregado no puede impedir que el mensaje o la operación que

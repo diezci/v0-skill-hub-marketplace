@@ -22,6 +22,8 @@ export async function registrarDispositivoPush(token: string, plataforma: "ios" 
     p_plataforma: plataforma,
   })
 
+  if (error) console.warn(`[push] registration_failed platform=${plataforma} reason=${error.code || "database"}`)
+  else console.info(`[push] registration_ok platform=${plataforma}`)
   return error ? { error: error.message } : { success: true }
 }
 
@@ -56,6 +58,9 @@ export async function probarNotificacionPush() {
     link: "/mi-cuenta",
     tipo: "prueba_push",
   })
+  console.info(
+    `[push] self_test devices=${resultado?.encontrados ?? 0} delivered=${resultado?.enviados ?? 0} result=${resultado?.error ? "failed" : "ok"}`,
+  )
   if (!resultado || resultado.encontrados === 0) {
     return { error: "Este dispositivo todavía no está registrado. Pulsa primero Activar." }
   }
