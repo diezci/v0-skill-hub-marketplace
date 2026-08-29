@@ -115,12 +115,23 @@ async function enviarAndroid(token: string, aviso: AvisoPush): Promise<Resultado
 }
 
 let tokenApnsCache: { valor: string; caduca: number } | null = null
+let avisoConfiguracionApnsMostrado = false
 
 function tokenApns() {
-  const keyId = process.env.APNS_KEY_ID
-  const teamId = process.env.APPLE_TEAM_ID
-  const rawKey = process.env.APNS_PRIVATE_KEY
-  if (!keyId || !teamId || !rawKey) return null
+  // Key ID y Team ID identifican la cuenta, pero no permiten firmar nada por sí
+  // solos. Mantener los valores de Diime como respaldo evita que una variable
+  // vacía impida todos los envíos; la clave privada sí debe seguir siendo un
+  // secreto exclusivo del servidor.
+  const keyId = process.env.APNS_KEY_ID?.trim() || "XZP92D95RP"
+  const teamId = process.env.APPLE_TEAM_ID?.trim() || "DKX23L5985"
+  const rawKey = process.env.APNS_PRIVATE_KEY?.trim()
+  if (!rawKey) {
+    if (!avisoConfiguracionApnsMostrado) {
+      avisoConfiguracionApnsMostrado = true
+      console.warn("[push] apns_config_missing keys=APNS_PRIVATE_KEY")
+    }
+    return null
+  }
 
   const ahora = Math.floor(Date.now() / 1000)
   if (tokenApnsCache && tokenApnsCache.caduca > ahora + 60) return tokenApnsCache.valor
@@ -135,7 +146,7 @@ function peticionApns(host: string, token: string, aviso: AvisoPush): Promise<{ 
   const autorizacion = tokenApns()
   if (!autorizacion) return Promise.resolve({ status: 0, reason: "APNs no está configurado" })
 
-  const bundleId = process.env.APNS_BUNDLE_ID || "es.diime.app"
+  const bundleId = process.env.APNS_BUNDLE_ID?.trim() || "es.diime.app"
   return new Promise((resolve) => {
     const cliente = connect(`https://${host}`)
     let terminado = false
