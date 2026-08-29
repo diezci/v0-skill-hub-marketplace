@@ -139,14 +139,16 @@ function peticionApns(host: string, token: string, aviso: AvisoPush): Promise<{ 
   return new Promise((resolve) => {
     const cliente = connect(`https://${host}`)
     let terminado = false
+    const limite = setTimeout(() => terminar({ status: 0, reason: "Timeout" }), 9000)
     const terminar = (resultado: { status: number; reason?: string }) => {
       if (terminado) return
       terminado = true
+      clearTimeout(limite)
       cliente.close()
       resolve(resultado)
     }
-    cliente.setTimeout(8000, () => terminar({ status: 0 }))
-    cliente.on("error", () => terminar({ status: 0 }))
+    cliente.setTimeout(8000, () => terminar({ status: 0, reason: "Timeout" }))
+    cliente.on("error", () => terminar({ status: 0, reason: "ConnectionError" }))
 
     const req = cliente.request({
       ":method": "POST",
@@ -173,7 +175,7 @@ function peticionApns(host: string, token: string, aviso: AvisoPush): Promise<{ 
       } catch {}
       terminar({ status, reason })
     })
-    req.on("error", () => terminar({ status: 0 }))
+    req.on("error", () => terminar({ status: 0, reason: "RequestError" }))
     req.end(
       JSON.stringify({
         aps: {

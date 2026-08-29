@@ -202,6 +202,7 @@ export async function enviarMensaje(
   contenido: string,
   adjunto?: { tipo: "imagen" | "archivo"; url: string; nombre: string },
 ) {
+  console.info(`[push] message_action_started conversation=${conversacionId.slice(0, 8)}`)
   const supabase = await createClient()
 
   const {
@@ -264,13 +265,16 @@ export async function enviarMensaje(
     .eq("id", user.id)
     .maybeSingle()
   const nombreRemitente = `${remitente?.nombre ?? ""} ${remitente?.apellido ?? ""}`.trim() || "Nuevo mensaje"
-  await enviarPushAUsuario(otroUsuarioId, {
+  const resultadoPush = await enviarPushAUsuario(otroUsuarioId, {
     titulo: nombreRemitente,
     cuerpo: preview.slice(0, 160),
     link: `/mensajes?c=${conversacionId}`,
     conversacionId,
     tipo: "mensaje",
   })
+  console.info(
+    `[push] message_action_finished conversation=${conversacionId.slice(0, 8)} devices=${resultadoPush?.encontrados ?? 0} delivered=${resultadoPush?.enviados ?? 0}`,
+  )
 
   revalidatePath("/mensajes")
   return { data: mensaje }
