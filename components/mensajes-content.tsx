@@ -44,7 +44,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { obtenerConversaciones, obtenerMensajes, enviarMensaje } from "@/app/actions/messages"
+import { obtenerConversaciones, obtenerMensajes } from "@/app/actions/messages"
 import { crearResena, obtenerTrabajoValorable } from "@/app/actions/reviews"
 import { obtenerTrabajosConUsuario } from "@/app/actions/trabajos"
 import { createClient } from "@/lib/supabase/client"
@@ -82,6 +82,28 @@ interface Conversation {
   archived?: boolean
   mi_rol?: "cliente" | "proveedor"
   rol_otro?: "cliente" | "proveedor"
+}
+
+type AdjuntoMensaje = { tipo: "imagen" | "archivo"; url: string; nombre: string }
+
+// El envío usa una ruta HTTP estable en vez de depender del identificador
+// generado de una Server Action. Así una pestaña o WebView que quedó abierta
+// durante un despliegue no puede seguir guardando mensajes con una versión
+// antigua del servidor que todavía no enviaba la notificación push.
+async function enviarMensaje(conversacionId: string, contenido: string, adjunto?: AdjuntoMensaje) {
+  const respuesta = await fetch("/api/mensajes", {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ conversacionId, contenido, adjunto }),
+  })
+
+  const resultado = await respuesta.json().catch(() => null)
+  if (!resultado || typeof resultado !== "object") {
+    return { error: "No se pudo enviar el mensaje. Inténtalo de nuevo." }
+  }
+  return resultado as { data?: Message; error?: string }
 }
 
 export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin?: boolean }) {
