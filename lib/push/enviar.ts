@@ -209,13 +209,21 @@ async function enviarIos(token: string, aviso: AvisoPush): Promise<ResultadoEnvi
   const produccion = await peticionApns("api.push.apple.com", token, aviso)
   if (produccion.status === 200) return { ok: true }
 
-  if ([400, 403, 410].includes(produccion.status)) {
+  // Un token de una build instalada desde Xcode responde BadDeviceToken en
+  // producción y debe probarse en sandbox. Otros errores (por ejemplo,
+  // BadTopic o credenciales inválidas) no dicen nada sobre el token y no deben
+  // provocar que desactivemos un dispositivo válido.
+  if (produccion.reason === "BadDeviceToken") {
     const sandbox = await peticionApns("api.sandbox.push.apple.com", token, aviso)
     if (sandbox.status === 200) return { ok: true }
     const permanente = ["BadDeviceToken", "DeviceTokenNotForTopic", "Unregistered"].includes(sandbox.reason || "")
     return { ok: false, permanente, detalle: sandbox.reason || `APNs ${sandbox.status}` }
   }
-  return { ok: false, detalle: produccion.reason || `APNs ${produccion.status}` }
+  return {
+    ok: false,
+    permanente: produccion.reason === "Unregistered",
+    detalle: produccion.reason || `APNs ${produccion.status}`,
+  }
 }
 
 export async function enviarPushAUsuario(usuarioId: string, aviso: AvisoPush) {
@@ -226,11 +234,18 @@ export async function enviarPushAUsuario(usuarioId: string, aviso: AvisoPush) {
       return { encontrados: 0, enviados: 0, error: "Acceso de servidor no configurado" }
     }
 
-    const { data: dispositivos } = await admin
+    const { data: dispositivos, error: errorDispositivos } = await admin
       .from("push_devices")
       .select("token, plataforma")
       .eq("usuario_id", usuarioId)
       .eq("activo", true)
+
+    if (errorDispositivos) {
+      console.error(
+        `[push] device_lookup_failed recipient=${usuarioId.slice(0, 8)} code=${errorDispositivos.code || "unknown"}`,
+      )
+      return { encontrados: 0, enviados: 0, error: "No se pudieron consultar los dispositivos" }
+    }
 
     if (!dispositivos?.length) {
       console.warn(`[push] delivery_skipped reason=no_registered_devices recipient=${usuarioId.slice(0, 8)}`)
