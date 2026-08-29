@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // En Vercel cada commit es un despliegue distinto. Next usa este identificador
+  // para detectar una pestaña/WebView que conserva JS de una versión anterior
+  // y fuerza una navegación completa antes de invocar funciones incompatibles.
+  deploymentId: process.env.VERCEL_GIT_COMMIT_SHA,
   // La navegación inferior de la app ocupa esa esquina; el indicador de
   // desarrollo se desactiva para que las previsualizaciones nativas sean fieles.
   devIndicators: false,
