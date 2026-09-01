@@ -385,7 +385,9 @@ export async function crearConversacion(params: {
       .select("id")
       .eq("id", proveedorId)
       .maybeSingle()
-    if (!proveedor) return { error: "Solo un proveedor puede contactar desde una demanda." }
+    if (!proveedor) {
+      return { error: "Para poder escribir desde una demanda, primero crea tu perfil profesional en Mi perfil." }
+    }
   }
 
   const { data: bloqueada } = await supabase.rpc("interaccion_bloqueada_con", { p_otro: params.otroUsuarioId })
