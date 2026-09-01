@@ -27,8 +27,8 @@ type Diccionario = Record<string, string>
 const ES: Diccionario = {
   // Navegación
   "nav.profesionales": "Profesionales",
-  "nav.demandas": "Demandas",
-  "nav.misDemandas": "Mis Demandas",
+  "nav.demandas": "Solicitudes de terceros",
+  "nav.misDemandas": "Mis solicitudes",
   "nav.misPujas": "Mis Pujas",
   "nav.proyectos": "Gestión de proyectos",
   "nav.mensajes": "Mensajes",
@@ -42,7 +42,7 @@ const ES: Diccionario = {
   // Portada
   "home.badge": "Profesionales verificados en toda España",
   "home.titulo1": "Publica tu",
-  "home.tituloResaltado": "demanda",
+  "home.tituloResaltado": "solicitud",
   "home.titulo2": "y recibe ofertas en minutos",
   "home.subtitulo":
     "Describe lo que necesitas y conecta con profesionales cualificados al instante. Rápido, seguro y sin complicaciones.",

@@ -20,15 +20,15 @@ export const metadata: Metadata = {
   generator: "v0.app",
   icons: {
     icon: [
-      { url: "/favicon-diime-v2.ico", type: "image/x-icon", sizes: "64x64" },
-      { url: "/favicon-diime-v2.png", type: "image/png", sizes: "64x64" },
-      { url: "/icon.png?v=logo-fit-2", type: "image/png", sizes: "any" },
-      { url: "/icons/icon-192.png?v=logo-fit-2", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512.png?v=logo-fit-2", sizes: "512x512", type: "image/png" },
+      { url: "/favicon-diime-v3.ico", type: "image/x-icon", sizes: "64x64" },
+      { url: "/favicon-diime-v3.png", type: "image/png", sizes: "64x64" },
+      { url: "/icon.svg?v=logo-safe-3", type: "image/svg+xml", sizes: "any" },
+      { url: "/icons/icon-192.png?v=logo-safe-3", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png?v=logo-safe-3", sizes: "512x512", type: "image/png" },
     ],
     // iOS ignora el manifest para el icono de la pantalla de inicio: usa este.
-    apple: "/icons/apple-touch-icon.png?v=logo-fit-2",
-    shortcut: "/favicon-diime-v2.ico",
+    apple: "/icons/apple-touch-icon.png?v=logo-safe-3",
+    shortcut: "/favicon-diime-v3.ico",
   },
   // iOS tampoco lee `display: standalone` del manifest; necesita lo suyo para
   // abrir sin barra de navegador al añadirla a la pantalla de inicio.

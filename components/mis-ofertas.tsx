@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { formatearPrecioEuros } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -26,13 +27,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Clock, MessageSquare, MapPin, Calendar, FileText, Loader2, Pencil, Trash2, Check, Paperclip, X, Eye } from "lucide-react"
+import { Clock, MessageSquare, MapPin, Calendar, FileText, Loader2, Pencil, Trash2, Check, Paperclip, X, Eye, Send } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { EnlacePerfil } from "@/components/enlace-perfil"
-import { obtenerOfertasPorProfesional, actualizarOferta, eliminarOferta } from "@/app/actions/ofertas"
+import { obtenerOfertasPorProfesional, actualizarOferta, eliminarOferta, crearOferta } from "@/app/actions/ofertas"
 import { crearConversacion } from "@/app/actions/messages"
 import { uploadFile } from "@/lib/upload-helpers"
-import { urgencia } from "@/lib/urgencias"
+import { PlazoNecesidad } from "@/components/plazo-necesidad"
 import { useToast } from "@/hooks/use-toast"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
 
@@ -55,6 +56,7 @@ export default function MisOfertas() {
   // Adjuntos en edición: URLs ya existentes + archivos nuevos por subir.
   const [editArchivos, setEditArchivos] = useState<string[]>([])
   const [editNuevos, setEditNuevos] = useState<File[]>([])
+  const [aceptaGastosRepuja, setAceptaGastosRepuja] = useState(false)
   const [subiendo, setSubiendo] = useState(false)
   const [deleteOferta, setDeleteOferta] = useState<any>(null)
   // Demanda cuya publicación completa se está consultando.
@@ -76,6 +78,10 @@ export default function MisOfertas() {
     cargarOfertas()
   }, [])
 
+  // Si existe historial rechazado y también una puja nueva para la misma
+  // demanda, no ofrecemos volver a pujar otra vez desde la tarjeta antigua.
+  const solicitudesConOfertaViva = new Set(ofertas.map((oferta) => oferta.solicitud_id).filter(Boolean))
+
   const abrirEditar = (oferta: any) => {
     setEditForm({
       precio: oferta.precio?.toString() || "",
@@ -85,11 +91,31 @@ export default function MisOfertas() {
     })
     setEditArchivos(Array.isArray(oferta.archivos) ? oferta.archivos : [])
     setEditNuevos([])
+    setAceptaGastosRepuja(false)
     setEditOferta(oferta)
   }
 
   const handleGuardarEdicion = async () => {
     if (!editOferta) return
+    const esRepuja = esPerdida(editOferta)
+    if (esRepuja && !aceptaGastosRepuja) {
+      toast({
+        title: "Falta aceptar los gastos de servicio",
+        description: "Debes aceptar los gastos de servicio de Diime antes de volver a enviar la oferta.",
+        variant: "destructive",
+      })
+      return
+    }
+    const precio = Number.parseFloat(editForm.precio)
+    const tiempoEstimado = Number.parseInt(editForm.tiempo_estimado, 10)
+    if (!(precio > 0)) {
+      toast({ title: "Precio no válido", description: "El precio propuesto debe ser mayor que 0.", variant: "destructive" })
+      return
+    }
+    if (!(tiempoEstimado > 0)) {
+      toast({ title: "Tiempo no válido", description: "El tiempo estimado debe ser mayor que 0.", variant: "destructive" })
+      return
+    }
     setActionLoading(true)
     // Subir los archivos nuevos y combinarlos con los que se conservan.
     let archivosFinales = [...editArchivos]
@@ -110,18 +136,37 @@ export default function MisOfertas() {
       }
       archivosFinales = [...archivosFinales, ...subidas.map((r) => r!.url)]
     }
-    const result = await actualizarOferta(editOferta.id, {
-      precio: editForm.precio ? Number.parseFloat(editForm.precio) : undefined,
-      tiempo_estimado: editForm.tiempo_estimado ? Number.parseInt(editForm.tiempo_estimado, 10) : undefined,
-      unidad_tiempo: editForm.unidad_tiempo,
-      descripcion: editForm.descripcion,
-      archivos: archivosFinales,
-    })
+    const result = esRepuja
+      ? await crearOferta({
+          solicitud_id: editOferta.solicitud_id,
+          precio,
+          tiempo_estimado: tiempoEstimado,
+          unidad_tiempo: editForm.unidad_tiempo,
+          descripcion: editForm.descripcion,
+          materiales_incluidos: editOferta.materiales_incluidos,
+          condiciones_pago: editOferta.condiciones_pago,
+          notas: editOferta.notas,
+          archivos: archivosFinales,
+          acepta_gastos: aceptaGastosRepuja,
+        })
+      : await actualizarOferta(editOferta.id, {
+          precio,
+          tiempo_estimado: tiempoEstimado,
+          unidad_tiempo: editForm.unidad_tiempo,
+          descripcion: editForm.descripcion,
+          archivos: archivosFinales,
+        })
     if (result.error) {
       toast({ title: "Error", description: result.error, variant: "destructive" })
     } else {
-      toast({ title: "Oferta actualizada", description: "Los cambios se han guardado y el cliente ha sido notificado." })
+      toast({
+        title: esRepuja ? "Nueva oferta enviada" : "Oferta actualizada",
+        description: esRepuja
+          ? "Has vuelto a pujar y el cliente ha recibido tu nueva propuesta."
+          : "Los cambios se han guardado y el cliente ha sido notificado.",
+      })
       setEditOferta(null)
+      setAceptaGastosRepuja(false)
       await cargarOfertas()
     }
     setActionLoading(false)
@@ -235,6 +280,11 @@ export default function MisOfertas() {
                       <MapPin className="h-4 w-4" />
                       <span>{oferta.solicitud?.ubicacion || "Ubicación no especificada"}</span>
                     </div>
+                    {oferta.solicitud?.urgencia && (
+                      <div>
+                        <PlazoNecesidad valor={oferta.solicitud.urgencia} />
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Clock className="h-4 w-4" />
                       <span>
@@ -321,8 +371,9 @@ export default function MisOfertas() {
       </Card>
 
       {/* Pujas perdidas: demandas en las que el cliente eligió a otro
-          profesional (o rechazó la puja). Solo consulta; sin acciones de
-          edición. Las retiradas por el propio profesional no aparecen. */}
+          profesional (o rechazó la puja). Si la demanda sigue abierta, se
+          puede preparar y enviar una nueva propuesta; si ya cerró, queda solo
+          como historial. Las retiradas por el profesional no aparecen. */}
       {perdidas.length > 0 && (
         <Card>
           <CardHeader>
@@ -331,8 +382,7 @@ export default function MisOfertas() {
               Pujas perdidas ({perdidas.length})
             </CardTitle>
             <CardDescription>
-              El cliente eligió otra opción en estas demandas. Puedes revisar qué ofertaste y seguir pujando en
-              otras demandas.
+              Puedes revisar qué ofertaste y, si la demanda sigue abierta, enviar una nueva propuesta.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -365,28 +415,39 @@ export default function MisOfertas() {
                       ` · ${new Date(oferta.updated_at).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })}`}
                   </p>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0 bg-transparent"
-                  onClick={() => setVerDemanda(oferta.solicitud)}
-                >
-                  <Eye className="h-4 w-4 mr-1.5" />
-                  Ver demanda
-                </Button>
+                <div className="flex flex-wrap gap-2 sm:justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 bg-transparent"
+                    onClick={() => setVerDemanda(oferta.solicitud)}
+                  >
+                    <Eye className="h-4 w-4 mr-1.5" />
+                    Ver demanda
+                  </Button>
+                  {oferta.solicitud?.estado === "abierta" &&
+                    !solicitudesConOfertaViva.has(oferta.solicitud_id) && (
+                      <Button size="sm" className="shrink-0" onClick={() => abrirEditar(oferta)}>
+                        <Send className="h-4 w-4 mr-1.5" />
+                        Volver a pujar
+                      </Button>
+                    )}
+                </div>
               </div>
             ))}
           </CardContent>
         </Card>
       )}
 
-      {/* Editar oferta */}
+      {/* Editar una oferta viva o preparar una nueva a partir de una rechazada */}
       <Dialog open={!!editOferta} onOpenChange={(o) => !o && setEditOferta(null)}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Editar oferta</DialogTitle>
+            <DialogTitle>{editOferta && esPerdida(editOferta) ? "Volver a pujar" : "Editar oferta"}</DialogTitle>
             <DialogDescription>
-              Puedes modificar tu oferta mientras no haya sido aceptada. El cliente recibirá una notificación.
+              {editOferta && esPerdida(editOferta)
+                ? "Revisa tu propuesta anterior y envíala de nuevo. El cliente la recibirá como una nueva puja."
+                : "Puedes modificar tu oferta mientras no haya sido aceptada. El cliente recibirá una notificación."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -483,6 +544,18 @@ export default function MisOfertas() {
                 </label>
               </div>
             </div>
+            {editOferta && esPerdida(editOferta) && (
+              <label className="flex items-start gap-3 rounded-lg border p-3 text-sm cursor-pointer">
+                <Checkbox
+                  checked={aceptaGastosRepuja}
+                  onCheckedChange={(checked) => setAceptaGastosRepuja(checked === true)}
+                  className="mt-0.5"
+                />
+                <span>
+                  Acepto los gastos de servicio de Diime aplicables a esta nueva oferta.
+                </span>
+              </label>
+            )}
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" className="bg-transparent" onClick={() => setEditOferta(null)}>
@@ -494,7 +567,11 @@ export default function MisOfertas() {
               ) : (
                 <Check className="h-4 w-4 mr-2" />
               )}
-              {subiendo ? "Subiendo..." : "Guardar cambios"}
+              {subiendo
+                ? "Subiendo..."
+                : editOferta && esPerdida(editOferta)
+                  ? "Enviar nueva oferta"
+                  : "Guardar cambios"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -542,12 +619,8 @@ export default function MisOfertas() {
           {verDemanda && (
             <div className="space-y-4 py-1 text-sm">
               <div className="flex flex-wrap gap-2">
-                {/* Antes se pintaba el valor de la base de datos tal cual
-                    ("alta", "media"), que no es lo que el cliente eligió. */}
                 {verDemanda.urgencia && (
-                  <Badge variant="outline" className={urgencia(verDemanda.urgencia).color}>
-                    {urgencia(verDemanda.urgencia).corta}
-                  </Badge>
+                  <PlazoNecesidad valor={verDemanda.urgencia} />
                 )}
                 {verDemanda.ubicacion && (
                   <Badge variant="outline" className="gap-1">

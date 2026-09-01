@@ -22,6 +22,8 @@ import {
   User,
   Wrench,
   Euro,
+  FileText,
+  ExternalLink,
 } from "lucide-react"
 import { obtenerDisputas, obtenerDetalleDisputa, resolverDisputa } from "@/app/actions/disputes"
 import { useToast } from "@/hooks/use-toast"
@@ -203,6 +205,31 @@ export default function AdminDisputesPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* La factura conserva la propuesta aceptada, los importes y los
+              términos que el admin debe contrastar antes de resolver. Se abre
+              aparte para no perder el contexto ni la resolución en curso. */}
+          <Card className="border-primary/30 bg-primary/5">
+            <CardContent className="pt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="rounded-lg bg-primary/10 p-2 text-primary">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="font-semibold">Factura y servicios contratados</p>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Consulta la propuesta aceptada, los conceptos facturados, los importes y los términos del encargo.
+                  </p>
+                </div>
+              </div>
+              <Button asChild className="shrink-0 gap-2">
+                <a href={`/trabajos/${trabajo.id}/factura`} target="_blank" rel="noreferrer">
+                  Ver factura
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              </Button>
+            </CardContent>
+          </Card>
 
           {/* Motivo */}
           <Card className="border-amber-500/20 bg-amber-500/5">

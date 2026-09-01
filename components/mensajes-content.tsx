@@ -122,6 +122,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
   const [activeTab, setActiveTab] = useState<"all" | "unread" | "archived">("all")
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const messageComposerRef = useRef<HTMLTextAreaElement>(null)
   const [loadingMessages, setLoadingMessages] = useState(true) // Added state for message loading
   const [newMessage, setNewMessage] = useState("") // State for new message input
   const [sendingMessage, setSendingMessage] = useState(false) // State for sending message indicator
@@ -138,6 +139,22 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
   // Todos los trabajos (actuales e históricos) con el usuario de la conversación.
   const [proyectosCompartidos, setProyectosCompartidos] = useState<any[]>([])
   const { toast } = useToast()
+
+  // `field-sizing: content` no se comporta igual en todas las versiones de
+  // Safari/WKWebView. Ajustamos la altura de forma explícita y, al llegar al
+  // límite, dejamos que el propio textarea haga scroll. Así un borrador largo
+  // sigue siendo revisable sin mover el historial que queda detrás.
+  useEffect(() => {
+    const composer = messageComposerRef.current
+    if (!composer) return
+
+    const maxHeight = 128
+    composer.style.height = "auto"
+    const nextHeight = Math.min(composer.scrollHeight, maxHeight)
+    composer.style.height = `${Math.max(nextHeight, 40)}px`
+    composer.style.overflowY = composer.scrollHeight > maxHeight ? "auto" : "hidden"
+    if (!newMessage) composer.scrollTop = 0
+  }, [newMessage])
 
   const scrollToBottom = () => {
     // Desplazar solo el panel de mensajes (viewport del ScrollArea), nunca la
@@ -189,6 +206,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
 
     // Historial completo de trabajos con este usuario para el panel lateral.
     setProyectosCompartidos([])
+    if (enPanelAdmin) return
     const otroId = currentUserId === conv.participante_1 ? conv.participante_2 : conv.participante_1
     obtenerTrabajosConUsuario(otroId).then((r) => setProyectosCompartidos(r.data || []))
   }
@@ -379,6 +397,24 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
         return "Completado"
       case "pendiente":
         return "Pendiente"
+      case "pendiente_pago":
+        return "Pago pendiente"
+      case "entregado":
+        return "Por confirmar"
+      case "en_disputa":
+        return "En disputa"
+      case "cancelado":
+        return "Cancelado"
+      case "abierta":
+        return "Abierta"
+      case "adjudicada":
+        return "Adjudicada"
+      case "completada":
+        return "Completada"
+      case "cerrada":
+        return "Cerrada"
+      case "cancelada":
+        return "Cancelada"
       default:
         return ""
     }
@@ -439,7 +475,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
         >
           {/* Header del sidebar */}
           <div className="p-4 border-b border-border shrink-0">
-            <h1 className="text-xl font-semibold mb-4">Mensajes</h1>
+            <h1 className="text-xl font-semibold mb-4">{enPanelAdmin ? "Soporte" : "Mensajes"}</h1>
 
             {/* Barra de búsqueda */}
             <div className="relative mb-3">
@@ -563,30 +599,34 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                         </div>
 
                         {conv.proyecto && (
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <Briefcase className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground truncate">{conv.proyecto.titulo}</span>
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "text-[10px] px-1.5 py-0 h-4",
-                                getStatusColor(conv.proyecto.estado) === "bg-emerald-500" &&
-                                  "border-green-500/50 text-green-500",
-                                getStatusColor(conv.proyecto.estado) === "bg-amber-500" &&
-                                  "border-blue-500/50 text-blue-500",
-                                getStatusColor(conv.proyecto.estado) === "bg-blue-500" &&
-                                  "border-yellow-500/50 text-yellow-500",
-                              )}
-                            >
-                              {getStatusText(conv.proyecto.estado)}
-                            </Badge>
+                          <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+                            <Briefcase className="h-3 w-3 shrink-0 text-muted-foreground" />
+                            <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                              {conv.proyecto.titulo}
+                            </span>
+                            {getStatusText(conv.proyecto.estado) && (
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "h-4 max-w-[45%] shrink-0 truncate px-1.5 py-0 text-[10px]",
+                                  getStatusColor(conv.proyecto.estado) === "bg-emerald-500" &&
+                                    "border-green-500/50 text-green-500",
+                                  getStatusColor(conv.proyecto.estado) === "bg-amber-500" &&
+                                    "border-blue-500/50 text-blue-500",
+                                  getStatusColor(conv.proyecto.estado) === "bg-blue-500" &&
+                                    "border-yellow-500/50 text-yellow-500",
+                                )}
+                              >
+                                {getStatusText(conv.proyecto.estado)}
+                              </Badge>
+                            )}
                           </div>
                         )}
 
                         <div className="flex items-center justify-between mt-1">
                           <p
                             className={cn(
-                              "text-sm truncate",
+                              "min-w-0 flex-1 truncate text-sm",
                               hasUnread ? "text-foreground font-medium" : "text-muted-foreground",
                             )}
                           >
@@ -612,12 +652,12 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
           {selectedConversation ? (
             <>
               {/* Header del chat */}
-              <div className="sticky top-0 z-10 h-16 px-4 flex items-center justify-between border-b border-border bg-background shrink-0">
-                <div className="flex items-center gap-3">
+              <div className="sticky top-0 z-10 flex min-h-20 shrink-0 items-center justify-between gap-2 overflow-hidden border-b border-border bg-background px-2 py-2 sm:h-16 sm:min-h-16 sm:px-4 sm:py-0">
+                <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="md:hidden"
+                    className="shrink-0 md:hidden"
                     onClick={() => setSelectedConversation(null)}
                   >
                     <ArrowLeft className="h-5 w-5" />
@@ -628,11 +668,13 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                       el panel ya se ve al lado, así que no hace falta pulsar. */}
                   <button
                     type="button"
-                    className="flex items-center gap-3 text-left lg:pointer-events-none"
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left sm:gap-3 lg:pointer-events-none"
                     onClick={() => setPanelMovil(true)}
-                    aria-label="Ver perfil y proyectos con este usuario"
+                    aria-label={
+                      enPanelAdmin ? "Ver ficha administrativa del usuario" : "Ver perfil y proyectos con este usuario"
+                    }
                   >
-                  <Avatar className="h-10 w-10">
+                  <Avatar className="h-10 w-10 shrink-0">
                     <AvatarImage src={getOtherUser(selectedConversation)?.foto_perfil || "/placeholder.svg"} />
                     <AvatarFallback>
                       {getOtherUser(selectedConversation)?.nombre?.[0]}
@@ -640,16 +682,16 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                     </AvatarFallback>
                   </Avatar>
 
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="font-medium">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 items-start gap-1.5 sm:items-center sm:gap-2">
+                      <h2 className="line-clamp-2 min-w-0 flex-1 break-words text-sm font-medium leading-tight sm:truncate sm:text-base sm:leading-normal">
                         {getOtherUser(selectedConversation)?.nombre} {getOtherUser(selectedConversation)?.apellido}
                       </h2>
                       {selectedConversation.rol_otro && (
                         <Badge 
                           variant="outline" 
                           className={cn(
-                            "text-[10px] px-1.5 py-0 h-4",
+                            "h-4 shrink-0 px-1.5 py-0 text-[10px]",
                             selectedConversation.rol_otro === "proveedor" 
                               ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30" 
                               : "bg-blue-500/10 text-blue-600 border-blue-500/30"
@@ -659,12 +701,14 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                         </Badge>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="mt-1 flex min-w-0 items-center gap-1.5 sm:mt-0 sm:gap-2">
                       {selectedConversation.proyecto && (
-                        <p className="text-xs text-muted-foreground">{selectedConversation.proyecto.titulo}</p>
+                        <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                          {selectedConversation.proyecto.titulo}
+                        </p>
                       )}
                       {selectedConversation.mi_rol && (
-                        <span className="text-xs text-muted-foreground">
+                        <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
                           · Tú: <span className={selectedConversation.mi_rol === "proveedor" ? "text-emerald-600" : "text-blue-600"}>
                             {selectedConversation.mi_rol === "proveedor" ? "Proveedor" : "Cliente"}
                           </span>
@@ -677,7 +721,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
+                    <Button variant="ghost" size="icon" className="shrink-0">
                       <MoreVertical className="h-5 w-5" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -858,7 +902,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                     e.preventDefault()
                     handleSendMessage()
                   }}
-                  className="flex items-center gap-2"
+                  className="flex items-end gap-2"
                 >
                   <input
                     ref={fileInputRef}
@@ -882,25 +926,35 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                     {uploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
                   </Button>
 
-                  <div className="flex-1">
-                    <Input
+                  <div className="min-w-0 flex-1">
+                    <Textarea
+                      ref={messageComposerRef}
+                      aria-label="Escribe un mensaje"
                       placeholder="Escribe un mensaje..."
+                      rows={1}
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
+                        if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                           e.preventDefault()
                           handleSendMessage()
                         }
                       }}
                       disabled={sendingMessage}
-                      className="bg-muted/50 border-0 focus-visible:ring-1 rounded-full py-5"
+                      enterKeyHint="send"
+                      style={{
+                        fieldSizing: "fixed",
+                        touchAction: "pan-y",
+                        WebkitOverflowScrolling: "touch",
+                      }}
+                      className="min-h-10 max-h-32 resize-none overflow-y-auto overscroll-contain touch-pan-y rounded-2xl border-0 bg-muted/50 px-4 py-2.5 leading-5 focus-visible:ring-1"
                     />
                   </div>
 
                   <Button
                     type="submit"
                     size="icon"
+                    aria-label="Enviar mensaje"
                     disabled={!newMessage.trim() || sendingMessage}
                     className="bg-primary hover:bg-primary/90 shrink-0 h-10 w-10 rounded-full"
                   >
@@ -984,37 +1038,46 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                 </div>
 
                 {/* Acciones rápidas */}
-                <div className="grid grid-cols-2 gap-2">
+                <div className={cn("grid gap-2", enPanelAdmin ? "grid-cols-1" : "grid-cols-2")}>
                   <Button
                     variant="outline"
                     size="sm"
                     className="text-xs"
-                    // A /usuario y no a /profesional: la otra parte puede ser un
-                    // cliente, y esa ruta daba 404 con quien no es profesional.
-                    // /usuario redirige a la ficha profesional si lo es.
-                    onClick={() => router.push(`/usuario/${getOtherUserId(selectedConversation)}`)}
-                  >
-                    Ver perfil
-                  </Button>
-                  <Button variant="outline" size="sm" className="text-xs" onClick={handleValorar}>
-                    <Star className="h-3.5 w-3.5 mr-1" />
-                    Valorar
-                  </Button>
-                  <ReportarIncidenciaDialog
-                    trabajoId={selectedConversation.trabajo_id}
-                    usuarioReportadoId={getOtherUserId(selectedConversation)}
-                    asuntoInicial={`Reporte sobre ${getOtherUser(selectedConversation)?.nombre || "un usuario"}`}
-                    categoriaInicial="abuso"
-                    trigger={
-                      <Button variant="outline" size="sm" className="bg-transparent text-xs">
-                        <ShieldAlert className="mr-1 h-3.5 w-3.5" /> Reportar
-                      </Button>
+                    // Fuera del panel usamos /usuario porque la otra parte puede
+                    // ser cliente; dentro del panel enlazamos su ficha admin.
+                    onClick={() =>
+                      router.push(
+                        enPanelAdmin
+                          ? `/admin/usuarios/${getOtherUserId(selectedConversation)}`
+                          : `/usuario/${getOtherUserId(selectedConversation)}`,
+                      )
                     }
-                  />
-                  <BloquearUsuarioButton
-                    usuarioId={getOtherUserId(selectedConversation)}
-                    className="h-9 bg-transparent px-3 text-xs"
-                  />
+                  >
+                    {enPanelAdmin ? "Ver ficha del usuario" : "Ver perfil"}
+                  </Button>
+                  {!enPanelAdmin && (
+                    <>
+                      <Button variant="outline" size="sm" className="text-xs" onClick={handleValorar}>
+                        <Star className="h-3.5 w-3.5 mr-1" />
+                        Valorar
+                      </Button>
+                      <ReportarIncidenciaDialog
+                        trabajoId={selectedConversation.trabajo_id}
+                        usuarioReportadoId={getOtherUserId(selectedConversation)}
+                        asuntoInicial={`Reporte sobre ${getOtherUser(selectedConversation)?.nombre || "un usuario"}`}
+                        categoriaInicial="abuso"
+                        trigger={
+                          <Button variant="outline" size="sm" className="bg-transparent text-xs">
+                            <ShieldAlert className="mr-1 h-3.5 w-3.5" /> Reportar
+                          </Button>
+                        }
+                      />
+                      <BloquearUsuarioButton
+                        usuarioId={getOtherUserId(selectedConversation)}
+                        className="h-9 bg-transparent px-3 text-xs"
+                      />
+                    </>
+                  )}
                 </div>
 
                 {/* Información del usuario */}
@@ -1070,20 +1133,22 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                           <p className="text-sm font-medium leading-snug">
                             {selectedConversation.proyecto.titulo}
                           </p>
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "mt-1.5 text-[10px] px-1.5 py-0 h-4",
-                              selectedConversation.proyecto.estado === "en_progreso" &&
-                                "border-emerald-500/50 text-emerald-600",
-                              selectedConversation.proyecto.estado === "pendiente" &&
-                                "border-amber-500/50 text-amber-600",
-                              selectedConversation.proyecto.estado === "completado" &&
-                                "border-blue-500/50 text-blue-600",
-                            )}
-                          >
-                            {getStatusText(selectedConversation.proyecto.estado)}
-                          </Badge>
+                          {getStatusText(selectedConversation.proyecto.estado) && (
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "mt-1.5 h-4 max-w-full truncate px-1.5 py-0 text-[10px]",
+                                selectedConversation.proyecto.estado === "en_progreso" &&
+                                  "border-emerald-500/50 text-emerald-600",
+                                selectedConversation.proyecto.estado === "pendiente" &&
+                                  "border-amber-500/50 text-amber-600",
+                                selectedConversation.proyecto.estado === "completado" &&
+                                  "border-blue-500/50 text-blue-600",
+                              )}
+                            >
+                              {getStatusText(selectedConversation.proyecto.estado)}
+                            </Badge>
+                          )}
                         </div>
                       </div>
 
@@ -1106,7 +1171,13 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                         size="sm"
                         className="w-full text-xs h-8"
                         onClick={() =>
-                          router.push(selectedConversation.mi_rol === "proveedor" ? "/mis-trabajos" : "/mis-solicitudes")
+                          router.push(
+                            enPanelAdmin
+                              ? "/admin/trabajos"
+                              : selectedConversation.mi_rol === "proveedor"
+                                ? "/mis-trabajos"
+                                : "/mis-solicitudes",
+                          )
                         }
                       >
                         Ver detalles del proyecto

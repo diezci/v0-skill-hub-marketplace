@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RangoPrecio } from "@/components/rango-precio"
 import { PRECIO_MAX } from "@/lib/precios"
-import { urgencia } from "@/lib/urgencias"
+import { PlazoNecesidad } from "@/components/plazo-necesidad"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -30,11 +30,9 @@ import {
   Eye,
   MessageSquare,
   Loader2,
-  Star,
   CheckCircle2,
   Briefcase,
   Calendar,
-  User,
   FileText,
 } from "lucide-react"
 import { uploadFile } from "@/lib/upload-helpers"
@@ -46,10 +44,21 @@ import { obtenerSolicitudesAbiertas } from "@/app/actions/solicitudes"
 import { crearConversacion } from "@/app/actions/messages"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import { cn } from "@/lib/utils"
 import { PROVINCIAS_ES } from "@/lib/provincias"
 import { SelectCategoriaJerarquico } from "@/components/select-categoria-jerarquico"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
+
+type ClientePublico = {
+  id?: string
+  nombre: string
+  apellido: string
+  foto_perfil?: string
+  ubicacion?: string
+  bio?: string
+  fecha_registro?: string
+  created_at?: string
+  cuenta_eliminada?: string | null
+}
 
 type Demanda = {
   id: string
@@ -57,18 +66,21 @@ type Demanda = {
   descripcion: string
   categoria: { nombre: string }
   cliente_id: string
-  cliente: { nombre: string; apellido: string; foto_perfil?: string }
+  cliente: ClientePublico | null
   ubicacion: string
   presupuesto_min: number
   presupuesto_max: number
   created_at: string
-  urgencia: "baja" | "media" | "alta"
+  urgencia: "urgente" | "baja" | "media" | "alta"
   estado: "abierta" | "en-revision" | "cerrada"
-  telefono: string
-  email: string
   total_ofertas: number
   // Archivos que el cliente adjuntó al publicar la demanda (fotos, PDFs...).
   archivos?: string[]
+}
+
+type ClienteSeleccionado = {
+  cliente: ClientePublico
+  demanda: Demanda
 }
 
 
@@ -106,7 +118,7 @@ export default function DemandasServicios() {
   const [demandaSeleccionada, setDemandaSeleccionada] = useState<Demanda | null>(null)
   const [dialogDetalles, setDialogDetalles] = useState(false)
   const [dialogPerfilCliente, setDialogPerfilCliente] = useState(false)
-  const [clienteSeleccionado, setClienteSeleccionado] = useState<any>(null)
+  const [clienteSeleccionado, setClienteSeleccionado] = useState<ClienteSeleccionado | null>(null)
   const [contactando, setContactando] = useState(false)
   const [usuarioActualId, setUsuarioActualId] = useState<string | null>(null)
   const router = useRouter()
@@ -205,6 +217,19 @@ export default function DemandasServicios() {
     setDialogDetalles(true)
   }
 
+  const handleVerCliente = (demanda: Demanda) => {
+    setClienteSeleccionado({
+      cliente: {
+        ...(demanda.cliente || {}),
+        id: demanda.cliente_id,
+        nombre: demanda.cliente?.nombre || "Cliente",
+        apellido: demanda.cliente?.apellido || "",
+      },
+      demanda,
+    })
+    setDialogPerfilCliente(true)
+  }
+
   // "Contactar" no hacía nada: solo cerraba el diálogo. Abre (o recupera) el
   // chat con quien publicó la demanda y lleva a la conversación.
   const handleContactar = async (demanda: Demanda) => {
@@ -227,13 +252,18 @@ export default function DemandasServicios() {
         toast({ title: "Es tu demanda", description: "No puedes escribirte a ti mismo." })
         return
       }
-      const res = await crearConversacion({ otroUsuarioId: demanda.cliente_id })
+      // El vínculo con la solicitud hace que la bandeja identifique a la otra
+      // parte como cliente y muestre el encargo que originó el contacto.
+      const res = await crearConversacion({ otroUsuarioId: demanda.cliente_id, solicitudId: demanda.id })
       if (res.error || !res.data?.id) {
         toast({ title: "Error", description: res.error || "No se pudo abrir el chat.", variant: "destructive" })
         return
       }
       setDialogDetalles(false)
+      setDialogPerfilCliente(false)
       router.push(`/mensajes?c=${res.data.id}`)
+    } catch {
+      toast({ title: "Error", description: "No se pudo abrir el chat.", variant: "destructive" })
     } finally {
       setContactando(false)
     }
@@ -315,6 +345,17 @@ export default function DemandasServicios() {
       setAttachedFiles([...attachedFiles, ...Array.from(e.target.files)])
     }
   }
+
+  const clientePerfil = clienteSeleccionado?.cliente
+  const demandasAbiertasCliente = clienteSeleccionado
+    ? demandas.filter((demanda) => demanda.cliente_id === clienteSeleccionado.demanda.cliente_id)
+    : []
+  const fechaRegistroCliente = clientePerfil?.fecha_registro || clientePerfil?.created_at
+    ? new Date(clientePerfil.fecha_registro || clientePerfil.created_at!)
+    : null
+  const miembroDesde = fechaRegistroCliente && !Number.isNaN(fechaRegistroCliente.getTime())
+    ? fechaRegistroCliente.toLocaleDateString("es-ES", { month: "long", year: "numeric" })
+    : null
 
   return (
     <div className="flex flex-col lg:flex-row gap-6">
@@ -500,21 +541,19 @@ export default function DemandasServicios() {
                     {/* Main Content */}
                     <div className="flex-1 space-y-3">
                       {/* Header */}
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex flex-wrap items-center gap-2 mb-1">
                             <Badge variant="outline" className="text-xs font-normal">
                               {demanda.categoria?.nombre}
                             </Badge>
-                            <Badge variant="outline" className={cn("text-xs", urgencia(demanda.urgencia).color)}>
-                              {urgencia(demanda.urgencia).corta}
-                            </Badge>
+                            <PlazoNecesidad valor={demanda.urgencia} />
                           </div>
                           <h3 className="font-semibold text-lg group-hover:text-primary transition-colors">
                             {demanda.titulo}
                           </h3>
                         </div>
-                        <div className="text-right shrink-0">
+                        <div className="text-left sm:text-right shrink-0">
                           <p className="text-xs text-muted-foreground">Presupuesto</p>
                           <p className="font-bold text-lg text-primary">
                             {formatearRangoPresupuesto(demanda.presupuesto_min, demanda.presupuesto_max)}
@@ -539,14 +578,7 @@ export default function DemandasServicios() {
                           className="flex items-center gap-1.5 hover:text-primary transition-colors cursor-pointer"
                           onClick={(e) => {
                             e.stopPropagation()
-                            setClienteSeleccionado({
-                              nombre: demanda.cliente?.nombre,
-                              apellido: demanda.cliente?.apellido,
-                              foto_perfil: demanda.cliente?.foto_perfil,
-                              ubicacion: demanda.ubicacion,
-                              demanda_titulo: demanda.titulo,
-                            })
-                            setDialogPerfilCliente(true)
+                            handleVerCliente(demanda)
                           }}
                         >
                           <Avatar className="h-5 w-5">
@@ -581,25 +613,36 @@ export default function DemandasServicios() {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex md:flex-col gap-2 md:w-32 shrink-0">
+                    <div className="grid grid-cols-2 gap-2 md:flex md:w-32 md:flex-col shrink-0">
                       {/* En tu propia demanda no se ofrece pujar: serías cliente
                           y profesional del mismo trabajo. */}
                       {demanda.cliente_id === usuarioActualId ? (
                         <Badge
                           variant="outline"
-                          className="flex-1 md:flex-none justify-center py-2 text-xs font-normal"
+                          className="col-span-2 flex-1 md:flex-none justify-center py-2 text-xs font-normal"
                         >
                           Es tu demanda
                         </Badge>
                       ) : (
-                        <Button className="flex-1 md:flex-none" onClick={() => handleEnviarOferta(demanda)}>
-                          <Send className="h-4 w-4 mr-2" />
-                          Ofertar
-                        </Button>
+                        <>
+                          <Button className="flex-1 md:flex-none" onClick={() => handleEnviarOferta(demanda)}>
+                            <Send className="h-4 w-4 mr-2" />
+                            Ofertar
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="flex-1 md:flex-none bg-transparent"
+                            disabled={contactando}
+                            onClick={() => handleContactar(demanda)}
+                          >
+                            <MessageSquare className="h-4 w-4 mr-2" />
+                            Escribir
+                          </Button>
+                        </>
                       )}
                       <Button
                         variant="outline"
-                        className="flex-1 md:flex-none bg-transparent"
+                        className="col-span-2 flex-1 md:flex-none bg-transparent"
                         onClick={() => handleVerDetalles(demanda)}
                       >
                         <Eye className="h-4 w-4 mr-2" />
@@ -626,13 +669,9 @@ export default function DemandasServicios() {
       <Dialog open={dialogDetalles} onOpenChange={setDialogDetalles}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
               <Badge variant="outline">{demandaSeleccionada?.categoria?.nombre}</Badge>
-              {demandaSeleccionada && (
-                <Badge variant="outline" className={urgencia(demandaSeleccionada.urgencia).color}>
-                  {urgencia(demandaSeleccionada.urgencia).corta}
-                </Badge>
-              )}
+              {demandaSeleccionada && <PlazoNecesidad valor={demandaSeleccionada.urgencia} />}
             </div>
             <DialogTitle className="text-xl">{demandaSeleccionada?.titulo}</DialogTitle>
           </DialogHeader>
@@ -643,15 +682,8 @@ export default function DemandasServicios() {
               className="w-full flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer text-left"
               onClick={() => {
                 if (demandaSeleccionada) {
-                  setClienteSeleccionado({
-                    nombre: demandaSeleccionada.cliente?.nombre,
-                    apellido: demandaSeleccionada.cliente?.apellido,
-                    foto_perfil: demandaSeleccionada.cliente?.foto_perfil,
-                    ubicacion: demandaSeleccionada.ubicacion,
-                    demanda_titulo: demandaSeleccionada.titulo,
-                  })
+                  handleVerCliente(demandaSeleccionada)
                   setDialogDetalles(false)
-                  setDialogPerfilCliente(true)
                 }
               }}
             >
@@ -696,7 +728,7 @@ export default function DemandasServicios() {
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Clock className="h-4 w-4 text-muted-foreground" />
-                <span>{demandaSeleccionada && formatTimeAgo(demandaSeleccionada.created_at)}</span>
+                <span>Publicación: {demandaSeleccionada && formatTimeAgo(demandaSeleccionada.created_at)}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Users className="h-4 w-4 text-muted-foreground" />
@@ -744,155 +776,112 @@ export default function DemandasServicios() {
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Perfil del cliente</DialogTitle>
+            <DialogDescription>Información pública vinculada a sus demandas.</DialogDescription>
           </DialogHeader>
 
-          {clienteSeleccionado && (
+          {clientePerfil && clienteSeleccionado && (
             <div className="space-y-6">
-              {/* Client Header */}
               <div className="flex items-center gap-4">
                 <Avatar className="h-16 w-16">
-                  <AvatarImage src={clienteSeleccionado.foto_perfil || "/placeholder.svg"} />
+                  <AvatarImage src={clientePerfil.foto_perfil || "/placeholder.svg"} />
                   <AvatarFallback className="text-lg">
-                    {clienteSeleccionado.nombre?.[0]}{clienteSeleccionado.apellido?.[0]}
+                    {clientePerfil.nombre?.[0]}{clientePerfil.apellido?.[0]}
                   </AvatarFallback>
                 </Avatar>
-                <div>
-                  <h3 className="text-lg font-semibold">{clienteSeleccionado.nombre} {clienteSeleccionado.apellido}</h3>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-lg font-semibold">
+                      {clientePerfil.nombre} {clientePerfil.apellido}
+                    </h3>
+                    {clientePerfil.cuenta_eliminada && <Badge variant="secondary">Cuenta eliminada</Badge>}
+                  </div>
                   <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                     <MapPin className="h-3.5 w-3.5" />
-                    <span>{clienteSeleccionado.ubicacion || "Sin ubicacion"}</span>
+                    <span>{clientePerfil.ubicacion || "Ubicación no indicada"}</span>
                   </div>
-                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-0.5">
-                    <Calendar className="h-3.5 w-3.5" />
-                    <span>Miembro desde enero 2024</span>
-                  </div>
+                  {miembroDesde && (
+                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-0.5">
+                      <Calendar className="h-3.5 w-3.5" />
+                      <span>Miembro desde {miembroDesde}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <Separator />
-
-              {/* Client Stats */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center p-3 rounded-lg bg-muted/50">
-                  <div className="flex items-center justify-center gap-1 mb-1">
-                    <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
-                    <span className="font-bold text-lg">4.7</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">Valoración como cliente</p>
+              {clientePerfil.bio && (
+                <div className="rounded-lg bg-muted/50 p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">
+                    Sobre el cliente
+                  </p>
+                  <p className="text-sm whitespace-pre-wrap break-words">{clientePerfil.bio}</p>
                 </div>
-                <div className="text-center p-3 rounded-lg bg-muted/50">
-                  <p className="font-bold text-lg">8</p>
-                  <p className="text-xs text-muted-foreground">Trabajos contratados</p>
-                </div>
-              </div>
+              )}
 
               <Separator />
 
-              {/* Past Jobs */}
               <div>
                 <h4 className="font-medium mb-3 flex items-center gap-2">
                   <Briefcase className="h-4 w-4" />
-                  Trabajos contratados anteriormente
+                  Demandas abiertas ({demandasAbiertasCliente.length})
                 </h4>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 rounded-lg border">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">Reforma de cocina</p>
-                        <p className="text-xs text-muted-foreground">Completado - hace 3 meses</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
-                      <span className="text-sm font-medium">5.0</span>
-                    </div>
+                {demandasAbiertasCliente.length > 0 ? (
+                  <div className="space-y-2">
+                    {demandasAbiertasCliente.slice(0, 3).map((demanda) => (
+                      <button
+                        key={demanda.id}
+                        type="button"
+                        className="w-full rounded-lg border p-3 text-left transition-colors hover:bg-muted/50"
+                        onClick={() => {
+                          setDemandaSeleccionada(demanda)
+                          setDialogPerfilCliente(false)
+                          setDialogDetalles(true)
+                        }}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="text-sm font-medium">{demanda.titulo}</p>
+                          <Badge variant="outline" className="shrink-0 text-[10px] font-normal">
+                            {demanda.categoria?.nombre || "Sin categoría"}
+                          </Badge>
+                        </div>
+                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                          <span>{demanda.ubicacion}</span>
+                          <span>{formatTimeAgo(demanda.created_at)}</span>
+                        </div>
+                      </button>
+                    ))}
+                    {demandasAbiertasCliente.length > 3 && (
+                      <p className="text-xs text-muted-foreground">
+                        Y {demandasAbiertasCliente.length - 3} demanda
+                        {demandasAbiertasCliente.length - 3 === 1 ? "" : "s"} más.
+                      </p>
+                    )}
                   </div>
-
-                  <div className="flex items-center justify-between p-3 rounded-lg border">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">Pintura de salon</p>
-                        <p className="text-xs text-muted-foreground">Completado - hace 5 meses</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
-                      <span className="text-sm font-medium">4.5</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 rounded-lg border">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">Instalacion electrica</p>
-                        <p className="text-xs text-muted-foreground">Completado - hace 8 meses</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
-                      <span className="text-sm font-medium">4.8</span>
-                    </div>
-                  </div>
-                </div>
+                ) : (
+                  <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                    Este cliente no tiene otras demandas abiertas.
+                  </p>
+                )}
               </div>
 
-              <Separator />
-
-              {/* Reviews from professionals */}
-              <div>
-                <h4 className="font-medium mb-3 flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  Valoraciones de profesionales
-                </h4>
-                <div className="space-y-3">
-                  <div className="p-3 rounded-lg border">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarImage src="/professional-man.png" />
-                          <AvatarFallback className="text-[10px]">CR</AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm font-medium">Carlos R.</span>
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-emerald-500/10 text-emerald-600 border-emerald-500/30">Proveedor</Badge>
-                      </div>
-                      <div className="flex items-center gap-0.5">
-                        {[1, 2, 3, 4, 5].map((s) => (
-                          <Star key={s} className={cn("h-3 w-3", s <= 5 ? "fill-amber-500 text-amber-500" : "text-muted-foreground")} />
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{"Excelente cliente, muy claro con los requisitos y pago puntual."}</p>
-                  </div>
-
-                  <div className="p-3 rounded-lg border">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarImage src="/electrician-man.jpg" />
-                          <AvatarFallback className="text-[10px]">PM</AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm font-medium">Pedro M.</span>
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-emerald-500/10 text-emerald-600 border-emerald-500/30">Proveedor</Badge>
-                      </div>
-                      <div className="flex items-center gap-0.5">
-                        {[1, 2, 3, 4, 5].map((s) => (
-                          <Star key={s} className={cn("h-3 w-3", s <= 4 ? "fill-amber-500 text-amber-500" : "text-muted-foreground")} />
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{"Buen trato, aunque tardo un poco en confirmar el trabajo. Recomendable."}</p>
-                  </div>
-                </div>
+              <div className="rounded-lg border border-dashed p-4">
+                <p className="text-sm font-medium">Valoraciones como cliente</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  No hay valoraciones públicas disponibles para este cliente.
+                </p>
               </div>
+
+              {clienteSeleccionado.demanda.cliente_id === usuarioActualId ? (
+                <p className="text-center text-sm text-muted-foreground">Este es tu perfil de cliente.</p>
+              ) : (
+                <Button
+                  className="w-full"
+                  disabled={contactando || !!clientePerfil.cuenta_eliminada}
+                  onClick={() => handleContactar(clienteSeleccionado.demanda)}
+                >
+                  {contactando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MessageSquare className="mr-2 h-4 w-4" />}
+                  {clientePerfil.cuenta_eliminada ? "Cliente no disponible" : "Escribir al cliente"}
+                </Button>
+              )}
             </div>
           )}
         </DialogContent>

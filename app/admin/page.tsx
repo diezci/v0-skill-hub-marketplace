@@ -366,7 +366,7 @@ export default function AdminDashboard() {
         <CardHeader>
           <CardTitle>Acciones Rápidas</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
           <Link
             href="/admin/usuarios"
             className="flex items-center gap-3 p-4 rounded-lg border hover:bg-accent transition-colors"
@@ -375,6 +375,16 @@ export default function AdminDashboard() {
             <div>
               <p className="font-medium">Ver Usuarios</p>
               <p className="text-sm text-muted-foreground">Gestionar usuarios registrados</p>
+            </div>
+          </Link>
+          <Link
+            href="/admin/trabajos"
+            className="flex items-center gap-3 p-4 rounded-lg border hover:bg-accent transition-colors"
+          >
+            <Briefcase className="h-5 w-5 text-primary" />
+            <div>
+              <p className="font-medium">Trabajos y facturas</p>
+              <p className="text-sm text-muted-foreground">Consultar todas las contrataciones</p>
             </div>
           </Link>
           <Link

@@ -57,14 +57,20 @@ export async function crearOferta(formData: {
   // No se puja por la propia demanda: acabarías siendo cliente y profesional
   // del mismo trabajo, con el escrow pagándote a ti mismo. Se comprueba en el
   // servidor porque ocultar el botón no basta.
-  const { data: solicitudDeLaOferta } = await supabase
+  const { data: solicitudDeLaOferta, error: solicitudError } = await supabase
     .from("solicitudes")
-    .select("cliente_id")
+    .select("cliente_id, estado")
     .eq("id", formData.solicitud_id)
     .maybeSingle()
 
+  if (solicitudError || !solicitudDeLaOferta) {
+    return { error: "La demanda ya no está disponible." }
+  }
   if (solicitudDeLaOferta?.cliente_id === user.id) {
     return { error: "No puedes enviar una oferta a tu propia demanda." }
+  }
+  if (solicitudDeLaOferta.estado !== "abierta") {
+    return { error: "Esta demanda ya no admite nuevas ofertas." }
   }
 
   // Importes y tiempos siempre positivos.
@@ -78,40 +84,76 @@ export async function crearOferta(formData: {
     return { error: "Debes aceptar los gastos de servicio de la plataforma para enviar la oferta." }
   }
 
-  // Check if already sent an offer for this solicitud
-  const { data: existingOffer } = await supabase
+  // Puede haber ofertas históricas del mismo profesional para esta demanda. La
+  // consulta anterior usaba maybeSingle(), por lo que dejaba de funcionar en
+  // cuanto había más de una, y además intentaba borrar la rechazada ignorando
+  // el posible error de RLS. Solo una oferta viva debe bloquear una nueva puja.
+  const { data: existingOffers, error: existingOffersError } = await supabase
     .from("ofertas")
     .select("id, estado")
     .eq("solicitud_id", formData.solicitud_id)
     .eq("profesional_id", user.id)
-    .maybeSingle()
+    .order("updated_at", { ascending: false })
 
-  if (existingOffer && !["retirada", "rechazada"].includes(existingOffer.estado)) {
+  if (existingOffersError) return { error: existingOffersError.message }
+
+  const ofertasCerradas = (existingOffers || []).filter((oferta: any) =>
+    ["retirada", "rechazada"].includes(oferta.estado),
+  )
+  const existingActiveOffer = (existingOffers || []).find(
+    (oferta: any) => !["retirada", "rechazada"].includes(oferta.estado),
+  )
+
+  if (existingActiveOffer) {
     return { error: "Ya has enviado una oferta para esta solicitud." }
   }
-  // Una oferta previa retirada o rechazada (p. ej. tras cancelar el trabajo de
-  // mutuo acuerdo) no bloquea: se elimina y se envía la nueva en su lugar.
-  if (existingOffer) {
-    await supabase.from("ofertas").delete().eq("id", existingOffer.id).eq("profesional_id", user.id)
+
+  // Si la oferta llegó a generar un trabajo, incluso uno cancelado, se conserva
+  // como parte de su historial contractual. Una rechazada directamente por el
+  // cliente no tiene trabajo y sí se puede reutilizar sin depender de DELETE.
+  let ofertaReutilizable: { id: string; estado: string } | undefined = ofertasCerradas[0]
+  if (ofertasCerradas.length > 0) {
+    const { data: trabajosDeOfertas, error: trabajosError } = await supabase
+      .from("trabajos")
+      .select("oferta_id")
+      .in(
+        "oferta_id",
+        ofertasCerradas.map((oferta: any) => oferta.id),
+      )
+
+    if (trabajosError) return { error: trabajosError.message }
+
+    const ofertasConTrabajo = new Set((trabajosDeOfertas || []).map((trabajo: any) => trabajo.oferta_id))
+    ofertaReutilizable = ofertasCerradas.find((oferta: any) => !ofertasConTrabajo.has(oferta.id))
   }
 
-  const { data, error } = await supabase
-    .from("ofertas")
-    .insert({
-      profesional_id: user.id,
-      solicitud_id: formData.solicitud_id,
-      precio: formData.precio,
-      tiempo_estimado: formData.tiempo_estimado,
-      unidad_tiempo: formData.unidad_tiempo,
-      descripcion: formData.descripcion,
-      materiales_incluidos: formData.materiales_incluidos,
-      condiciones_pago: formData.condiciones_pago,
-      notas: formData.notas,
-      archivos: formData.archivos || [],
-      estado: "pendiente",
-    })
-    .select()
-    .single()
+  const ahora = new Date().toISOString()
+  const camposOferta = {
+    profesional_id: user.id,
+    solicitud_id: formData.solicitud_id,
+    precio: formData.precio,
+    tiempo_estimado: formData.tiempo_estimado,
+    unidad_tiempo: formData.unidad_tiempo,
+    descripcion: formData.descripcion,
+    materiales_incluidos: formData.materiales_incluidos,
+    condiciones_pago: formData.condiciones_pago,
+    notas: formData.notas,
+    archivos: formData.archivos || [],
+    estado: "pendiente",
+  }
+
+  const resultado = ofertaReutilizable
+    ? await supabase
+        .from("ofertas")
+        .update({ ...camposOferta, created_at: ahora, updated_at: ahora })
+        .eq("id", ofertaReutilizable.id)
+        .eq("profesional_id", user.id)
+        .in("estado", ["retirada", "rechazada"])
+        .select()
+        .single()
+    : await supabase.from("ofertas").insert(camposOferta).select().single()
+
+  const { data, error } = resultado
 
   if (error) {
     return { error: error.message }
@@ -136,6 +178,7 @@ export async function crearOferta(formData: {
   }
 
   revalidatePath("/demandas")
+  revalidatePath("/mis-ofertas")
   revalidatePath("/mis-solicitudes")
   return { data }
 }

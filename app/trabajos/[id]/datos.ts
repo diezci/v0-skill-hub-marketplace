@@ -13,10 +13,16 @@ export async function obtenerDatosContratacion(trabajoId: string) {
   const { data: trabajo } = await supabase.from("trabajos").select("*").eq("id", trabajoId).maybeSingle()
   if (!trabajo) return null
 
-  if (trabajo.cliente_id !== user.id && trabajo.profesional_id !== user.id) {
-    const { data: perfil } = await supabase.from("profiles").select("es_admin").eq("id", user.id).maybeSingle()
-    if (!perfil?.es_admin) return null
-  }
+  // El rol admin se comprueba siempre, incluso si esa misma cuenta coincide
+  // excepcionalmente con una de las partes. Inferirlo como "no es parte" hacía
+  // que un admin participante no pudiera abrir las dos vistas documentales.
+  const { data: perfilActual } = await supabase
+    .from("profiles")
+    .select("es_admin")
+    .eq("id", user.id)
+    .maybeSingle()
+  const esAdmin = !!perfilActual?.es_admin
+  if (trabajo.cliente_id !== user.id && trabajo.profesional_id !== user.id && !esAdmin) return null
 
   const [clienteR, profesionalR, proDatosR, ofertaR, solicitudR, escrowR] = await Promise.all([
     supabase.from("profiles").select("nombre, apellido, ubicacion").eq("id", trabajo.cliente_id).maybeSingle(),
@@ -36,16 +42,37 @@ export async function obtenerDatosContratacion(trabajoId: string) {
       .from("transacciones_escrow")
       .select("*")
       .eq("trabajo_id", trabajo.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+      .order("created_at", { ascending: false }),
   ])
+
+  const errorCarga = [clienteR, profesionalR, proDatosR, ofertaR, solicitudR, escrowR].find(
+    (resultado: any) => resultado?.error,
+  )?.error
+  if (errorCarga) return null
+
+  const estadosContratados = new Set([
+    "retenido",
+    "fondos_retenidos",
+    "liberado",
+    "completado",
+    "reembolsado",
+    "disputa",
+  ])
+  const escrows = (escrowR.data as any[] | null) || []
+  // Un reintento de checkout pendiente puede ser más nuevo que el pago que sí
+  // se completó. La factura debe usar primero la transacción económica real.
+  const escrow =
+    escrows.find((fila) => fila.fecha_retencion || estadosContratados.has(fila.estado)) ?? escrows[0] ?? null
+  const contratado = !!escrow && (!!escrow.fecha_retencion || estadosContratados.has(escrow.estado))
 
   // Datos de facturación de ambas partes: si actúan por una empresa, la factura
   // va a nombre de la empresa (con su CIF) indicando quién actúa en su nombre.
   // Va por RPC porque `empresas` tiene RLS y cada parte no puede leer la empresa
   // de la otra; la función solo responde a las partes de este trabajo.
-  const { data: facturacion } = await supabase.rpc("facturacion_trabajo", { p_trabajo_id: trabajo.id })
+  const { data: facturacion, error: errorFacturacion } = await supabase.rpc("facturacion_trabajo", {
+    p_trabajo_id: trabajo.id,
+  })
+  if (errorFacturacion) return null
   const facturacionPor = (parte: "cliente" | "profesional") =>
     (facturacion as any[] | null)?.find((f) => f.parte === parte) ?? null
 
@@ -56,9 +83,10 @@ export async function obtenerDatosContratacion(trabajoId: string) {
 
   // El correo ya no se lee de `profiles` (ver scripts/043). Va por RPC, que solo
   // responde a las partes del trabajo y a un admin: justo quienes llegan aquí.
-  const { data: contactos } = await supabase.rpc("contacto_perfiles", {
+  const { data: contactos, error: errorContactos } = await supabase.rpc("contacto_perfiles", {
     p_ids: [trabajo.cliente_id, trabajo.profesional_id],
   })
+  if (errorContactos) return null
   const emailDe = (id: string) => (contactos as any[] | null)?.find((c) => c.id === id)?.email ?? null
 
   return {
@@ -70,12 +98,13 @@ export async function obtenerDatosContratacion(trabajoId: string) {
     tituloProfesional: proDatosR.data?.titulo ?? null,
     oferta: ofertaR.data,
     solicitud: solicitudR.data,
-    escrow: escrowR.data,
+    escrow,
+    contratado,
     facturacionCliente: facturacionPor("cliente"),
     facturacionProfesional: facturacionPor("profesional"),
     esCliente,
     esProfesional,
-    esAdmin: !esCliente && !esProfesional,
+    esAdmin,
   }
 }
 

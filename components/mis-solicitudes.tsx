@@ -30,6 +30,8 @@ import MisDisputas from "@/components/mis-disputas"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
 import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
 import { EnlacePerfil } from "@/components/enlace-perfil"
+import { PlazoNecesidad } from "@/components/plazo-necesidad"
+import { SelectCategoriaJerarquico } from "@/components/select-categoria-jerarquico"
 import { calcularTotalCliente, PLATFORM_CONFIG } from "@/lib/comisiones"
 import { URGENCIAS } from "@/lib/urgencias"
 import { useToast } from "@/hooks/use-toast"
@@ -78,6 +80,7 @@ export default function MisSolicitudes() {
   const [actionLoading, setActionLoading] = useState(false)
   const [editSolicitud, setEditSolicitud] = useState<any>(null)
   const [editForm, setEditForm] = useState({
+    categoria: "",
     titulo: "",
     descripcion: "",
     ubicacion: "",
@@ -100,6 +103,7 @@ export default function MisSolicitudes() {
 
   const abrirEditar = (solicitud: any) => {
     setEditForm({
+      categoria: solicitud.categoria?.nombre || "",
       titulo: solicitud.titulo || "",
       descripcion: solicitud.descripcion || "",
       ubicacion: solicitud.ubicacion || "",
@@ -112,12 +116,13 @@ export default function MisSolicitudes() {
 
   const handleGuardarEdicion = async () => {
     if (!editSolicitud) return
-    if (!editForm.titulo.trim() || editForm.descripcion.trim().length < 10) {
-      toast({ title: "Faltan datos", description: "Añade un título y una descripción (mín. 10 caracteres).", variant: "destructive" })
+    if (!editForm.categoria || !editForm.titulo.trim() || editForm.descripcion.trim().length < 10) {
+      toast({ title: "Faltan datos", description: "Selecciona una categoría y añade un título y una descripción (mín. 10 caracteres).", variant: "destructive" })
       return
     }
     setActionLoading(true)
     const result = await actualizarSolicitud(editSolicitud.id, {
+      categoria_id: editForm.categoria,
       titulo: editForm.titulo,
       descripcion: editForm.descripcion,
       ubicacion: editForm.ubicacion,
@@ -517,7 +522,7 @@ export default function MisSolicitudes() {
       </div>
 
       {/* Main Content */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full min-w-0 max-w-full space-y-6">
         {/* Solicitudes Tab */}
         <TabsContent value="solicitudes" className="space-y-4">
           {solicitudesPendientes.length === 0 ? (
@@ -541,24 +546,27 @@ export default function MisSolicitudes() {
               const ofertasPendientes = (solicitud.ofertas || []).filter(
                 (o: any) => !["aceptada", "rechazada", "retirada"].includes(o.estado),
               )
+              const terminosBloqueados =
+                solicitud.trabajo && solicitud.trabajo.estado !== "cancelado"
               return (
               <Card key={solicitud.id} className="overflow-hidden">
                 <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
+                  <div className="flex flex-col items-start justify-between gap-3 sm:flex-row">
                     <div className="space-y-1">
                       <CardTitle className="text-xl">{solicitud.titulo}</CardTitle>
-                      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Calendar className="h-4 w-4" />
-                          {formatearFecha(solicitud.created_at)}
+                          Publicada el {formatearFecha(solicitud.created_at)}
                         </span>
                         <span className="flex items-center gap-1">
                           <MapPin className="h-4 w-4" />
                           {solicitud.ubicacion}
                         </span>
+                        <PlazoNecesidad valor={solicitud.urgencia} />
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-left sm:text-right">
                       <Badge variant="secondary" className="mb-1">
                         {solicitud.categoria?.nombre}
                       </Badge>
@@ -620,21 +628,27 @@ export default function MisSolicitudes() {
                     </div>
                   )}
 
-                  <div className="flex gap-2 mb-4">
-                    <Button variant="outline" size="sm" className="bg-transparent" onClick={() => abrirEditar(solicitud)}>
-                      <Pencil className="h-4 w-4 mr-1.5" />
-                      Editar
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="bg-transparent text-destructive border-destructive/40 hover:bg-destructive/10"
-                      onClick={() => setDeleteSolicitud(solicitud)}
-                    >
-                      <Trash2 className="h-4 w-4 mr-1.5" />
-                      Borrar
-                    </Button>
-                  </div>
+                  {terminosBloqueados ? (
+                    <p className="mb-4 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-muted-foreground">
+                      Los datos de la demanda quedan bloqueados mientras haya una oferta aceptada o un trabajo activo.
+                    </p>
+                  ) : (
+                    <div className="flex gap-2 mb-4">
+                      <Button variant="outline" size="sm" className="bg-transparent" onClick={() => abrirEditar(solicitud)}>
+                        <Pencil className="h-4 w-4 mr-1.5" />
+                        Editar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="bg-transparent text-destructive border-destructive/40 hover:bg-destructive/10"
+                        onClick={() => setDeleteSolicitud(solicitud)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1.5" />
+                        Borrar
+                      </Button>
+                    </div>
+                  )}
 
                   {/* Ofertas recibidas */}
                   {ofertasPendientes.length > 0 ? (
@@ -763,7 +777,7 @@ export default function MisSolicitudes() {
         {(["en-progreso", "por-confirmar"] as const).map((tab) => {
           const lista = tab === "en-progreso" ? solicitudesEnProgreso : solicitudesPorConfirmar
           return (
-        <TabsContent key={tab} value={tab} className="space-y-4">
+        <TabsContent key={tab} value={tab} className="w-full min-w-0 max-w-full space-y-4">
           {lista.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
@@ -794,65 +808,81 @@ export default function MisSolicitudes() {
               const pagado = trabajo?.escrow?.estado === "fondos_retenidos"
               
               return (
-                <Card key={solicitud.id} className={esEntregado ? "border-purple-500/50 bg-purple-500/5" : ""}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <CardTitle className="text-xl">{solicitud.titulo}</CardTitle>
+                <Card
+                  key={solicitud.id}
+                  className={`${esEntregado ? "border-purple-500/50 bg-purple-500/5" : ""} w-full min-w-0 max-w-full overflow-hidden`}
+                >
+                  <CardHeader className="min-w-0 px-4 sm:px-6">
+                    <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 space-y-2 sm:space-y-1">
+                        <div className="flex min-w-0 flex-col items-start gap-2 sm:flex-row sm:items-center">
+                          <CardTitle className="max-w-full break-words text-xl">{solicitud.titulo}</CardTitle>
                           {esEntregado && (
-                            <Badge className="bg-purple-500">
-                              <Package className="h-3 w-3 mr-1" />
+                            <Badge className="max-w-full whitespace-normal bg-purple-500 text-left leading-tight sm:whitespace-nowrap sm:text-center sm:leading-normal">
+                              <Package className="mr-1 h-3 w-3 shrink-0" />
                               Pendiente de Confirmación
                             </Badge>
                           )}
                         </div>
-                        <CardDescription>{solicitud.categoria?.nombre}</CardDescription>
+                        <CardDescription className="break-words">{solicitud.categoria?.nombre}</CardDescription>
                       </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold">{formatearPrecioEuros(trabajo?.precio_acordado)}</p>
+                      <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2 text-left sm:block sm:w-auto sm:shrink-0 sm:text-right">
+                        <p className="min-w-0 break-words text-2xl font-bold">
+                          {formatearPrecioEuros(trabajo?.precio_acordado)}
+                        </p>
                         {pagado ? (
-                          <Badge variant="outline" className="bg-transparent text-emerald-500 border-emerald-500/50">
-                            <ShieldCheck className="h-3 w-3 mr-1" />
+                          <Badge
+                            variant="outline"
+                            className="max-w-full whitespace-normal bg-transparent text-left leading-tight text-emerald-500 border-emerald-500/50 sm:whitespace-nowrap sm:text-center sm:leading-normal"
+                          >
+                            <ShieldCheck className="mr-1 h-3 w-3 shrink-0" />
                             Pagado · Protegido
                           </Badge>
                         ) : trabajo?.estado === "pendiente_pago" ? (
-                          <Badge variant="outline" className="bg-transparent text-amber-500 border-amber-500/50">
-                            <CreditCard className="h-3 w-3 mr-1" />
+                          <Badge
+                            variant="outline"
+                            className="max-w-full whitespace-normal bg-transparent text-left leading-tight text-amber-500 border-amber-500/50 sm:whitespace-nowrap sm:text-center sm:leading-normal"
+                          >
+                            <CreditCard className="mr-1 h-3 w-3 shrink-0" />
                             Pendiente de pago
                           </Badge>
                         ) : trabajo?.escrow?.estado === "reembolsado" ? (
-                          <Badge variant="outline" className="bg-transparent text-blue-500 border-blue-500/50">
+                          <Badge
+                            variant="outline"
+                            className="max-w-full whitespace-normal bg-transparent text-left leading-tight text-blue-500 border-blue-500/50 sm:whitespace-nowrap sm:text-center sm:leading-normal"
+                          >
                             Reembolsado
                           </Badge>
                         ) : null}
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-6">
+                  <CardContent className="min-w-0 space-y-6 px-4 sm:px-6">
                     {/* Professional Info */}
-                    <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
-                      <Avatar className="h-14 w-14">
-                        <AvatarImage src={trabajo?.profesional?.foto_perfil || "/placeholder.svg"} />
-                        <AvatarFallback>
-                          {trabajo?.profesional?.nombre?.[0]}{trabajo?.profesional?.apellido?.[0]}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <p className="font-semibold">
-                          <EnlacePerfil usuarioId={trabajo?.profesional_id}>
-                            {trabajo?.profesional?.nombre} {trabajo?.profesional?.apellido}
-                          </EnlacePerfil>
-                        </p>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
-                          <span>{trabajo?.profesional?.rating}</span>
+                    <div className="flex min-w-0 flex-col items-stretch gap-4 rounded-lg bg-muted/50 p-4 sm:flex-row sm:items-center">
+                      <div className="flex min-w-0 items-center gap-4 sm:flex-1">
+                        <Avatar className="h-14 w-14 shrink-0">
+                          <AvatarImage src={trabajo?.profesional?.foto_perfil || "/placeholder.svg"} />
+                          <AvatarFallback>
+                            {trabajo?.profesional?.nombre?.[0]}{trabajo?.profesional?.apellido?.[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <p className="break-words font-semibold">
+                            <EnlacePerfil usuarioId={trabajo?.profesional_id}>
+                              {trabajo?.profesional?.nombre} {trabajo?.profesional?.apellido}
+                            </EnlacePerfil>
+                          </p>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Star className="h-4 w-4 shrink-0 fill-amber-500 text-amber-500" />
+                            <span>{trabajo?.profesional?.rating}</span>
+                          </div>
                         </div>
                       </div>
                       <Button
                         variant="outline"
                         size="sm"
-                        className="bg-transparent"
+                        className="w-full bg-transparent sm:ml-auto sm:w-auto sm:shrink-0"
                         onClick={() => handleContactar(trabajo?.profesional_id, solicitud.id, trabajo?.id)}
                       >
                         <MessageSquare className="h-4 w-4 mr-1" />
@@ -890,10 +920,10 @@ export default function MisSolicitudes() {
 
                     {/* Condiciones y adjuntos de la oferta aceptada + documentos */}
                     {trabajo && (
-                      <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
+                      <div className="min-w-0 space-y-2 overflow-hidden rounded-lg border bg-muted/30 p-4">
                         <p className="text-sm font-medium">Contratación</p>
                         {trabajo.oferta?.materiales_incluidos && (
-                          <p className="text-sm text-muted-foreground">
+                          <p className="break-words text-sm text-muted-foreground">
                             Materiales:{" "}
                             {trabajo.oferta.materiales_incluidos === "si"
                               ? "incluidos"
@@ -905,13 +935,13 @@ export default function MisSolicitudes() {
                           </p>
                         )}
                         <AdjuntosLista archivos={trabajo.oferta?.archivos} />
-                        <div className="flex gap-3 pt-1">
+                        <div className="flex min-w-0 flex-wrap gap-3 pt-1">
                           <a
                             href={`/trabajos/${trabajo.id}/factura`}
                             target="_blank"
-                            className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+                            className="inline-flex min-w-0 max-w-full items-center gap-1 break-words text-xs text-primary hover:underline"
                           >
-                            <FileText className="h-3 w-3" /> Ver factura y términos
+                            <FileText className="h-3 w-3 shrink-0" /> Ver factura y términos
                           </a>
                         </div>
                       </div>
@@ -939,18 +969,18 @@ export default function MisSolicitudes() {
                       </div>
                       <Progress value={trabajo?.progreso || 0} className="h-3" />
                       
-                      <div className="grid grid-cols-2 gap-4 pt-2">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">Inicio:</span>
-                          <span className="font-medium">
+                      <div className="grid grid-cols-1 gap-3 pt-2 sm:grid-cols-2 sm:gap-4">
+                        <div className="flex min-w-0 items-center gap-2 text-sm">
+                          <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          <span className="shrink-0 text-muted-foreground">Inicio:</span>
+                          <span className="min-w-0 break-words font-medium">
                             {trabajo?.fecha_inicio ? formatearFecha(trabajo.fecha_inicio) : "—"}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Timer className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">Entrega estimada:</span>
-                          <span className="font-medium">
+                        <div className="flex min-w-0 items-center gap-2 text-sm">
+                          <Timer className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          <span className="shrink-0 text-muted-foreground">Entrega estimada:</span>
+                          <span className="min-w-0 break-words font-medium">
                             {trabajo?.fecha_estimada_fin ? formatearFecha(trabajo.fecha_estimada_fin) : "—"}
                           </span>
                         </div>
@@ -975,18 +1005,18 @@ export default function MisSolicitudes() {
                         <h4 className="font-semibold text-sm">Actualizaciones del profesional</h4>
                         <div className="space-y-2 max-h-48 overflow-y-auto">
                           {trabajo.actualizaciones.map((update: any, idx: number) => (
-                            <div key={idx} className="flex gap-3 text-sm">
-                              <div className="flex flex-col items-center">
+                            <div key={idx} className="flex min-w-0 gap-3 text-sm">
+                              <div className="flex shrink-0 flex-col items-center">
                                 <div className="h-2 w-2 rounded-full bg-primary" />
                                 {idx < trabajo.actualizaciones.length - 1 && (
                                   <div className="w-px h-full bg-border" />
                                 )}
                               </div>
-                              <div className="pb-3">
+                              <div className="min-w-0 flex-1 pb-3">
                                 <p className="text-muted-foreground text-xs">
                                   {formatearFecha(update.fecha)}
                                 </p>
-                                <p>{update.mensaje}</p>
+                                <p className="break-words">{update.mensaje}</p>
                                 {update.progreso && (
                                   <Badge variant="secondary" className="mt-1">
                                     {update.progreso}% completado
@@ -1008,20 +1038,20 @@ export default function MisSolicitudes() {
 
                     {/* Action Buttons */}
                     {esEntregado && (
-                      <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4 space-y-3">
-                        <div className="flex items-start gap-3">
-                          <Package className="h-5 w-5 text-purple-500 mt-0.5" />
-                          <div>
-                            <p className="font-semibold">El profesional ha marcado el trabajo como entregado</p>
-                            <p className="text-sm text-muted-foreground">
+                      <div className="min-w-0 space-y-3 overflow-hidden rounded-lg border border-purple-500/30 bg-purple-500/10 p-4">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <Package className="mt-0.5 h-5 w-5 shrink-0 text-purple-500" />
+                          <div className="min-w-0 flex-1">
+                            <p className="break-words font-semibold">El profesional ha marcado el trabajo como entregado</p>
+                            <p className="break-words text-sm text-muted-foreground">
                               Revisa el trabajo realizado y confirma su finalización para liberar el pago.
                             </p>
                           </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
                           <AlertDialog open={showConfirmDialog && selectedTrabajo?.id === trabajo?.id} onOpenChange={setShowConfirmDialog}>
                             <Button 
-                              className="flex-1"
+                              className="h-auto min-h-9 w-full whitespace-normal py-2 sm:h-9 sm:flex-1 sm:whitespace-nowrap"
                               onClick={() => {
                                 setSelectedTrabajo(trabajo)
                                 setShowConfirmDialog(true)
@@ -1055,7 +1085,7 @@ export default function MisSolicitudes() {
                           </AlertDialog>
                           <Button
                             variant="outline"
-                            className="bg-transparent text-destructive border-destructive/50 hover:bg-destructive/10"
+                            className="h-auto min-h-9 w-full whitespace-normal bg-transparent py-2 text-destructive border-destructive/50 hover:bg-destructive/10 sm:h-9 sm:w-auto sm:shrink-0 sm:whitespace-nowrap"
                             onClick={() => {
                               setSelectedTrabajo(trabajo)
                               setShowRejectDialog(true)
@@ -1065,7 +1095,7 @@ export default function MisSolicitudes() {
                             Rechazar entrega
                           </Button>
                         </div>
-                        <p className="text-center text-xs text-muted-foreground pt-1">
+                        <p className="break-words pt-1 text-center text-xs text-muted-foreground">
                           Si rechazas la entrega, el pago sigue retenido y el equipo de Diime decidirá según las
                           pruebas y los términos acordados.
                         </p>
@@ -1293,6 +1323,14 @@ export default function MisSolicitudes() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
+              <label className="text-sm font-medium">Tipo de servicio</label>
+              <SelectCategoriaJerarquico
+                value={editForm.categoria}
+                onChange={(categoria) => setEditForm({ ...editForm, categoria })}
+                placeholder="Selecciona un servicio"
+              />
+            </div>
+            <div className="space-y-1.5">
               <label className="text-sm font-medium">Título</label>
               <Input value={editForm.titulo} onChange={(e) => setEditForm({ ...editForm, titulo: e.target.value })} />
             </div>
@@ -1327,7 +1365,7 @@ export default function MisSolicitudes() {
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Urgencia</label>
+              <label className="text-sm font-medium">¿Cuándo necesitas el trabajo?</label>
               <select
                 className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
                 value={editForm.urgencia}

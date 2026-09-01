@@ -23,8 +23,15 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   // la lista de conversaciones, los mensajes y el panel de archivos.
   useEffect(() => {
     if (!esMensajes) return
+    // Si se entra desde una página larga, iOS/WKWebView puede conservar el
+    // scroll del documento. Al bloquearlo en esa posición, la cabecera de la
+    // lista queda escondida bajo el navbar. Volvemos al origen antes y una vez
+    // más en el siguiente frame para cubrir la restauración de scroll de Next.
+    window.scrollTo(0, 0)
     document.documentElement.dataset.messagesView = "true"
+    const frame = window.requestAnimationFrame(() => window.scrollTo(0, 0))
     return () => {
+      window.cancelAnimationFrame(frame)
       delete document.documentElement.dataset.messagesView
     }
   }, [esMensajes])

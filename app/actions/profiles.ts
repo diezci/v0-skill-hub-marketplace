@@ -54,7 +54,7 @@ export async function obtenerProfesionalPorId(id: string) {
     .from("profesionales")
     .select(`
       *,
-      perfil:profiles(nombre, apellido, ubicacion, foto_perfil, foto_portada, bio, cuenta_eliminada)
+      perfil:profiles(nombre, apellido, ubicacion, foto_perfil, foto_portada, bio, verificado, cuenta_eliminada)
     `)
     .eq("id", id)
     .single()
@@ -86,6 +86,9 @@ export async function obtenerProfesionalPorId(id: string) {
   return {
     data: {
       ...profesional,
+      // La verificación pertenece al perfil público. Se expone también arriba
+      // para mantener la forma de datos que consume la página profesional.
+      verificado: !!profesional.perfil?.verificado,
       perfil: profesional.perfil ? { ...profesional.perfil, telefono: telefono ?? null } : profesional.perfil,
       // La base de datos guarda varias imágenes en `imagenes`; la ficha
       // pública muestra la principal como `imagen`.

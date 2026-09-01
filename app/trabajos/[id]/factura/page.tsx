@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { BotonImprimir } from "@/components/boton-imprimir"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
+import { DiimeLogo } from "@/components/diime-logo"
 import { PLATFORM_CONFIG, calcularTotalCliente, calcularPagoProveedor } from "@/lib/comisiones"
 import { obtenerDatosContratacion, formatearEuros, formatearFechaLarga, etiquetaMateriales } from "../datos"
 
@@ -83,8 +84,15 @@ const ETIQUETA_ESTADO_PAGO: Record<string, string> = {
   disputa: "Congelado por disputa",
 }
 
-export default async function FacturaPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function FacturaPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ vista?: string | string[] }>
+}) {
   const { id } = await params
+  const consulta = await searchParams
   const datos = await obtenerDatosContratacion(id)
   if (!datos) notFound()
 
@@ -98,13 +106,24 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
     esCliente,
     esProfesional,
     esAdmin,
+    contratado,
     facturacionCliente,
     facturacionProfesional,
   } = datos
+  const vistaSolicitada = Array.isArray(consulta.vista) ? consulta.vista[0] : consulta.vista
+  const vistaAdmin =
+    esAdmin && contratado && (vistaSolicitada === "cliente" || vistaSolicitada === "proveedor")
+      ? vistaSolicitada
+      : "completa"
+  // La query solo cambia el documento para un admin. Cliente y profesional no
+  // pueden usarla para ver la parte económica ajena.
+  const mostrarCliente = esAdmin ? vistaAdmin !== "proveedor" : esCliente
+  const mostrarProveedor = esAdmin ? vistaAdmin !== "cliente" : esProfesional
+  const tituloDocumento = contratado ? "Factura" : "Propuesta y términos"
   const { comisionCliente, totalCliente } = calcularTotalCliente(trabajo.precio_acordado || 0)
   const { comisionProveedor, pagoNeto } = calcularPagoProveedor(trabajo.precio_acordado || 0)
   const anio = new Date(escrow?.fecha_retencion || trabajo.created_at).getFullYear()
-  const numero = `FAC-${anio}-${String(trabajo.id).slice(0, 8).toUpperCase()}`
+  const numero = `${contratado ? "FAC" : "PROP"}-${anio}-${String(trabajo.id).slice(0, 8).toUpperCase()}`
   const fechaEmision = escrow?.fecha_retencion || trabajo.created_at
   const plazo = oferta?.tiempo_estimado
     ? `${oferta.tiempo_estimado} ${oferta.unidad_tiempo || "días"} desde el inicio del trabajo`
@@ -123,20 +142,23 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
         {/* Cabecera */}
         <div className="flex items-start justify-between border-b pb-6">
           <div>
-            <h1 className="text-2xl font-bold">Factura</h1>
+            <h1 className="text-2xl font-bold">{tituloDocumento}</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Nº {numero} · Emitida el {formatearFechaLarga(fechaEmision)}
+              {contratado ? "Nº" : "Ref."} {numero} · {contratado ? "Emitida" : "Generada"} el{" "}
+              {formatearFechaLarga(fechaEmision)}
             </p>
-            {escrow?.estado && (
-              <p className="text-sm font-medium mt-1">
-                Estado del pago: {ETIQUETA_ESTADO_PAGO[escrow.estado] || escrow.estado}
+            {esAdmin && vistaAdmin !== "completa" && (
+              <p className="text-xs font-medium text-primary mt-1">
+                Vista administrativa · {vistaAdmin === "cliente" ? "Cliente" : "Proveedor"}
               </p>
             )}
+            <p className="text-sm font-medium mt-1">
+              Estado del pago:{" "}
+              {escrow?.estado ? ETIQUETA_ESTADO_PAGO[escrow.estado] || escrow.estado : "Pendiente de pago"}
+            </p>
           </div>
           <div className="text-right">
-            <div className="h-10 w-10 overflow-hidden rounded-xl ring-1 ring-white/10 ml-auto">
-              <img src="/brand/diime-mark-v2.png?v=logo-fit-2" alt="" className="h-full w-full object-contain p-0.5" />
-            </div>
+            <DiimeLogo className="ml-auto h-10 w-10" />
             <p className="text-sm font-semibold mt-2">Diime</p>
             <p className="text-xs text-muted-foreground">diime.es · contacto@diime.es</p>
           </div>
@@ -159,10 +181,12 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
           />
         </div>
 
-        {/* Detalle del servicio contratado: la propuesta del profesional que el
-            cliente aceptó. La factura recoge también los términos del encargo. */}
+        {/* Detalle de la propuesta aceptada. Tras el pago pasa a ser el servicio
+            contratado que la factura documenta. */}
         <section className="text-sm space-y-3">
-          <h2 className="font-semibold text-base">Detalle del servicio contratado</h2>
+          <h2 className="font-semibold text-base">
+            {contratado ? "Detalle del servicio contratado" : "Detalle de la propuesta aceptada"}
+          </h2>
           <p className="font-medium">{trabajo.titulo}</p>
           {solicitud?.descripcion && (
             <p className="text-muted-foreground">
@@ -245,13 +269,13 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
               <div>
                 <p className="font-medium">{trabajo.titulo}</p>
                 <p className="text-muted-foreground text-xs mt-0.5">
-                  Servicio profesional contratado a través de Diime · Ref. TRB-
+                  {contratado ? "Servicio profesional contratado" : "Servicio pendiente de pago"} a través de Diime · Ref. TRB-
                   {String(trabajo.id).slice(0, 8).toUpperCase()}
                 </p>
               </div>
               <span className="font-medium">{formatearEuros(escrow?.monto_base ?? trabajo.precio_acordado)}</span>
             </div>
-            {(esCliente || esAdmin) && (
+            {mostrarCliente && (
               <>
                 <div className="grid grid-cols-[1fr_auto] gap-4 px-4 py-2.5">
                   <span>
@@ -261,7 +285,9 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
                   <span className="font-medium">{formatearEuros(escrow?.comision_cliente ?? comisionCliente)}</span>
                 </div>
                 <div className="grid grid-cols-[1fr_auto] gap-4 px-4 py-3 bg-muted/40">
-                  <span className="font-semibold">Total pagado por el cliente</span>
+                  <span className="font-semibold">
+                    {contratado ? "Total pagado por el cliente" : "Total pendiente de pago por el cliente"}
+                  </span>
                   <span className="font-bold text-lg">{formatearEuros(escrow?.monto ?? totalCliente)}</span>
                 </div>
               </>
@@ -271,7 +297,7 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
         </section>
 
         {/* Liquidación del profesional: solo la ve el profesional (y un admin). */}
-        {(esProfesional || esAdmin) && (
+        {mostrarProveedor && (
           <section className="text-sm">
             <h2 className="font-semibold text-base mb-3">Liquidación del profesional</h2>
             <div className="rounded-lg border divide-y">
@@ -286,7 +312,9 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
                 </span>
               </div>
               <div className="flex justify-between px-4 py-3 bg-muted/40">
-                <span className="font-semibold">Neto a percibir por el profesional</span>
+                <span className="font-semibold">
+                  {contratado ? "Neto a percibir por el profesional" : "Neto previsto para el profesional"}
+                </span>
                 <span className="font-bold">{formatearEuros(escrow?.pago_neto_proveedor ?? pagoNeto)}</span>
               </div>
             </div>
@@ -297,7 +325,7 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
             )}
           </section>
         )}
-        {escrow?.estado === "reembolsado" && (
+        {mostrarCliente && escrow?.estado === "reembolsado" && (
           <p className="text-xs text-muted-foreground">
             Reembolsado al cliente: {formatearEuros(escrow.monto_reembolsado)} el{" "}
             {formatearFechaLarga(escrow.fecha_reembolso)}.
@@ -341,9 +369,9 @@ export default async function FacturaPage({ params }: { params: Promise<{ id: st
         </section>
 
         <p className="text-xs text-muted-foreground border-t pt-4">
-          Documento generado automáticamente por Diime (diime.es) como plataforma intermediaria del pago protegido.
-          Recoge el detalle del servicio contratado, los términos acordados y el importe. El pago se retiene en
-          custodia y se libera al profesional cuando el cliente confirma la entrega.
+          {contratado
+            ? "Documento generado automáticamente por Diime (diime.es) como plataforma intermediaria del pago protegido. Recoge el detalle del servicio contratado, los términos acordados y el importe. El pago se retiene en custodia y se libera al profesional cuando el cliente confirma la entrega."
+            : "Documento informativo generado por Diime (diime.es). Recoge la propuesta aceptada y sus términos, pero la contratación y la emisión de la factura quedan pendientes hasta que el cliente complete el pago protegido."}
         </p>
       </div>
     </div>

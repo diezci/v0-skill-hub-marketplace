@@ -22,7 +22,21 @@ import {
 } from "@/components/ui/select"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { createClient } from "@/lib/supabase/client"
-import { Search, Users, Briefcase, Loader2, Mail, Phone, MapPin, Calendar } from "lucide-react"
+import { actualizarVerificacionProfesional } from "@/app/actions/admin-usuarios"
+import { AdminChatUsuarioButton } from "@/components/admin-chat-usuario-button"
+import { useToast } from "@/hooks/use-toast"
+import Link from "next/link"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { Search, Users, Briefcase, Loader2, Mail, Phone, MapPin, Calendar, BadgeCheck, ShieldQuestion, Eye } from "lucide-react"
 import { formatearFecha } from "@/lib/utils"
 
 interface Usuario {
@@ -50,7 +64,11 @@ export default function AdminUsuariosPage() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [tipoFilter, setTipoFilter] = useState<string>("todos")
+  const [usuarioPendiente, setUsuarioPendiente] = useState<Usuario | null>(null)
+  const [actualizandoId, setActualizandoId] = useState<string | null>(null)
+  const [adminId, setAdminId] = useState<string | null>(null)
   const supabase = createClient()
+  const { toast } = useToast()
 
   useEffect(() => {
     cargarUsuarios()
@@ -63,6 +81,11 @@ export default function AdminUsuariosPage() {
   const cargarUsuarios = async () => {
     setLoading(true)
     try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      setAdminId(user?.id ?? null)
+
       // Nota: 'verificado' vive en profiles (no en profesionales) y no hay relación
       // FK profiles<->empresas, así que esos embeds rompían la consulta entera.
       // Sin `select("*")`: email y teléfono ya no se leen de `profiles`
@@ -140,7 +163,6 @@ export default function AdminUsuariosPage() {
       return (
         <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
           Profesional
-          {usuario.verificado && " (Verificado)"}
         </Badge>
       )
     }
@@ -150,7 +172,44 @@ export default function AdminUsuariosPage() {
   const stats = {
     total: usuarios.length,
     profesionales: usuarios.filter((u) => u.profesional).length,
+    verificados: usuarios.filter((u) => u.profesional && u.verificado).length,
     clientes: usuarios.filter((u) => !u.profesional && !u.es_admin).length,
+  }
+
+  const cambiarVerificacion = async () => {
+    if (!usuarioPendiente?.profesional) return
+
+    const usuario = usuarioPendiente
+    const nuevoEstado = !usuario.verificado
+    setActualizandoId(usuario.id)
+    setUsuarioPendiente(null)
+
+    try {
+      const result = await actualizarVerificacionProfesional(usuario.id, nuevoEstado)
+
+      if (result.error) {
+        toast({ title: "No se pudo actualizar", description: result.error, variant: "destructive" })
+        return
+      }
+
+      setUsuarios((actuales) =>
+        actuales.map((item) =>
+          item.id === usuario.id ? { ...item, verificado: result.verificado } : item,
+        ),
+      )
+      toast({
+        title: nuevoEstado ? "Profesional verificado" : "Verificación retirada",
+        description: `${usuario.nombre} ${usuario.apellido}`.trim(),
+      })
+    } catch {
+      toast({
+        title: "No se pudo actualizar",
+        description: "Ha ocurrido un error inesperado. Inténtalo de nuevo.",
+        variant: "destructive",
+      })
+    } finally {
+      setActualizandoId(null)
+    }
   }
 
   return (
@@ -167,13 +226,23 @@ export default function AdminUsuariosPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{stats.total}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <BadgeCheck className="h-4 w-4" /> Verificados
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-blue-600">{stats.verificados}</p>
           </CardContent>
         </Card>
         <Card>
@@ -243,9 +312,11 @@ export default function AdminUsuariosPage() {
                 <TableRow>
                   <TableHead>Usuario</TableHead>
                   <TableHead>Tipo</TableHead>
+                  <TableHead>Verificación</TableHead>
                   <TableHead>Contacto</TableHead>
                   <TableHead>Ubicacion</TableHead>
                   <TableHead>Registro</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -272,6 +343,21 @@ export default function AdminUsuariosPage() {
                       </div>
                     </TableCell>
                     <TableCell>{getTipoBadge(usuario)}</TableCell>
+                    <TableCell>
+                      {usuario.profesional ? (
+                        usuario.verificado ? (
+                          <Badge className="gap-1 bg-blue-500/10 text-blue-700 border-blue-500/30">
+                            <BadgeCheck className="h-3.5 w-3.5" /> Verificado
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="gap-1 text-muted-foreground">
+                            <ShieldQuestion className="h-3.5 w-3.5" /> Pendiente
+                          </Badge>
+                        )
+                      ) : (
+                        <span className="text-muted-foreground text-sm">-</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 text-sm">
@@ -302,6 +388,40 @@ export default function AdminUsuariosPage() {
                         {formatearFecha(usuario.created_at)}
                       </div>
                     </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {usuario.id !== adminId && (
+                          <AdminChatUsuarioButton
+                            usuarioId={usuario.id}
+                            nombre={`${usuario.nombre || ""} ${usuario.apellido || ""}`.trim()}
+                            compacto
+                          />
+                        )}
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/admin/usuarios/${usuario.id}`}>
+                            <Eye className="h-4 w-4" /> Ver perfil
+                          </Link>
+                        </Button>
+                        {usuario.profesional && !usuario.es_admin ? (
+                          <Button
+                            size="sm"
+                            variant={usuario.verificado ? "outline" : "default"}
+                            disabled={actualizandoId !== null}
+                            onClick={() => setUsuarioPendiente(usuario)}
+                          >
+                            {actualizandoId === usuario.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : usuario.verificado ? (
+                              "Retirar"
+                            ) : (
+                              <>
+                                <BadgeCheck className="h-4 w-4" /> Verificar
+                              </>
+                            )}
+                          </Button>
+                        ) : null}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -309,6 +429,27 @@ export default function AdminUsuariosPage() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!usuarioPendiente} onOpenChange={(open) => !open && setUsuarioPendiente(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {usuarioPendiente?.verificado ? "¿Retirar la verificación?" : "¿Verificar este profesional?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {usuarioPendiente?.verificado
+                ? `La insignia dejará de mostrarse en el perfil de ${usuarioPendiente.nombre} ${usuarioPendiente.apellido}.`
+                : `Confirmas que has revisado el perfil de ${usuarioPendiente?.nombre || "este profesional"} ${usuarioPendiente?.apellido || ""}. La insignia se mostrará públicamente.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={cambiarVerificacion}>
+              {usuarioPendiente?.verificado ? "Retirar verificación" : "Verificar profesional"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

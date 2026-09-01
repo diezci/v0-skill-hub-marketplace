@@ -12,12 +12,12 @@
 // Su único cometido es que la app instalada abra y muestre algo con sentido sin
 // cobertura, no acelerar la navegación.
 
-const VERSION = "diime-logo-fit-2"
+const VERSION = "diime-logo-safe-3"
 const OFFLINE_URL = "/offline"
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(VERSION).then((cache) => cache.addAll([OFFLINE_URL, "/icons/icon-192.png?v=logo-fit-2"])),
+    caches.open(VERSION).then((cache) => cache.addAll([OFFLINE_URL, "/icons/icon-192.png?v=logo-safe-3"])),
   )
   // Activar esta versión sin esperar a que se cierren las pestañas antiguas.
   self.skipWaiting()

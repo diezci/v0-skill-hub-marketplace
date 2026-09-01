@@ -1,0 +1,14 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="diime-gradient" x1="96" y1="96" x2="928" y2="928" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#43D943" />
+      <stop offset="1" stop-color="#058B99" />
+    </linearGradient>
+  </defs>
+  <rect x="64" y="64" width="896" height="896" rx="205" fill="url(#diime-gradient)" />
+  <path
+    fill="#FFFFFF"
+    fill-rule="evenodd"
+    d="M576 231H666V801H576V754C547 784 510 802 464 802C368 802 300 728 300 626C300 524 368 450 464 450C510 450 547 468 576 498V231ZM485 536C432 536 395 573 395 626C395 679 432 716 485 716C538 716 576 679 576 626C576 573 538 536 485 536Z"
+  />
+</svg>

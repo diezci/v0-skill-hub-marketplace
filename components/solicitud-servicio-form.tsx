@@ -233,7 +233,7 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
               <FormItem>
                 <FormLabel className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-emerald-500" />
-                  Urgencia
+                  ¿Cuándo necesitas el trabajo?
                 </FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>

@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
+import { DiimeLogo } from "@/components/diime-logo"
 import { createClient } from "@/lib/supabase/client"
 import { desvincularPushActual } from "@/lib/push/client"
 import {
@@ -243,12 +244,12 @@ const Navbar = () => {
   const navLinks = [
     { name: "Profesionales", path: "/profesionales", icon: Search, shortName: "Profesionales" },
     {
-      name: "Demandas publicadas por los usuarios",
+      name: "Solicitudes de terceros",
       path: "/demandas",
       icon: Megaphone,
-      shortName: "Demandas",
+      shortName: "Solicitudes de terceros",
     },
-    { name: "Mis Demandas", path: "/mis-solicitudes", icon: Inbox, shortName: "Mis Demandas" },
+    { name: "Mis solicitudes", path: "/mis-solicitudes", icon: Inbox, shortName: "Mis solicitudes" },
     { name: "Mis pujas enviadas", path: "/mis-ofertas", icon: FileText, shortName: "Mis Pujas" },
     {
       name: "Gestión de proyectos",
@@ -285,9 +286,7 @@ const Navbar = () => {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <Link href="/" className="flex items-center gap-2">
-            <div className="h-9 w-9 shrink-0 p-0.5 rounded-xl shadow-lg ring-1 ring-white/10">
-              <img src="/brand/diime-mark-v2.png?v=logo-fit-2" alt="" className="h-full w-full object-contain" />
-            </div>
+            <DiimeLogo className="h-9 w-9" />
             <span className="font-bold text-xl hidden sm:block">Diime</span>
           </Link>
 

@@ -128,40 +128,48 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
         <div className="flex items-start gap-3 min-w-0">
           <Ban className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
           <div className="min-w-0">
-            <p className="font-semibold text-amber-700 dark:text-amber-400">
+            <p className="break-words font-semibold text-amber-700 dark:text-amber-400">
               La otra parte quiere cancelar este trabajo
             </p>
             {trabajo.cancelacion_razon && (
-              <p className="text-sm text-muted-foreground mt-0.5">Motivo: {trabajo.cancelacion_razon}</p>
+              <p className="mt-0.5 break-words text-sm text-muted-foreground">
+                Motivo: {trabajo.cancelacion_razon}
+              </p>
             )}
             {/* max-w-prose: a lo ancho de una tarjeta grande, una línea de texto
                 de borde a borde se lee mal. */}
-            <p className="text-sm text-muted-foreground max-w-prose mt-0.5">
+            <p className="mt-0.5 max-w-prose break-words text-sm text-muted-foreground">
               Si aceptas, el trabajo se cancela (y si el cliente ya pagó, se le reembolsa íntegramente). Si
               rechazas, se abrirá una disputa automáticamente y la resolverá el equipo de Diime según los
               términos de la contratación; en caso de duda, a favor del cliente.
             </p>
           </div>
         </div>
-        {/* shrink-0: los botones nunca se estrechan hasta partir su texto. */}
-        <div className="flex gap-2 shrink-0">
+        {/* En móvil las dos acciones no caben de forma fiable en una sola fila
+            (especialmente con texto grande de iOS), así que ocupan todo el
+            ancho y se apilan. A partir de sm vuelven a quedar en línea. */}
+        <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:shrink-0">
           <Button
             size="sm"
-            className="bg-emerald-600 hover:bg-emerald-700"
+            className="h-auto min-h-8 w-full whitespace-normal bg-emerald-600 py-2 hover:bg-emerald-700 sm:w-auto sm:whitespace-nowrap"
             disabled={submitting}
             onClick={() => handleResponder(true)}
           >
-            {submitting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
+            {submitting ? (
+              <Loader2 className="mr-1 h-4 w-4 shrink-0 animate-spin" />
+            ) : (
+              <Check className="mr-1 h-4 w-4 shrink-0" />
+            )}
             Aceptar cancelación
           </Button>
           <Button
             size="sm"
             variant="outline"
-            className="bg-transparent"
+            className="h-auto min-h-8 w-full whitespace-normal bg-transparent py-2 sm:w-auto sm:whitespace-nowrap"
             disabled={submitting}
             onClick={() => handleResponder(false)}
           >
-            <XCircle className="h-4 w-4 mr-1" />
+            <XCircle className="mr-1 h-4 w-4 shrink-0" />
             Rechazar
           </Button>
         </div>

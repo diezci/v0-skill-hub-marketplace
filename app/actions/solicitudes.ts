@@ -109,7 +109,7 @@ async function obtenerMapaPerfiles(supabase: any, clienteIds: (string | null)[])
     .from("profiles")
     // Sin teléfono ni email: estas fichas acompañan a listados de demandas que
     // ve cualquiera, y el contacto del cliente no tiene por qué viajar ahí.
-    .select("id, nombre, apellido, ubicacion, foto_perfil")
+    .select("id, nombre, apellido, ubicacion, foto_perfil, bio, fecha_registro, created_at, cuenta_eliminada")
     .in("id", ids)
   const mapa: Record<string, any> = {}
   for (const p of data || []) {
@@ -162,6 +162,7 @@ export async function obtenerSolicitudes(filtros?: {
 export async function actualizarSolicitud(
   id: string,
   campos: {
+    categoria_id?: string // Nombre de la categoría; solicitudes guarda su UUID.
     titulo?: string
     descripcion?: string
     ubicacion?: string
@@ -197,6 +198,70 @@ export async function actualizarSolicitud(
     return { error: "Solo puedes editar demandas que sigan abiertas (sin ofertas aceptadas)." }
   }
 
+  // Una oferta aceptada crea el trabajo antes de completar la pasarela. En ese
+  // intervalo la solicitud aún figura como abierta, pero sus términos ya están
+  // vinculados y el trigger de integridad los bloquea. Detectarlo aquí permite
+  // responder con un mensaje útil en vez de propagar una excepción de la BD.
+  const { data: trabajoVinculado, error: trabajoVinculadoError } = await supabase
+    .from("trabajos")
+    .select("id, estado")
+    .eq("solicitud_id", id)
+    .neq("estado", "cancelado")
+    .limit(1)
+    .maybeSingle()
+  if (trabajoVinculadoError) return { error: trabajoVinculadoError.message }
+  if (trabajoVinculado) {
+    return { error: "No puedes editar esta demanda mientras tenga una oferta aceptada o un trabajo activo." }
+  }
+
+  // El selector trabaja con el nombre legible, pero la demanda guarda la FK a
+  // `categorias`. Resolverla aquí evita intentar escribir un texto en una
+  // columna UUID y mantiene el contrato usado al publicar una demanda.
+  let categoriaUuid: string | undefined
+  if (campos.categoria_id !== undefined) {
+    const categoriaNombre = campos.categoria_id.trim()
+    if (!categoriaNombre) return { error: "Selecciona una categoría." }
+
+    const { data: categoria, error: categoriaError } = await supabase
+      .from("categorias")
+      .select("id")
+      .ilike("nombre", categoriaNombre)
+      .maybeSingle()
+
+    if (categoriaError) return { error: categoriaError.message }
+    if (categoria) {
+      categoriaUuid = categoria.id
+    } else {
+      // Mismo contrato que al publicar: si la taxonomía de la interfaz se ha
+      // desplegado antes que su semilla SQL, la primera demanda crea la fila
+      // que falta en lugar de impedir el cambio de categoría.
+      const { data: nuevaCategoria, error: crearCategoriaError } = await supabase
+        .from("categorias")
+        .insert({ nombre: categoriaNombre })
+        .select("id")
+        .single()
+
+      if (crearCategoriaError) {
+        // Dos cambios simultáneos pueden intentar crear la misma categoría.
+        // La restricción UNIQUE resuelve la carrera; recuperamos la ganadora.
+        if (crearCategoriaError.code !== "23505") return { error: crearCategoriaError.message }
+        const { data: categoriaExistente, error: recuperarCategoriaError } = await supabase
+          .from("categorias")
+          .select("id")
+          .ilike("nombre", categoriaNombre)
+          .maybeSingle()
+        if (recuperarCategoriaError || !categoriaExistente) {
+          return { error: "No se pudo guardar la categoría seleccionada." }
+        }
+        categoriaUuid = categoriaExistente.id
+      } else if (nuevaCategoria) {
+        categoriaUuid = nuevaCategoria.id
+      } else {
+        return { error: "No se pudo guardar la categoría seleccionada." }
+      }
+    }
+  }
+
   // Solo se mandan los campos que vienen. Antes se mandaban todos, y un
   // `undefined` desaparece al serializar el JSON: la columna nunca llegaba a
   // tocarse. Por eso vaciar el presupuesto mínimo no lo borraba —la demanda
@@ -206,6 +271,7 @@ export async function actualizarSolicitud(
   for (const clave of ["titulo", "descripcion", "ubicacion", "presupuesto_min", "presupuesto_max", "urgencia"] as const) {
     if (campos[clave] !== undefined) cambios[clave] = campos[clave]
   }
+  if (categoriaUuid !== undefined) cambios.categoria_id = categoriaUuid
 
   const { data, error } = await supabase
     .from("solicitudes")
@@ -394,8 +460,6 @@ export async function obtenerSolicitudesAbiertas() {
       ...solicitud,
       categoria: solicitud.categoria_id ? mapaCategorias[solicitud.categoria_id] || null : null,
       cliente: perfil,
-      telefono: perfil?.telefono || "",
-      email: perfil?.email || "",
       total_ofertas: totalPorSolicitud.get(solicitud.id) ?? 0,
     }
   })
