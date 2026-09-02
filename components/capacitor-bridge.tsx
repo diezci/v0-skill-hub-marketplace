@@ -15,7 +15,7 @@ import { guardarTokenPushActual } from "@/lib/push/client"
 import { createClient } from "@/lib/supabase/client"
 
 const DEEP_LINK = "es.diime.app://auth/callback"
-const DURACION_SPLASH_MS = 2000
+const DURACION_SPLASH_MS = 3000
 
 export function CapacitorBridge() {
   useEffect(() => {
