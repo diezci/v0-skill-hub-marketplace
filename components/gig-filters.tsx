@@ -37,7 +37,7 @@ const GigFilters = ({ filtros, onChange, onReset }: GigFiltersProps) => {
   }
 
   return (
-    <Card className="sticky top-24">
+    <Card className="sticky top-24 max-h-[calc(100dvh-7.5rem)] overflow-y-auto overscroll-y-contain [scrollbar-gutter:stable]">
       <CardContent className="p-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-lg font-semibold">Filtros</h2>

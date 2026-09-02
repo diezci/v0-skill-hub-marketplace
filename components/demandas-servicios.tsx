@@ -361,7 +361,7 @@ export default function DemandasServicios() {
     <div className="flex flex-col lg:flex-row gap-6">
       {/* Sidebar Filters - Desktop */}
       <aside className="hidden lg:block w-72 shrink-0">
-        <Card className="sticky top-24 p-5 space-y-6 bg-card/50 backdrop-blur-sm border-border/50">
+        <Card className="sticky top-24 max-h-[calc(100dvh-7.5rem)] overflow-y-auto overscroll-y-contain [scrollbar-gutter:stable] p-5 space-y-6 bg-card/50 backdrop-blur-sm border-border/50">
           <div>
             <h3 className="font-semibold mb-3 flex items-center gap-2">
               <Filter className="h-4 w-4" />
