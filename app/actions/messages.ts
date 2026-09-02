@@ -7,6 +7,16 @@ import { enviarPushAUsuario } from "@/lib/push/enviar"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
+function funcionVincularContextoNoDisponible(error: { code?: string } | null) {
+  if (!error) return false
+
+  // PostgREST puede devolver PGRST202 (función ausente de la caché de esquema)
+  // o PostgreSQL 42883 (función inexistente) mientras la migración 043 aún no
+  // se ha aplicado. En ese caso el chat existente sigue siendo válido: la
+  // demanda y sus participantes ya se han comprobado arriba.
+  return error.code === "PGRST202" || error.code === "42883"
+}
+
 export async function obtenerConversaciones() {
   const supabase = await createClient()
   if (!supabase) return { error: "Base de datos no disponible", data: [] }
@@ -416,7 +426,15 @@ export async function crearConversacion(params: {
         p_solicitud_id: solicitudIdValidada ?? null,
         p_trabajo_id: params.trabajoId ?? null,
       })
-      if (vinculoError) return { error: "No se pudo vincular el chat con esta demanda." }
+      if (vinculoError) {
+        if (funcionVincularContextoNoDisponible(vinculoError)) {
+          console.warn(
+            `[chat] contexto_rpc_no_disponible conversation=${existingConv.id.slice(0, 8)} code=${vinculoError.code ?? "unknown"}`,
+          )
+          return { data: existingConv }
+        }
+        return { error: "No se pudo vincular el chat con esta demanda." }
+      }
       const conversacionVinculada = Array.isArray(vinculada) ? vinculada[0] : vinculada
       if (conversacionVinculada) return { data: conversacionVinculada }
     }
@@ -461,7 +479,15 @@ export async function crearConversacion(params: {
             p_solicitud_id: solicitudIdValidada ?? null,
             p_trabajo_id: params.trabajoId ?? null,
           })
-          if (vinculoError) return { error: "No se pudo vincular el chat con esta demanda." }
+          if (vinculoError) {
+            if (funcionVincularContextoNoDisponible(vinculoError)) {
+              console.warn(
+                `[chat] contexto_rpc_no_disponible conversation=${creadaEnParalelo.id.slice(0, 8)} code=${vinculoError.code ?? "unknown"}`,
+              )
+              return { data: creadaEnParalelo }
+            }
+            return { error: "No se pudo vincular el chat con esta demanda." }
+          }
           const conversacionVinculada = Array.isArray(vinculada) ? vinculada[0] : vinculada
           if (conversacionVinculada) return { data: conversacionVinculada }
         }
