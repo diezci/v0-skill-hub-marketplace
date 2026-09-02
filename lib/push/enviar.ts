@@ -12,6 +12,7 @@ type AvisoPush = {
   link?: string | null
   conversacionId?: string | null
   tipo?: string
+  badge?: number
 }
 
 type ResultadoEnvio = { ok: boolean; permanente?: boolean; detalle?: string }
@@ -101,6 +102,7 @@ async function enviarAndroid(token: string, aviso: AvisoPush): Promise<Resultado
             sound: "default",
             icon: "ic_stat_diime",
             color: "#10B981",
+            notification_count: aviso.badge,
             tag: aviso.conversacionId ? `conversacion-${aviso.conversacionId}` : undefined,
           },
         },
@@ -192,6 +194,7 @@ function peticionApns(host: string, token: string, aviso: AvisoPush): Promise<{ 
         aps: {
           alert: { title: aviso.titulo, body: aviso.cuerpo },
           sound: "default",
+          badge: aviso.badge,
           "thread-id": aviso.conversacionId ? `conversacion-${aviso.conversacionId}` : "diime",
         },
         tipo: aviso.tipo || "aviso",
@@ -226,6 +229,45 @@ async function enviarIos(token: string, aviso: AvisoPush): Promise<ResultadoEnvi
   }
 }
 
+type AdminClient = NonNullable<ReturnType<typeof createAdminClient>>
+
+async function contarPendientesUsuario(admin: AdminClient, usuarioId: string) {
+  const [notificaciones, conversaciones] = await Promise.all([
+    admin
+      .from("notificaciones")
+      .select("*", { count: "exact", head: true })
+      .eq("usuario_id", usuarioId)
+      .eq("leida", false),
+    admin
+      .from("conversaciones")
+      .select("id")
+      .or(`participante_1.eq.${usuarioId},participante_2.eq.${usuarioId}`),
+  ])
+
+  if (notificaciones.error || conversaciones.error) {
+    console.warn(`[push] badge_count_failed recipient=${usuarioId.slice(0, 8)} stage=base`)
+    return undefined
+  }
+
+  const conversacionIds = (conversaciones.data || []).map((conversacion) => conversacion.id)
+  let mensajesNoLeidos = 0
+  if (conversacionIds.length > 0) {
+    const mensajes = await admin
+      .from("mensajes")
+      .select("*", { count: "exact", head: true })
+      .in("conversacion_id", conversacionIds)
+      .eq("leido", false)
+      .neq("remitente_id", usuarioId)
+    if (mensajes.error) {
+      console.warn(`[push] badge_count_failed recipient=${usuarioId.slice(0, 8)} stage=messages`)
+      return undefined
+    }
+    mensajesNoLeidos = mensajes.count || 0
+  }
+
+  return Math.max(0, (notificaciones.count || 0) + mensajesNoLeidos)
+}
+
 export async function enviarPushAUsuario(usuarioId: string, aviso: AvisoPush) {
   try {
     const admin = createAdminClient()
@@ -252,12 +294,18 @@ export async function enviarPushAUsuario(usuarioId: string, aviso: AvisoPush) {
       return { encontrados: 0, enviados: 0, error: "No hay dispositivos registrados" }
     }
 
+    // APNs no incrementa el icono automáticamente. Cada push lleva el total
+    // real de avisos y mensajes pendientes para que el badge nunca dependa de
+    // cuántos intentos de entrega hubo ni quede atascado en un valor antiguo.
+    const badge = await contarPendientesUsuario(admin, usuarioId)
+    const avisoConBadge = { ...aviso, badge }
+
     const resultados = await Promise.all(
       dispositivos.map(async (dispositivo: { token: string; plataforma: PlataformaPush }) => {
         const resultado =
           dispositivo.plataforma === "ios"
-            ? await enviarIos(dispositivo.token, aviso)
-            : await enviarAndroid(dispositivo.token, aviso)
+            ? await enviarIos(dispositivo.token, avisoConBadge)
+            : await enviarAndroid(dispositivo.token, avisoConBadge)
         if (resultado.permanente) {
           await admin.from("push_devices").update({ activo: false }).eq("token", dispositivo.token)
         }
@@ -272,7 +320,7 @@ export async function enviarPushAUsuario(usuarioId: string, aviso: AvisoPush) {
       )
     } else {
       console.info(
-        `[push] delivery_ok recipient=${usuarioId.slice(0, 8)} delivered=${enviados}/${dispositivos.length}`,
+        `[push] delivery_ok recipient=${usuarioId.slice(0, 8)} delivered=${enviados}/${dispositivos.length} badge=${badge ?? "unknown"}`,
       )
     }
     return {

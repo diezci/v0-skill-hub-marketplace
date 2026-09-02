@@ -80,8 +80,6 @@ export async function obtenerResumenNotificaciones() {
     .order("created_at", { ascending: false })
     .limit(20)
 
-  const noLeidas = (notificaciones || []).filter((n: any) => !n.leida).length
-
   // Contadores por sección para los badges del navbar: cada notificación apunta
   // (vía link) a la sección donde se resuelve.
   const porSeccion: Record<string, number> = {}
@@ -90,6 +88,7 @@ export async function obtenerResumenNotificaciones() {
     .select("link")
     .eq("usuario_id", user.id)
     .eq("leida", false)
+  const noLeidas = pendientes?.length || 0
   for (const n of pendientes || []) {
     if (n.link) porSeccion[n.link] = (porSeccion[n.link] || 0) + 1
   }

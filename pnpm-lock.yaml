@@ -44,6 +44,9 @@ importers:
       '@capacitor/status-bar':
         specifier: ^8.0.3
         version: 8.0.3(@capacitor/core@8.5.0)
+      '@capawesome/capacitor-badge':
+        specifier: 8.0.2
+        version: 8.0.2(@capacitor/core@8.5.0)
       '@emotion/is-prop-valid':
         specifier: latest
         version: 1.4.0
@@ -339,6 +342,11 @@ packages:
 
   '@capacitor/status-bar@8.0.3':
     resolution: {integrity: sha512-csSpfNeN49Hx9JaQBSJEIiEbOLtXg3kcc2IpScq2fu5L520h3AWEvsxoH8Srk1jxfRKepaJ4S4sqSC3foI4AgA==}
+    peerDependencies:
+      '@capacitor/core': '>=8.0.0'
+
+  '@capawesome/capacitor-badge@8.0.2':
+    resolution: {integrity: sha512-4ZnRyFvViaokupdrOi3OkoBurH+23hnxni+PYq5C1ObNLYbhty/WK8BzMtndCv0S47XjGBLjQ9DJsYj3JDVxGQ==}
     peerDependencies:
       '@capacitor/core': '>=8.0.0'
 
@@ -1524,6 +1532,7 @@ packages:
   '@xmldom/xmldom@0.9.11':
     resolution: {integrity: sha512-tW8bcK3hsG0/uqSnNz6TK4BkcuZSezoU7DlnYssILmZDktPnSHHuDJJFM0AJv+13gz2r0iGdrj6qqKeUnxXEDg==}
     engines: {node: '>=14.6'}
+    deprecated: this version has critical issues, please update to the latest version
 
   ansi-regex@5.0.1:
     resolution: {integrity: sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==}
@@ -3028,6 +3037,10 @@ snapshots:
       '@capacitor/core': 8.5.0
 
   '@capacitor/status-bar@8.0.3(@capacitor/core@8.5.0)':
+    dependencies:
+      '@capacitor/core': 8.5.0
+
+  '@capawesome/capacitor-badge@8.0.2(@capacitor/core@8.5.0)':
     dependencies:
       '@capacitor/core': 8.5.0
 

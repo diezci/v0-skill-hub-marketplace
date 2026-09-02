@@ -1,3 +1,5 @@
+/// <reference types="@capawesome/capacitor-badge" />
+
 import type { CapacitorConfig } from "@capacitor/cli"
 import { KeyboardResize } from "@capacitor/keyboard"
 
@@ -35,6 +37,10 @@ const config: CapacitorConfig = {
     webContentsDebuggingEnabled: false,
   },
   plugins: {
+    Badge: {
+      persist: false,
+      autoClear: false,
+    },
     App: {
       disableBackButtonHandler: true,
     },

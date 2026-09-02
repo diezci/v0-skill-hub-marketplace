@@ -1,6 +1,5 @@
 import UIKit
 import Capacitor
-import UserNotifications
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -35,18 +34,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
-        // El badge representa avisos pendientes fuera de la app. Al volver a
-        // Diime, la interfaz consulta los mensajes reales y el contador nativo
-        // debe quedar limpio para no mostrar un aviso fantasma.
-        clearNotificationBadge(application)
-    }
-
-    private func clearNotificationBadge(_ application: UIApplication) {
-        if #available(iOS 16.0, *) {
-            UNUserNotificationCenter.current().setBadgeCount(0)
-        } else {
-            application.applicationIconBadgeNumber = 0
-        }
+        // El contador del icono se sincroniza con los pendientes reales desde
+        // la interfaz; no se borra por el simple hecho de abrir la app.
     }
 
     func applicationWillTerminate(_ application: UIApplication) {

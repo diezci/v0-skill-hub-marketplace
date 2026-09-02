@@ -18,7 +18,7 @@ import {
 import { cn } from "@/lib/utils"
 import { DiimeLogo } from "@/components/diime-logo"
 import { createClient } from "@/lib/supabase/client"
-import { desvincularPushActual } from "@/lib/push/client"
+import { desvincularPushActual, sincronizarBadgeApp } from "@/lib/push/client"
 import {
   obtenerResumenNotificaciones,
   marcarNotificacionesLeidasPorLink,
@@ -141,6 +141,7 @@ const Navbar = () => {
         setNotificacionesNoLeidas(r.noLeidas || 0)
         setMensajesNoLeidos(r.mensajesNoLeidos || 0)
         setPorSeccion(r.porSeccion || {})
+        void sincronizarBadgeApp((r.noLeidas || 0) + (r.mensajesNoLeidos || 0))
 
         // Popup con preview del último mensaje de chat sin leer (fuera de
         // /mensajes y una sola vez por mensaje en esta sesión del navegador).
@@ -206,8 +207,10 @@ const Navbar = () => {
   useEffect(() => {
     if (!pathname || !(porSeccion[pathname] > 0)) return
     const cantidad = porSeccion[pathname]
+    const siguientesNoLeidas = Math.max(0, notificacionesNoLeidas - cantidad)
     setPorSeccion((prev) => ({ ...prev, [pathname]: 0 }))
-    setNotificacionesNoLeidas((total) => Math.max(0, total - cantidad))
+    setNotificacionesNoLeidas(siguientesNoLeidas)
+    void sincronizarBadgeApp(siguientesNoLeidas + mensajesNoLeidos)
     marcarNotificacionesLeidasPorLink(pathname).catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, porSeccion])
