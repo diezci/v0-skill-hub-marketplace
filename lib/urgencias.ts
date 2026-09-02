@@ -13,6 +13,43 @@
 
 export type UrgenciaId = "urgente" | "alta" | "media" | "baja"
 
+// Valor exclusivo de los formularios. No se guarda en `urgencia` porque esa
+// columna solo admite los cuatro identificadores anteriores; la fecha se guarda
+// en `fecha_necesaria` y de ella se deriva un nivel compatible.
+export const OPCION_FECHA_EXACTA = "fecha_exacta" as const
+
+export function fechaHoyEnEspana(fecha = new Date()) {
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Madrid",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(fecha)
+  const valor = (tipo: Intl.DateTimeFormatPartTypes) => partes.find((p) => p.type === tipo)?.value ?? ""
+  return `${valor("year")}-${valor("month")}-${valor("day")}`
+}
+
+export function esFechaISOValida(fecha: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return false
+  const [year, month, day] = fecha.split("-").map(Number)
+  const comprobacion = new Date(Date.UTC(year, month - 1, day))
+  return (
+    comprobacion.getUTCFullYear() === year &&
+    comprobacion.getUTCMonth() === month - 1 &&
+    comprobacion.getUTCDate() === day
+  )
+}
+
+export function urgenciaParaFecha(fecha: string, hoy = fechaHoyEnEspana()): UrgenciaId {
+  const dias = Math.round(
+    (Date.parse(`${fecha}T00:00:00Z`) - Date.parse(`${hoy}T00:00:00Z`)) / 86_400_000,
+  )
+  if (dias <= 3) return "urgente"
+  if (dias <= 7) return "alta"
+  if (dias <= 31) return "media"
+  return "baja"
+}
+
 export const URGENCIAS: {
   id: UrgenciaId
   /** Lo que se lee al elegir: dice el plazo, que es lo que importa. */

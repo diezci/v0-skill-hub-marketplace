@@ -33,7 +33,7 @@ import { EnlacePerfil } from "@/components/enlace-perfil"
 import { PlazoNecesidad } from "@/components/plazo-necesidad"
 import { SelectCategoriaJerarquico } from "@/components/select-categoria-jerarquico"
 import { calcularTotalCliente, PLATFORM_CONFIG } from "@/lib/comisiones"
-import { URGENCIAS } from "@/lib/urgencias"
+import { fechaHoyEnEspana, OPCION_FECHA_EXACTA, urgenciaParaFecha, URGENCIAS } from "@/lib/urgencias"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import {
@@ -87,6 +87,7 @@ export default function MisSolicitudes() {
     presupuesto_min: "",
     presupuesto_max: "",
     urgencia: "media",
+    fecha_necesaria: "",
   })
   const [deleteSolicitud, setDeleteSolicitud] = useState<any>(null)
   const [rejectOfertaTarget, setRejectOfertaTarget] = useState<any>(null)
@@ -109,7 +110,8 @@ export default function MisSolicitudes() {
       ubicacion: solicitud.ubicacion || "",
       presupuesto_min: solicitud.presupuesto_min?.toString() || "",
       presupuesto_max: solicitud.presupuesto_max?.toString() || "",
-      urgencia: solicitud.urgencia || "media",
+      urgencia: solicitud.fecha_necesaria ? OPCION_FECHA_EXACTA : solicitud.urgencia || "media",
+      fecha_necesaria: solicitud.fecha_necesaria || "",
     })
     setEditSolicitud(solicitud)
   }
@@ -120,6 +122,19 @@ export default function MisSolicitudes() {
       toast({ title: "Faltan datos", description: "Selecciona una categoría y añade un título y una descripción (mín. 10 caracteres).", variant: "destructive" })
       return
     }
+    if (
+      editForm.urgencia === OPCION_FECHA_EXACTA &&
+      (!editForm.fecha_necesaria || editForm.fecha_necesaria < fechaHoyEnEspana())
+    ) {
+      toast({
+        title: "Fecha no válida",
+        description: "Selecciona una fecha que no esté en el pasado.",
+        variant: "destructive",
+      })
+      return
+    }
+    const fechaNecesaria =
+      editForm.urgencia === OPCION_FECHA_EXACTA ? editForm.fecha_necesaria : null
     setActionLoading(true)
     const result = await actualizarSolicitud(editSolicitud.id, {
       categoria_id: editForm.categoria,
@@ -130,7 +145,8 @@ export default function MisSolicitudes() {
       // undefined la cifra vieja se quedaba puesta.
       presupuesto_min: editForm.presupuesto_min ? Number.parseFloat(editForm.presupuesto_min) : null,
       presupuesto_max: editForm.presupuesto_max ? Number.parseFloat(editForm.presupuesto_max) : null,
-      urgencia: editForm.urgencia,
+      urgencia: fechaNecesaria ? urgenciaParaFecha(fechaNecesaria) : editForm.urgencia,
+      fecha_necesaria: fechaNecesaria,
     })
     if (result.error) {
       toast({ title: "Error", description: result.error, variant: "destructive" })
@@ -563,7 +579,7 @@ export default function MisSolicitudes() {
                           <MapPin className="h-4 w-4" />
                           {solicitud.ubicacion}
                         </span>
-                        <PlazoNecesidad valor={solicitud.urgencia} />
+                        <PlazoNecesidad valor={solicitud.urgencia} fecha={solicitud.fecha_necesaria} />
                       </div>
                     </div>
                     <div className="text-left sm:text-right">
@@ -1379,7 +1395,16 @@ export default function MisSolicitudes() {
                     {u.etiqueta}
                   </option>
                 ))}
+                <option value={OPCION_FECHA_EXACTA}>En una fecha concreta</option>
               </select>
+              {editForm.urgencia === OPCION_FECHA_EXACTA && (
+                <Input
+                  type="date"
+                  min={fechaHoyEnEspana()}
+                  value={editForm.fecha_necesaria}
+                  onChange={(e) => setEditForm({ ...editForm, fecha_necesaria: e.target.value })}
+                />
+              )}
             </div>
           </div>
           <DialogFooter className="gap-2">

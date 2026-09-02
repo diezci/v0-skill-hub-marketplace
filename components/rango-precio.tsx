@@ -1,9 +1,40 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Slider } from "@/components/ui/slider"
 import { formatearPrecioEuros } from "@/lib/utils"
 import { PRECIO_MAX, PASO_PRECIO } from "@/lib/precios"
+
+const crearEscalaProgresiva = (max: number) => {
+  const valores = [0]
+  const tramos = [
+    { hasta: 5000, paso: 100 },
+    { hasta: 20000, paso: 500 },
+    { hasta: max, paso: 1000 },
+  ]
+
+  for (const { hasta, paso } of tramos) {
+    const limite = Math.min(hasta, max)
+    let siguiente = valores[valores.length - 1] + paso
+    while (siguiente <= limite) {
+      valores.push(siguiente)
+      siguiente += paso
+    }
+    if (limite === max) break
+  }
+
+  // También admite topes que no sean múltiplos del último tramo.
+  if (valores[valores.length - 1] !== max) valores.push(max)
+  return valores
+}
+
+const indiceMasCercano = (valores: number[], valor: number) => {
+  let mejor = 0
+  for (let i = 1; i < valores.length; i++) {
+    if (Math.abs(valores[i] - valor) < Math.abs(valores[mejor] - valor)) mejor = i
+  }
+  return mejor
+}
 
 /**
  * Control de rango de precio. Por defecto va de 0 a 100.000, que es el
@@ -19,12 +50,16 @@ import { PRECIO_MAX, PASO_PRECIO } from "@/lib/precios"
  * donde salieron todas las demandas antiguas sin máximo).
  *
  * La barra se queda para lo que sirve: hacerse una idea y moverse rápido.
+ * Puede usar una escala progresiva para dar más espacio y precisión a los
+ * presupuestos habituales: pasos de 100 € hasta 5.000 €, de 500 € hasta
+ * 20.000 € y de 1.000 € en adelante.
  */
 export function RangoPrecio({
   value,
   onChange,
   max = PRECIO_MAX,
   paso = PASO_PRECIO,
+  progresivo = false,
   // Solo para los lectores de pantalla: en /profesionales esto no es un
   // presupuesto sino una tarifa por hora, y anunciarlo mal despista.
   etiqueta = "Presupuesto",
@@ -33,9 +68,11 @@ export function RangoPrecio({
   onChange: (v: [number, number]) => void
   max?: number
   paso?: number
+  progresivo?: boolean
   etiqueta?: string
 }) {
   const [minSel, maxSel] = value
+  const escala = useMemo(() => (progresivo ? crearEscalaProgresiva(max) : null), [max, progresivo])
 
   // Mientras se teclea hace falta un estado propio: si se reformatea a cada
   // pulsación, borrar un dígito de "7000" para escribir "20000" es imposible.
@@ -89,10 +126,16 @@ export function RangoPrecio({
     // así que se les comía el contorno y se veían planos por fuera.
     <div className="space-y-3 pt-1 px-2">
       <Slider
-        max={max}
-        step={paso}
-        value={[Math.min(minSel, max), Math.min(maxSel, max)]}
-        onValueChange={(v) => onChange([v[0], v[1]])}
+        max={escala ? escala.length - 1 : max}
+        step={escala ? 1 : paso}
+        value={
+          escala
+            ? [indiceMasCercano(escala, minSel), indiceMasCercano(escala, maxSel)]
+            : [Math.min(minSel, max), Math.min(maxSel, max)]
+        }
+        onValueChange={(v) =>
+          onChange(escala ? [escala[v[0]], escala[v[1]]] : [v[0], v[1]])
+        }
       />
       <div className="flex items-center justify-between gap-2 text-sm">
         {caja("min", minSel)}

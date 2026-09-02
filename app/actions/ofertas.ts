@@ -206,6 +206,7 @@ export async function obtenerMisOfertas() {
         ubicacion,
         estado,
         urgencia,
+        fecha_necesaria,
         archivos,
         categoria_id,
         created_at,

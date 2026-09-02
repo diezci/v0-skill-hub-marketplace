@@ -19,18 +19,38 @@ import { useRouter } from "next/navigation"
 import { SelectCategoriaJerarquico } from "@/components/select-categoria-jerarquico"
 import { RangoPrecio } from "@/components/rango-precio"
 import { PRECIO_MAX } from "@/lib/precios"
-import { URGENCIAS } from "@/lib/urgencias"
+import {
+  esFechaISOValida,
+  fechaHoyEnEspana,
+  OPCION_FECHA_EXACTA,
+  urgenciaParaFecha,
+  URGENCIAS,
+} from "@/lib/urgencias"
 import { PROVINCIAS_ES } from "@/lib/provincias"
 
-const formSchema = z.object({
-  category: z.string().min(1, { message: "Selecciona una categoría" }),
-  title: z.string().min(5, { message: "Mínimo 5 caracteres" }),
-  description: z.string().min(20, { message: "Mínimo 20 caracteres" }),
-  location: z.string().min(2, { message: "Ingresa tu ubicación" }),
-  // Rango de presupuesto [min, max]; el mismo control 0–100k que /demandas.
-  budget: z.tuple([z.number(), z.number()]),
-  urgency: z.string().min(1, { message: "Indica la urgencia" }),
-})
+const formSchema = z
+  .object({
+    category: z.string().min(1, { message: "Selecciona una categoría" }),
+    title: z.string().min(5, { message: "Mínimo 5 caracteres" }),
+    description: z.string().min(20, { message: "Mínimo 20 caracteres" }),
+    location: z.string().min(2, { message: "Ingresa tu ubicación" }),
+    // Rango de presupuesto [min, max] entre 0 y 100k.
+    budget: z.tuple([z.number(), z.number()]),
+    urgency: z.string().min(1, { message: "Indica la urgencia" }),
+    neededDate: z.string(),
+  })
+  .superRefine((values, ctx) => {
+    if (values.urgency !== OPCION_FECHA_EXACTA) return
+    if (!esFechaISOValida(values.neededDate)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["neededDate"], message: "Selecciona una fecha" })
+    } else if (values.neededDate < fechaHoyEnEspana()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["neededDate"],
+        message: "La fecha no puede estar en el pasado",
+      })
+    }
+  })
 
 const provincias = PROVINCIAS_ES.map((provincia) => ({ provincia }))
 
@@ -52,6 +72,7 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
       location: "",
       budget: [0, PRECIO_MAX],
       urgency: "",
+      neededDate: "",
     },
   })
 
@@ -83,6 +104,7 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
       const successfulUploads = uploadResults.map((r) => r!.url)
 
       const [presMin, presMax] = values.budget
+      const fechaNecesaria = values.urgency === OPCION_FECHA_EXACTA ? values.neededDate : undefined
       const result = await crearSolicitud({
         categoria_id: values.category,
         titulo: values.title,
@@ -98,7 +120,8 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
         ...(presMin <= 0 && presMax >= PRECIO_MAX
           ? { presupuesto_min: undefined, presupuesto_max: undefined }
           : { presupuesto_min: presMin > 0 ? presMin : undefined, presupuesto_max: presMax }),
-        urgencia: values.urgency,
+        urgencia: fechaNecesaria ? urgenciaParaFecha(fechaNecesaria) : values.urgency,
+        fecha_necesaria: fechaNecesaria,
         archivos_adjuntos: successfulUploads,
       })
 
@@ -219,7 +242,7 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
                   Presupuesto estimado
                 </FormLabel>
                 <FormControl>
-                  <RangoPrecio value={field.value} onChange={field.onChange} />
+                  <RangoPrecio value={field.value} onChange={field.onChange} progresivo />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -247,9 +270,25 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
                         {u.etiqueta}
                       </SelectItem>
                     ))}
+                    <SelectItem value={OPCION_FECHA_EXACTA}>En una fecha concreta</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
+                {field.value === OPCION_FECHA_EXACTA && (
+                  <FormField
+                    control={form.control}
+                    name="neededDate"
+                    render={({ field: dateField }) => (
+                      <FormItem className="pt-2">
+                        <FormLabel>Fecha exacta</FormLabel>
+                        <FormControl>
+                          <Input type="date" min={fechaHoyEnEspana()} {...dateField} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
               </FormItem>
             )}
           />

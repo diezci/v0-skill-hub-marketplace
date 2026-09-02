@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { buscarYEnviarInvitaciones } from "./invitaciones"
 import { errorContenidoProhibido } from "@/lib/moderacion"
+import { esFechaISOValida, fechaHoyEnEspana } from "@/lib/urgencias"
 
 export async function crearSolicitud(formData: {
   titulo: string
@@ -13,6 +14,7 @@ export async function crearSolicitud(formData: {
   presupuesto_min?: number
   presupuesto_max?: number
   urgencia: string
+  fecha_necesaria?: string
   archivos_adjuntos?: string[]
 }) {
   const supabase = await createClient()
@@ -29,6 +31,12 @@ export async function crearSolicitud(formData: {
 
   const errorModeracion = errorContenidoProhibido(formData.titulo, formData.descripcion)
   if (errorModeracion) return { error: errorModeracion }
+  if (
+    formData.fecha_necesaria &&
+    (!esFechaISOValida(formData.fecha_necesaria) || formData.fecha_necesaria < fechaHoyEnEspana())
+  ) {
+    return { error: "La fecha necesaria debe ser una fecha válida que no esté en el pasado." }
+  }
 
   let categoria_uuid = null
   if (formData.categoria_id) {
@@ -63,6 +71,7 @@ export async function crearSolicitud(formData: {
       presupuesto_min: formData.presupuesto_min,
       presupuesto_max: formData.presupuesto_max,
       urgencia: formData.urgencia,
+      fecha_necesaria: formData.fecha_necesaria,
       archivos: formData.archivos_adjuntos || [],
       estado: "abierta",
     })
@@ -171,6 +180,7 @@ export async function actualizarSolicitud(
     presupuesto_min?: number | null
     presupuesto_max?: number | null
     urgencia?: string
+    fecha_necesaria?: string | null
   },
 ) {
   const supabase = await createClient()
@@ -183,6 +193,12 @@ export async function actualizarSolicitud(
 
   const errorModeracion = errorContenidoProhibido(campos.titulo, campos.descripcion)
   if (errorModeracion) return { error: errorModeracion }
+  if (
+    campos.fecha_necesaria &&
+    (!esFechaISOValida(campos.fecha_necesaria) || campos.fecha_necesaria < fechaHoyEnEspana())
+  ) {
+    return { error: "La fecha necesaria debe ser una fecha válida que no esté en el pasado." }
+  }
 
   // Solo se puede editar una demanda propia que siga abierta (sin trabajo en curso).
   const { data: solicitud } = await supabase
@@ -268,7 +284,15 @@ export async function actualizarSolicitud(
   // seguía enseñando el rango viejo— y no había forma de pasar de un rango a
   // una sola cifra. Ahora `null` borra y `undefined` deja como estaba.
   const cambios: Record<string, unknown> = { updated_at: new Date().toISOString() }
-  for (const clave of ["titulo", "descripcion", "ubicacion", "presupuesto_min", "presupuesto_max", "urgencia"] as const) {
+  for (const clave of [
+    "titulo",
+    "descripcion",
+    "ubicacion",
+    "presupuesto_min",
+    "presupuesto_max",
+    "urgencia",
+    "fecha_necesaria",
+  ] as const) {
     if (campos[clave] !== undefined) cambios[clave] = campos[clave]
   }
   if (categoriaUuid !== undefined) cambios.categoria_id = categoriaUuid

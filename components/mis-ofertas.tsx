@@ -282,7 +282,10 @@ export default function MisOfertas() {
                     </div>
                     {oferta.solicitud?.urgencia && (
                       <div>
-                        <PlazoNecesidad valor={oferta.solicitud.urgencia} />
+                        <PlazoNecesidad
+                          valor={oferta.solicitud.urgencia}
+                          fecha={oferta.solicitud.fecha_necesaria}
+                        />
                       </div>
                     )}
                     <div className="flex items-center gap-2 text-muted-foreground">
@@ -620,7 +623,7 @@ export default function MisOfertas() {
             <div className="space-y-4 py-1 text-sm">
               <div className="flex flex-wrap gap-2">
                 {verDemanda.urgencia && (
-                  <PlazoNecesidad valor={verDemanda.urgencia} />
+                  <PlazoNecesidad valor={verDemanda.urgencia} fecha={verDemanda.fecha_necesaria} />
                 )}
                 {verDemanda.ubicacion && (
                   <Badge variant="outline" className="gap-1">

@@ -72,6 +72,7 @@ type Demanda = {
   presupuesto_max: number
   created_at: string
   urgencia: "urgente" | "baja" | "media" | "alta"
+  fecha_necesaria?: string | null
   estado: "abierta" | "en-revision" | "cerrada"
   total_ofertas: number
   // Archivos que el cliente adjuntó al publicar la demanda (fotos, PDFs...).
@@ -547,7 +548,7 @@ export default function DemandasServicios() {
                             <Badge variant="outline" className="text-xs font-normal">
                               {demanda.categoria?.nombre}
                             </Badge>
-                            <PlazoNecesidad valor={demanda.urgencia} />
+                            <PlazoNecesidad valor={demanda.urgencia} fecha={demanda.fecha_necesaria} />
                           </div>
                           <h3 className="font-semibold text-lg group-hover:text-primary transition-colors">
                             {demanda.titulo}
@@ -671,7 +672,12 @@ export default function DemandasServicios() {
           <DialogHeader>
             <div className="flex flex-wrap items-center gap-2 mb-2">
               <Badge variant="outline">{demandaSeleccionada?.categoria?.nombre}</Badge>
-              {demandaSeleccionada && <PlazoNecesidad valor={demandaSeleccionada.urgencia} />}
+              {demandaSeleccionada && (
+                <PlazoNecesidad
+                  valor={demandaSeleccionada.urgencia}
+                  fecha={demandaSeleccionada.fecha_necesaria}
+                />
+              )}
             </div>
             <DialogTitle className="text-xl">{demandaSeleccionada?.titulo}</DialogTitle>
           </DialogHeader>
