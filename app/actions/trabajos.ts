@@ -286,7 +286,7 @@ async function postMensajeTrabajo(supabase: any, userId: string, trabajo: any, c
 
   // `leido: true` a propósito. Estos mensajes los escribe el sistema, no una
   // persona, y cada uno ya viene acompañado de su notificación, que es la que
-  // lleva a donde hay que actuar (Mis Demandas o Gestión de proyectos). Si
+  // lleva a donde hay que actuar (Mis Solicitudes o Gestión de proyectos). Si
   // además contaran como mensaje sin leer, el aviso de una cancelación
   // aparecería en Mensajes —donde no se puede aceptar ni rechazar— en vez de
   // en la sección que la resuelve. Se siguen viendo en el chat como registro.
@@ -361,7 +361,7 @@ export async function solicitarCancelacion(trabajoId: string, razon: string) {
       // cliente a una pestaña donde su demanda no estaba.
       mensaje: `La otra parte quiere cancelar "${trabajo.titulo}". Acepta o rechaza la cancelación en ${
         otroEsCliente
-          ? `Mis Demandas (pestaña ${trabajo.estado === "pendiente_pago" ? "Abiertas" : "En Progreso"})`
+          ? `Mis Solicitudes (pestaña ${trabajo.estado === "pendiente_pago" ? "Abiertas" : "En Progreso"})`
           : "Gestión de proyectos (pestaña Activos)"
       }.`,
       link: otroEsCliente ? "/mis-solicitudes" : "/mis-trabajos",

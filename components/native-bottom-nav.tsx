@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils"
 const enlaces = [
   { href: "/profesionales", label: "Profesionales", icon: Search },
   { href: "/demandas", label: "Solicitudes de terceros", icon: Megaphone },
-  { href: "/mis-solicitudes", label: "Mis solicitudes", icon: Inbox },
+  { href: "/mis-solicitudes", label: "Mis Solicitudes", icon: Inbox },
   { href: "/#publicar-demanda", label: "Publicar demanda", icon: Plus, principal: true },
   { href: "/mis-ofertas", label: "Mis pujas", icon: FileText },
   { href: "/mis-trabajos", label: "Gestión de proyectos", icon: FolderKanban },

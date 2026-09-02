@@ -496,7 +496,7 @@ export default function MisSolicitudes() {
         </button>
 
         {/* Disputas: sin esta tarjeta no habría forma cómoda de llegar a las
-            disputas de mis demandas, que es justo lo que se quiere mirar
+            disputas de mis solicitudes, que es justo lo que se quiere mirar
             rápido cuando hay una abierta. */}
         <button type="button" className="text-left" onClick={() => setActiveTab("disputas")}>
         <Card

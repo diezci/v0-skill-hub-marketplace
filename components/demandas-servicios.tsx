@@ -742,7 +742,7 @@ export default function DemandasServicios() {
             {/* En tu propia demanda no tiene sentido ni ofertar ni escribirte. */}
             {demandaSeleccionada?.cliente_id === usuarioActualId ? (
               <p className="text-sm text-muted-foreground text-center py-2">
-                Esta demanda la has publicado tú. Puedes gestionarla desde Mis Demandas.
+                Esta demanda la has publicado tú. Puedes gestionarla desde Mis Solicitudes.
               </p>
             ) : (
               <div className="flex gap-3">

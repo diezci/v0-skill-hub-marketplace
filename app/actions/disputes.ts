@@ -608,7 +608,7 @@ export async function resolverDisputa(data: {
 
       // Una resolución parcial cierra el trabajo: la demanda pasa a completada,
       // como en la resolución a favor del proveedor. Si no, se quedaba "en
-      // progreso" para siempre en Mis Demandas.
+      // progreso" para siempre en Mis Solicitudes.
       if (data.resolucion === "parcial") {
         const { data: t } = await supabase
           .from("trabajos")

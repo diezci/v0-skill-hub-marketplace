@@ -346,7 +346,7 @@ export async function actualizarOferta(
         titulo: "Una oferta ha sido actualizada",
         mensaje: `El profesional ha modificado su oferta en "${solicitud.titulo}"${
           campos.precio != null ? ` (nuevo precio: ${campos.precio}€)` : ""
-        }. Revísala en Mis Demandas.`,
+        }. Revísala en Mis Solicitudes.`,
         link: "/mis-solicitudes",
       })
     }

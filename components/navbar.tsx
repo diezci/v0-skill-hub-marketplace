@@ -249,7 +249,7 @@ const Navbar = () => {
       icon: Megaphone,
       shortName: "Solicitudes de terceros",
     },
-    { name: "Mis solicitudes", path: "/mis-solicitudes", icon: Inbox, shortName: "Mis solicitudes" },
+    { name: "Mis Solicitudes", path: "/mis-solicitudes", icon: Inbox, shortName: "Mis Solicitudes" },
     { name: "Mis pujas enviadas", path: "/mis-ofertas", icon: FileText, shortName: "Mis Pujas" },
     {
       name: "Gestión de proyectos",

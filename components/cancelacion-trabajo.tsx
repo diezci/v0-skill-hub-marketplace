@@ -37,7 +37,7 @@ interface CancelacionTrabajoProps {
    * y el aviso metido ahí salía a dos palabras por línea. Con `variante` la
    * página puede poner el botón en la columna estrecha y el aviso a lo ancho.
    *
-   * Sin `variante` se comporta como siempre (lo usa Mis Demandas, donde todo va
+   * Sin `variante` se comporta como siempre (lo usa Mis Solicitudes, donde todo va
    * en el cuerpo de la tarjeta y hay sitio de sobra).
    */
   variante?: "aviso" | "boton"

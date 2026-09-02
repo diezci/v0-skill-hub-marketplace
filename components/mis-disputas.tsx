@@ -98,7 +98,7 @@ export default function MisDisputas({
 
   // `obtenerMisDisputas` devuelve las disputas en las que participo, sea como
   // cliente o como profesional. Cada sección debe mostrar solo las suyas: en
-  // Mis Demandas, aquellas en las que soy el cliente; en Gestión de Proyectos,
+  // Mis Solicitudes, aquellas en las que soy el cliente; en Gestión de Proyectos,
   // en las que soy el profesional. Sin esto, una disputa aparecía en las dos.
   //
   // Se traen TODAS, abiertas y cerradas. Antes se descartaban las resueltas y
@@ -181,7 +181,7 @@ export default function MisDisputas({
   const tarjeta = (d: any) => {
         // Mi papel en ESTA disputa, no el de la sección en la que estoy: si se
         // deduce de la sección, una disputa que perdiste como profesional se
-        // anuncia como "Resuelta a tu favor" al verla desde Mis Demandas.
+        // anuncia como "Resuelta a tu favor" al verla desde Mis Solicitudes.
         const soyCliente: boolean = !!d.soy_cliente
         const estado =
           d.estado === "resuelta"

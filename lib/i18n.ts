@@ -28,7 +28,7 @@ const ES: Diccionario = {
   // Navegación
   "nav.profesionales": "Profesionales",
   "nav.demandas": "Solicitudes de terceros",
-  "nav.misDemandas": "Mis solicitudes",
+  "nav.misDemandas": "Mis Solicitudes",
   "nav.misPujas": "Mis Pujas",
   "nav.proyectos": "Gestión de proyectos",
   "nav.mensajes": "Mensajes",
