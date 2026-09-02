@@ -19,7 +19,9 @@ const DEEP_LINK = "es.diime.app://auth/callback"
 export function CapacitorBridge() {
   useEffect(() => {
     const esNativa = Capacitor.isNativePlatform()
-    const previewSolicitada = new URLSearchParams(window.location.search).has("native-preview")
+    const parametros = new URLSearchParams(window.location.search)
+    const previewSolicitada = parametros.has("native-preview")
+    const previewSplashFija = parametros.get("native-preview") === "splash"
     if (process.env.NODE_ENV !== "production" && previewSolicitada) sessionStorage.setItem("diime_native_preview", "1")
     const esPreview = process.env.NODE_ENV !== "production" && (previewSolicitada || sessionStorage.getItem("diime_native_preview") === "1")
     if (!esNativa && !esPreview) return
@@ -27,11 +29,29 @@ export function CapacitorBridge() {
     const root = document.documentElement
     root.dataset.native = "true"
     root.dataset.nativePlatform = esPreview ? "preview" : Capacitor.getPlatform()
+    root.dataset.nativeLoading = "active"
+
+    const timersTransicion: number[] = []
+    const terminarTransicionCarga = () => {
+      timersTransicion.push(
+        window.setTimeout(() => {
+          root.dataset.nativeLoading = "leaving"
+          timersTransicion.push(
+            window.setTimeout(() => {
+              delete root.dataset.nativeLoading
+            }, 420),
+          )
+        }, 700),
+      )
+    }
 
     if (esPreview) {
+      if (!previewSplashFija) terminarTransicionCarga()
       return () => {
+        timersTransicion.forEach((timer) => window.clearTimeout(timer))
         delete root.dataset.native
         delete root.dataset.nativePlatform
+        delete root.dataset.nativeLoading
       }
     }
 
@@ -103,11 +123,14 @@ export function CapacitorBridge() {
     }
 
     const preparar = async () => {
-      await Keyboard.setResizeMode({ mode: KeyboardResize.Body }).catch(() => {})
-      await actualizarBarras()
-      const estado = await Network.getStatus().catch(() => null)
+      const [, , estado] = await Promise.all([
+        Keyboard.setResizeMode({ mode: KeyboardResize.Body }).catch(() => {}),
+        actualizarBarras(),
+        Network.getStatus().catch(() => null),
+      ])
       if (estado && mounted) root.dataset.network = estado.connected ? "online" : "offline"
-      await SplashScreen.hide({ fadeOutDuration: 250 }).catch(() => {})
+      await SplashScreen.hide({ fadeOutDuration: 180 }).catch(() => {})
+      if (mounted) terminarTransicionCarga()
     }
 
     const configurarPush = async () => {
@@ -149,7 +172,11 @@ export function CapacitorBridge() {
     })
     cleanups.push(() => authListener.subscription.unsubscribe())
 
-    void configurarPush().finally(() => preparar())
+    // La pantalla de inicio solo espera a que la WebView y las barras nativas
+    // estén listas. El registro push continúa en paralelo y nunca bloquea la
+    // entrada a la app ni deja el splash visible mientras llega la red.
+    void preparar()
+    void configurarPush()
 
     const observer = new MutationObserver(actualizarBarras)
     observer.observe(root, { attributes: true, attributeFilter: ["class"] })
@@ -217,11 +244,47 @@ export function CapacitorBridge() {
     return () => {
       mounted = false
       cleanups.forEach((cleanup) => cleanup())
+      timersTransicion.forEach((timer) => window.clearTimeout(timer))
       delete root.dataset.native
       delete root.dataset.nativePlatform
       delete root.dataset.network
+      delete root.dataset.nativeLoading
     }
   }, [])
 
-  return null
+  return (
+    <div className="native-launch" role="status" aria-label="Cargando Diime">
+      <div className="native-launch__aura" aria-hidden="true" />
+      <div className="native-launch__visual" aria-hidden="true">
+        <span className="native-launch__halo" />
+        <span className="native-launch__orbit native-launch__orbit--outer" />
+        <span className="native-launch__orbit native-launch__orbit--inner" />
+        <span className="native-launch__satellite native-launch__satellite--one" />
+        <span className="native-launch__satellite native-launch__satellite--two" />
+        <svg className="native-launch__mark" viewBox="0 0 1024 1024">
+          <defs>
+            <linearGradient id="native-diime-gradient" x1="96" y1="96" x2="928" y2="928" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stopColor="#43D943" />
+              <stop offset="1" stopColor="#058B99" />
+            </linearGradient>
+          </defs>
+          <rect x="64" y="64" width="896" height="896" rx="205" fill="url(#native-diime-gradient)" />
+          <path
+            fill="#fff"
+            fillRule="evenodd"
+            d="M576 231H666V801H576V754C547 784 510 802 464 802C368 802 300 728 300 626C300 524 368 450 464 450C510 450 547 468 576 498V231ZM485 536C432 536 395 573 395 626C395 679 432 716 485 716C538 716 576 679 576 626C576 573 538 536 485 536Z"
+          />
+        </svg>
+      </div>
+      <div className="native-launch__copy">
+        <span className="native-launch__wordmark">diime</span>
+        <span className="native-launch__tagline">Conectando talento y proyectos</span>
+        <span className="native-launch__progress" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </span>
+      </div>
+    </div>
+  )
 }

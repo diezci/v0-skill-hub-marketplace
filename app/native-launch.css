@@ -1,0 +1,214 @@
+/* Transicion entre el launch screen nativo y la primera pintura de la web. La
+   marca queda en el centro fisico de la pantalla; el texto se coloca debajo sin
+   empujarla, que era el motivo por el que el splash se percibia demasiado bajo. */
+.native-launch {
+  --native-launch-center-offset: 0px;
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: none;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 42%, rgb(30 205 132 / 12%), transparent 30%),
+    linear-gradient(160deg, #080c10 0%, #091117 54%, #071015 100%);
+  color: #fff;
+  opacity: 1;
+  transition: opacity 380ms ease, transform 420ms cubic-bezier(.22, 1, .36, 1);
+}
+
+/* En iOS la vista de Capacitor empieza tras la zona reservada al sistema. Esta
+   compensacion usa el inset real del dispositivo en lugar de asumir un notch
+   concreto, de modo que el centro visual sigue siendo el centro de la pantalla. */
+html[data-native-platform="ios"] .native-launch {
+  --native-launch-center-offset: calc(-1 * env(safe-area-inset-top, 0px));
+}
+
+html[data-native-loading] .native-launch {
+  display: block;
+}
+
+html[data-native-loading="leaving"] .native-launch {
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(1.025);
+}
+
+.native-launch__aura {
+  position: absolute;
+  top: calc(50% + var(--native-launch-center-offset));
+  left: 50%;
+  width: min(92vw, 430px);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgb(47 218 142 / 10%) 0%, rgb(5 139 153 / 5%) 42%, transparent 70%);
+  filter: blur(12px);
+  transform: translate(-50%, -50%);
+  animation: native-launch-breathe 2.4s ease-in-out infinite;
+}
+
+.native-launch__visual {
+  position: absolute;
+  top: calc(50% + var(--native-launch-center-offset));
+  left: 50%;
+  width: 188px;
+  height: 188px;
+  transform: translate(-50%, -50%);
+}
+
+.native-launch__halo,
+.native-launch__orbit,
+.native-launch__satellite,
+.native-launch__mark {
+  position: absolute;
+}
+
+.native-launch__halo {
+  inset: 18px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgb(53 222 143 / 24%) 0%, rgb(12 151 151 / 9%) 44%, transparent 72%);
+  filter: blur(10px);
+  animation: native-launch-pulse 1.8s ease-in-out infinite;
+}
+
+.native-launch__orbit {
+  inset: 0;
+  border: 1px solid rgb(80 224 159 / 18%);
+  border-radius: 999px;
+}
+
+.native-launch__orbit--outer {
+  border-style: dashed;
+  animation: native-launch-spin 9s linear infinite;
+}
+
+.native-launch__orbit--inner {
+  inset: 18px;
+  border-color: rgb(5 139 153 / 20%);
+  animation: native-launch-spin-reverse 7s linear infinite;
+}
+
+.native-launch__satellite {
+  z-index: 2;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #43d943;
+  box-shadow: 0 0 15px rgb(67 217 67 / 80%);
+}
+
+.native-launch__satellite--one {
+  top: 12px;
+  left: 46px;
+  animation: native-launch-twinkle 1.5s ease-in-out infinite;
+}
+
+.native-launch__satellite--two {
+  right: 20px;
+  bottom: 36px;
+  width: 5px;
+  height: 5px;
+  background: #22c3b6;
+  box-shadow: 0 0 14px rgb(34 195 182 / 80%);
+  animation: native-launch-twinkle 1.5s .45s ease-in-out infinite;
+}
+
+.native-launch__mark {
+  z-index: 3;
+  top: 50%;
+  left: 50%;
+  width: 128px;
+  height: 128px;
+  filter: drop-shadow(0 20px 32px rgb(0 0 0 / 42%));
+  transform: translate(-50%, -50%);
+  animation: native-launch-float 2.2s cubic-bezier(.45, 0, .55, 1) infinite;
+}
+
+.native-launch__copy {
+  position: absolute;
+  top: calc(50% + var(--native-launch-center-offset) + 116px);
+  left: 50%;
+  display: flex;
+  width: min(84vw, 330px);
+  flex-direction: column;
+  align-items: center;
+  transform: translateX(-50%);
+  text-align: center;
+}
+
+.native-launch__wordmark {
+  font-family: var(--font-space), ui-sans-serif, system-ui, sans-serif;
+  font-size: 31px;
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: -.055em;
+}
+
+.native-launch__tagline {
+  margin-top: 10px;
+  color: rgb(200 219 211 / 68%);
+  font-size: 13px;
+  letter-spacing: .025em;
+}
+
+.native-launch__progress {
+  display: flex;
+  gap: 7px;
+  margin-top: 25px;
+}
+
+.native-launch__progress i {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: #3ddb8c;
+  animation: native-launch-dot 1.15s ease-in-out infinite;
+}
+
+.native-launch__progress i:nth-child(2) {
+  animation-delay: 140ms;
+}
+
+.native-launch__progress i:nth-child(3) {
+  animation-delay: 280ms;
+}
+
+@keyframes native-launch-breathe {
+  50% { opacity: .7; transform: translate(-50%, -50%) scale(1.08); }
+}
+
+@keyframes native-launch-pulse {
+  50% { opacity: .62; transform: scale(1.13); }
+}
+
+@keyframes native-launch-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes native-launch-spin-reverse {
+  to { transform: rotate(-360deg); }
+}
+
+@keyframes native-launch-twinkle {
+  50% { opacity: .38; transform: scale(.72); }
+}
+
+@keyframes native-launch-float {
+  50% { transform: translate(-50%, calc(-50% - 4px)) scale(1.018); }
+}
+
+@keyframes native-launch-dot {
+  0%, 60%, 100% { opacity: .28; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .native-launch {
+    transition: none;
+  }
+
+  .native-launch *,
+  .native-launch *::before,
+  .native-launch *::after {
+    animation: none !important;
+  }
+}
