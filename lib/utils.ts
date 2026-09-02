@@ -92,24 +92,30 @@ export function formatearRangoPresupuesto(
 /**
  * Convierte el importe de un trabajo del portfolio en una horquilla pública.
  * El profesional conserva el importe real para editarlo, pero el perfil solo
- * enseña una referencia redondeada (aprox. ±15 %) para no presentarlo como una
- * tarifa cerrada aplicable a otros encargos.
+ * enseña un tramo amplio. Además de evitar presentarlo como una tarifa cerrada
+ * aplicable a otros encargos, el tramo impide reconstruir el precio acordado a
+ * partir de unos límites demasiado precisos.
  */
 export function formatearRangoPortfolio(valor: number | string | null | undefined): string | null {
   if (valor === null || valor === undefined || valor === "") return null
   const importe = typeof valor === "string" ? Number(valor) : valor
   if (!Number.isFinite(importe) || importe <= 0) return null
 
-  const paso =
-    importe < 100 ? 10 :
-    importe < 500 ? 25 :
-    importe < 2_000 ? 100 :
-    importe < 10_000 ? 500 :
-    importe < 50_000 ? 1_000 : 5_000
+  const tramos = [100, 250, 500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000, 100_000]
+  const indiceSuperior = tramos.findIndex((limite) => importe < limite)
 
-  const minimo = Math.max(0, Math.floor((importe * 0.85) / paso) * paso)
-  let maximo = Math.ceil((importe * 1.15) / paso) * paso
-  if (maximo <= minimo) maximo = minimo + paso
+  return formatearTramoPortfolio(indiceSuperior === -1 ? tramos.length : indiceSuperior)
+}
 
-  return `${formatearPrecioEuros(minimo)} – ${formatearPrecioEuros(maximo)}`
+/** Formatea el identificador no sensible que devuelve `portfolio_publico`. */
+export function formatearTramoPortfolio(indice: number | string | null | undefined): string | null {
+  if (indice === null || indice === undefined || indice === "") return null
+  const numeroIndice = typeof indice === "string" ? Number(indice) : indice
+  const tramos = [100, 250, 500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000, 100_000]
+
+  if (!Number.isInteger(numeroIndice) || numeroIndice < 0 || numeroIndice > tramos.length) return null
+  if (numeroIndice === 0) return `Hasta ${formatearPrecioEuros(tramos[0])}`
+  if (numeroIndice === tramos.length) return `Más de ${formatearPrecioEuros(tramos[tramos.length - 1])}`
+
+  return `${formatearPrecioEuros(tramos[numeroIndice - 1])} – ${formatearPrecioEuros(tramos[numeroIndice])}`
 }

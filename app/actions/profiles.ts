@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 import { CATEGORIAS_SERVICIO_NOMBRES } from "@/lib/categorias"
 import { PROVINCIAS_ES } from "@/lib/provincias"
 import { errorContenidoProhibido } from "@/lib/moderacion"
+import { formatearTramoPortfolio } from "@/lib/utils"
 
 export async function obtenerProfesionales(filtros?: {
   categoria?: string
@@ -63,11 +64,9 @@ export async function obtenerProfesionalPorId(id: string) {
     return { error: profError.message }
   }
 
-  const { data: portfolio } = await supabase
-    .from("portfolio")
-    .select("*")
-    .eq("profesional_id", id)
-    .order("fecha_proyecto", { ascending: false, nullsFirst: false })
+  // La función devuelve solo columnas públicas y un identificador de tramo;
+  // nunca entrega el importe guardado en `portfolio.presupuesto`.
+  const { data: portfolio } = await supabase.rpc("portfolio_publico", { p_profesional_id: id })
 
   const { data: reviews } = await supabase
     .from("reseñas")
@@ -90,11 +89,21 @@ export async function obtenerProfesionalPorId(id: string) {
       // para mantener la forma de datos que consume la página profesional.
       verificado: !!profesional.perfil?.verificado,
       perfil: profesional.perfil ? { ...profesional.perfil, telefono: telefono ?? null } : profesional.perfil,
-      // La base de datos guarda varias imágenes en `imagenes`; la ficha
-      // pública muestra la principal como `imagen`.
+      // Solo se devuelve la información destinada a la ficha pública. En
+      // particular, el importe exacto no cruza la frontera servidor/cliente:
+      // se transforma aquí en un tramo amplio antes de serializar la página.
       portfolio: (portfolio || []).map((item: any) => ({
-        ...item,
+        id: item.id,
+        trabajo_id: item.trabajo_id,
+        titulo: item.titulo,
+        descripcion: item.descripcion,
+        categoria: item.categoria,
         imagen: Array.isArray(item.imagenes) ? item.imagenes[0] || "" : "",
+        ubicacion: item.ubicacion,
+        duracion: item.duracion,
+        fecha_proyecto: item.fecha_proyecto,
+        contexto_proveedor: item.contexto_proveedor,
+        rango_precio: formatearTramoPortfolio(item.tramo_precio),
       })),
       reviews: reviews || [],
     },

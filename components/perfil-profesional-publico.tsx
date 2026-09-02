@@ -9,6 +9,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   MapPin,
   Star,
   BadgeCheck,
@@ -22,13 +29,14 @@ import {
   Loader2,
   ShieldAlert,
   UserX,
+  CalendarDays,
+  Eye,
 } from "lucide-react"
 import { crearConversacion } from "@/app/actions/messages"
 import { BloquearUsuarioButton } from "@/components/bloquear-usuario-button"
 import { ReportarIncidenciaDialog } from "@/components/reportar-incidencia-dialog"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
-import { formatearRangoPortfolio } from "@/lib/utils"
 
 interface PerfilPublicoProps {
   perfil: any
@@ -41,6 +49,7 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
   const { toast } = useToast()
   const [contactando, setContactando] = useState(false)
   const [interaccionBloqueada, setInteraccionBloqueada] = useState(false)
+  const [proyectoSeleccionado, setProyectoSeleccionado] = useState<any | null>(null)
   const nombreCompleto = `${perfil.nombre || ""} ${perfil.apellido || ""}`.trim() || "Profesional"
 
   const handleEnviarMensaje = async () => {
@@ -85,6 +94,13 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
   const idiomas: string[] = Array.isArray(perfil.idiomas) ? perfil.idiomas : []
   const reviews: any[] = Array.isArray(perfil.reviews) ? perfil.reviews : []
   const portfolio: any[] = Array.isArray(perfil.portfolio) ? perfil.portfolio : []
+
+  const formatearFechaProyecto = (fecha?: string | null) => {
+    if (!fecha) return null
+    const [ano, mes, dia] = fecha.slice(0, 10).split("-")
+    if (!ano || !mes || !dia) return null
+    return `${dia}/${mes}/${ano}`
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -214,7 +230,7 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
       <Tabs defaultValue={tabInicial} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="sobre">Sobre mí</TabsTrigger>
-          <TabsTrigger value="portfolio">Portfolio</TabsTrigger>
+          <TabsTrigger value="portfolio">Portfolio ({portfolio.length})</TabsTrigger>
           <TabsTrigger value="valoraciones">Valoraciones ({reviews.length})</TabsTrigger>
         </TabsList>
 
@@ -278,29 +294,45 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
               ) : (
                 <div className="grid sm:grid-cols-2 gap-4">
                   {portfolio.map((p) => (
-                    <div key={p.id} className="rounded-lg border overflow-hidden">
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setProyectoSeleccionado(p)}
+                      aria-label={`Ver detalles de ${p.titulo}`}
+                      className="group overflow-hidden rounded-lg border bg-card text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
                       {p.imagen && (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={p.imagen} alt={p.titulo} className="h-40 w-full object-cover" />
+                        <img
+                          src={p.imagen}
+                          alt={p.titulo}
+                          className="h-40 w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                        />
                       )}
                       <div className="p-3">
-                        <p className="font-medium text-sm">{p.titulo}</p>
-                        {p.trabajo_id && (
-                          <Badge className="mt-2 gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                            <BadgeCheck className="h-3.5 w-3.5" /> Verificado por Diime
-                          </Badge>
-                        )}
-                        <p className="text-xs text-muted-foreground line-clamp-2">{p.descripcion}</p>
-                        {(p.duracion || formatearRangoPortfolio(p.presupuesto)) && (
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="font-medium text-sm">{p.titulo}</p>
+                          <Eye className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {p.trabajo_id && (
+                            <Badge className="gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                              <BadgeCheck className="h-3.5 w-3.5" /> Verificado por Diime
+                            </Badge>
+                          )}
+                          {p.categoria && <Badge variant="secondary">{p.categoria}</Badge>}
+                        </div>
+                        {p.descripcion && <p className="mt-2 text-xs text-muted-foreground line-clamp-2">{p.descripcion}</p>}
+                        {(p.duracion || p.rango_precio) && (
                           <div className="mt-3 flex flex-wrap gap-2 border-t pt-3 text-xs">
                             {p.duracion && (
                               <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-muted-foreground">
                                 <Clock className="h-3.5 w-3.5" /> Tiempo: {p.duracion}
                               </span>
                             )}
-                            {formatearRangoPortfolio(p.presupuesto) && (
+                            {p.rango_precio && (
                               <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-muted-foreground">
-                                <Euro className="h-3.5 w-3.5" /> Coste aprox.: {formatearRangoPortfolio(p.presupuesto)}
+                                <Euro className="h-3.5 w-3.5" /> Coste aprox.: {p.rango_precio}
                               </span>
                             )}
                           </div>
@@ -311,8 +343,11 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
                             <p className="mt-1 text-xs text-muted-foreground line-clamp-3">{p.contexto_proveedor}</p>
                           </div>
                         )}
+                        <span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary">
+                          Ver detalles
+                        </span>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -358,6 +393,111 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
           )}
         </TabsContent>
       </Tabs>
+
+      <Dialog
+        open={!!proyectoSeleccionado}
+        onOpenChange={(abierto) => {
+          if (!abierto) setProyectoSeleccionado(null)
+        }}
+      >
+        <DialogContent className="max-h-[90dvh] gap-0 overflow-y-auto p-0 sm:max-w-2xl">
+          {proyectoSeleccionado && (
+            <>
+              {proyectoSeleccionado.imagen && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={proyectoSeleccionado.imagen}
+                  alt={proyectoSeleccionado.titulo}
+                  className="max-h-[42dvh] w-full object-cover"
+                />
+              )}
+              <div className="space-y-5 p-5 sm:p-6">
+                <DialogHeader className="pr-8">
+                  <div className="flex flex-wrap gap-2">
+                    {proyectoSeleccionado.trabajo_id && (
+                      <Badge className="gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                        <BadgeCheck className="h-3.5 w-3.5" /> Trabajo verificado por Diime
+                      </Badge>
+                    )}
+                    {proyectoSeleccionado.categoria && (
+                      <Badge variant="secondary">{proyectoSeleccionado.categoria}</Badge>
+                    )}
+                  </div>
+                  <DialogTitle className="text-xl leading-snug sm:text-2xl">
+                    {proyectoSeleccionado.titulo}
+                  </DialogTitle>
+                  <DialogDescription>
+                    Detalles de un trabajo completado por {nombreCompleto}.
+                  </DialogDescription>
+                </DialogHeader>
+
+                {(proyectoSeleccionado.ubicacion ||
+                  proyectoSeleccionado.duracion ||
+                  proyectoSeleccionado.fecha_proyecto ||
+                  proyectoSeleccionado.rango_precio) && (
+                  <div className="grid gap-3 rounded-lg border bg-muted/30 p-4 text-sm sm:grid-cols-2">
+                    {proyectoSeleccionado.ubicacion && (
+                      <div className="flex items-start gap-2">
+                        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Ubicación</p>
+                          <p className="font-medium">{proyectoSeleccionado.ubicacion}</p>
+                        </div>
+                      </div>
+                    )}
+                    {proyectoSeleccionado.duracion && (
+                      <div className="flex items-start gap-2">
+                        <Clock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Duración</p>
+                          <p className="font-medium">{proyectoSeleccionado.duracion}</p>
+                        </div>
+                      </div>
+                    )}
+                    {formatearFechaProyecto(proyectoSeleccionado.fecha_proyecto) && (
+                      <div className="flex items-start gap-2">
+                        <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Completado</p>
+                          <p className="font-medium">{formatearFechaProyecto(proyectoSeleccionado.fecha_proyecto)}</p>
+                        </div>
+                      </div>
+                    )}
+                    {proyectoSeleccionado.rango_precio && (
+                      <div className="flex items-start gap-2">
+                        <Euro className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Coste orientativo</p>
+                          <p className="font-medium">{proyectoSeleccionado.rango_precio}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">El precio exacto del encargo es privado.</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {proyectoSeleccionado.descripcion && (
+                  <section>
+                    <h3 className="text-sm font-semibold">Descripción del trabajo</h3>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+                      {proyectoSeleccionado.descripcion}
+                    </p>
+                  </section>
+                )}
+
+                {proyectoSeleccionado.contexto_proveedor && (
+                  <section className="border-t pt-5">
+                    <h3 className="text-sm font-semibold">Aporte del profesional</h3>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+                      {proyectoSeleccionado.contexto_proveedor}
+                    </p>
+                  </section>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Separator />
       <p className="text-center text-xs text-muted-foreground">

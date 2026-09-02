@@ -83,7 +83,7 @@ export async function crearItemPortfolio(data: {
       fecha_proyecto: data.fecha_completado || null,
       contexto_proveedor: data.contexto_proveedor?.trim() || null,
     })
-    .select()
+    .select("id")
     .single()
 
   if (error) {
@@ -164,7 +164,7 @@ export async function actualizarItemPortfolio(
     })
     .eq("id", itemId)
     .eq("profesional_id", user.id)
-    .select()
+    .select("id")
     .single()
 
   if (error) return { error: error.message }
@@ -197,11 +197,14 @@ export async function obtenerPortfolioPorProfesional(profesionalId: string) {
   const supabase = await createClient()
   if (!supabase) return { error: "Base de datos no disponible" }
 
-  const { data, error } = await supabase
-    .from("portfolio")
-    .select("*")
-    .eq("profesional_id", profesionalId)
-    .order("fecha_proyecto", { ascending: false, nullsFirst: false })
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user || user.id !== profesionalId) return { error: "No autorizado" }
+
+  // El importe exacto solo lo recupera el propietario mediante esta función;
+  // el rol autenticado no tiene permiso SELECT sobre esa columna.
+  const { data, error } = await supabase.rpc("mi_portfolio")
 
   if (error) {
     return { error: error.message }
