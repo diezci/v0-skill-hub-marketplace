@@ -55,20 +55,30 @@ a las 09:00, hora de Madrid, y atiende inmediatamente cualquier alerta crítica.
 ## Alertas automáticas
 
 `/api/cron/operaciones` genera un resumen y envía correo solo si hay elementos
-accionables. Vercel lo ejecuta diariamente mediante `vercel.json`.
+accionables. Vercel lo ejecuta diariamente a las 07:00 UTC mediante
+`vercel.json` (09:00 CEST y 08:00 CET). La revisión humana se mantiene a las
+09:00 de Madrid para absorber el cambio de horario estacional.
 
 Variables necesarias:
 
 - `CRON_SECRET`: autentica la llamada de Vercel Cron.
 - `OPERATIONS_ALERT_EMAIL`: destinatario; si falta se usa
   `contacto@diime.es`.
-- `RESEND_API_KEY` y `RESEND_FROM`: envío del aviso.
+- `RESEND_API_KEY` y `RESEND_FROM`: envío del aviso. El dominio exacto usado en
+  `RESEND_FROM` debe estar verificado en Resend mediante SPF y DKIM; no basta
+  con que el buzón exista.
 - Las credenciales de Supabase con service role para consultar registros
   técnicos sin exponerlos al navegador.
 
 El panel y el correo cubren webhooks, liquidaciones, incidencias, disputas y los
 fallos registrados por email y push. Si el propio correo falla, el evento queda
 visible en `/admin/operaciones` y en los logs del despliegue.
+
+El primer control manual del 4 de septiembre de 2026 autenticó y ejecutó el
+cron, pero Resend rechazó el envío. El DNS público de `diime.es` no expone aún
+los registros SPF/DKIM de Resend. Antes de dar la alerta por cerrada hay que
+verificar un dominio o subdominio de envío en Resend, configurar exactamente ese
+dominio en `RESEND_FROM` y repetir el control manual.
 
 ## Cierre semanal
 

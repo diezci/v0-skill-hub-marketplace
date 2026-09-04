@@ -33,15 +33,17 @@ No son cambios que deban automatizarse con credenciales o claves inventadas:
 1. Confirmar el estado actual de `1.0 (1)` en App Store Connect y completar o
    crear la ficha de Google Play con el identificador `es.diime.app`.
 2. Las dos cuentas de revisión se crearon en producción el 4 de septiembre de
-   2026. Queda probar sus accesos en los binarios y cargar sus contraseñas
-   exclusivamente en las consolas.
+   2026 y sus recorridos web quedaron verificados. Queda probar sus accesos en
+   los binarios y cargar sus contraseñas exclusivamente en las consolas.
 3. Copiar las declaraciones ya auditadas de `STORE_COMPLIANCE_ES.md`, completar
    DSA como comerciante con la identidad legal real y elegir disponibilidad.
 4. Probar registro, Google/Apple, publicación, reporte, mensajería, adjuntos,
    pago/reembolso y borrado de cuenta en un iPhone y un Android reales.
 5. `CRON_SECRET` y `OPERATIONS_ALERT_EMAIL` ya están configurados en producción.
-   Tras desplegar el panel `/admin/operaciones`, comprobar el primer control
-   diario y su alerta a `contacto@diime.es`.
+   El panel `/admin/operaciones` y el cron están desplegados. La primera llamada
+   manual se ejecutó, pero Resend rechazó el correo: queda verificar el dominio
+   de envío, configurar `RESEND_FROM` y repetir la prueba a
+   `contacto@diime.es`.
 
 ## Compilar Android
 

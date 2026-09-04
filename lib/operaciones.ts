@@ -187,14 +187,19 @@ export async function enviarAlertaOperativaDiaria() {
   })
 
   if (error) {
+    const motivo = error.message || error.name || "resend_error"
+    console.error("[operaciones] Resend rechazó el resumen operativo.", {
+      nombre: error.name,
+      mensaje: error.message,
+    })
     await registrarEventoOperativo({
       area: "email",
       severidad: "critica",
       codigo: "resumen_operativo_fallido",
       mensaje: "Resend rechazó el resumen operativo diario.",
-      contexto: { motivo: error.name || "resend_error" },
+      contexto: { motivo: motivo.slice(0, 500) },
     })
-    throw new Error("Resend rechazó el resumen operativo.")
+    throw new Error(`Resend rechazó el resumen operativo: ${motivo}`)
   }
 
   return { enviado: true, resumen }

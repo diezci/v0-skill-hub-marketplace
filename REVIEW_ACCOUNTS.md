@@ -1,8 +1,9 @@
 # Cuentas de revisión de tiendas
 
 Estado: creadas y confirmadas en Supabase de producción el 4 de septiembre de
-2026. Las contraseñas se entregan al titular y no se guardan en este
-repositorio.
+2026. Ese mismo día se verificó el acceso web de ambas cuentas: la cliente ve
+la solicitud de demostración y su oferta, y el profesional ve la puja pendiente.
+Las contraseñas se entregan al titular y no se guardan en este repositorio.
 
 Las cuentas de App Review y Google Play deben ser exclusivas, estables, sin MFA
 y contener únicamente datos ficticios. Las contraseñas se guardan en el gestor
@@ -32,9 +33,10 @@ sin duplicar la solicitud ni la oferta.
 
 Después de ejecutarlo:
 
-1. Iniciar sesión con ambas cuentas en producción.
+1. Iniciar sesión con ambas cuentas en producción. Comprobado en la web el 4 de
+   septiembre de 2026; repetir en cada binario candidato de las tiendas.
 2. Confirmar que el cliente ve la solicitud de demostración y el profesional su
-   oferta pendiente.
+   oferta pendiente. Comprobado en la web el 4 de septiembre de 2026.
 3. Probar chat y adjuntos, sin introducir datos reales.
 4. No completar un pago real durante la revisión; las notas de la tienda deben
    indicar qué recorrido es seguro.
