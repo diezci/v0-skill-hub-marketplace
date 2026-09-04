@@ -29,8 +29,8 @@ export default function Terminos() {
           </p>
         </section>
         <section>
-          <h2 className="text-lg font-semibold text-foreground mb-2">4. Sistema de pagos escrow</h2>
-          <p>Diime utiliza un sistema de pagos escrow para proteger las transacciones. El cliente realiza el pago antes del inicio del trabajo. Diime retiene el importe de forma segura y lo libera al proveedor cuando el cliente confirma la correcta finalización del trabajo o transcurrido el plazo de verificación.</p>
+          <h2 className="text-lg font-semibold text-foreground mb-2">4. Sistema de pago protegido</h2>
+          <p>El cliente paga antes del inicio del trabajo mediante Stripe. La transferencia al profesional queda aplazada y se ejecuta cuando el cliente confirma la correcta recepción o cuando Diime resuelve una disputa. Este servicio no constituye una cuenta escrow ni un depósito regulado. Los trabajos deben cerrarse dentro del plazo máximo que permita Stripe Connect.</p>
         </section>
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">5. Comisiones</h2>

@@ -1001,7 +1001,7 @@ export default function DemandasServicios() {
               </p>
               <p className="text-sm text-muted-foreground mt-1">
                 Cuando el cliente acepte tu puja y pague, Diime{" "}
-                <span className="font-medium text-foreground">retiene el importe en custodia</span> antes de que
+                <span className="font-medium text-foreground">aplaza la transferencia al profesional</span> antes de que
                 empieces: así tienes la <span className="font-medium text-foreground">garantía del cobro</span>. El
                 pago se te libera automáticamente al completar el servicio y confirmarlo el cliente.
               </p>

@@ -720,7 +720,7 @@ function TrabajoCard({
         <div className="bg-emerald-500/10 border-b border-emerald-500/30 px-6 py-2.5 flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
           <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
-            Pago retenido en custodia · cobro protegido: puedes empezar el trabajo
+            Pago confirmado · transferencia pendiente: puedes empezar el trabajo
           </p>
         </div>
       )}
@@ -823,7 +823,7 @@ function TrabajoCard({
                             Pago recibido: {formatCurrency(pagoNeto)} netos
                           </span>
                         ) : (
-                          <span className="text-blue-600">Pago retenido en custodia: cobrarás {formatCurrency(pagoNeto)}</span>
+                          <span className="text-blue-600">Transferencia pendiente: cobrarás {formatCurrency(pagoNeto)}</span>
                         )}
                       </span>
                     </>

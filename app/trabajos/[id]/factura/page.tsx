@@ -78,7 +78,8 @@ function ParteFactura({
 
 const ETIQUETA_ESTADO_PAGO: Record<string, string> = {
   pendiente: "Pendiente de pago",
-  fondos_retenidos: "Pagado · retenido en custodia",
+  fondos_retenidos: "Pagado · pendiente de liquidación",
+  liquidando: "Procesando reembolso/transferencia",
   completado: "Pagado · liberado al profesional",
   reembolsado: "Reembolsado al cliente",
   disputa: "Congelado por disputa",
@@ -122,6 +123,16 @@ export default async function FacturaPage({
   const tituloDocumento = contratado ? "Factura" : "Propuesta y términos"
   const { comisionCliente, totalCliente } = calcularTotalCliente(trabajo.precio_acordado || 0)
   const { comisionProveedor, pagoNeto } = calcularPagoProveedor(trabajo.precio_acordado || 0)
+  const baseOriginal = Number(escrow?.monto_base ?? trabajo.precio_acordado ?? 0)
+  const reembolsoCliente = Number(escrow?.monto_reembolsado ?? 0)
+  const liquidacionCerrada = escrow?.liquidacion_estado === "completada" || ["completado", "reembolsado", "liberado"].includes(escrow?.estado)
+  const brutoProveedor = liquidacionCerrada
+    ? Number(escrow?.monto_bruto_proveedor ?? Math.max(baseOriginal - reembolsoCliente, 0))
+    : baseOriginal
+  const comisionProveedorReal = Number(escrow?.comision_proveedor ?? comisionProveedor)
+  const pagoNetoReal = Number(escrow?.pago_neto_proveedor ?? pagoNeto)
+  const comisionClienteOriginal = Number(escrow?.comision_cliente ?? comisionCliente)
+  const totalClienteOriginal = Number(escrow?.monto ?? totalCliente)
   const anio = new Date(escrow?.fecha_retencion || trabajo.created_at).getFullYear()
   const numero = `${contratado ? "FAC" : "PROP"}-${anio}-${String(trabajo.id).slice(0, 8).toUpperCase()}`
   const fechaEmision = escrow?.fecha_retencion || trabajo.created_at
@@ -249,7 +260,7 @@ export default async function FacturaPage({
             <div className="flex justify-between sm:block">
               <dt className="text-muted-foreground">Condiciones de pago</dt>
               <dd className="font-medium">
-                {oferta?.condiciones_pago || "Pago único por adelantado, retenido en custodia (escrow) por Diime"}
+                {oferta?.condiciones_pago || "Pago único por adelantado mediante Stripe; transferencia aplazada hasta la confirmación o resolución"}
               </dd>
             </div>
           </dl>
@@ -273,7 +284,7 @@ export default async function FacturaPage({
                   {String(trabajo.id).slice(0, 8).toUpperCase()}
                 </p>
               </div>
-              <span className="font-medium">{formatearEuros(escrow?.monto_base ?? trabajo.precio_acordado)}</span>
+              <span className="font-medium">{formatearEuros(baseOriginal)}</span>
             </div>
             {mostrarCliente && (
               <>
@@ -282,14 +293,26 @@ export default async function FacturaPage({
                     Gastos de servicio Diime ({PLATFORM_CONFIG.comisionClientePorcentaje}%, mín.{" "}
                     {formatearEuros(PLATFORM_CONFIG.comision_minima)})
                   </span>
-                  <span className="font-medium">{formatearEuros(escrow?.comision_cliente ?? comisionCliente)}</span>
+                  <span className="font-medium">{formatearEuros(comisionClienteOriginal)}</span>
                 </div>
                 <div className="grid grid-cols-[1fr_auto] gap-4 px-4 py-3 bg-muted/40">
                   <span className="font-semibold">
                     {contratado ? "Total pagado por el cliente" : "Total pendiente de pago por el cliente"}
                   </span>
-                  <span className="font-bold text-lg">{formatearEuros(escrow?.monto ?? totalCliente)}</span>
+                  <span className="font-bold text-lg">{formatearEuros(totalClienteOriginal)}</span>
                 </div>
+                {reembolsoCliente > 0 && (
+                  <>
+                    <div className="grid grid-cols-[1fr_auto] gap-4 px-4 py-2.5 text-blue-700 dark:text-blue-300">
+                      <span>Reembolso del precio del servicio</span>
+                      <span className="font-medium">−{formatearEuros(reembolsoCliente)}</span>
+                    </div>
+                    <div className="grid grid-cols-[1fr_auto] gap-4 px-4 py-2.5">
+                      <span className="font-semibold">Coste final tras la resolución</span>
+                      <span className="font-semibold">{formatearEuros(totalClienteOriginal - reembolsoCliente)}</span>
+                    </div>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -302,20 +325,20 @@ export default async function FacturaPage({
             <h2 className="font-semibold text-base mb-3">Liquidación del profesional</h2>
             <div className="rounded-lg border divide-y">
               <div className="flex justify-between px-4 py-2.5">
-                <span>Precio del servicio</span>
-                <span className="font-medium">{formatearEuros(escrow?.monto_base ?? trabajo.precio_acordado)}</span>
+                <span>{reembolsoCliente > 0 ? "Importe bruto adjudicado tras la resolución" : "Precio del servicio"}</span>
+                <span className="font-medium">{formatearEuros(brutoProveedor)}</span>
               </div>
               <div className="flex justify-between px-4 py-2.5">
                 <span>Gastos de servicio Diime ({PLATFORM_CONFIG.comisionProveedorPorcentaje}%)</span>
                 <span className="font-medium text-destructive">
-                  −{formatearEuros(escrow?.comision_proveedor ?? comisionProveedor)}
+                  −{formatearEuros(comisionProveedorReal)}
                 </span>
               </div>
               <div className="flex justify-between px-4 py-3 bg-muted/40">
                 <span className="font-semibold">
                   {contratado ? "Neto a percibir por el profesional" : "Neto previsto para el profesional"}
                 </span>
-                <span className="font-bold">{formatearEuros(escrow?.pago_neto_proveedor ?? pagoNeto)}</span>
+                <span className="font-bold">{formatearEuros(pagoNetoReal)}</span>
               </div>
             </div>
             {escrow?.fecha_liberacion && (
@@ -325,11 +348,13 @@ export default async function FacturaPage({
             )}
           </section>
         )}
-        {mostrarCliente && escrow?.estado === "reembolsado" && (
-          <p className="text-xs text-muted-foreground">
-            Reembolsado al cliente: {formatearEuros(escrow.monto_reembolsado)} el{" "}
-            {formatearFechaLarga(escrow.fecha_reembolso)}.
-          </p>
+        {mostrarCliente && reembolsoCliente > 0 && (
+          <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-3 text-xs text-muted-foreground">
+            Reembolsado al cliente: {formatearEuros(reembolsoCliente)}{escrow.fecha_reembolso ? ` el ${formatearFechaLarga(escrow.fecha_reembolso)}` : ""}.
+            {reembolsoCliente < totalClienteOriginal && (
+              <> La comisión inicial del cliente ({formatearEuros(comisionClienteOriginal)}) no se reduce: cubre el servicio de pago protegido y gestión de la disputa.</>
+            )}
+          </div>
         )}
 
         {/* Términos y condiciones del servicio (antes en un contrato aparte) */}
@@ -338,7 +363,7 @@ export default async function FacturaPage({
           <ul className="list-disc pl-5 space-y-1.5 text-muted-foreground">
             <li>
               El importe abonado por el cliente queda{" "}
-              <span className="font-medium text-foreground">retenido en custodia</span> por Diime y solo se libera
+              <span className="font-medium text-foreground">cobrado mediante Stripe con la transferencia aplazada</span> y solo se abona
               al profesional cuando el cliente confirma la entrega del trabajo.
             </li>
             <li>
@@ -370,7 +395,7 @@ export default async function FacturaPage({
 
         <p className="text-xs text-muted-foreground border-t pt-4">
           {contratado
-            ? "Documento generado automáticamente por Diime (diime.es) como plataforma intermediaria del pago protegido. Recoge el detalle del servicio contratado, los términos acordados y el importe. El pago se retiene en custodia y se libera al profesional cuando el cliente confirma la entrega."
+            ? "Documento generado automáticamente por Diime (diime.es) como plataforma intermediaria del pago protegido. Recoge el detalle del servicio contratado, los términos acordados, el reembolso y la liquidación cuando corresponden. La transferencia al profesional se ejecuta tras la confirmación o resolución."
             : "Documento informativo generado por Diime (diime.es). Recoge la propuesta aceptada y sus términos, pero la contratación y la emisión de la factura quedan pendientes hasta que el cliente complete el pago protegido."}
         </p>
       </div>

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Loader2, Scale, Briefcase, Clock, CheckCircle2, XCircle, FileText, ArrowRight } from "lucide-react"
 import { obtenerMisDisputas, retirarDisputa } from "@/app/actions/disputes"
 import { useToast } from "@/hooks/use-toast"
+import { AdjuntosLista } from "@/components/adjuntos-lista"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -190,6 +191,13 @@ export default function MisDisputas({
               ? ESTADO_RETIRADA
               : ESTADO_ABIERTA
         const EstadoIcon = estado.icon
+        const adjuntosSolicitante: string[] = Array.isArray(d.cancelacion_adjuntos_solicitante)
+          ? d.cancelacion_adjuntos_solicitante
+          : []
+        const adjuntosRespuesta: string[] = Array.isArray(d.cancelacion_adjuntos_respuesta)
+          ? d.cancelacion_adjuntos_respuesta
+          : []
+        const hayPruebasCancelacion = adjuntosSolicitante.length > 0 || adjuntosRespuesta.length > 0
         return (
           <Card key={d.id}>
             <CardContent className="pt-6 space-y-3">
@@ -214,7 +222,29 @@ export default function MisDisputas({
                 <p className="text-sm text-muted-foreground">{d.motivo}</p>
               </div>
 
-              {d.estado === "resuelta" && "caja" in estado && (
+              {hayPruebasCancelacion && (
+                <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+                  <p className="text-xs font-medium text-muted-foreground">Pruebas aportadas para la cancelación</p>
+                  {adjuntosSolicitante.length > 0 && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs">
+                        Solicita cancelar · {d.tipo === "cliente" ? "cliente" : "proveedor"}
+                      </p>
+                      <AdjuntosLista archivos={adjuntosSolicitante} />
+                    </div>
+                  )}
+                  {adjuntosRespuesta.length > 0 && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs">
+                        Rechaza cancelar · {d.tipo === "cliente" ? "proveedor" : "cliente"}
+                      </p>
+                      <AdjuntosLista archivos={adjuntosRespuesta} />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {d.estado === "resuelta" && "caja" in estado && "tituloCaja" in estado && (
                 <div className={`rounded-lg border p-3 ${estado.caja}`}>
                   <p className={`text-xs font-medium mb-0.5 ${estado.tituloCaja}`}>
                     Decisión del equipo de Diime
@@ -276,8 +306,8 @@ export default function MisDisputas({
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-muted-foreground flex items-start gap-2">
           <Scale className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
           <span>
-            Tienes {abiertas} disputa{abiertas !== 1 ? "s" : ""} en revisión. Mientras dure, el pago sigue retenido
-            en custodia. Puedes aportar pruebas en el chat del trabajo.
+            Tienes {abiertas} disputa{abiertas !== 1 ? "s" : ""} en revisión. Mientras dure, el pago sigue confirmado
+            y la transferencia bloqueada. Puedes aportar pruebas en el chat del trabajo.
           </span>
         </div>
       )}
@@ -304,8 +334,8 @@ export default function MisDisputas({
           <AlertDialogHeader>
             <AlertDialogTitle>¿Retirar la disputa?</AlertDialogTitle>
             <AlertDialogDescription>
-              El equipo de Diime dejará de revisarla y el trabajo continuará donde estaba, con el pago retenido en
-              custodia. Si vuelve a hacer falta, podrás abrir una disputa nueva.
+              El equipo de Diime dejará de revisarla y el trabajo continuará donde estaba, con la transferencia
+              pendiente. Si vuelve a hacer falta, podrás abrir una disputa nueva.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -9,10 +9,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { ShieldCheck, ArrowLeft, CheckCircle2, AlertCircle, Loader2 } from "lucide-react"
+import { ShieldCheck, ArrowLeft, CheckCircle2, AlertCircle, Loader2, WalletCards } from "lucide-react"
 import { calcularTotalCliente, calcularPagoProveedor, PLATFORM_CONFIG, formatearPrecio } from "@/lib/comisiones"
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
+const stripePromise = loadStripe(
+  (process.env.NEXT_PUBLIC_DIIME_STRIPE_PUBLISHABLE_KEY ||
+    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)!,
+)
 
 export default function PagoPage() {
   const params = useParams()
@@ -198,6 +201,10 @@ export default function PagoPage() {
 
                 <div className="space-y-2">
                   <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <WalletCards className="h-3.5 w-3.5 mt-0.5 text-primary shrink-0" />
+                    <span>Tarjeta, Apple Pay, Google Pay o Link, según disponibilidad</span>
+                  </div>
+                  <div className="flex items-start gap-2 text-xs text-muted-foreground">
                     <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 text-emerald-500 shrink-0" />
                     <span>Pago 100% seguro con Stripe</span>
                   </div>
@@ -219,6 +226,9 @@ export default function PagoPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Realizar pago</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Elige tarjeta o una opción de pago rápido disponible en tu dispositivo.
+                </p>
               </CardHeader>
               <CardContent>
                 {status === "loading" && (

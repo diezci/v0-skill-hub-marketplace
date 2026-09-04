@@ -35,15 +35,15 @@ export default function SobreNosotros() {
           trabajo de calidad sin comisiones abusivas.
         </p>
         <p>
-          El sistema de pagos escrow de Diime protege tanto al cliente como al profesional: el dinero queda
-          retenido hasta que el trabajo esté completado y ambas partes estén satisfechas.
+          El sistema de pago protegido de Diime protege tanto al cliente como al profesional: la transferencia queda
+          pendiente hasta que el trabajo esté completado y el cliente confirme la entrega.
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-14">
         {[
           { icon: Users, title: "5.000+ profesionales", desc: "Verificados en todas las provincias de España" },
-          { icon: Shield, title: "Pagos seguros", desc: "Sistema escrow que protege tu dinero hasta la entrega" },
+          { icon: Shield, title: "Pagos protegidos", desc: "La transferencia espera hasta la confirmación de la entrega" },
           { icon: Star, title: "4.9 de valoración", desc: "Media de satisfacción de clientes en la plataforma" },
         ].map((item) => (
           <div key={item.title} className="rounded-xl border border-border p-6 text-center">

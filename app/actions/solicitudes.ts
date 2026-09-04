@@ -3,8 +3,45 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { buscarYEnviarInvitaciones } from "./invitaciones"
-import { errorContenidoProhibido } from "@/lib/moderacion"
+import { evaluarContenidoSolicitud } from "@/lib/moderacion"
+import { CATEGORIAS_SERVICIO_NOMBRES } from "@/lib/categorias"
 import { esFechaISOValida, fechaHoyEnEspana } from "@/lib/urgencias"
+
+function claveCategoria(nombre: string) {
+  return nombre
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .trim()
+    .toLocaleLowerCase("es-ES")
+}
+
+const CATEGORIAS_CANONICAS = new Map(
+  CATEGORIAS_SERVICIO_NOMBRES.map((nombre) => [claveCategoria(nombre), nombre] as const),
+)
+
+const LIMITES_TEXTO_SOLICITUD = {
+  titulo: { minimo: 5, maximo: 120 },
+  descripcion: { minimo: 20, maximo: 5000 },
+  ubicacion: { minimo: 2, maximo: 100 },
+} as const
+
+function categoriaCanonica(valor: unknown) {
+  if (typeof valor !== "string") return null
+  return CATEGORIAS_CANONICAS.get(claveCategoria(valor)) ?? null
+}
+
+function textoSolicitud(
+  valor: unknown,
+  campo: string,
+  minimo: number,
+  maximo: number,
+): { valor: string; error?: never } | { valor?: never; error: string } {
+  if (typeof valor !== "string") return { error: `${campo} no es válido.` }
+  const limpio = valor.trim()
+  if (limpio.length < minimo) return { error: `${campo} debe tener al menos ${minimo} caracteres.` }
+  if (limpio.length > maximo) return { error: `${campo} no puede superar ${maximo} caracteres.` }
+  return { valor: limpio }
+}
 
 export async function crearSolicitud(formData: {
   titulo: string
@@ -29,8 +66,46 @@ export async function crearSolicitud(formData: {
     return { error: "No autenticado. Por favor inicia sesión para publicar un proyecto." }
   }
 
-  const errorModeracion = errorContenidoProhibido(formData.titulo, formData.descripcion)
-  if (errorModeracion) return { error: errorModeracion }
+  // No confiamos en la validacion del formulario: esta accion tambien puede
+  // invocarse directamente. Limites, taxonomia y moderacion se aplican siempre
+  // en el servidor antes de escribir nada en Supabase.
+  const titulo = textoSolicitud(
+    formData.titulo,
+    "El título",
+    LIMITES_TEXTO_SOLICITUD.titulo.minimo,
+    LIMITES_TEXTO_SOLICITUD.titulo.maximo,
+  )
+  if (titulo.error) return { error: titulo.error }
+  const descripcion = textoSolicitud(
+    formData.descripcion,
+    "La descripción",
+    LIMITES_TEXTO_SOLICITUD.descripcion.minimo,
+    LIMITES_TEXTO_SOLICITUD.descripcion.maximo,
+  )
+  if (descripcion.error) return { error: descripcion.error }
+  const ubicacion = textoSolicitud(
+    formData.ubicacion,
+    "La ubicación",
+    LIMITES_TEXTO_SOLICITUD.ubicacion.minimo,
+    LIMITES_TEXTO_SOLICITUD.ubicacion.maximo,
+  )
+  if (ubicacion.error) return { error: ubicacion.error }
+  const categoriaNombre = categoriaCanonica(formData.categoria_id)
+  if (!categoriaNombre) return { error: "Selecciona una categoría válida." }
+
+  const moderacion = evaluarContenidoSolicitud({
+    titulo: titulo.valor,
+    descripcion: descripcion.valor,
+    categoria: categoriaNombre,
+    ubicacion: ubicacion.valor,
+  })
+  if (!moderacion.permitido) {
+    console.warn("[moderacion] Solicitud bloqueada antes de publicarse", {
+      usuarioId: user.id,
+      codigo: moderacion.codigo,
+    })
+    return { error: moderacion.error, codigo: moderacion.codigo }
+  }
   if (
     formData.fecha_necesaria &&
     (!esFechaISOValida(formData.fecha_necesaria) || formData.fecha_necesaria < fechaHoyEnEspana())
@@ -39,12 +114,12 @@ export async function crearSolicitud(formData: {
   }
 
   let categoria_uuid = null
-  if (formData.categoria_id) {
+  if (categoriaNombre) {
     // Case-insensitive lookup so "Reformas integrales" matches "Reformas Integrales", etc.
     const { data: categoria } = await supabase
       .from("categorias")
       .select("id")
-      .ilike("nombre", formData.categoria_id)
+      .ilike("nombre", categoriaNombre)
       .maybeSingle()
 
     if (categoria) {
@@ -53,7 +128,7 @@ export async function crearSolicitud(formData: {
       // Create category if it doesn't exist
       const { data: newCategoria } = await supabase
         .from("categorias")
-        .insert({ nombre: formData.categoria_id })
+        .insert({ nombre: categoriaNombre })
         .select("id")
         .single()
       categoria_uuid = newCategoria?.id
@@ -64,10 +139,10 @@ export async function crearSolicitud(formData: {
     .from("solicitudes")
     .insert({
       cliente_id: user.id,
-      titulo: formData.titulo,
-      descripcion: formData.descripcion,
+      titulo: titulo.valor,
+      descripcion: descripcion.valor,
       categoria_id: categoria_uuid,
-      ubicacion: formData.ubicacion,
+      ubicacion: ubicacion.valor,
       presupuesto_min: formData.presupuesto_min,
       presupuesto_max: formData.presupuesto_max,
       urgencia: formData.urgencia,
@@ -191,8 +266,6 @@ export async function actualizarSolicitud(
   } = await supabase.auth.getUser()
   if (!user) return { error: "No autenticado" }
 
-  const errorModeracion = errorContenidoProhibido(campos.titulo, campos.descripcion)
-  if (errorModeracion) return { error: errorModeracion }
   if (
     campos.fecha_necesaria &&
     (!esFechaISOValida(campos.fecha_necesaria) || campos.fecha_necesaria < fechaHoyEnEspana())
@@ -203,7 +276,7 @@ export async function actualizarSolicitud(
   // Solo se puede editar una demanda propia que siga abierta (sin trabajo en curso).
   const { data: solicitud } = await supabase
     .from("solicitudes")
-    .select("cliente_id, estado")
+    .select("cliente_id, estado, titulo, descripcion, ubicacion, categoria_id")
     .eq("id", id)
     .maybeSingle()
 
@@ -212,6 +285,63 @@ export async function actualizarSolicitud(
   }
   if (solicitud.estado !== "abierta") {
     return { error: "Solo puedes editar demandas que sigan abiertas (sin ofertas aceptadas)." }
+  }
+
+  const titulo = textoSolicitud(
+    campos.titulo === undefined ? solicitud.titulo : campos.titulo,
+    "El título",
+    LIMITES_TEXTO_SOLICITUD.titulo.minimo,
+    LIMITES_TEXTO_SOLICITUD.titulo.maximo,
+  )
+  if (titulo.error) return { error: titulo.error }
+  const descripcion = textoSolicitud(
+    campos.descripcion === undefined ? solicitud.descripcion : campos.descripcion,
+    "La descripción",
+    LIMITES_TEXTO_SOLICITUD.descripcion.minimo,
+    LIMITES_TEXTO_SOLICITUD.descripcion.maximo,
+  )
+  if (descripcion.error) return { error: descripcion.error }
+  const ubicacion = textoSolicitud(
+    campos.ubicacion === undefined ? solicitud.ubicacion : campos.ubicacion,
+    "La ubicación",
+    LIMITES_TEXTO_SOLICITUD.ubicacion.minimo,
+    LIMITES_TEXTO_SOLICITUD.ubicacion.maximo,
+  )
+  if (ubicacion.error) return { error: ubicacion.error }
+
+  let categoriaNombre: string | undefined
+  if (campos.categoria_id !== undefined) {
+    const encontrada = categoriaCanonica(campos.categoria_id)
+    if (!encontrada) return { error: "Selecciona una categoría válida." }
+    categoriaNombre = encontrada
+  }
+
+  let categoriaModeracion = categoriaNombre
+  if (categoriaModeracion === undefined && solicitud.categoria_id) {
+    const { data: categoriaActual } = await supabase
+      .from("categorias")
+      .select("nombre")
+      .eq("id", solicitud.categoria_id)
+      .maybeSingle()
+    categoriaModeracion = categoriaActual?.nombre
+  }
+
+  // Se valida el estado final completo, no solo los campos recibidos. Esto
+  // evita que una llamada parcial reparta una expresion prohibida entre un
+  // titulo anterior y una descripcion nueva.
+  const moderacion = evaluarContenidoSolicitud({
+    titulo: titulo.valor,
+    descripcion: descripcion.valor,
+    categoria: categoriaModeracion,
+    ubicacion: ubicacion.valor,
+  })
+  if (!moderacion.permitido) {
+    console.warn("[moderacion] Edición de solicitud bloqueada", {
+      usuarioId: user.id,
+      solicitudId: id,
+      codigo: moderacion.codigo,
+    })
+    return { error: moderacion.error, codigo: moderacion.codigo }
   }
 
   // Una oferta aceptada crea el trabajo antes de completar la pasarela. En ese
@@ -234,10 +364,7 @@ export async function actualizarSolicitud(
   // `categorias`. Resolverla aquí evita intentar escribir un texto en una
   // columna UUID y mantiene el contrato usado al publicar una demanda.
   let categoriaUuid: string | undefined
-  if (campos.categoria_id !== undefined) {
-    const categoriaNombre = campos.categoria_id.trim()
-    if (!categoriaNombre) return { error: "Selecciona una categoría." }
-
+  if (categoriaNombre !== undefined) {
     const { data: categoria, error: categoriaError } = await supabase
       .from("categorias")
       .select("id")
@@ -285,9 +412,6 @@ export async function actualizarSolicitud(
   // una sola cifra. Ahora `null` borra y `undefined` deja como estaba.
   const cambios: Record<string, unknown> = { updated_at: new Date().toISOString() }
   for (const clave of [
-    "titulo",
-    "descripcion",
-    "ubicacion",
     "presupuesto_min",
     "presupuesto_max",
     "urgencia",
@@ -295,6 +419,9 @@ export async function actualizarSolicitud(
   ] as const) {
     if (campos[clave] !== undefined) cambios[clave] = campos[clave]
   }
+  if (campos.titulo !== undefined) cambios.titulo = titulo.valor
+  if (campos.descripcion !== undefined) cambios.descripcion = descripcion.valor
+  if (campos.ubicacion !== undefined) cambios.ubicacion = ubicacion.valor
   if (categoriaUuid !== undefined) cambios.categoria_id = categoriaUuid
 
   const { data, error } = await supabase

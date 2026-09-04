@@ -198,7 +198,7 @@ export default function MisTrabajos() {
                           <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
                             <AlertCircle className="h-4 w-4 text-primary" />
                             <span className="text-sm">
-                              Pago protegido con Escrow - Estado: {trabajo.transaccion_escrow.estado}
+                              Pago protegido - Estado: {trabajo.transaccion_escrow.estado}
                             </span>
                           </div>
                         )}
@@ -217,7 +217,7 @@ export default function MisTrabajos() {
                                   <AlertDialogTitle>¿Marcar trabajo como completado?</AlertDialogTitle>
                                   <AlertDialogDescription>
                                     Esta acción notificará al cliente que el trabajo está completado. Si hay un pago en
-                                    escrow, el cliente podrá liberar los fondos.
+                                    pago protegido, el cliente podrá liberar la transferencia.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>

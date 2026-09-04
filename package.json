@@ -11,6 +11,7 @@
     "cap:assets": "capacitor-assets generate",
     "dev": "next dev",
     "lint": "eslint .",
+    "test:moderacion": "node --no-warnings scripts/test-moderacion.mjs",
     "start": "next start"
   },
   "dependencies": {

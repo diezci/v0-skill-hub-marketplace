@@ -76,8 +76,8 @@ export function AbrirDisputaDialog({ trabajoId, rol, trigger, onCreated }: Abrir
             Abrir una disputa
           </DialogTitle>
           <DialogDescription>
-            Úsala si hay un problema con este trabajo y no llegáis a un acuerdo. Al abrirla, el pago en custodia
-            queda <strong>congelado</strong> y el equipo de Diime revisará la conversación y las pruebas para decidir
+            Úsala si hay un problema con este trabajo y no llegáis a un acuerdo. Al abrirla, la transferencia
+            queda <strong>congelada</strong> y el equipo de Diime revisará la conversación y las pruebas para decidir
             si se reembolsa al cliente o se libera al proveedor.
           </DialogDescription>
         </DialogHeader>

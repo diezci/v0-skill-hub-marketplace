@@ -15,8 +15,8 @@ const faqs = [
     a: 'Ve a "Publicar proyecto" en el menú principal. Describe lo que necesitas, selecciona la categoría, tu provincia y el presupuesto estimado. En pocas horas recibirás ofertas de profesionales.',
   },
   {
-    q: "¿Cómo funciona el sistema de pagos escrow?",
-    a: "Cuando aceptas una oferta, el pago queda retenido en una cuenta segura (escrow). El dinero se libera al profesional solo cuando confirmas que el trabajo está completado a tu satisfacción.",
+    q: "¿Cómo funciona el pago protegido?",
+    a: "Cuando aceptas una oferta, pagas mediante Stripe. La transferencia al profesional se aplaza hasta que confirmas la entrega o hasta que Diime resuelve una disputa.",
   },
   {
     q: "¿Cómo sé que un profesional es de confianza?",
@@ -32,7 +32,7 @@ const faqs = [
   },
   {
     q: "¿Cuál es la comisión de Diime?",
-    a: "Diime cobra una pequeña comisión sobre el valor del trabajo completado. Esta comisión cubre el seguro del pago escrow, la verificación de profesionales y el soporte de la plataforma.",
+    a: "Diime cobra una comisión por el servicio de pago protegido, la gestión de disputas, la verificación de profesionales y el soporte de la plataforma.",
   },
 ]
 

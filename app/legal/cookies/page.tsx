@@ -16,7 +16,7 @@ export default function Cookies() {
         </section>
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">Tipos de cookies que usamos</h2>
-          <p><strong>Cookies técnicas (necesarias):</strong> Imprescindibles para el funcionamiento de la plataforma (autenticación, sesión de usuario, carrito de escrow).</p>
+          <p><strong>Cookies técnicas (necesarias):</strong> Imprescindibles para el funcionamiento de la plataforma (autenticación, sesión de usuario y pago protegido).</p>
           <p className="mt-2"><strong>Analítica opcional:</strong> actualmente no cargamos una herramienta de analítica opcional. La preferencia se conserva para que cualquier futura activación requiera consentimiento previo.</p>
           <p className="mt-2"><strong>App nativa:</strong> la versión de iOS y Android guarda automáticamente la opción «solo necesarias» y no activa analítica opcional.</p>
         </section>

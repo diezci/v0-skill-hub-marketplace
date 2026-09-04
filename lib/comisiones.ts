@@ -43,14 +43,19 @@ export function calcularPagoProveedor(precioAcordado: number): {
   comisionProveedor: number
   pagoNeto: number
 } {
+  if (!Number.isFinite(precioAcordado) || precioAcordado <= 0) {
+    return { precioBase: 0, comisionProveedor: 0, pagoNeto: 0 }
+  }
   const comisionProveedor = Math.max(
     precioAcordado * (PLATFORM_CONFIG.comision_proveedor / 100),
     PLATFORM_CONFIG.comision_minima
   )
+  // Un importe muy pequeño nunca puede producir un neto negativo.
+  const comisionAplicada = Math.min(comisionProveedor, precioAcordado)
   return {
     precioBase: precioAcordado,
-    comisionProveedor: Math.round(comisionProveedor * 100) / 100,
-    pagoNeto: Math.round((precioAcordado - comisionProveedor) * 100) / 100,
+    comisionProveedor: Math.round(comisionAplicada * 100) / 100,
+    pagoNeto: Math.round((precioAcordado - comisionAplicada) * 100) / 100,
   }
 }
 

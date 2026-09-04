@@ -29,6 +29,8 @@ import { obtenerDisputas, obtenerDetalleDisputa, resolverDisputa } from "@/app/a
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { formatearFecha } from "@/lib/utils"
+import { AdjuntosLista } from "@/components/adjuntos-lista"
+import { calcularLiquidacion } from "@/lib/liquidacion"
 
 const ESTADO_TRABAJO: Record<string, string> = {
   pendiente_pago: "Pendiente de pago",
@@ -90,6 +92,15 @@ export default function AdminDisputesPage() {
       toast({ title: "Faltan datos", description: "Elige una resolución y escribe la justificación.", variant: "destructive" })
       return
     }
+    if (resolucion === "parcial") {
+      const base = Number(detalle.escrow?.monto_base ?? detalle.trabajo?.precio_acordado ?? 0)
+      const reembolso = Number.parseFloat(montoParcial)
+      if (!Number.isFinite(reembolso) || reembolso <= 0 || reembolso >= base) {
+        toast({ title: "Reparto no válido", description: "El reembolso parcial debe ser mayor que 0 y menor que el precio del servicio.", variant: "destructive" })
+        return
+      }
+    }
+    if (!window.confirm("Esta decisión ejecutará el reembolso y/o la transferencia real en Stripe y no podrá modificarse después. ¿Continuar?")) return
     setIsSubmitting(true)
     const result = await resolverDisputa({
       disputa_id: detalle.disputa.id,
@@ -114,10 +125,37 @@ export default function AdminDisputesPage() {
   if (detalle) {
     const { disputa, trabajo, cliente, profesional, escrow, solicitud, oferta, mensajes, actualizaciones } = detalle
     const base = Number(escrow?.monto_base ?? trabajo?.precio_acordado ?? 0)
+    const reembolsoPrevisto = resolucion === "cliente"
+      ? base
+      : resolucion === "parcial"
+        ? Number.parseFloat(montoParcial) || 0
+        : 0
+    const liquidacionPrevista = calcularLiquidacion(
+      base,
+      reembolsoPrevisto,
+      Number(escrow?.comision_proveedor_original ?? escrow?.comision_proveedor ?? 0),
+    )
+    const comisionCliente = Number(escrow?.comision_cliente || 0)
+    const ingresoDiime = comisionCliente + liquidacionPrevista.comisionProveedor
     const archivosSolicitud: string[] = Array.isArray(solicitud?.archivos) ? solicitud.archivos : []
     const archivosOferta: string[] = Array.isArray(oferta?.archivos) ? oferta.archivos : []
     const archivosActualizaciones: string[] = (actualizaciones || []).flatMap((a: any) => a.archivos || [])
     const todasPruebas = [...archivosSolicitud, ...archivosOferta, ...archivosActualizaciones]
+    const adjuntosSolicitante: string[] = Array.isArray(trabajo?.cancelacion_adjuntos_solicitante)
+      ? trabajo.cancelacion_adjuntos_solicitante
+      : []
+    const adjuntosRespuesta: string[] = Array.isArray(trabajo?.cancelacion_adjuntos_respuesta)
+      ? trabajo.cancelacion_adjuntos_respuesta
+      : []
+    const esDisputaDeCancelacion = Boolean(
+      trabajo?.cancelacion_solicitada_por &&
+        (trabajo?.cancelacion_razon || trabajo?.cancelacion_respuesta_razon || adjuntosSolicitante.length || adjuntosRespuesta.length),
+    )
+    const solicitanteEsCliente = trabajo?.cancelacion_solicitada_por === trabajo?.cliente_id
+    const solicitante = solicitanteEsCliente ? cliente : profesional
+    const respondiente = solicitanteEsCliente ? profesional : cliente
+    const rolSolicitante = solicitanteEsCliente ? "Cliente" : "Proveedor"
+    const rolRespondiente = solicitanteEsCliente ? "Proveedor" : "Cliente"
 
     return (
       <div className="min-h-screen bg-background p-6">
@@ -191,13 +229,13 @@ export default function AdminDisputesPage() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4" /> Pago en custodia
+                  <ShieldCheck className="h-4 w-4" /> Pago protegido
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold">{base.toFixed(2)} €</p>
                 <p className="text-xs text-muted-foreground">
-                  Estado escrow: <span className="font-medium">{escrow?.estado || "—"}</span>
+                  Estado del pago: <span className="font-medium">{escrow?.estado || "—"}</span>
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Trabajo: {ESTADO_TRABAJO[trabajo?.estado] || trabajo?.estado}
@@ -242,6 +280,70 @@ export default function AdminDisputesPage() {
               <p className="text-sm">{disputa.motivo}</p>
             </CardContent>
           </Card>
+
+          {/* En una cancelación discutida cada bloque conserva su autor. No se
+              mezclan los archivos del solicitante con los de quien se opone:
+              esa atribución es parte de la evidencia que necesita el admin. */}
+          {esDisputaDeCancelacion && (
+            <Card className="border-amber-500/30">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Paperclip className="h-4 w-4" /> Argumentos y pruebas de la cancelación
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
+                  <div>
+                    <Badge variant="outline">Solicita cancelar · {rolSolicitante}</Badge>
+                    <p className="mt-2 text-sm font-medium">
+                      {solicitante?.nombre} {solicitante?.apellido}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">Motivo</p>
+                    <p className="whitespace-pre-wrap text-sm">
+                      {trabajo.cancelacion_razon || "No indicó un motivo."}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+                      Archivos aportados ({adjuntosSolicitante.length})
+                    </p>
+                    {adjuntosSolicitante.length > 0 ? (
+                      <AdjuntosLista archivos={adjuntosSolicitante} />
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No adjuntó archivos.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
+                  <div>
+                    <Badge variant="outline">Rechaza cancelar · {rolRespondiente}</Badge>
+                    <p className="mt-2 text-sm font-medium">
+                      {respondiente?.nombre} {respondiente?.apellido}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">Argumentos</p>
+                    <p className="whitespace-pre-wrap text-sm">
+                      {trabajo.cancelacion_respuesta_razon || "No indicó argumentos."}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+                      Archivos aportados ({adjuntosRespuesta.length})
+                    </p>
+                    {adjuntosRespuesta.length > 0 ? (
+                      <AdjuntosLista archivos={adjuntosRespuesta} />
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No adjuntó archivos.</p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <div className="grid md:grid-cols-2 gap-4">
             {/* Conversación */}
@@ -315,25 +417,19 @@ export default function AdminDisputesPage() {
             </Card>
           </div>
 
-          {/* Pruebas / archivos */}
+          {/* Pruebas generales del encargo. Las específicas de la cancelación
+              se muestran arriba, atribuidas expresamente a cada parte. */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <Paperclip className="h-4 w-4" /> Pruebas y archivos adjuntos ({todasPruebas.length})
+                <Paperclip className="h-4 w-4" /> {esDisputaDeCancelacion ? "Otras pruebas del servicio" : "Pruebas y archivos adjuntos"} ({todasPruebas.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
               {todasPruebas.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No se han adjuntado archivos.</p>
               ) : (
-                <div className="flex flex-wrap gap-3">
-                  {todasPruebas.map((src, i) => (
-                    <a key={i} href={src} target="_blank" rel="noreferrer">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={src || "/placeholder.svg"} alt="prueba" className="h-24 w-24 rounded-lg object-cover border hover:opacity-80 transition" />
-                    </a>
-                  ))}
-                </div>
+                <AdjuntosLista archivos={todasPruebas} />
               )}
             </CardContent>
           </Card>
@@ -347,8 +443,8 @@ export default function AdminDisputesPage() {
               <CardContent className="space-y-4">
                 <div className="grid sm:grid-cols-3 gap-3">
                   {[
-                    { v: "cliente", label: "Reembolsar al cliente", desc: `Devolver ${base.toFixed(2)} €` },
-                    { v: "proveedor", label: "Liberar al proveedor", desc: "Pagar el trabajo" },
+                    { v: "cliente", label: "Reembolsar al cliente", desc: `Devolver ${base.toFixed(2)} € del servicio` },
+                    { v: "proveedor", label: "Liberar al proveedor", desc: "Transferir su neto en Stripe" },
                     { v: "parcial", label: "Reembolso parcial", desc: "Repartir el importe" },
                   ].map((opt) => (
                     <button
@@ -379,8 +475,21 @@ export default function AdminDisputesPage() {
                       placeholder={`Máx. ${base.toFixed(2)}`}
                     />
                     <p className="text-xs text-muted-foreground">
-                      El resto ({(base - (Number.parseFloat(montoParcial) || 0)).toFixed(2)} €) se considera a favor del proveedor.
+                      El resto ({liquidacionPrevista.brutoProveedor.toFixed(2)} € brutos) se adjudica al proveedor. Su comisión se prorratea según ese importe.
                     </p>
+                  </div>
+                )}
+
+                {resolucion && (
+                  <div className="rounded-lg border bg-muted/30 p-3 text-sm space-y-1.5">
+                    <p className="font-medium">Vista previa cerrada del reparto</p>
+                    <div className="flex justify-between"><span>Reembolso al cliente</span><span>{liquidacionPrevista.reembolsoCliente.toFixed(2)} €</span></div>
+                    <div className="flex justify-between"><span>Bruto adjudicado al proveedor</span><span>{liquidacionPrevista.brutoProveedor.toFixed(2)} €</span></div>
+                    <div className="flex justify-between"><span>Comisión cliente (se conserva íntegra)</span><span>{comisionCliente.toFixed(2)} €</span></div>
+                    <div className="flex justify-between"><span>Comisión proveedor prorrateada</span><span>{liquidacionPrevista.comisionProveedor.toFixed(2)} €</span></div>
+                    <div className="flex justify-between font-semibold border-t pt-1.5"><span>Transferencia neta al proveedor</span><span>{liquidacionPrevista.netoProveedor.toFixed(2)} €</span></div>
+                    <div className="flex justify-between text-muted-foreground"><span>Comisiones brutas de Diime</span><span>{ingresoDiime.toFixed(2)} €</span></div>
+                    <p className="text-xs text-muted-foreground pt-1">Stripe descuenta sus propios costes a Diime. El admin no puede asignar a Diime ninguna parte adicional del servicio.</p>
                   </div>
                 )}
 
@@ -394,15 +503,15 @@ export default function AdminDisputesPage() {
                   />
                 </div>
 
-                {(resolucion === "cliente" || resolucion === "parcial") && escrow?.stripe_payment_intent_id && (
+                {resolucion && escrow?.stripe_payment_intent_id && (
                   <div className="rounded-lg bg-blue-500/10 border border-blue-500/30 p-3 text-sm text-blue-700 dark:text-blue-300">
-                    Se ejecutará un reembolso real en Stripe sobre el pago original.
+                    Se ejecutarán en Stripe los movimientos mostrados arriba con protección frente a duplicados.
                   </div>
                 )}
 
                 <Button onClick={handleResolver} disabled={isSubmitting || !resolucion || !nota.trim()} className="w-full">
                   {isSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                  Aplicar resolución
+                  Ejecutar resolución en Stripe
                 </Button>
               </CardContent>
             </Card>

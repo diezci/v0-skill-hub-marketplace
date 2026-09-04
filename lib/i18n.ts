@@ -84,7 +84,7 @@ const ES: Diccionario = {
   "cta.publicar": "Publicar un proyecto",
   "cta.soyProfesional": "Soy profesional",
   "cta.sinPermanencia": "Sin permanencia",
-  "cta.pagosSeguros": "Pagos seguros con escrow",
+  "cta.pagosSeguros": "Pagos protegidos hasta la entrega",
   "cta.soporte": "Soporte 7 días a la semana",
 
   // Cookies
@@ -101,7 +101,7 @@ const ES: Diccionario = {
   "bienvenida.cliente.etiqueta": "Necesito un servicio",
   "bienvenida.cliente.1": "Publicas gratis y recibes varias ofertas con precio y plazo.",
   "bienvenida.cliente.2": "Profesionales verificados de tu provincia y especialidad.",
-  "bienvenida.cliente.3": "Pagas protegido: el dinero queda en custodia hasta que confirmes.",
+  "bienvenida.cliente.3": "Pagas por adelantado y la transferencia al profesional espera a tu confirmación.",
   "bienvenida.cliente.4": "Si algo no encaja, media el equipo de Diime.",
   "bienvenida.cliente.cta": "Publicar una demanda",
   "bienvenida.pro.etiqueta": "Soy profesional",
@@ -110,7 +110,7 @@ const ES: Diccionario = {
   "bienvenida.pro.3": "Gestionas todos tus proyectos, entregas y mensajes en un sitio.",
   "bienvenida.pro.4": "Pujar es gratis.",
   "bienvenida.pro.cta": "Crear perfil profesional",
-  "bienvenida.pie": "El pago se retiene en custodia y solo se libera cuando el cliente confirma el trabajo.",
+  "bienvenida.pie": "La transferencia al profesional solo se ejecuta cuando el cliente confirma el trabajo o se resuelve una disputa.",
 }
 
 const EN: Diccionario = {
@@ -162,7 +162,7 @@ const EN: Diccionario = {
   "comoFunciona.2.titulo": "Get offers",
   "comoFunciona.2.texto": "Verified professionals will send you their best proposals within hours.",
   "comoFunciona.3.titulo": "Pay securely",
-  "comoFunciona.3.texto": "Your money is held in escrow until the work is finished to your satisfaction.",
+  "comoFunciona.3.texto": "The provider is paid only after you confirm the completed work.",
   "comoFunciona.4.titulo": "Leave a review",
   "comoFunciona.4.texto": "Share your experience to help others and improve the community.",
 
@@ -173,7 +173,7 @@ const EN: Diccionario = {
   "cta.publicar": "Post a project",
   "cta.soyProfesional": "I'm a professional",
   "cta.sinPermanencia": "No lock-in",
-  "cta.pagosSeguros": "Secure payments with escrow",
+  "cta.pagosSeguros": "Protected payments until delivery",
   "cta.soporte": "Support 7 days a week",
 
   // Cookies
@@ -190,7 +190,7 @@ const EN: Diccionario = {
   "bienvenida.cliente.etiqueta": "I need a service",
   "bienvenida.cliente.1": "Post for free and get several offers with price and timeline.",
   "bienvenida.cliente.2": "Verified professionals in your province and speciality.",
-  "bienvenida.cliente.3": "Pay protected: the money is held in escrow until you confirm.",
+  "bienvenida.cliente.3": "Pay up front; the provider transfer waits for your confirmation.",
   "bienvenida.cliente.4": "If something goes wrong, the Diime team steps in.",
   "bienvenida.cliente.cta": "Post a request",
   "bienvenida.pro.etiqueta": "I'm a professional",
@@ -199,7 +199,7 @@ const EN: Diccionario = {
   "bienvenida.pro.3": "Manage all your projects, deliveries and messages in one place.",
   "bienvenida.pro.4": "Bidding is free.",
   "bienvenida.pro.cta": "Create professional profile",
-  "bienvenida.pie": "The payment is held in escrow and only released once the client confirms the work.",
+  "bienvenida.pie": "The provider transfer is made only after client confirmation or dispute resolution.",
 }
 
 const DICCIONARIOS: Record<Idioma, Diccionario> = { es: ES, en: EN }

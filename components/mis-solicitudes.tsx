@@ -21,7 +21,6 @@ import {
 import { obtenerSolicitudesPorUsuario, actualizarSolicitud, eliminarSolicitud } from "@/app/actions/solicitudes"
 import { aceptarOferta, rechazarOferta } from "@/app/actions/ofertas"
 import { crearConversacion } from "@/app/actions/messages"
-import { liberarFondosEscrow } from "@/app/actions/escrow"
 import { rechazarEntrega, obtenerMisDisputas } from "@/app/actions/disputes"
 import { obtenerMisTrabajos, actualizarProgresoTrabajo, marcarTrabajoEntregado, confirmarTrabajoCompletado } from "@/app/actions/trabajos"
 import { crearResena } from "@/app/actions/reviews"
@@ -98,8 +97,15 @@ export default function MisSolicitudes() {
   const router = useRouter()
 
   const refrescarSolicitudes = async () => {
-    const result = await obtenerSolicitudesPorUsuario()
+    // Las cancelaciones modifican el trabajo, no solo la demanda. Refrescar
+    // ambas colecciones hace visibles al instante los motivos y adjuntos sin
+    // esperar al sondeo periódico de 15 segundos.
+    const [result, trabajosResult] = await Promise.all([
+      obtenerSolicitudesPorUsuario(),
+      obtenerMisTrabajos(),
+    ])
     if (result.data) setSolicitudes(result.data)
+    if (trabajosResult.data) setTrabajos(trabajosResult.data)
   }
 
   const abrirEditar = (solicitud: any) => {
@@ -272,11 +278,6 @@ export default function MisSolicitudes() {
       })
       setActionLoading(false)
     } else {
-      // Release escrow funds (liberarFondosEscrow espera el id del trabajo)
-      if (trabajo.escrow?.id) {
-        await liberarFondosEscrow(trabajo.id)
-      }
-      
       toast({
         title: "Trabajo confirmado",
         description: "El pago ha sido liberado al profesional.",
@@ -320,7 +321,7 @@ export default function MisSolicitudes() {
       toast({
         title: "Entrega rechazada · disputa abierta",
         description:
-          "El pago queda retenido en custodia. El equipo de Diime revisará las pruebas y los términos acordados para decidir.",
+          "La transferencia queda bloqueada. El equipo de Diime revisará las pruebas y los términos acordados para decidir.",
       })
       setShowRejectDialog(false)
       setSelectedTrabajo(null)
@@ -1086,7 +1087,7 @@ export default function MisSolicitudes() {
                                     libera" y no "el profesional recibirá". */}
                                 <AlertDialogDescription>
                                   Al confirmar se libera el pago de{" "}
-                                  {formatearPrecioEuros(trabajo?.precio_acordado)} que tienes en custodia y el trabajo
+                                  {formatearPrecioEuros(trabajo?.precio_acordado)} pendiente de liquidación y el trabajo
                                   queda cerrado. Esta acción no se puede deshacer. ¿Confirmas que el trabajo se ha
                                   completado satisfactoriamente?
                                 </AlertDialogDescription>
@@ -1288,7 +1289,7 @@ export default function MisSolicitudes() {
             <DialogTitle className="text-destructive">Rechazar la entrega</DialogTitle>
             <DialogDescription>
               Si la entrega no cumple lo acordado, puedes rechazarla. El pago{" "}
-              <span className="font-medium">no se reembolsa automáticamente</span>: queda retenido en custodia y el
+              <span className="font-medium">no se reembolsa automáticamente</span>: la transferencia queda bloqueada y el
               equipo de Diime decidirá según las pruebas y los términos acordados.
             </DialogDescription>
           </DialogHeader>

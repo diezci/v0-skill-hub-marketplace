@@ -24,6 +24,8 @@ interface Transaccion {
   monto: number | null
   monto_base: number | null
   retencion_plataforma: number | null
+  comision_cliente: number | null
+  comision_proveedor: number | null
   pago_neto_proveedor: number | null
   monto_reembolsado: number | null
   estado: string
@@ -35,9 +37,10 @@ interface Transaccion {
 }
 
 const eur = (v: number | null | undefined) => `${(v ?? 0).toFixed(2)} EUR`
-// Comisión de la plataforma: la retención si está calculada, si no monto - neto.
+// Solo las comisiones de ambas partes son ingreso bruto de Diime. Un reembolso
+// al cliente nunca puede aparecer como comisión de la plataforma.
 const comisionDe = (t: Transaccion) =>
-  t.retencion_plataforma ?? Math.max(0, (t.monto ?? 0) - (t.pago_neto_proveedor ?? 0))
+  t.retencion_plataforma ?? Math.max(0, (t.comision_cliente ?? 0) + (t.comision_proveedor ?? 0))
 
 export default function AdminPagosPage() {
   const [transacciones, setTransacciones] = useState<Transaccion[]>([])
@@ -98,7 +101,7 @@ export default function AdminPagosPage() {
         return (
           <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/30">
             <Clock className="h-3 w-3 mr-1" />
-            En custodia
+            Pago retenido
           </Badge>
         )
       case "completado":
@@ -122,6 +125,13 @@ export default function AdminPagosPage() {
             En disputa
           </Badge>
         )
+      case "liquidando":
+        return (
+          <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/30">
+            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+            Moviendo fondos
+          </Badge>
+        )
       case "pendiente":
         return (
           <Badge className="bg-muted text-muted-foreground">
@@ -141,7 +151,9 @@ export default function AdminPagosPage() {
 
   const totalRetenido = retenidas.reduce((sum, t) => sum + (t.monto ?? 0), 0)
   const totalLiberado = liberadas.reduce((sum, t) => sum + (t.monto ?? 0), 0)
-  const totalComisiones = liberadas.reduce((sum, t) => sum + comisionDe(t), 0)
+  const totalComisiones = transacciones
+    .filter((t) => t.estado === "completado" || t.estado === "reembolsado")
+    .reduce((sum, t) => sum + comisionDe(t), 0)
   const totalReembolsado = reembolsadas.reduce((sum, t) => sum + (t.monto_reembolsado ?? t.monto ?? 0), 0)
 
   const nombre = (p?: { nombre: string | null; apellido: string | null } | null) =>
@@ -211,7 +223,7 @@ export default function AdminPagosPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <Clock className="h-4 w-4 text-amber-500" />
-              En Escrow
+              Pagos retenidos
             </CardTitle>
           </CardHeader>
           <CardContent>

@@ -61,7 +61,7 @@ const Footer = () => {
               </a>
               <span className="inline-flex min-h-[40px] items-center gap-2">
                 <Shield className="h-4 w-4 text-primary" />
-                Pagos protegidos con escrow
+                Pagos protegidos hasta la entrega
               </span>
             </div>
           </div>

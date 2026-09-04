@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function crearTrabajo(data: {
   oferta_id: string
@@ -55,7 +56,7 @@ export async function crearTrabajo(data: {
     .maybeSingle()
   if (trabajoLimbo) {
     await supabase.from("trabajos").update({ estado: "cancelado", fecha_fin: new Date().toISOString() }).eq("id", trabajoLimbo.id)
-    await supabase.from("transacciones_escrow").update({ estado: "cancelado" }).eq("trabajo_id", trabajoLimbo.id).eq("estado", "pendiente")
+    await createAdminClient()?.from("transacciones_escrow").update({ estado: "cancelado" }).eq("trabajo_id", trabajoLimbo.id).eq("estado", "pendiente")
     if (trabajoLimbo.oferta_id) {
       await supabase.from("ofertas").update({ estado: "rechazada", updated_at: new Date().toISOString() }).eq("id", trabajoLimbo.oferta_id)
     }
@@ -302,9 +303,34 @@ async function postMensajeTrabajo(supabase: any, userId: string, trabajo: any, c
     .eq("id", conv.id)
 }
 
-// Solicita la cancelación de mutuo acuerdo (solo en 'pendiente_pago', sin dinero
-// en escrow). La otra parte deberá aceptarla o rechazarla.
-export async function solicitarCancelacion(trabajoId: string, razon: string) {
+// Solicita la cancelación de mutuo acuerdo antes del pago o durante el trabajo.
+// La otra parte deberá aceptarla o rechazarla.
+const MAX_ADJUNTOS_CANCELACION = 5
+
+function validarAdjuntosCancelacion(archivos: string[] | undefined) {
+  if (!archivos) return { archivos: [] as string[] }
+  if (!Array.isArray(archivos)) return { error: "Los archivos adjuntos no son válidos." }
+
+  const unicos = [...new Set(archivos.map((url) => url?.trim()).filter(Boolean))]
+  if (unicos.length > MAX_ADJUNTOS_CANCELACION) {
+    return { error: `Puedes adjuntar un máximo de ${MAX_ADJUNTOS_CANCELACION} archivos.` }
+  }
+  if (
+    unicos.some((url) => {
+      try {
+        return new URL(url).protocol !== "https:"
+      } catch {
+        return true
+      }
+    })
+  ) {
+    return { error: "Hay un archivo adjunto no válido." }
+  }
+
+  return { archivos: unicos }
+}
+
+export async function solicitarCancelacion(trabajoId: string, razon: string, archivosAdjuntos: string[] = []) {
   const supabase = await createClient()
   const {
     data: { user },
@@ -329,11 +355,22 @@ export async function solicitarCancelacion(trabajoId: string, razon: string) {
     return { error: "Ya hay una solicitud de cancelación pendiente para este trabajo." }
   }
 
+  const motivo = razon?.trim()
+  if (!motivo) return { error: "Explica por qué quieres cancelar el servicio." }
+
+  const adjuntos = validarAdjuntosCancelacion(archivosAdjuntos)
+  if (adjuntos.error) return { error: adjuntos.error }
+
   const { error } = await supabase
     .from("trabajos")
     .update({
       cancelacion_solicitada_por: user.id,
-      cancelacion_razon: razon?.trim() || null,
+      cancelacion_razon: motivo,
+      cancelacion_adjuntos_solicitante: adjuntos.archivos,
+      // Una solicitud nueva no debe heredar argumentos ni pruebas de una
+      // respuesta anterior.
+      cancelacion_respuesta_razon: null,
+      cancelacion_adjuntos_respuesta: [],
       cancelacion_estado: "pendiente",
       updated_at: new Date().toISOString(),
     })
@@ -344,7 +381,7 @@ export async function solicitarCancelacion(trabajoId: string, razon: string) {
     supabase,
     user.id,
     trabajo,
-    `🚫 Ha solicitado cancelar el trabajo "${trabajo.titulo}".${razon?.trim() ? ` Motivo: ${razon.trim()}` : ""} La otra parte puede aceptar o rechazar la cancelación desde la ficha del trabajo.`,
+    `🚫 Ha solicitado cancelar el trabajo "${trabajo.titulo}". Motivo: ${motivo}. La otra parte puede aceptar o rechazar la cancelación desde la ficha del trabajo.`,
   )
 
   // Notificar a la otra parte para que acepte o rechace.
@@ -374,9 +411,156 @@ export async function solicitarCancelacion(trabajoId: string, razon: string) {
   return { data: { ok: true } }
 }
 
+// Mientras la otra parte no haya respondido, quien inició la cancelación puede
+// corregir tanto sus argumentos como las pruebas aportadas. El permiso depende
+// de ser el solicitante, no de ser cliente o proveedor.
+export async function editarSolicitudCancelacion(
+  trabajoId: string,
+  razon: string,
+  archivosAdjuntos: string[] = [],
+) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: trabajo } = await supabase
+    .from("trabajos")
+    .select("id, cliente_id, profesional_id, estado, cancelacion_estado, cancelacion_solicitada_por, titulo")
+    .eq("id", trabajoId)
+    .maybeSingle()
+
+  if (!trabajo || (trabajo.cliente_id !== user.id && trabajo.profesional_id !== user.id)) {
+    return { error: "No tienes permiso sobre este trabajo" }
+  }
+  if (trabajo.cancelacion_estado !== "pendiente") {
+    return { error: "Esta solicitud ya no está pendiente y no se puede editar." }
+  }
+  if (trabajo.cancelacion_solicitada_por !== user.id) {
+    return { error: "Solo quien solicitó la cancelación puede editarla." }
+  }
+
+  const motivo = razon?.trim()
+  if (!motivo) return { error: "Explica por qué quieres cancelar el servicio." }
+  const adjuntos = validarAdjuntosCancelacion(archivosAdjuntos)
+  if (adjuntos.error) return { error: adjuntos.error }
+
+  const { data: actualizado, error } = await supabase
+    .from("trabajos")
+    .update({
+      cancelacion_razon: motivo,
+      cancelacion_adjuntos_solicitante: adjuntos.archivos,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", trabajoId)
+    .eq("cancelacion_estado", "pendiente")
+    .eq("cancelacion_solicitada_por", user.id)
+    .select("id")
+    .maybeSingle()
+  if (error) return { error: error.message }
+  if (!actualizado) return { error: "La solicitud ya ha sido respondida y no se puede editar." }
+
+  await postMensajeTrabajo(
+    supabase,
+    user.id,
+    trabajo,
+    `✏️ Ha actualizado su solicitud de cancelación de "${trabajo.titulo}". Motivo: ${motivo}.`,
+  )
+
+  const otroId = trabajo.cliente_id === user.id ? trabajo.profesional_id : trabajo.cliente_id
+  const otroEsCliente = otroId === trabajo.cliente_id
+  const { crearNotificacion } = await import("./notificaciones")
+  await crearNotificacion({
+    usuarioId: otroId,
+    tipo: "cancelacion_actualizada",
+    titulo: "Solicitud de cancelación actualizada",
+    mensaje: `La otra parte ha actualizado sus argumentos o archivos para cancelar "${trabajo.titulo}".`,
+    link: otroEsCliente ? "/mis-solicitudes" : "/mis-trabajos",
+  })
+
+  revalidatePath("/mis-solicitudes")
+  revalidatePath("/mis-trabajos")
+  revalidatePath("/mensajes")
+  return { data: { ok: true } }
+}
+
+// Retira una solicitud aún pendiente sin cancelar el servicio ni modificar el
+// estado del trabajo. Puede hacerlo quien la inició, sea cliente o proveedor.
+export async function retirarSolicitudCancelacion(trabajoId: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  const { data: trabajo } = await supabase
+    .from("trabajos")
+    .select("id, cliente_id, profesional_id, cancelacion_estado, cancelacion_solicitada_por, titulo")
+    .eq("id", trabajoId)
+    .maybeSingle()
+
+  if (!trabajo || (trabajo.cliente_id !== user.id && trabajo.profesional_id !== user.id)) {
+    return { error: "No tienes permiso sobre este trabajo" }
+  }
+  if (trabajo.cancelacion_estado !== "pendiente") {
+    return { error: "Esta solicitud ya no está pendiente y no se puede retirar." }
+  }
+  if (trabajo.cancelacion_solicitada_por !== user.id) {
+    return { error: "Solo quien solicitó la cancelación puede retirarla." }
+  }
+
+  const { data: retirado, error } = await supabase
+    .from("trabajos")
+    .update({
+      cancelacion_estado: null,
+      cancelacion_solicitada_por: null,
+      cancelacion_razon: null,
+      cancelacion_adjuntos_solicitante: [],
+      cancelacion_respuesta_razon: null,
+      cancelacion_adjuntos_respuesta: [],
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", trabajoId)
+    .eq("cancelacion_estado", "pendiente")
+    .eq("cancelacion_solicitada_por", user.id)
+    .select("id")
+    .maybeSingle()
+  if (error) return { error: error.message }
+  if (!retirado) return { error: "La solicitud ya ha sido respondida y no se puede retirar." }
+
+  await postMensajeTrabajo(
+    supabase,
+    user.id,
+    trabajo,
+    `↩️ Ha retirado la solicitud de cancelación de "${trabajo.titulo}". El servicio continúa activo.`,
+  )
+
+  const otroId = trabajo.cliente_id === user.id ? trabajo.profesional_id : trabajo.cliente_id
+  const otroEsCliente = otroId === trabajo.cliente_id
+  const { crearNotificacion } = await import("./notificaciones")
+  await crearNotificacion({
+    usuarioId: otroId,
+    tipo: "cancelacion_retirada",
+    titulo: "Solicitud de cancelación retirada",
+    mensaje: `La otra parte ha retirado la solicitud de cancelación de "${trabajo.titulo}". El servicio continúa.`,
+    link: otroEsCliente ? "/mis-solicitudes" : "/mis-trabajos",
+  })
+
+  revalidatePath("/mis-solicitudes")
+  revalidatePath("/mis-trabajos")
+  revalidatePath("/mensajes")
+  return { data: { ok: true } }
+}
+
 // Responde a una solicitud de cancelación: la OTRA parte acepta (trabajo cancelado)
-// o rechaza (queda 'rechazada' y el solicitante podrá abrir disputa).
-export async function responderCancelacion(trabajoId: string, aceptar: boolean) {
+// o rechaza (la disputa se abre automáticamente para que decida el admin).
+export async function responderCancelacion(
+  trabajoId: string,
+  aceptar: boolean,
+  razonRespuesta = "",
+  archivosAdjuntos: string[] = [],
+) {
   const supabase = await createClient()
   const {
     data: { user },
@@ -389,7 +573,7 @@ export async function responderCancelacion(trabajoId: string, aceptar: boolean) 
       // cancelacion_razon: sin pedirla, la disputa que se abre al rechazar
       // quedaba con "Motivo original de la cancelación: no indicado" aunque el
       // solicitante lo hubiera escrito, y quien la resuelve se queda sin el dato.
-      "id, cliente_id, profesional_id, estado, cancelacion_estado, cancelacion_solicitada_por, cancelacion_razon, solicitud_id, oferta_id, titulo",
+      "id, cliente_id, profesional_id, estado, cancelacion_estado, cancelacion_solicitada_por, cancelacion_razon, cancelacion_adjuntos_solicitante, solicitud_id, oferta_id, titulo",
     )
     .eq("id", trabajoId)
     .maybeSingle()
@@ -402,6 +586,13 @@ export async function responderCancelacion(trabajoId: string, aceptar: boolean) 
   }
   if (trabajo.cancelacion_solicitada_por === user.id) {
     return { error: "Tú solicitaste la cancelación; debe responder la otra parte." }
+  }
+
+  const razonOposicion = razonRespuesta?.trim()
+  const adjuntos = validarAdjuntosCancelacion(archivosAdjuntos)
+  if (adjuntos.error) return { error: adjuntos.error }
+  if (!aceptar && !razonOposicion) {
+    return { error: "Explica por qué te opones a la cancelación para que el equipo de Diime pueda decidir." }
   }
 
   if (aceptar) {
@@ -418,6 +609,8 @@ export async function responderCancelacion(trabajoId: string, aceptar: boolean) 
       .update({
         estado: "cancelado",
         cancelacion_estado: null,
+        cancelacion_respuesta_razon: null,
+        cancelacion_adjuntos_respuesta: [],
         fecha_fin: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -462,34 +655,77 @@ export async function responderCancelacion(trabajoId: string, aceptar: boolean) 
     // Rechazar la cancelación abre AUTOMÁTICAMENTE una disputa: el equipo de
     // Diime la resolverá según los términos de la contratación (en caso de
     // duda, a favor del cliente).
+    const { data: escrowPrevio } = await supabase
+      .from("transacciones_escrow")
+      .select("estado")
+      .eq("trabajo_id", trabajoId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
     const { error } = await supabase
       .from("trabajos")
       .update({
         estado: "en_disputa",
         cancelacion_estado: "rechazada",
+        cancelacion_respuesta_razon: razonOposicion,
+        cancelacion_adjuntos_respuesta: adjuntos.archivos,
         updated_at: new Date().toISOString(),
       })
       .eq("id", trabajoId)
     if (error) return { error: error.message }
 
     const tipoDisputa = trabajo.cancelacion_solicitada_por === trabajo.cliente_id ? "cliente" : "proveedor"
-    await supabase.from("disputas").insert({
+    const { error: errorDisputa } = await supabase.from("disputas").insert({
       trabajo_id: trabajoId,
       cliente_id: trabajo.cliente_id,
       profesional_id: trabajo.profesional_id,
       tipo: tipoDisputa,
-      motivo: `Cancelación solicitada y rechazada. Motivo original de la cancelación: ${
+      motivo: `Cancelación solicitada y rechazada. Motivo de quien solicita: ${
         (trabajo as any).cancelacion_razon || "no indicado"
-      }.`,
+      }. Argumentos de quien se opone: ${razonOposicion}.`,
       estado: "abierta",
+      estado_trabajo_previo: trabajo.estado,
+      estado_escrow_previo: escrowPrevio?.estado ?? null,
     })
-    await supabase.from("transacciones_escrow").update({ estado: "disputa" }).eq("trabajo_id", trabajoId)
+    if (errorDisputa) {
+      // Sin disputa no habría nada que el admin pudiera revisar. Dejamos la
+      // solicitud pendiente para que la otra parte pueda volver a responder.
+      await supabase
+        .from("trabajos")
+        .update({
+          estado: trabajo.estado,
+          cancelacion_estado: "pendiente",
+          cancelacion_respuesta_razon: null,
+          cancelacion_adjuntos_respuesta: [],
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", trabajoId)
+      return { error: `No se pudo abrir la revisión: ${errorDisputa.message}` }
+    }
+    await createAdminClient()?.from("transacciones_escrow").update({ estado: "disputa" }).eq("trabajo_id", trabajoId)
+
+    const { data: admins } = await supabase.from("profiles").select("id").eq("es_admin", true)
+    if (admins?.length) {
+      const totalAdjuntos =
+        ((trabajo as any).cancelacion_adjuntos_solicitante?.length || 0) + (adjuntos.archivos ?? []).length
+      await supabase.from("notificaciones").insert(
+        admins.map((admin: { id: string }) => ({
+          usuario_id: admin.id,
+          tipo: "disputa_abierta_admin",
+          titulo: "Cancelación rechazada para revisar",
+          mensaje: `Se ha abierto una disputa sobre "${trabajo.titulo}" con los argumentos de ambas partes y ${totalAdjuntos} archivo${totalAdjuntos === 1 ? "" : "s"} adjunto${totalAdjuntos === 1 ? "" : "s"}.`,
+          link: "/admin/disputas",
+          leida: false,
+        })),
+      )
+    }
 
     await postMensajeTrabajo(
       supabase,
       user.id,
       trabajo,
-      `❌ Ha rechazado la cancelación del trabajo "${trabajo.titulo}". Se abre una disputa que resolverá el equipo de Diime según los términos de la contratación (en caso de duda, a favor del cliente).`,
+      `❌ Ha rechazado la cancelación del trabajo "${trabajo.titulo}". Motivo: ${razonOposicion}. Se abre una disputa que resolverá el equipo de Diime según los términos de la contratación (en caso de duda, a favor del cliente).`,
     )
   }
 
@@ -511,6 +747,7 @@ export async function responderCancelacion(trabajoId: string, aceptar: boolean) 
   revalidatePath("/mis-solicitudes")
   revalidatePath("/mis-trabajos")
   revalidatePath("/mensajes")
+  revalidatePath("/admin/disputas")
   return { data: { ok: true } }
 }
 
@@ -593,12 +830,18 @@ export async function marcarTrabajoEntregado(trabajoId: string, mensaje?: string
   // Verify user is the professional
   const { data: trabajo } = await supabase
     .from("trabajos")
-    .select("profesional_id, cliente_id, titulo")
+    .select("profesional_id, cliente_id, titulo, estado, cancelacion_estado")
     .eq("id", trabajoId)
     .single()
 
   if (!trabajo || trabajo.profesional_id !== user.id) {
     return { error: "No tienes permiso para actualizar este trabajo" }
+  }
+  if (trabajo.estado !== "en_progreso") {
+    return { error: "Solo se puede entregar un trabajo que esté en progreso." }
+  }
+  if (trabajo.cancelacion_estado === "pendiente") {
+    return { error: "Hay una cancelación pendiente. Debe resolverse antes de entregar el trabajo." }
   }
 
   const { data, error } = await supabase
@@ -610,11 +853,16 @@ export async function marcarTrabajoEntregado(trabajoId: string, mensaje?: string
       updated_at: new Date().toISOString(),
     })
     .eq("id", trabajoId)
+    .eq("estado", "en_progreso")
+    .is("cancelacion_estado", null)
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) {
     return { error: error.message }
+  }
+  if (!data) {
+    return { error: "El estado del trabajo ha cambiado. Actualiza la página antes de continuar." }
   }
 
   // Create delivery update record
@@ -651,59 +899,12 @@ export async function marcarTrabajoEntregado(trabajoId: string, mensaje?: string
 
 // Client confirms work completion and releases payment
 export async function confirmarTrabajoCompletado(trabajoId: string) {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return { error: "No autenticado" }
-  }
-
-  // Verify user is the client
-  const { data: trabajo } = await supabase
-    .from("trabajos")
-    .select("cliente_id, estado")
-    .eq("id", trabajoId)
-    .single()
-
-  if (!trabajo || trabajo.cliente_id !== user.id) {
-    return { error: "No tienes permiso para confirmar este trabajo" }
-  }
-
-  if (trabajo.estado !== "entregado") {
-    return { error: "El trabajo debe estar entregado para poder confirmarlo" }
-  }
-
-  const { data, error } = await supabase
-    .from("trabajos")
-    .update({
-      estado: "completado",
-      fecha_fin: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", trabajoId)
-    .select()
-    .single()
-
-  if (error) {
-    return { error: error.message }
-  }
-
-  // Update solicitud
-  await supabase.from("solicitudes").update({ estado: "completada" }).eq("id", data.solicitud_id)
-
-  // Create confirmation record
-  await supabase.from("actualizaciones_trabajo").insert({
-    trabajo_id: trabajoId,
-    usuario_id: user.id,
-    tipo: "confirmacion",
-    mensaje: "El cliente ha confirmado la finalización del trabajo.",
-    progreso: 100,
-  })
-
-  revalidatePath("/mis-solicitudes")
-  return { data }
+  // Confirmación y transferencia forman una sola operación de servidor. No se
+  // marca el trabajo como completado hasta que Stripe acepta la transferencia.
+  const { liberarFondosEscrow } = await import("./escrow")
+  const resultado = await liberarFondosEscrow(trabajoId)
+  if (resultado.error) return { error: resultado.error }
+  return { data: { id: trabajoId, estado: "completado" } }
 }
 
 // Get work updates/progress history

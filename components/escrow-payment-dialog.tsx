@@ -7,11 +7,14 @@ import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Shield, Lock, CheckCircle, AlertCircle } from "lucide-react"
+import { Shield, Lock, CheckCircle, AlertCircle, WalletCards } from "lucide-react"
 import { crearPagoEscrow, confirmarPagoEscrow } from "@/app/actions/escrow"
 import { calcularTotalCliente, formatearPrecio } from "@/lib/comisiones"
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
+const stripePromise = loadStripe(
+  (process.env.NEXT_PUBLIC_DIIME_STRIPE_PUBLISHABLE_KEY ||
+    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)!,
+)
 
 interface EscrowPaymentDialogProps {
   open: boolean
@@ -83,7 +86,7 @@ export function EscrowPaymentDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Pago Seguro con Proteccion Escrow</DialogTitle>
+          <DialogTitle>Pago protegido hasta la entrega</DialogTitle>
           <DialogDescription>
             Los fondos se retienen de forma segura hasta que confirmes que el trabajo esta completo
           </DialogDescription>
@@ -94,7 +97,7 @@ export function EscrowPaymentDialog({
             <CheckCircle className="mx-auto h-16 w-16 text-green-500" />
             <h3 className="text-xl font-semibold">Pago Exitoso</h3>
             <p className="text-muted-foreground">
-              Tus fondos estan seguros en custodia hasta que el trabajo sea completado
+              La transferencia al profesional se hará cuando confirmes la entrega o se resuelva una disputa
             </p>
           </div>
         ) : !clientSecret ? (
@@ -123,6 +126,15 @@ export function EscrowPaymentDialog({
               </div>
 
               <div className="space-y-3 rounded-lg bg-muted p-4">
+                <div className="flex items-start gap-3">
+                  <WalletCards className="mt-1 h-5 w-5 text-primary" />
+                  <div>
+                    <p className="font-medium">Elige cómo pagar</p>
+                    <p className="text-sm text-muted-foreground">
+                      Tarjeta, Apple Pay, Google Pay o Link, según disponibilidad
+                    </p>
+                  </div>
+                </div>
                 <div className="flex items-start gap-3">
                   <Shield className="mt-1 h-5 w-5 text-primary" />
                   <div>

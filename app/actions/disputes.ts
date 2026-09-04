@@ -1,9 +1,11 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { stripe } from "@/lib/stripe"
-import { calcularPagoProveedor, formatearPrecio } from "@/lib/comisiones"
+import { formatearPrecio } from "@/lib/comisiones"
 import { revalidatePath } from "next/cache"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { calcularLiquidacion, mismoImporte } from "@/lib/liquidacion"
+import { crearTransferGroup, ejecutarLiquidacionStripe } from "@/lib/stripe-liquidacion"
 
 // Comprueba que el usuario actual es un empleado de Diime (es_admin).
 async function requireAdmin(supabase: any) {
@@ -39,6 +41,8 @@ export async function crearDisputa(data: {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { error: "No autenticado" }
+  const admin = createAdminClient()
+  if (!admin) return { error: "La configuración segura del servidor no está disponible" }
 
   const motivo = data.motivo?.trim()
   if (!motivo) return { error: "Describe el motivo de la disputa." }
@@ -68,7 +72,7 @@ export async function crearDisputa(data: {
     if (trabajo.estado === "pendiente_pago") {
       return {
         error:
-          "Aún no se ha realizado el pago, así que no hay fondos en custodia. Si el cliente no paga, cancela el trabajo en su lugar.",
+          "Aún no se ha realizado el pago. Si el cliente no paga, cancela el trabajo en su lugar.",
       }
     }
     if (!ESTADOS_DISPUTABLES.includes(trabajo.estado)) {
@@ -116,7 +120,7 @@ export async function crearDisputa(data: {
 
   // Marcar el trabajo y el escrow como en disputa (congela los fondos).
   await supabase.from("trabajos").update({ estado: "en_disputa" }).eq("id", data.trabajo_id)
-  await supabase.from("transacciones_escrow").update({ estado: "disputa" }).eq("trabajo_id", data.trabajo_id)
+  await admin.from("transacciones_escrow").update({ estado: "disputa" }).eq("trabajo_id", data.trabajo_id)
 
   // Avisar a la OTRA parte (la que no ha abierto la disputa). El enlace lleva a
   // su sección de seguimiento según su rol en este trabajo.
@@ -125,7 +129,7 @@ export async function crearDisputa(data: {
   const aviso =
     data.avisoOtraParte ?? {
       titulo: "Se ha abierto una disputa",
-      mensaje: `Se ha abierto una disputa sobre "${titulo}". El pago queda retenido en custodia y el equipo de Diime la revisará según las pruebas y los términos acordados.`,
+      mensaje: `Se ha abierto una disputa sobre "${titulo}". La transferencia queda bloqueada y el equipo de Diime revisará las pruebas y los términos acordados.`,
     }
   if (otraParteId) {
     const { crearNotificacion } = await import("./notificaciones")
@@ -196,7 +200,7 @@ export async function rechazarEntrega(trabajoId: string, motivo: string) {
     motivo: `Entrega rechazada por el cliente. Motivo: ${razon}`,
     avisoOtraParte: {
       titulo: "El cliente ha rechazado tu entrega",
-      mensaje: `El cliente considera que "${trabajo.titulo ?? "el trabajo"}" no cumple lo acordado. El pago sigue retenido en custodia y el equipo de Diime decidirá según las pruebas y los términos. Motivo: ${razon}`,
+      mensaje: `El cliente considera que "${trabajo.titulo ?? "el trabajo"}" no cumple lo acordado. La transferencia sigue bloqueada y el equipo de Diime decidirá según las pruebas y los términos. Motivo: ${razon}`,
     },
   })
   if (res.error) return { error: res.error }
@@ -252,7 +256,9 @@ export async function obtenerMisDisputas() {
     (data || []).map(async (d: any) => {
       const { data: trabajo } = await supabase
         .from("trabajos")
-        .select("titulo, estado")
+        .select(
+          "titulo, estado, cancelacion_solicitada_por, cancelacion_adjuntos_solicitante, cancelacion_respuesta_razon, cancelacion_adjuntos_respuesta",
+        )
         .eq("id", d.trabajo_id)
         .maybeSingle()
       const otraParteId = d.cliente_id === user.id ? d.profesional_id : d.cliente_id
@@ -263,6 +269,10 @@ export async function obtenerMisDisputas() {
         ...d,
         trabajo_titulo: trabajo?.titulo ?? "Trabajo",
         trabajo_estado: trabajo?.estado ?? null,
+        cancelacion_solicitada_por: trabajo?.cancelacion_solicitada_por ?? null,
+        cancelacion_respuesta_razon: trabajo?.cancelacion_respuesta_razon ?? null,
+        cancelacion_adjuntos_solicitante: trabajo?.cancelacion_adjuntos_solicitante ?? [],
+        cancelacion_adjuntos_respuesta: trabajo?.cancelacion_adjuntos_respuesta ?? [],
         la_abri_yo: d.tipo === miRol,
         // Mi papel EN ESTA disputa. Es imprescindible: el mismo fallo se lee al
         // revés según seas cliente o profesional, y hasta ahora la pantalla lo
@@ -511,6 +521,8 @@ export async function resolverDisputa(data: {
   const auth = await requireAdmin(supabase)
   if ("error" in auth) return { error: auth.error }
   const adminId = auth.user.id
+  const admin = createAdminClient()
+  if (!admin) return { error: "La configuración segura del servidor no está disponible" }
 
   const { data: disputa } = await supabase
     .from("disputas")
@@ -524,103 +536,192 @@ export async function resolverDisputa(data: {
   if (disputa.estado === "retirada") return { error: "Esta disputa ha sido retirada por quien la abrió" }
   if (disputa.estado !== "abierta") return { error: "Esta disputa no está abierta" }
 
-  const { data: escrow } = await supabase
+  const { data: escrow, error: escrowError } = await admin
     .from("transacciones_escrow")
     .select("*")
     .eq("trabajo_id", disputa.trabajo_id)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle()
+  if (escrowError) {
+    return { error: `No se ha podido verificar el pago: ${escrowError.message}` }
+  }
 
   const base = Number(escrow?.monto_base ?? 0)
-  // Se declara fuera del try para poder contarlo en las notificaciones.
-  let montoReembolso = 0
+  const totalCobrado = Number(escrow?.monto ?? 0)
+  const comisionCliente = Number(escrow?.comision_cliente ?? 0)
+  const comisionProveedorOriginal = Number(
+    escrow?.comision_proveedor_original ?? escrow?.comision_proveedor ?? 0,
+  )
+  if (
+    !Number.isFinite(base) ||
+    base < 0 ||
+    !Number.isFinite(totalCobrado) ||
+    totalCobrado < 0 ||
+    !Number.isFinite(comisionCliente) ||
+    comisionCliente < 0 ||
+    !Number.isFinite(comisionProveedorOriginal) ||
+    comisionProveedorOriginal < 0 ||
+    comisionProveedorOriginal > base ||
+    (base > 0 && !mismoImporte(totalCobrado, base + comisionCliente))
+  ) {
+    return { error: "Los importes guardados para este pago no son válidos; no se ha movido dinero." }
+  }
+  const montoReembolso =
+    data.resolucion === "proveedor"
+      ? 0
+      : data.resolucion === "cliente"
+        ? base
+        : Number(data.monto_reembolso)
+
+  if (data.resolucion === "parcial" && (!Number.isFinite(montoReembolso) || montoReembolso <= 0 || montoReembolso >= base)) {
+    return { error: "En un reparto parcial, el reembolso debe ser mayor que 0 y menor que el precio del servicio." }
+  }
+
+  const liquidacion = calcularLiquidacion(base, montoReembolso, comisionProveedorOriginal)
+  const operacionId = `disputa-${disputa.id}`
 
   try {
-    if (data.resolucion === "proveedor") {
-      // Liberar fondos al proveedor.
-      await supabase
-        .from("transacciones_escrow")
-        .update({ estado: "completado", fecha_liberacion: new Date().toISOString() })
-        .eq("id", escrow?.id)
-      await supabase
-        .from("trabajos")
-        .update({ estado: "completado", fecha_fin: new Date().toISOString() })
-        .eq("id", disputa.trabajo_id)
-      const { data: t } = await supabase.from("trabajos").select("solicitud_id").eq("id", disputa.trabajo_id).maybeSingle()
-      if (t?.solicitud_id) await supabase.from("solicitudes").update({ estado: "completada" }).eq("id", t.solicitud_id)
-    } else {
-      // Reembolso al cliente (total o parcial).
-      montoReembolso =
-        data.resolucion === "parcial"
-          ? Math.min(Math.max(Number(data.monto_reembolso ?? base / 2), 0), base)
-          : base
-
-      if (escrow?.stripe_payment_intent_id && montoReembolso > 0) {
-        await stripe.refunds.create({
-          payment_intent: escrow.stripe_payment_intent_id,
-          amount: Math.round(montoReembolso * 100),
-          reason: "requested_by_customer",
-        })
+    // Una disputa previa al pago puede resolverse sin movimientos. Si sí hay
+    // dinero, el reparto completo se reclama antes de llamar a Stripe.
+    if (base > 0) {
+      if (!escrow?.id || !escrow.stripe_payment_intent_id) {
+        return { error: "El pago no está conciliado con Stripe; no se ha movido dinero." }
+      }
+      if (escrow.cliente_id !== disputa.cliente_id || escrow.profesional_id !== disputa.profesional_id) {
+        return { error: "Las partes del pago no coinciden con las de la disputa; no se ha movido dinero." }
+      }
+      if (escrow.liquidacion_operacion_id && escrow.liquidacion_operacion_id !== operacionId) {
+        return { error: "Este pago ya tiene una liquidación diferente en curso." }
       }
 
-      // En una resolución PARCIAL el trabajo sí se ha hecho a medias: lo que no
-      // se devuelve al cliente le corresponde al proveedor y hay que liberarlo.
-      // Antes solo se registraba el reembolso, así que el escrow se quedaba en
-      // "reembolsado", sin fecha_liberacion y con el pago_neto_proveedor del
-      // importe COMPLETO: el proveedor veía el trabajo como si nadie le fuera a
-      // pagar y la plataforma se apuntaba comisión sobre dinero que no cobró.
-      const quedaParaProveedor = Math.max(base - montoReembolso, 0)
-      const { comisionProveedor, pagoNeto } = calcularPagoProveedor(quedaParaProveedor)
-      const ahora = new Date().toISOString()
+      const operacionYaReclamada = escrow.liquidacion_operacion_id === operacionId
+      if (
+        operacionYaReclamada &&
+        ![
+          mismoImporte(escrow.monto_reembolsado, liquidacion.reembolsoCliente),
+          mismoImporte(escrow.monto_bruto_proveedor, liquidacion.brutoProveedor),
+          mismoImporte(escrow.comision_proveedor, liquidacion.comisionProveedor),
+          mismoImporte(escrow.pago_neto_proveedor, liquidacion.netoProveedor),
+          mismoImporte(escrow.comision_cliente_retenida, comisionCliente),
+        ].every(Boolean)
+      ) {
+        return {
+          error:
+            "El reparto de esta disputa ya fue fijado y no puede cambiarse después de iniciar movimientos en Stripe.",
+        }
+      }
 
-      await supabase
-        .from("transacciones_escrow")
-        .update(
-          data.resolucion === "parcial"
-            ? {
-                // "completado": el dinero ya está repartido entre las dos partes.
-                estado: "completado",
-                monto_reembolsado: montoReembolso,
-                fecha_reembolso: ahora,
-                // La comisión se calcula sobre lo que el proveedor cobra de
-                // verdad, no sobre el precio pactado.
-                comision_proveedor: comisionProveedor,
-                pago_neto_proveedor: pagoNeto,
-                fecha_liberacion: ahora,
-              }
-            : {
-                estado: "reembolsado",
-                monto_reembolsado: montoReembolso,
-                fecha_reembolso: ahora,
-                // Reembolso total: el proveedor no cobra nada, así que tampoco
-                // hay comisión que aplicarle.
-                comision_proveedor: 0,
-                pago_neto_proveedor: 0,
-              },
-        )
-        .eq("id", escrow?.id)
-
-      await supabase
-        .from("trabajos")
-        .update({ estado: data.resolucion === "parcial" ? "completado" : "rechazado", fecha_fin: ahora })
-        .eq("id", disputa.trabajo_id)
-
-      // Una resolución parcial cierra el trabajo: la demanda pasa a completada,
-      // como en la resolución a favor del proveedor. Si no, se quedaba "en
-      // progreso" para siempre en Mis Solicitudes.
-      if (data.resolucion === "parcial") {
-        const { data: t } = await supabase
-          .from("trabajos")
-          .select("solicitud_id")
-          .eq("id", disputa.trabajo_id)
+      let connectedAccountId: string | null = null
+      if (escrow.liquidacion_estado !== "completada" && liquidacion.netoProveedor > 0) {
+        const { data: cuenta } = await admin
+          .from("profesionales")
+          .select("stripe_account_id, stripe_transferencias_habilitadas, stripe_payouts_habilitados")
+          .eq("id", disputa.profesional_id)
           .maybeSingle()
-        if (t?.solicitud_id) await supabase.from("solicitudes").update({ estado: "completada" }).eq("id", t.solicitud_id)
+        if (!cuenta?.stripe_account_id || !cuenta.stripe_transferencias_habilitadas || !cuenta.stripe_payouts_habilitados) {
+          return { error: "La cuenta Stripe del profesional no puede recibir transferencias. La disputa sigue abierta." }
+        }
+        connectedAccountId = cuenta.stripe_account_id
+      }
+
+      if (escrow.liquidacion_estado !== "completada") {
+        const valoresReparto = operacionYaReclamada
+          ? {
+              estado: "liquidando",
+              liquidacion_estado: "procesando",
+              liquidacion_error: null,
+            }
+          : {
+              estado: "liquidando",
+              liquidacion_estado: "procesando",
+              liquidacion_operacion_id: operacionId,
+              liquidacion_error: null,
+              monto_reembolsado: liquidacion.reembolsoCliente,
+              monto_bruto_proveedor: liquidacion.brutoProveedor,
+              comision_proveedor: liquidacion.comisionProveedor,
+              pago_neto_proveedor: liquidacion.netoProveedor,
+              comision_cliente_retenida: comisionCliente,
+            }
+        let reclamarQuery = admin
+          .from("transacciones_escrow")
+          .update(valoresReparto)
+          .eq("id", escrow.id)
+          .in("estado", ["disputa", "liquidando"])
+
+        // La primera petición gana la reclamación. Un reintento posterior solo
+        // puede reabrir exactamente la misma operación y nunca sobrescribir el
+        // reparto que pudo haberse ejecutado parcialmente en Stripe.
+        reclamarQuery = operacionYaReclamada
+          ? reclamarQuery.eq("liquidacion_operacion_id", operacionId)
+          : reclamarQuery.is("liquidacion_operacion_id", null)
+
+        const { data: reclamada, error: claimError } = await reclamarQuery
+          .select("id")
+          .maybeSingle()
+        if (claimError || !reclamada) return { error: claimError?.message || "Otro proceso está liquidando este pago." }
+
+        const movimientos = await ejecutarLiquidacionStripe({
+          paymentIntentId: escrow.stripe_payment_intent_id,
+          chargeId: escrow.stripe_charge_id,
+          connectedAccountId,
+          transferGroup: escrow.stripe_transfer_group || crearTransferGroup(disputa.trabajo_id),
+          montoTotal: totalCobrado,
+          refundId: escrow.stripe_refund_id,
+          transferId: escrow.stripe_transfer_id,
+          reembolsoCliente: liquidacion.reembolsoCliente,
+          netoProveedor: liquidacion.netoProveedor,
+          operacionId,
+          metadata: { trabajo_id: disputa.trabajo_id, escrow_id: escrow.id, disputa_id: disputa.id },
+        })
+
+        const ahoraLiquidacion = new Date().toISOString()
+        const { error: cerrarPagoError } = await admin
+          .from("transacciones_escrow")
+          .update({
+            estado: liquidacion.brutoProveedor > 0 ? "completado" : "reembolsado",
+            liquidacion_estado: "completada",
+            liquidacion_error: null,
+            stripe_charge_id: movimientos.chargeId,
+            stripe_refund_id: movimientos.refundId,
+            stripe_refund_status: movimientos.refundStatus,
+            stripe_transfer_id: movimientos.transferId,
+            monto_reembolsado: liquidacion.reembolsoCliente,
+            monto_bruto_proveedor: liquidacion.brutoProveedor,
+            comision_proveedor: liquidacion.comisionProveedor,
+            pago_neto_proveedor: liquidacion.netoProveedor,
+            comision_cliente_retenida: comisionCliente,
+            retencion_plataforma: comisionCliente + liquidacion.comisionProveedor,
+            fecha_reembolso: liquidacion.reembolsoCliente > 0 ? ahoraLiquidacion : null,
+            fecha_liberacion: liquidacion.netoProveedor > 0 ? ahoraLiquidacion : null,
+          })
+          .eq("id", escrow.id)
+          .eq("liquidacion_operacion_id", operacionId)
+        if (cerrarPagoError) throw cerrarPagoError
       }
     }
 
+    const ahora = new Date().toISOString()
+    const { data: trabajo } = await admin
+      .from("trabajos")
+      .select("solicitud_id")
+      .eq("id", disputa.trabajo_id)
+      .maybeSingle()
+    const { error: trabajoError } = await admin
+      .from("trabajos")
+      .update({ estado: data.resolucion === "cliente" ? "rechazado" : "completado", fecha_fin: ahora, updated_at: ahora })
+      .eq("id", disputa.trabajo_id)
+    if (trabajoError) throw trabajoError
+    if (trabajo?.solicitud_id) {
+      const { error: solicitudError } = await admin
+        .from("solicitudes")
+        .update({ estado: data.resolucion === "cliente" ? "cancelada" : "completada" })
+        .eq("id", trabajo.solicitud_id)
+      if (solicitudError) throw solicitudError
+    }
+
     // Cerrar la disputa con la decisión y la nota del empleado.
-    const { error: updError } = await supabase
+    const { data: disputaCerrada, error: updError } = await admin
       .from("disputas")
       .update({
         estado: "resuelta",
@@ -631,7 +732,11 @@ export async function resolverDisputa(data: {
         updated_at: new Date().toISOString(),
       })
       .eq("id", data.disputa_id)
+      .eq("estado", "abierta")
+      .select("id")
+      .maybeSingle()
     if (updError) return { error: updError.message }
+    if (!disputaCerrada) return { data: { ok: true } }
 
     await notificarResolucionDisputa({
       supabase,
@@ -640,6 +745,7 @@ export async function resolverDisputa(data: {
       nota: data.nota,
       base,
       montoReembolso,
+      netoProveedor: liquidacion.netoProveedor,
     })
 
     revalidatePath("/admin/disputas")
@@ -647,6 +753,14 @@ export async function resolverDisputa(data: {
     revalidatePath("/mis-solicitudes")
     return { data: { ok: true } }
   } catch (error: any) {
+    if (escrow?.id) {
+      await admin
+        .from("transacciones_escrow")
+        .update({ estado: "disputa", liquidacion_estado: "error", liquidacion_error: error.message || "Error de Stripe" })
+        .eq("id", escrow.id)
+        .eq("liquidacion_operacion_id", operacionId)
+        .neq("liquidacion_estado", "completada")
+    }
     return { error: error.message || "Error al resolver la disputa" }
   }
 }
@@ -661,6 +775,7 @@ async function notificarResolucionDisputa({
   nota,
   base,
   montoReembolso,
+  netoProveedor,
 }: {
   supabase: any
   disputa: { trabajo_id: string; cliente_id: string | null; profesional_id: string | null }
@@ -668,6 +783,7 @@ async function notificarResolucionDisputa({
   nota: string
   base: number
   montoReembolso: number
+  netoProveedor: number
 }) {
   const { data: trabajo } = await supabase
     .from("trabajos")
@@ -689,7 +805,7 @@ async function notificarResolucionDisputa({
     mensajeProfesional = sinImportes
       ? `La disputa de "${titulo}" se ha resuelto a tu favor: se ha liberado tu cobro.${motivo}`
       : `La disputa de "${titulo}" se ha resuelto a tu favor: se ha liberado tu cobro de ${formatearPrecio(
-          calcularPagoProveedor(base).pagoNeto,
+          netoProveedor,
         )} netos.${motivo}`
   } else if (resolucion === "cliente") {
     mensajeCliente = sinImportes
@@ -706,13 +822,12 @@ async function notificarResolucionDisputa({
         )}.${motivo}`
     // Al proveedor lo que le importa es cuánto cobra él, no cuánto se devuelve.
     // La comisión va sobre lo que cobra de verdad, no sobre el precio pactado.
-    const netoParcial = calcularPagoProveedor(Math.max(base - montoReembolso, 0)).pagoNeto
     mensajeProfesional = sinImportes
       ? `La disputa de "${titulo}" se ha resuelto de forma parcial.${motivo}`
       : `La disputa de "${titulo}" se ha resuelto de forma parcial: se han reembolsado ${formatearPrecio(
           montoReembolso,
         )} al cliente y se te ha liberado el resto, ${formatearPrecio(
-          netoParcial,
+          netoProveedor,
         )} netos tras la comisión.${motivo}`
   }
 
