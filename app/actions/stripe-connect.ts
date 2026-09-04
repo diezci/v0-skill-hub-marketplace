@@ -31,9 +31,14 @@ async function usuarioProfesional() {
   } = await supabase.auth.getUser()
   if (!user) return { error: "No autenticado" as const }
 
-  const { data: perfil } = await supabase
+  // `profiles.email` no es legible directamente para usuarios autenticados:
+  // las columnas personales se sirven mediante RPC (scripts/042-043). Para
+  // Connect ya tenemos el correo verificado en `auth.getUser()`, así que pedir
+  // esa columna hacía fallar toda la consulta y parecía que no existía la ficha
+  // profesional aunque sí estuviera creada.
+  const { data: perfil, error: perfilError } = await supabase
     .from("profiles")
-    .select("id, email, nombre, apellido")
+    .select("id, nombre, apellido")
     .eq("id", user.id)
     .maybeSingle()
   const { data: profesional, error } = await supabase
@@ -44,6 +49,7 @@ async function usuarioProfesional() {
     .eq("id", user.id)
     .maybeSingle()
 
+  if (perfilError) return { error: `No se pudo leer el perfil: ${perfilError.message}` as const }
   if (error) return { error: `No se pudo leer Stripe Connect: ${error.message}` as const }
   if (!perfil || !profesional) return { error: "Necesitas un perfil profesional antes de configurar cobros." as const }
   return { supabase, user, perfil, profesional }
@@ -112,7 +118,7 @@ export async function crearEnlaceOnboardingStripe() {
         {
           type: "express",
           country: "ES",
-          email: perfil.email || user.email || undefined,
+          email: user.email || undefined,
           business_profile: {
             name: [perfil.nombre, perfil.apellido].filter(Boolean).join(" ") || undefined,
             product_description: "Servicios profesionales contratados a través de Diime",
