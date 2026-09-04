@@ -1,5 +1,5 @@
 {
-  "name": "my-v0-project",
+  "name": "diime-marketplace",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -11,6 +11,7 @@
     "cap:assets": "capacitor-assets generate",
     "dev": "next dev",
     "lint": "eslint .",
+    "ops:create-review-accounts": "node --no-warnings scripts/create-review-accounts.mjs",
     "test:moderacion": "node --no-warnings scripts/test-moderacion.mjs",
     "start": "next start"
   },

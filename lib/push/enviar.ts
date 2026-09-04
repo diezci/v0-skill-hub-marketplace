@@ -3,6 +3,7 @@ import "server-only"
 import { createSign } from "node:crypto"
 import { connect } from "node:http2"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { registrarEventoOperativo } from "@/lib/operaciones"
 
 type PlataformaPush = "ios" | "android"
 
@@ -286,6 +287,13 @@ export async function enviarPushAUsuario(usuarioId: string, aviso: AvisoPush) {
       console.error(
         `[push] device_lookup_failed recipient=${usuarioId.slice(0, 8)} code=${errorDispositivos.code || "unknown"}`,
       )
+      await registrarEventoOperativo({
+        area: "push",
+        severidad: "aviso",
+        codigo: "consulta_dispositivos_fallida",
+        mensaje: "No se pudieron consultar los dispositivos para un envío push.",
+        contexto: { codigo: errorDispositivos.code || "unknown" },
+      })
       return { encontrados: 0, enviados: 0, error: "No se pudieron consultar los dispositivos" }
     }
 
@@ -318,6 +326,14 @@ export async function enviarPushAUsuario(usuarioId: string, aviso: AvisoPush) {
       console.warn(
         `[push] delivery_failed recipient=${usuarioId.slice(0, 8)} devices=${dispositivos.length} reasons=${fallos.join("|") || "unknown"}`,
       )
+      await registrarEventoOperativo({
+        area: "push",
+        severidad: "aviso",
+        codigo: "entrega_fallida",
+        clave: dispositivos.map((d: { plataforma: PlataformaPush }) => d.plataforma).sort().join("-") || "unknown",
+        mensaje: "Ningún dispositivo aceptó una notificación push.",
+        contexto: { dispositivos: dispositivos.length, motivos: fallos.join("|").slice(0, 300) || "unknown" },
+      })
     } else {
       console.info(
         `[push] delivery_ok recipient=${usuarioId.slice(0, 8)} delivered=${enviados}/${dispositivos.length} badge=${badge ?? "unknown"}`,
@@ -332,6 +348,12 @@ export async function enviarPushAUsuario(usuarioId: string, aviso: AvisoPush) {
     // Un push no entregado no puede impedir que el mensaje o la operación que
     // lo provocó se guarde correctamente.
     console.error("[push] No se pudo enviar la notificación:", error)
+    await registrarEventoOperativo({
+      area: "push",
+      severidad: "aviso",
+      codigo: "entrega_excepcion",
+      mensaje: "Se produjo una excepción durante un envío push.",
+    })
     return { encontrados: 0, enviados: 0, error: "Error interno al enviar la notificación" }
   }
 }

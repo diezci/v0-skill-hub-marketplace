@@ -5,13 +5,14 @@ import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { desvincularPushActual } from "@/lib/push/client"
-import { Loader2, Users, Scale, CreditCard, LayoutDashboard, LogOut, ChevronRight, ShieldAlert, MessageSquare, Briefcase } from "lucide-react"
+import { Loader2, Users, Scale, CreditCard, LayoutDashboard, LogOut, ChevronRight, ShieldAlert, MessageSquare, Briefcase, BellRing } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { DiimeLogo } from "@/components/diime-logo"
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/operaciones", label: "Operaciones", icon: BellRing },
   { href: "/admin/usuarios", label: "Usuarios", icon: Users },
   { href: "/admin/trabajos", label: "Trabajos y facturas", icon: Briefcase },
   { href: "/admin/disputas", label: "Disputas", icon: Scale },

@@ -3,6 +3,7 @@ import "server-only"
 import { Resend } from "resend"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { BASE_URL, plantillaEmail, plantillaTexto } from "./plantilla"
+import { registrarEventoOperativo } from "@/lib/operaciones"
 
 // Qué avisos se mandan además por correo.
 //
@@ -58,7 +59,15 @@ export async function enviarAvisoPorEmail(params: {
     if (!config) return
 
     const resend = getResend()
-    if (!resend) return
+    if (!resend) {
+      await registrarEventoOperativo({
+        area: "email",
+        severidad: "critica",
+        codigo: "resend_no_configurado",
+        mensaje: "Los avisos por email están desactivados porque falta RESEND_API_KEY.",
+      })
+      return
+    }
 
     // La sesión de quien provoca el aviso no puede leer el correo del
     // destinatario (y a menudo no tiene ninguna relación con él: pensemos en
@@ -67,12 +76,23 @@ export async function enviarAvisoPorEmail(params: {
     const admin = createAdminClient()
     if (!admin) return
 
-    const { data: perfil } = await admin
+    const { data: perfil, error: perfilError } = await admin
       .from("profiles")
       .select("email, nombre, email_notificaciones")
       .eq("id", params.usuarioId)
       .maybeSingle()
 
+    if (perfilError) {
+      await registrarEventoOperativo({
+        area: "email",
+        severidad: "aviso",
+        codigo: "destinatario_no_consultable",
+        clave: params.tipo,
+        mensaje: "No se pudo consultar el destinatario de un aviso por email.",
+        contexto: { tipo: params.tipo, codigo: perfilError.code || "unknown" },
+      })
+      return
+    }
     if (!perfil?.email) return
     if (perfil.email_notificaciones === false) return
 
@@ -93,8 +113,26 @@ export async function enviarAvisoPorEmail(params: {
       text: plantillaTexto({ ...contenido, botonUrl: url }),
     })
 
-    if (error) console.error("[emails] Resend rechazó el envío:", error)
+    if (error) {
+      console.error("[emails] Resend rechazó el envío:", error)
+      await registrarEventoOperativo({
+        area: "email",
+        severidad: "aviso",
+        codigo: "envio_rechazado",
+        clave: params.tipo,
+        mensaje: "Resend rechazó un aviso transaccional.",
+        contexto: { tipo: params.tipo, motivo: error.name || "resend_error" },
+      })
+    }
   } catch (e) {
     console.error("[emails] No se pudo enviar el aviso:", e)
+    await registrarEventoOperativo({
+      area: "email",
+      severidad: "aviso",
+      codigo: "envio_excepcion",
+      clave: params.tipo,
+      mensaje: "Se produjo una excepción al enviar un aviso transaccional.",
+      contexto: { tipo: params.tipo },
+    })
   }
 }

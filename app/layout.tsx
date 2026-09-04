@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   title: "Diime - Conecta con Profesionales",
   description:
     "Diime es la plataforma que conecta profesionales cualificados con clientes. Encuentra expertos en construccion, reformas y mas.",
-  generator: "v0.app",
+  generator: "Diime",
   icons: {
     icon: [
       { url: "/favicon-diime-v3.ico", type: "image/x-icon", sizes: "64x64" },

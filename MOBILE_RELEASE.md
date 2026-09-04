@@ -1,6 +1,7 @@
 # Publicación móvil de Diime
 
-Estado comprobado el 19 de agosto de 2026. La app usa Capacitor 8, carga
+Estado del repositorio comprobado el 4 de septiembre de 2026; el estado de las
+consolas se comprobó por última vez el 19 de agosto de 2026. La app usa Capacitor 8, carga
 `https://www.diime.es` y conserva una pantalla local para errores de conexión.
 El identificador configurado en iOS y Android es `es.diime.app`.
 
@@ -11,8 +12,8 @@ El identificador configurado en iOS y Android es `es.diime.app`.
 
 | Área | Estado | Evidencia |
 | --- | --- | --- |
-| Web de producción | Build OK | `pnpm build`, 44 rutas generadas; ver deuda técnica abajo |
-| Supabase de producción | Migraciones aplicadas | Portfolio verificado y bloqueo: columna, RLS, 3 políticas, 3 triggers y 5 funciones comprobados |
+| Web del repositorio | Build OK | `pnpm build`, 50 rutas generadas; ver deuda técnica abajo |
+| Supabase de producción | Alertas operativas aplicadas | Tabla, RLS y función de registro operativo creadas el 4 de septiembre de 2026; verificar además las migraciones funcionales 045–049 |
 | Sincronización Capacitor | OK | 8 plugins sincronizados en iOS y Android |
 | Android | AAB firmado | API 36, bundle release firmado y certificado verificado con `jarsigner` |
 | Android en dispositivo virtual | OK | Instalado y ejecutado en Android 16/API 36 |
@@ -29,17 +30,18 @@ depuración de WebView ni copias de seguridad de datos de la app.
 
 No son cambios que deban automatizarse con credenciales o claves inventadas:
 
-1. Crear la app en Apple Developer/App Store Connect y Google Play Console con
-   el identificador ya confirmado `es.diime.app`; la identidad legal y el estatus
-   de comerciante están fijados en `STORE_COMPLIANCE_ES.md` y queda verificarlos
-   en las cuentas del titular.
-2. Facilitar dos cuentas de demostración a revisión (cliente y profesional) y
-   datos de prueba que permitan recorrer ofertas, chat y un trabajo sin cobrar
-   dinero real.
+1. Confirmar el estado actual de `1.0 (1)` en App Store Connect y completar o
+   crear la ficha de Google Play con el identificador `es.diime.app`.
+2. Las dos cuentas de revisión se crearon en producción el 4 de septiembre de
+   2026. Queda probar sus accesos en los binarios y cargar sus contraseñas
+   exclusivamente en las consolas.
 3. Copiar las declaraciones ya auditadas de `STORE_COMPLIANCE_ES.md`, completar
    DSA como comerciante con la identidad legal real y elegir disponibilidad.
 4. Probar registro, Google/Apple, publicación, reporte, mensajería, adjuntos,
    pago/reembolso y borrado de cuenta en un iPhone y un Android reales.
+5. `CRON_SECRET` y `OPERATIONS_ALERT_EMAIL` ya están configurados en producción.
+   Tras desplegar el panel `/admin/operaciones`, comprobar el primer control
+   diario y su alerta a `contacto@diime.es`.
 
 ## Compilar Android
 

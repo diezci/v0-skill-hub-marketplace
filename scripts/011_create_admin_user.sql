@@ -1,6 +1,6 @@
 -- Create admin user for testing/management
 -- This script inserts a test admin profile
--- Password: admin123456 (should be changed in production)
+-- La contraseña se configura exclusivamente en Supabase Auth y no se guarda aquí.
 
 INSERT INTO profiles (
   id,
@@ -13,7 +13,7 @@ INSERT INTO profiles (
   created_at
 ) VALUES (
   'admin-user-id-123456789',
-  'admin@skillhub.com',
+  'admin@diime.test',
   'Admin',
   'System',
   'admin',

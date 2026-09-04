@@ -2,8 +2,8 @@
 
 Este archivo prepara los metadatos comerciales. Las declaraciones técnicas de
 privacidad, edad y DSA ya están auditadas en `STORE_COMPLIANCE_ES.md`; siguen
-pendientes la verificación del titular en las consolas y las credenciales de revisión. No
-copies a las consolas los elementos marcados como **CONFIRMAR** sin revisarlos.
+pendientes la verificación del titular en las consolas y cargar las contraseñas
+de revisión. Revisa los datos una última vez antes de copiarlos a las consolas.
 
 ## Metadatos comunes
 
@@ -67,15 +67,19 @@ La disponibilidad de profesionales depende de la categoría y la zona.
 > gestión del teclado y del botón Atrás, feedback háptico, compartir nativo,
 > detección de red, retorno OAuth por deep link y pantalla offline integrada.
 >
-> Cuenta cliente: **CONFIRMAR correo / contraseña**
+> Cuenta cliente: `revision.cliente@diime.es` — contraseña exclusiva guardada
+> únicamente en la consola de la tienda.
 >
-> Cuenta profesional: **CONFIRMAR correo / contraseña**
+> Cuenta profesional: `revision.profesional@diime.es` — contraseña exclusiva
+> guardada únicamente en la consola de la tienda.
 >
-> Recorrido de prueba sin cobro real: **CONFIRMAR instrucciones y datos**
+> Recorrido sin cobro real: iniciar sesión como cliente, abrir **Mis Solicitudes**
+> y consultar “Pintar un salón — recorrido de revisión”. Después iniciar sesión
+> como profesional, abrir **Mis pujas** y consultar la oferta preparada. Se puede
+> probar la mensajería, pero no se debe aceptar ni pagar la oferta ficticia.
 
-No incluyas una contraseña real o reutilizada. Crea cuentas exclusivas para
-revisión, con datos ficticios estables y sin autenticación multifactor que impida
-el acceso del revisor.
+No incluyas una contraseña real o reutilizada en el repositorio. Las cuentas se
+preparan con `pnpm ops:create-review-accounts`; consulta `REVIEW_ACCOUNTS.md`.
 
 ## Carga preparada para App Store Connect 1.0
 

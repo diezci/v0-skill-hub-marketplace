@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
 import { rechazarYNotificarOfertasPerdedoras } from "@/lib/ofertas-perdedoras"
 import { obtenerCargoDePaymentIntent } from "@/lib/stripe-liquidacion"
+import { registrarEventoOperativo } from "@/lib/operaciones"
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -172,6 +173,12 @@ export async function POST(request: Request) {
   const webhookSecret = process.env.DIIME_STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET
   if (!webhookSecret) {
     console.error("No hay secreto de firma configurado para el webhook de Stripe.")
+    await registrarEventoOperativo({
+      area: "stripe",
+      severidad: "critica",
+      codigo: "webhook_sin_secreto",
+      mensaje: "El webhook de Stripe no tiene secreto de firma configurado.",
+    })
     return NextResponse.json({ error: "Webhook not configured" }, { status: 503 })
   }
 
@@ -287,6 +294,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true })
   } catch (error) {
     await terminarEvento(event, error)
+    await registrarEventoOperativo({
+      area: "stripe",
+      severidad: "critica",
+      codigo: "webhook_procesamiento_fallido",
+      clave: event.type,
+      mensaje: "Falló el procesamiento de un evento de Stripe.",
+      contexto: { tipo: event.type, evento: event.id },
+    })
     return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 })
   }
 }

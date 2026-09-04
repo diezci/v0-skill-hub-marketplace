@@ -4,20 +4,20 @@ GUÍA COMPLETA DE PRUEBA DEL SISTEMA
 ## 1. REGISTRAR TRES USUARIOS EN LA APP
 
 ### Usuario 1: ADMINISTRADOR
-- Email: admin@skillhub.test
-- Contraseña: AdminTest123!
+- Email: admin@diime.test
+- Contraseña: usar una clave exclusiva del entorno de pruebas
 - Nombre: Admin Panel
 - Tipo: Particular
 
 ### Usuario 2: CLIENTE
-- Email: cliente@skillhub.test
-- Contraseña: ClienteTest123!
+- Email: cliente@diime.test
+- Contraseña: usar una clave exclusiva del entorno de pruebas
 - Nombre: Juan Cliente
 - Tipo: Particular
 
 ### Usuario 3: PROVEEDOR
-- Email: proveedor@skillhub.test
-- Contraseña: ProveedorTest123!
+- Email: proveedor@diime.test
+- Contraseña: usar una clave exclusiva del entorno de pruebas
 - Nombre: Carlos Proveedor
 - Tipo: Particular → Convertirse a Profesional
 
@@ -26,7 +26,7 @@ GUÍA COMPLETA DE PRUEBA DEL SISTEMA
 ## 2. WORKFLOW COMPLETO DE PRUEBA
 
 ### Paso 1: Login como CLIENTE
-1. Ingresa con cliente@skillhub.test
+1. Ingresa con cliente@diime.test
 2. Ve a "Demandas" → Crea nueva demanda
 3. Título: "Pintar mi salón"
 4. Descripción: "Necesito pintar mi salón de azul claro"
@@ -36,7 +36,7 @@ GUÍA COMPLETA DE PRUEBA DEL SISTEMA
 8. Publica la demanda
 
 ### Paso 2: Login como PROVEEDOR
-1. Ingresa con proveedor@skillhub.test
+1. Ingresa con proveedor@diime.test
 2. Ve a "Demandas"
 3. Encuentra la demanda "Pintar mi salón"
 4. Haz click en la demanda

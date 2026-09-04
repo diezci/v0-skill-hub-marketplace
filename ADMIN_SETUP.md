@@ -19,12 +19,12 @@ WHERE email = 'tu-email@ejemplo.com';
 \`\`\`
 
 #### Opción B: Usar Usuario de Prueba
-1. Regístrate con cualquier email (ej: `admin@skillhub.test`)
+1. Regístrate con cualquier email de pruebas (ej: `admin@diime.test`)
 2. Luego en Supabase SQL:
 \`\`\`sql
 UPDATE profiles 
 SET rol = 'admin' 
-WHERE email = 'admin@skillhub.test';
+WHERE email = 'admin@diime.test';
 \`\`\`
 
 ### 3. **Cómo Funciona el Sistema**
