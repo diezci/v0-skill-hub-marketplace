@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation"
-import { refrescarEstadoStripeConnect } from "@/app/actions/stripe-connect"
 import { StripeConnectRetornoNativo } from "@/components/stripe-connect-retorno-nativo"
 
 function primerValor(valor?: string | string[]) {
@@ -31,6 +30,8 @@ export default async function StripeConnectReturnPage({
     return <StripeConnectRetornoNativo tipo="return" volverA={volverA} />
   }
 
-  await refrescarEstadoStripeConnect()
+  // La tarjeta de cobros consulta Stripe al montarse en la página de destino.
+  // No se revalida aquí: este retorno también debe funcionar en navegadores
+  // externos que no comparten las cookies de la WebView.
   redirect(conEstado(volverA))
 }
