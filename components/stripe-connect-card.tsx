@@ -37,18 +37,38 @@ export function StripeConnectCard() {
 
   useEffect(() => {
     void cargar()
+
+    // Al cerrar el navegador del sistema (app nativa) la WebView conserva esta
+    // página. Refrescamos el estado para que el resultado de Stripe se vea sin
+    // obligar al profesional a pulsar "Actualizar estado".
+    const alRecuperarFoco = () => void cargar()
+    const alCambiarVisibilidad = () => {
+      if (document.visibilityState === "visible") void cargar()
+    }
+    window.addEventListener("focus", alRecuperarFoco)
+    document.addEventListener("visibilitychange", alCambiarVisibilidad)
+    return () => {
+      window.removeEventListener("focus", alRecuperarFoco)
+      document.removeEventListener("visibilitychange", alCambiarVisibilidad)
+    }
   }, [])
 
   const abrir = async (tipo: "onboarding" | "dashboard") => {
     setAccion(tipo)
-    const result = tipo === "onboarding" ? await crearEnlaceOnboardingStripe() : await crearEnlaceDashboardStripe()
+    const { Capacitor } = await import("@capacitor/core")
+    const appNativa = Capacitor.isNativePlatform()
+    const urlActual = new URL(window.location.href)
+    urlActual.searchParams.delete("stripe_connect")
+    const volverA = `${urlActual.pathname}${urlActual.search}`
+    const result = tipo === "onboarding"
+      ? await crearEnlaceOnboardingStripe({ appNativa, volverA })
+      : await crearEnlaceDashboardStripe()
     if (result.error || !result.data?.url) {
       toast({ title: "No se pudo abrir Stripe", description: result.error || "Inténtalo de nuevo.", variant: "destructive" })
       setAccion(null)
       return
     }
-    const { Capacitor } = await import("@capacitor/core")
-    if (Capacitor.isNativePlatform()) {
+    if (appNativa) {
       const { Browser } = await import("@capacitor/browser")
       await Browser.open({ url: result.data.url })
       setAccion(null)
@@ -107,7 +127,7 @@ export function StripeConnectCard() {
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          El alta y el panel se abren en una página segura de Stripe. En la app móvil se abrirán en el navegador del sistema.
+          El alta y el panel se abren en una página segura de Stripe. Al terminar volverás automáticamente a esta pantalla de Diime.
         </p>
       </CardContent>
     </Card>

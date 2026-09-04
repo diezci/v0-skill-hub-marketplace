@@ -1,27 +1,36 @@
-import Link from "next/link"
-import { CheckCircle2 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { redirect } from "next/navigation"
 import { refrescarEstadoStripeConnect } from "@/app/actions/stripe-connect"
+import { StripeConnectRetornoNativo } from "@/components/stripe-connect-retorno-nativo"
 
-export default async function StripeConnectReturnPage() {
-  const resultado = await refrescarEstadoStripeConnect()
-  const listo = !!resultado.data?.onboardingCompletado && !!resultado.data?.transferenciasHabilitadas
-
-  return (
-    <main className="container mx-auto max-w-xl px-4 pb-16 pt-28">
-      <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5 text-emerald-600" /> Datos recibidos por Stripe</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            {listo
-              ? "Tu cuenta ya puede recibir transferencias de Diime."
-              : "Stripe ha guardado tus datos. Si queda alguna verificación pendiente, podrás completarla desde tu perfil."}
-          </p>
-          <Button asChild><Link href="/mi-perfil">Volver a mi perfil</Link></Button>
-        </CardContent>
-      </Card>
-    </main>
-  )
+function primerValor(valor?: string | string[]) {
+  return Array.isArray(valor) ? valor[0] : valor
 }
 
+function rutaSegura(valor?: string) {
+  return valor?.startsWith("/") && !valor.startsWith("//") ? valor : "/mi-perfil"
+}
+
+function conEstado(ruta: string) {
+  const url = new URL(ruta, "https://www.diime.es")
+  url.searchParams.set("stripe_connect", "return")
+  return `${url.pathname}${url.search}${url.hash}`
+}
+
+export default async function StripeConnectReturnPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ native?: string | string[]; volver?: string | string[] }>
+}) {
+  const parametros = await searchParams
+  const volverA = rutaSegura(primerValor(parametros.volver))
+
+  // El navegador del sistema no comparte necesariamente la sesión de la
+  // WebView. La URL HTTPS exigida por Stripe salta de vuelta a la app mediante
+  // el esquema ya registrado por Diime; allí se cierra el navegador externo.
+  if (primerValor(parametros.native) === "1") {
+    return <StripeConnectRetornoNativo tipo="return" volverA={volverA} />
+  }
+
+  await refrescarEstadoStripeConnect()
+  redirect(conEstado(volverA))
+}

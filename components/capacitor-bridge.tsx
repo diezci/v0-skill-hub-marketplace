@@ -14,7 +14,10 @@ import { registrarDispositivoPush } from "@/app/actions/push"
 import { guardarTokenPushActual } from "@/lib/push/client"
 import { createClient } from "@/lib/supabase/client"
 
-const DEEP_LINK = "es.diime.app://auth/callback"
+const AUTH_DEEP_LINK = "es.diime.app://auth/callback"
+// Reutiliza el host/path ya registrado en las builds móviles publicadas. Así
+// el retorno funciona también sin exigir una nueva versión de iOS o Android.
+const STRIPE_DEEP_LINK = "es.diime.app://auth/callback/stripe/"
 const DURACION_SPLASH_MS = 3000
 
 export function CapacitorBridge() {
@@ -197,7 +200,21 @@ export function CapacitorBridge() {
     }).then((handle) => cleanups.push(() => void handle.remove()))
 
     App.addListener("appUrlOpen", async ({ url }) => {
-      if (!url.startsWith(DEEP_LINK)) return
+      if (url.startsWith(STRIPE_DEEP_LINK)) {
+        await Browser.close().catch(() => {})
+        const callbackUrl = new URL(url)
+        const solicitada = callbackUrl.searchParams.get("volver")
+        const destino = solicitada?.startsWith("/") && !solicitada.startsWith("//") ? solicitada : "/mi-perfil"
+        const pagina = new URL(destino, window.location.origin)
+        pagina.searchParams.set(
+          "stripe_connect",
+          callbackUrl.pathname.endsWith("/refresh") ? "refresh" : "return",
+        )
+        window.location.assign(`${pagina.pathname}${pagina.search}${pagina.hash}`)
+        return
+      }
+
+      if (!url.startsWith(AUTH_DEEP_LINK)) return
       await Browser.close().catch(() => {})
       const callbackUrl = new URL(url)
       const code = callbackUrl.searchParams.get("code")

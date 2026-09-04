@@ -11,6 +11,15 @@ function siteUrl() {
   return vercel ? `https://${vercel}` : "http://localhost:3000"
 }
 
+function rutaRetornoSegura(ruta?: string) {
+  return ruta?.startsWith("/") && !ruta.startsWith("//") ? ruta : "/mi-perfil"
+}
+
+type OpcionesOnboarding = {
+  appNativa?: boolean
+  volverA?: string
+}
+
 function estadoCuenta(account: Awaited<ReturnType<typeof stripe.accounts.retrieve>>) {
   const requisitos = "requirements" in account ? account.requirements?.currently_due || [] : []
   const transferencias = "capabilities" in account && account.capabilities?.transfers === "active"
@@ -106,7 +115,7 @@ export async function obtenerEstadoStripeConnect() {
 }
 
 /** Crea/reutiliza una cuenta Express y devuelve un enlace alojado por Stripe. */
-export async function crearEnlaceOnboardingStripe() {
+export async function crearEnlaceOnboardingStripe(opciones: OpcionesOnboarding = {}) {
   const contexto = await usuarioProfesional()
   if ("error" in contexto) return { error: contexto.error }
   const { supabase, user, perfil, profesional } = contexto
@@ -137,10 +146,14 @@ export async function crearEnlaceOnboardingStripe() {
     }
 
     const base = siteUrl()
+    const parametrosRetorno = new URLSearchParams({ volver: rutaRetornoSegura(opciones.volverA) })
+    if (opciones.appNativa) parametrosRetorno.set("native", "1")
+    const returnUrl = `${base}/stripe/connect/return?${parametrosRetorno.toString()}`
+    const refreshUrl = `${base}/stripe/connect/refresh?${parametrosRetorno.toString()}`
     const link = await stripe.accountLinks.create({
       account: accountId,
-      refresh_url: `${base}/stripe/connect/refresh`,
-      return_url: `${base}/stripe/connect/return`,
+      refresh_url: refreshUrl,
+      return_url: returnUrl,
       type: "account_onboarding",
       collection_options: { fields: "eventually_due" },
     })
