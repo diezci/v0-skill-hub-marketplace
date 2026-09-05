@@ -1,8 +1,10 @@
 # Cumplimiento de tiendas de Diime
 
-Estado auditado el **19 de agosto de 2026**. Este documento es la fuente de
-verdad para rellenar App Store Connect y Google Play Console. Las respuestas se
-basan en el código y en los permisos del binario actual.
+Auditoría original del **19 de agosto de 2026**, con actualización de permisos
+Android y notificaciones push el **5 de septiembre de 2026** para `1.0.1 (2)`.
+Es una guía de preparación: contrastar las declaraciones finales con cada
+binario y la consola antes de certificarlas. La incorporación de push deja
+pendiente actualizar también la declaración y el manifiesto de privacidad iOS.
 
 ## Identidad de la aplicación
 
@@ -112,15 +114,17 @@ cosa.
 | User Content → Customer Support | Sí, opcional | Incidencias y soporte |
 | User Content → Other User Content | Sí, opcional | Demandas, ofertas, reseñas, archivos y calendario interno |
 | Identifiers → User ID | Sí | ID de cuenta de Supabase |
+| Identifiers → Device ID | Sí | Token APNs asociado a la cuenta para notificaciones; sin tracking |
 | Usage Data → Product Interaction | Sí | Solicitudes web necesarias y registros técnicos |
 | Other Data | Sí | DNI/NIE/CIF y constancia 18+ |
 
 No declarar: dirección postal, tarjeta/cuenta bancaria, ubicación precisa,
-contactos del dispositivo, historial de navegación externo, publicidad, Device
-ID, datos de salud, audio, tracking ni venta de datos.
+contactos del dispositivo, historial de navegación externo, publicidad,
+datos de salud, audio, tracking ni venta de datos.
 
-La manifestación nativa `ios/App/App/PrivacyInfo.xcprivacy` ya refleja esta
-matriz. La URL de la ficha es `https://www.diime.es/legal/privacidad` y Privacy
+La manifestación nativa `ios/App/App/PrivacyInfo.xcprivacy` debe contrastarse con
+la fila Device ID añadida tras incorporar push. La URL de la ficha es
+`https://www.diime.es/legal/privacidad` y Privacy
 Choices puede apuntar a `https://www.diime.es/eliminar-cuenta`.
 
 ## Data safety de Google Play
@@ -133,7 +137,8 @@ Respuestas de cabecera:
 - Account deletion URL: `https://www.diime.es/eliminar-cuenta`.
 - Is the app independently security reviewed?: **No**, salvo que se obtenga y se
   mantenga una certificación aceptada por Google.
-- Data sharing: **No**. Supabase, Stripe, Vercel y Resend actúan como proveedores
+- Data sharing: **No**, aplicando la excepción para proveedores de servicio.
+  Supabase, Stripe, Vercel, Resend y Firebase Cloud Messaging actúan como proveedores
   de servicio; los envíos visibles a otro usuario son iniciados por el propio
   usuario. Revisar esta respuesta si se incorpora un tercero que use datos para
   fines propios.
@@ -156,16 +161,29 @@ Respuestas de cabecera:
 | Calendar events | Opcional | App functionality; calendario interno de proyectos |
 | Other user-generated content | Opcional | Demandas, ofertas, reseñas e incidencias |
 | App interactions | Obligatorio | App functionality y seguridad mediante registros técnicos |
+| Device or other IDs | Obligatorio en el binario Android actual | App functionality; ID de instalación Firebase y token FCM para avisos, no publicidad |
 
 No marcar `User payment info`: el número de tarjeta se procesa dentro de Stripe
 y no llega a Diime. Tampoco marcar ubicación precisa, contactos, SMS/MMS, emails
 del buzón, salud, audio, historial de navegación, historial de búsqueda, apps
-instaladas, Device or other IDs, anuncios ni personalización publicitaria.
+instaladas, anuncios ni personalización publicitaria.
+
+FCM mantiene la inicialización automática predeterminada: denegar el permiso
+para mostrar notificaciones no garantiza que el SDK deje de generar un ID de
+instalación. Por ello no se presenta esta recopilación técnica como opcional.
+Diime vincula el token a la cuenta solo tras iniciar sesión y registrar push
+(`components/capacitor-bridge.tsx`, `app/actions/push.ts`, tabla `push_devices`).
+La declaración incluye los SDK transitivos, no solo lo guardado en Supabase.
+Fuentes: [declaraciones de Firebase](https://firebase.google.com/docs/android/play-data-disclosure#cloud-messaging)
+y [criterios de Seguridad de los datos de Google Play](https://support.google.com/googleplay/android-developer/answer/10787469?hl=es).
 
 ## Evidencia técnica de la auditoría
 
-- Android declara únicamente el permiso `INTERNET`; no declara ubicación,
-  contactos ni lectura persistente de fotos/vídeos.
+- El manifiesto Android fusionado declara `INTERNET`, `POST_NOTIFICATIONS`,
+  `ACCESS_NETWORK_STATE`, `VIBRATE`, `WAKE_LOCK`, recepción FCM y permisos de
+  contadores del launcher aportados por Badge. No declara ubicación, contactos
+  ni lectura persistente de fotos/vídeos. Revisar el manifiesto fusionado de
+  release, no únicamente `android/app/src/main/AndroidManifest.xml`.
 - iOS solo explica cámara y selección de fotos para adjuntos iniciados por el
   usuario; no incluye claves de ubicación ni ATT.
 - No hay SDK de anuncios, atribución, tracking, Sentry, Firebase Analytics,
@@ -174,7 +192,8 @@ instaladas, Device or other IDs, anuncios ni personalización publicitaria.
   «solo necesarias» y no carga analítica opcional.
 - Stripe aloja el formulario de pago. Diime guarda IDs y estado de la
   transacción, no el número completo de tarjeta.
-- Proveedores activos: Supabase, Stripe, Vercel Blob/hosting y Resend.
+- Proveedores activos: Supabase, Stripe, Vercel Blob/hosting, Resend y, para
+  notificaciones nativas, Firebase Cloud Messaging (Android) y APNs (iOS).
 
 ## Verificación pendiente en las consolas
 

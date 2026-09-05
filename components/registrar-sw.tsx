@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import { Capacitor } from "@capacitor/core"
 
 // Registra el service worker que hace instalable la app.
 //
@@ -11,6 +12,17 @@ export function RegistrarSW() {
     if (process.env.NODE_ENV !== "production") return
     if (!("serviceWorker" in navigator)) return
 
+    // Capacitor ya tiene una pantalla local de error. La caché de navegación
+    // de la PWA puede mostrar HTML antiguo sin sus scripts al quedarse sin red.
+    // Retirar solo nuestro registro heredado; no borrar datos de la sesión.
+    if (Capacitor.isNativePlatform() || navigator.userAgent.includes("DiimeNative/")) {
+      void navigator.serviceWorker.getRegistration("/").then((registration) => {
+        const worker = registration?.active || registration?.waiting || registration?.installing
+        if (worker && new URL(worker.scriptURL).pathname === "/sw.js") return registration?.unregister()
+      }).catch((error) => console.error("[native] no se pudo retirar el service worker:", error))
+      return
+    }
+
     // Tras la carga, para no competir por ancho de banda con la primera pintura.
     const registrar = () => {
       navigator.serviceWorker.register("/sw.js").catch((e) => {
@@ -20,6 +32,7 @@ export function RegistrarSW() {
 
     if (document.readyState === "complete") registrar()
     else window.addEventListener("load", registrar, { once: true })
+    return () => window.removeEventListener("load", registrar)
   }, [])
 
   return null

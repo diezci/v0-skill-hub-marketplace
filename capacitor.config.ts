@@ -27,7 +27,9 @@ const config: CapacitorConfig = {
     allowMixedContent: false,
     minWebViewVersion: 110,
     resolveServiceWorkerRequests: false,
-    webContentsDebuggingEnabled: false,
+    // Solo para diagnosticar una compilación interna conectada por USB.
+    // Las builds de tienda mantienen la inspección desactivada por defecto.
+    webContentsDebuggingEnabled: process.env.CAPACITOR_DEBUG === "true",
   },
   ios: {
     allowsLinkPreview: false,
@@ -52,8 +54,10 @@ const config: CapacitorConfig = {
       presentationOptions: ["badge", "sound", "banner", "list"],
     },
     SplashScreen: {
-      launchAutoHide: false,
-      launchShowDuration: 3000,
+      // La web lo oculta en cuanto está lista. Este máximo evita un logo
+      // permanente si falla la conexión o no llega a hidratarse React.
+      launchAutoHide: true,
+      launchShowDuration: 8000,
       backgroundColor: "#080c10",
       androidScaleType: "CENTER_CROP",
       showSpinner: false,

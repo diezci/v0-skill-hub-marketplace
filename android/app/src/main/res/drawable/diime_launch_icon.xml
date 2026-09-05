@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- El sistema enmascara el splash en un círculo: la marca completa cabe en
+     su zona segura y conserva las esquinas de iOS. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- El lienzo completo debe medir 288dp: sin esta capa Android ampliaría
+         el icono interior de 128dp hasta ocuparlo todo y recortaría esquinas. -->
+    <item android:width="288dp" android:height="288dp">
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/transparent" />
+        </shape>
+    </item>
+    <item android:width="128dp" android:height="128dp" android:gravity="center"
+        android:drawable="@drawable/diime_mark" />
+</layer-list>

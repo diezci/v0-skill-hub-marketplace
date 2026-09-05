@@ -16,18 +16,23 @@
              ventana explícito evita destellos/bandas blancas mientras Next
              hidrata el tema oscuro y mantiene legibles ambas barras. -->
         <item name="android:background">#080C10</item>
-        <item name="android:windowBackground">#080C10</item>
+        <item name="android:windowBackground">@drawable/diime_launch_background</item>
         <item name="android:colorBackground">#080C10</item>
         <item name="android:statusBarColor">#080C10</item>
         <item name="android:navigationBarColor">#080C10</item>
         <item name="android:windowLightStatusBar">false</item>
+        <!-- BridgeActivity aplica este tema antes de cargar SplashScreen.
+             Compat también necesita aquí el icono en Android 9–11. -->
+        <item name="windowSplashScreenBackground">@color/diime_launch_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/diime_launch_icon</item>
     </style>
 
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
-        <item name="android:background">@drawable/splash</item>
+        <item name="android:background">@drawable/diime_launch_background</item>
+        <item name="android:windowBackground">@drawable/diime_launch_background</item>
         <item name="windowSplashScreenBackground">#080C10</item>
-        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/diime_launch_icon</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
         <item name="android:windowLightStatusBar">false</item>
     </style>

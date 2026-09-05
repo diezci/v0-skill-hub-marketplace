@@ -8,7 +8,7 @@ export default function Privacidad() {
   return (
     <div className="container mx-auto px-4 py-16 max-w-3xl">
       <h1 className="text-3xl font-bold mb-2">Política de privacidad</h1>
-      <p className="text-sm text-muted-foreground mb-10">Última actualización: agosto 2026</p>
+      <p className="text-sm text-muted-foreground mb-10">Última actualización: septiembre 2026</p>
       <div className="prose prose-neutral dark:prose-invert max-w-none space-y-8 text-muted-foreground leading-relaxed">
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">1. Responsable del tratamiento</h2>
@@ -29,6 +29,9 @@ export default function Privacidad() {
             acreditar el requisito de edad guardamos la fecha y la versión del texto que confirmaste; no te pedimos ni
             almacenamos tu fecha de nacimiento. También se generan datos técnicos necesarios para prestar y proteger el
             servicio, como dirección IP, tipo de dispositivo, páginas solicitadas y registros de error.
+            En la app móvil se generan identificadores de instalación y tokens de notificaciones. Cuando activas
+            los avisos con una sesión iniciada, el token se asocia a tu cuenta para enviarte mensajes, ofertas y
+            novedades de tus trabajos; no se utiliza como identificador publicitario.
           </p>
         </section>
         <section>
@@ -47,8 +50,11 @@ export default function Privacidad() {
           <h2 className="text-lg font-semibold text-foreground mb-2">6. Proveedores</h2>
           <p>
             Diime utiliza proveedores necesarios para prestar el servicio: Supabase para autenticación y base de datos,
-            Stripe para pagos, Vercel para alojamiento, archivos y registros técnicos, y Resend para comunicaciones
-            transaccionales. Cada proveedor recibe únicamente los datos necesarios para su función y está sujeto a sus
+            Stripe para pagos, Vercel para alojamiento, archivos y registros técnicos, Resend para comunicaciones
+            transaccionales, Firebase Cloud Messaging de Google para notificaciones Android y Apple Push Notification
+            service para notificaciones iOS. Los servicios de notificaciones reciben el identificador de destino y
+            el contenido del aviso, que puede incluir el remitente y una vista previa de un mensaje.
+            Cada proveedor recibe únicamente los datos necesarios para su función y está sujeto a sus
             obligaciones contractuales y de privacidad. Stripe recoge los datos de tarjeta en su propio formulario;
             Diime recibe el identificador y el estado de la transacción, pero no el número completo de la tarjeta.
           </p>
@@ -62,8 +68,11 @@ export default function Privacidad() {
           <p>
             Diime no utiliza los datos para rastrearte entre aplicaciones o sitios de otras empresas, no muestra
             publicidad y no vende datos personales. La app no solicita ubicación GPS; la provincia se introduce
-            manualmente. En Android solo se declara acceso a Internet y no se solicita acceso persistente a toda la
-            biblioteca de fotos. Los archivos o imágenes solo se transmiten cuando la persona los selecciona o captura
+            manualmente. En Android se utilizan permisos de Internet, estado de red, vibración, recepción de
+            notificaciones y actualización del contador del icono. Puedes desactivar las notificaciones en los
+            ajustes del sistema; en las versiones que lo requieren se solicita permiso para mostrarlas.
+            No se solicita acceso persistente a toda la biblioteca de fotos.
+            Los archivos o imágenes solo se transmiten cuando la persona los selecciona o captura
             expresamente para adjuntarlos.
           </p>
         </section>

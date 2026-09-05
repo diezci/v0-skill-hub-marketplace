@@ -1,7 +1,7 @@
 # Publicación móvil de Diime
 
-Estado del repositorio comprobado el 4 de septiembre de 2026; el estado de las
-consolas se comprobó por última vez el 19 de agosto de 2026. La app usa Capacitor 8, carga
+Android y web comprobados el 5 de septiembre de 2026; la última revisión completa
+de las consolas corresponde al 19 de agosto de 2026. La app usa Capacitor 8, carga
 `https://www.diime.es` y conserva una pantalla local para errores de conexión.
 El identificador configurado en iOS y Android es `es.diime.app`.
 
@@ -15,8 +15,9 @@ El identificador configurado en iOS y Android es `es.diime.app`.
 | Web del repositorio | Build OK | `pnpm build`, 50 rutas generadas; ver deuda técnica abajo |
 | Supabase de producción | Alertas operativas aplicadas | Tabla, RLS y función de registro operativo creadas el 4 de septiembre de 2026; verificar además las migraciones funcionales 045–049 |
 | Sincronización Capacitor | OK | 8 plugins sincronizados en iOS y Android |
-| Android | AAB firmado | API 36, bundle release firmado y certificado verificado con `jarsigner` |
-| Android en dispositivo virtual | OK | Instalado y ejecutado en Android 16/API 36 |
+| Android | `1.0.1 (2)` firmado, sin subir | API 36; AAB verificado con `jarsigner` y APK con `apksigner` |
+| Android físico | Inicio y navegación básica OK | Huawei ANE-LX1, Android 9; APK debug `1.0.1 (2)` actualizado sin borrar datos |
+| Android virtual | Validación actual pendiente | Prueba antigua en API 36; el emulador API 35 del 5 de septiembre quedó sin responder |
 | iOS en simulador | Build y ejecución OK | Xcode 26.5, iOS 26.5 e iPhone 17 Pro; lanzamiento inicial solo iPhone |
 | iOS para dispositivo | Build 1 subido | App Store Connect aceptó `1.0 (1)` el 19 de agosto de 2026 y está procesándolo |
 | Firma de tienda | Google y Apple listas | Clave Google respaldada; Apple Distribution local fijado en las opciones de exportación |
@@ -46,6 +47,75 @@ No son cambios que deban automatizarse con credenciales o claves inventadas:
    `contacto@diime.es`.
 
 ## Compilar Android
+
+### Google Play: punto de continuación
+
+- Cuenta abierta en Chrome: desarrollador `8713826654791303474`, página
+  «Verifica que tienes acceso a un dispositivo móvil Android». El contenido
+  completo y el resto de tareas de Console aún no se han podido comprobar:
+  Chrome tiene desactivado «Permitir JavaScript desde Eventos de Apple».
+- Para la verificación física Google exige Android **10 o posterior**, sin
+  root. El Huawei conectado tiene Android **9**: sirve para probar Diime, pero
+  no cumple ese requisito. Se puede usar otro dispositivo prestado iniciando
+  sesión como titular en la aplicación oficial Play Console.
+  [Requisito oficial](https://support.google.com/googleplay/android-developer/answer/14316361?hl=es).
+- Si corresponde a una cuenta personal nueva, antes de solicitar acceso a
+  producción se necesita una prueba cerrada con al menos **12 testers**
+  inscritos durante **14 días continuados**. No confundir una instalación por
+  USB ni una prueba interna con esta prueba cerrada.
+  [Pruebas exigidas por Google](https://support.google.com/googleplay/android-developer/answer/14151465?hl=es).
+- No se ha subido ni publicado `1.0.1 (2)` en Google Play. Quedan completar
+  la ficha, las declaraciones actuales, los accesos de revisión y el canal de
+  pruebas que corresponda. No afirmar que Google ha aprobado la app.
+
+### Ajustes de arranque del 5 de septiembre de 2026
+
+- Android usa la geometría y el degradado de `diime-mark-v3.svg` tanto en
+  el icono adaptativo como en el splash, con proporciones cuadradas y espacio
+  seguro para la máscara del sistema.
+- La bienvenida y el banner de cookies se sirven en el HTML y pueden usarse
+  antes de cargar React. La web conserva la decisión de cookies antes de abrir
+  la bienvenida; la app nativa utiliza solo las necesarias.
+- Se elimina la espera adicional de tres segundos. El splash nativo tiene un
+  máximo de ocho segundos como recuperación si la página no llega a cargar;
+  en una carga normal se oculta en cuanto la web está preparada.
+- La bienvenida anticipada está desplegada en producción (commit `9c5a941`).
+- Verificación: build web correcto, lint Android sin errores y siete recorridos
+  de navegador superados, incluidos arranque sin los bundles de React, retorno
+  y cierre con Escape. En el Huawei se comprobó visualmente la marca del splash,
+  la página principal, el menú, profesionales y el formulario de acceso.
+- En la prueba sin red apareció HTML de la caché PWA sin sus recursos. La app
+  nativa deja de registrar ese service worker y retira su registro heredado,
+  sin borrar la sesión. El botón de la pantalla local vuelve al dominio real
+  en lugar de recargar indefinidamente el documento de error.
+- Se actualiza la política de privacidad y la guía de Data safety para incluir
+  Firebase/FCM, los identificadores de instalación y los permisos reales del
+  manifiesto fusionado. La declaración iOS de Device ID requiere revisión aparte.
+- Los recorridos autenticados, OAuth, pagos, push y eliminación de cuenta del
+  nuevo binario no se consideran verificados por estas pruebas de navegación.
+
+Para reproducir la compilación firmada con la clave existente y el Llavero:
+
+```bash
+zsh scripts/compilar_android_firmado.sh
+```
+
+El script fuerza el dominio de producción y desactiva la inspección WebView.
+No imprime ni guarda la contraseña en el repositorio. Artefactos estables:
+
+- `/Users/juan/Documents/Diime-Release/diime-1.0.1-2-signed.aab`
+- `/Users/juan/Documents/Diime-Release/diime-1.0.1-2-signed.apk`
+
+SHA-256 del AAB:
+`780cc1624585313117f9eea159bb2c4b18ba96d6ad5a4fa23d086c146fece566`.
+Certificado de subida SHA-256:
+`26:52:64:DB:33:05:CF:24:C9:70:36:E5:16:20:09:ED:62:96:14:3C:40:33:7A:86:56:A5:16:C8:96:81:34:22`.
+
+La instalación de prueba del Huawei conserva la firma debug previa. El APK
+de tienda usa la clave de subida: no puede sustituir directamente esa app
+debug con `adb install -r`. No desinstalarla sin permiso, porque perdería los
+datos locales. Las capturas físicas actuales se guardan con sufijo
+`huawei-20260905` en `store-assets/google-play/`.
 
 El SDK 36, Android Studio, el emulador y OpenJDK 21 ya están instalados en este
 Mac. Gradle 8.14 no funciona con el JDK 25 incluido en Android Studio 2026.1, por
@@ -90,7 +160,8 @@ La clave de subida Google se generó el 19 de agosto de 2026. La copia principal
 está en `~/Documents/Diime-Release/diime-upload.jks`, la segunda en iCloud Drive
 (`Diime-Release/diime-upload-backup.jks`) y la contraseña en el Llavero de
 macOS. Ambas copias tienen el mismo SHA-256 y permisos solo para el usuario. El
-AAB firmado estable está en `~/Documents/Diime-Release/diime-1.0-1-signed.aab`.
+AAB firmado anterior está en `~/Documents/Diime-Release/diime-1.0-1-signed.aab`;
+no usarlo para la nueva subida. El artefacto actual es `diime-1.0.1-2-signed.aab`.
 
 Antes de cada nueva versión incrementa `versionCode` y `versionName` en
 `android/app/build.gradle`.

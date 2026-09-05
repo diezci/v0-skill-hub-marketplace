@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pantalla inicial de Android 11 y anteriores. La marca tiene un tamaño
+     fijo: no se estira la imagen al alto completo del teléfono. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/diime_launch_background" />
+    <item android:width="260dp" android:height="260dp" android:gravity="center">
+        <shape android:shape="oval">
+            <gradient android:type="radial" android:gradientRadius="130dp"
+                android:startColor="#3335DE8F" android:centerColor="#1407949D"
+                android:endColor="#0007949D" />
+        </shape>
+    </item>
+    <item android:width="128dp" android:height="128dp" android:gravity="center"
+        android:drawable="@drawable/diime_mark" />
+</layer-list>

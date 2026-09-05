@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Misma geometría que public/brand/diime-mark-v3.svg. El vector mantiene
+     la proporción en el splash; no se estira el icono del launcher. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="192dp" android:height="192dp"
+    android:viewportWidth="1024" android:viewportHeight="1024">
+    <path android:pathData="M269,64H755A205,205 0,0 1,960 269V755A205,205 0,0 1,755 960H269A205,205 0,0 1,64 755V269A205,205 0,0 1,269 64Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="96" android:startY="96"
+                android:endX="928" android:endY="928"
+                android:startColor="#43D943" android:endColor="#058B99" />
+        </aapt:attr>
+    </path>
+    <path android:fillColor="#FFFFFF" android:fillType="evenOdd"
+        android:pathData="M576 231H666V801H576V754C547 784 510 802 464 802C368 802 300 728 300 626C300 524 368 450 464 450C510 450 547 468 576 498V231ZM485 536C432 536 395 573 395 626C395 679 432 716 485 716C538 716 576 679 576 626C576 573 538 536 485 536Z" />
+</vector>
