@@ -18,7 +18,6 @@ const AUTH_DEEP_LINK = "es.diime.app://auth/callback"
 // Reutiliza el host/path ya registrado en las builds móviles publicadas. Así
 // el retorno funciona también sin exigir una nueva versión de iOS o Android.
 const STRIPE_DEEP_LINK = "es.diime.app://auth/callback/stripe/"
-const DURACION_SPLASH_MS = 3000
 
 export function CapacitorBridge() {
   useEffect(() => {
@@ -45,7 +44,7 @@ export function CapacitorBridge() {
               delete root.dataset.nativeLoading
             }, 420),
           )
-        }, DURACION_SPLASH_MS),
+        }, 0),
       )
     }
 

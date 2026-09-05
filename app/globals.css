@@ -319,3 +319,8 @@ html[data-native="true"] .messages-profile-panel {
   background: hsl(142 76% 46% / 0.3);
   color: hsl(142 76% 80%);
 }
+/* El diálogo inicial se sirve con el HTML y bloquea el scroll del fondo desde
+   que se abre, incluso antes de la hidratación. */
+html:has(#diime-bienvenida[open]) {
+  overflow: hidden;
+}

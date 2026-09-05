@@ -1,15 +1,12 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { Check, ShieldCheck } from "lucide-react"
-import { COOKIES_EVENTO, consentimientoCookies } from "@/components/banner-cookies"
+import { Check, ShieldCheck, X } from "lucide-react"
+import { INICIAR_BIENVENIDA } from "@/lib/bienvenida"
 import { useT } from "@/components/idioma-provider"
-
-const VISTA_KEY = "diime_bienvenida_vista"
 
 // Las dos caras del marketplace, una por columna: quien necesita el servicio y
 // quien lo presta. Cada una con su imagen, lo que gana y su llamada a la acción,
@@ -35,7 +32,7 @@ const LADOS = [
 
 export function BienvenidaPrimeraVisita() {
   const t = useT()
-  const [abierto, setAbierto] = useState(false)
+  const scriptRef = useRef<HTMLScriptElement>(null)
   const pathname = usePathname()
 
   // En las páginas de acceso no interrumpimos: quien está registrándose o
@@ -44,40 +41,32 @@ export function BienvenidaPrimeraVisita() {
 
   useEffect(() => {
     if (enAuth) return
-
-    const abrirSiToca = () => {
-      try {
-        if (!localStorage.getItem(VISTA_KEY)) setAbierto(true)
-      } catch {
-        // Sin localStorage (modo privado restrictivo): no insistimos.
-      }
-    }
-
-    // El banner de cookies va primero: es lo que hay que poder contestar antes
-    // de nada, y dos capas a la vez se estorban. Si aún no hay respuesta,
-    // esperamos a que la haya.
-    if (consentimientoCookies() === null) {
-      window.addEventListener(COOKIES_EVENTO, abrirSiToca)
-      return () => window.removeEventListener(COOKIES_EVENTO, abrirSiToca)
-    }
-
-    abrirSiToca()
+    // Los scripts de una navegación de cliente no se ejecutan al insertarlos
+    // React. En una carga completa ya se ejecutó antes de la hidratación.
+    const script = document.createElement("script")
+    script.textContent = INICIAR_BIENVENIDA
+    scriptRef.current?.after(script)
+    script.remove()
   }, [enAuth])
 
-  const cerrar = () => {
-    setAbierto(false)
-    try {
-      localStorage.setItem(VISTA_KEY, "1")
-    } catch {}
-  }
+  if (enAuth) return null
 
   return (
-    <Dialog open={abierto} onOpenChange={(o) => !o && cerrar()}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-2xl">{t("bienvenida.titulo")}</DialogTitle>
-          <DialogDescription>{t("bienvenida.subtitulo")}</DialogDescription>
-        </DialogHeader>
+    <>
+      <dialog
+        id="diime-bienvenida"
+        suppressHydrationWarning
+        aria-labelledby="diime-bienvenida-titulo"
+        aria-describedby="diime-bienvenida-descripcion"
+        className="m-auto fixed inset-0 w-[calc(100%-2rem)] max-w-3xl max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-6 text-foreground shadow-lg backdrop:bg-black/50 open:flex open:flex-col open:gap-4"
+      >
+        <button type="button" data-cerrar-bienvenida autoFocus aria-label="Cerrar" className="absolute top-4 right-4 rounded-sm opacity-70 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-ring">
+          <X className="h-4 w-4" />
+        </button>
+        <div className="flex flex-col gap-2 text-center sm:text-left">
+          <h2 id="diime-bienvenida-titulo" className="text-2xl font-semibold pr-4">{t("bienvenida.titulo")}</h2>
+          <p id="diime-bienvenida-descripcion" className="text-sm text-muted-foreground">{t("bienvenida.subtitulo")}</p>
+        </div>
 
         <div className="grid sm:grid-cols-2 gap-4">
           {LADOS.map((lado) => (
@@ -105,7 +94,7 @@ export function BienvenidaPrimeraVisita() {
                   asChild
                   variant={lado.id === "cliente" ? "default" : "outline"}
                   className={lado.id === "cliente" ? "w-full bg-emerald-600 hover:bg-emerald-700" : "w-full bg-transparent"}
-                  onClick={cerrar}
+                  data-cerrar-bienvenida
                 >
                   <Link href={lado.cta.href}>{t(lado.cta.texto)}</Link>
                 </Button>
@@ -118,7 +107,8 @@ export function BienvenidaPrimeraVisita() {
           <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
           {t("bienvenida.pie")}
         </p>
-      </DialogContent>
-    </Dialog>
+      </dialog>
+      <script ref={scriptRef} dangerouslySetInnerHTML={{ __html: INICIAR_BIENVENIDA }} />
+    </>
   )
 }
