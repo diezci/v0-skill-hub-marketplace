@@ -88,6 +88,11 @@ No son cambios que deban automatizarse con credenciales o claves inventadas:
   nativa deja de registrar ese service worker y retira su registro heredado,
   sin borrar la sesión. El botón de la pantalla local vuelve al dominio real
   en lugar de recargar indefinidamente el documento de error.
+- Comprobación posterior al despliegue: bienvenida/cookies web y bienvenida
+  nativa sin service worker superadas en producción; cuatro pruebas del retiro
+  selectivo del registro PWA superadas. En el Huawei, la pantalla sin conexión
+  vuelve a la página principal al pulsar «Volver a intentarlo» tras recuperar
+  la red. La marca de esa pantalla se incrusta para no necesitar una descarga.
 - Se actualiza la política de privacidad y la guía de Data safety para incluir
   Firebase/FCM, los identificadores de instalación y los permisos reales del
   manifiesto fusionado. La declaración iOS de Device ID requiere revisión aparte.
@@ -107,7 +112,7 @@ No imprime ni guarda la contraseña en el repositorio. Artefactos estables:
 - `/Users/juan/Documents/Diime-Release/diime-1.0.1-2-signed.apk`
 
 SHA-256 del AAB:
-`780cc1624585313117f9eea159bb2c4b18ba96d6ad5a4fa23d086c146fece566`.
+`f891ad074c765669b58d97488d363b750f97e0a039dd8704b65446ee98e99a61`.
 Certificado de subida SHA-256:
 `26:52:64:DB:33:05:CF:24:C9:70:36:E5:16:20:09:ED:62:96:14:3C:40:33:7A:86:56:A5:16:C8:96:81:34:22`.
 
