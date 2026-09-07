@@ -7,7 +7,7 @@ export const metadata = {
 
 export default function MisSolicitudesPage() {
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 pb-28 pt-6 sm:py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Mis Solicitudes</h1>
         <p className="text-muted-foreground">

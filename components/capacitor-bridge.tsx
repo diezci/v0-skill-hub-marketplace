@@ -20,6 +20,8 @@ const AUTH_DEEP_LINK = "es.diime.app://auth/callback"
 const STRIPE_DEEP_LINK = "es.diime.app://auth/callback/stripe/"
 
 export function CapacitorBridge() {
+  const MIN_NATIVO_SPLASH_VISIBLE_MS = 3000
+
   useEffect(() => {
     const esNativa = Capacitor.isNativePlatform()
     const parametros = new URLSearchParams(window.location.search)
@@ -126,11 +128,14 @@ export function CapacitorBridge() {
     }
 
     const preparar = async () => {
+      const iniciado = performance.now()
       const [, , estado] = await Promise.all([
         Keyboard.setResizeMode({ mode: KeyboardResize.Body }).catch(() => {}),
         actualizarBarras(),
         Network.getStatus().catch(() => null),
       ])
+      const restante = Math.max(0, MIN_NATIVO_SPLASH_VISIBLE_MS - (performance.now() - iniciado))
+      if (restante > 0) await new Promise((resolve) => window.setTimeout(resolve, restante))
       if (estado && mounted) root.dataset.network = estado.connected ? "online" : "offline"
       await SplashScreen.hide({ fadeOutDuration: 180 }).catch(() => {})
       if (mounted) terminarTransicionCarga()

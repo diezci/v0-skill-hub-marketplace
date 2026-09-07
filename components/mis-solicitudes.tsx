@@ -1143,22 +1143,22 @@ export default function MisSolicitudes() {
             solicitudesCompletadas.map((solicitud) => {
               const hasReview = solicitud.trabajo?.review_cliente_id
               return (
-                <Card key={solicitud.id} className="bg-emerald-500/5 border-emerald-500/20">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                <Card key={solicitud.id} className="overflow-hidden border-emerald-500/20 bg-emerald-500/5">
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex min-w-0 items-start gap-3 sm:items-center sm:gap-4">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 sm:h-12 sm:w-12">
                           <CheckCircle2 className="h-6 w-6 text-emerald-500" />
                         </div>
-                        <div>
-                          <p className="font-semibold">{solicitud.titulo}</p>
-                          <p className="text-sm text-muted-foreground">
+                        <div className="min-w-0 flex-1">
+                          <p className="break-words font-semibold leading-snug">{solicitud.titulo}</p>
+                          <p className="mt-1 break-words text-sm text-muted-foreground">
                             Completado el {solicitud.trabajo?.fecha_fin
                               ? formatearFecha(solicitud.trabajo.fecha_fin)
                               : formatearFecha(solicitud.created_at)}
                           </p>
                           {solicitud.trabajo?.profesional && (
-                            <p className="text-sm text-muted-foreground">
+                            <p className="break-words text-sm text-muted-foreground">
                               Profesional: {solicitud.trabajo.profesional.nombre} {solicitud.trabajo.profesional.apellido}
                             </p>
                           )}
@@ -1166,33 +1166,33 @@ export default function MisSolicitudes() {
                             <a
                               href={`/trabajos/${solicitud.trabajo.id}/factura`}
                               target="_blank"
-                              className="text-xs text-primary hover:underline inline-flex items-center gap-1 mt-1"
+                              className="mt-2 inline-flex max-w-full items-center gap-1 break-words text-xs text-primary hover:underline"
                             >
-                              <FileText className="h-3 w-3" /> Ver factura y términos
+                              <FileText className="h-3 w-3 shrink-0" /> Ver factura y términos
                             </a>
                           )}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-lg font-bold">
+                      <div className="flex w-full items-center justify-between gap-3 border-t border-emerald-500/20 pt-3 sm:w-auto sm:shrink-0 sm:flex-col sm:items-end sm:justify-center sm:border-0 sm:pt-0 sm:text-right">
+                        <p className="shrink-0 text-lg font-bold">
                           {formatearPrecioEuros(solicitud.trabajo?.precio_acordado || solicitud.presupuesto_max)}
                         </p>
                         {hasReview ? (
-                          <Badge variant="outline" className="bg-transparent mt-2 text-emerald-500 border-emerald-500/50">
-                            <Check className="h-3 w-3 mr-1" />
+                          <Badge variant="outline" className="shrink-0 border-emerald-500/50 bg-transparent text-emerald-500 sm:mt-2">
+                            <Check className="mr-1 h-3 w-3" />
                             Valorado
                           </Badge>
                         ) : (
                           <Button 
                             size="sm" 
                             variant="outline" 
-                            className="mt-2 bg-transparent"
+                            className="h-auto min-h-9 max-w-full whitespace-normal bg-transparent text-left sm:mt-2 sm:whitespace-nowrap"
                             onClick={() => {
                               setSelectedTrabajo(solicitud.trabajo)
                               setShowReviewDialog(true)
                             }}
                           >
-                            <Star className="h-4 w-4 mr-1" />
+                            <Star className="mr-1 h-4 w-4 shrink-0" />
                             Dejar valoración
                           </Button>
                         )}

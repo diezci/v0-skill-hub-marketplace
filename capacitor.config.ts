@@ -57,7 +57,7 @@ const config: CapacitorConfig = {
       // La web lo oculta en cuanto está lista. Este máximo evita un logo
       // permanente si falla la conexión o no llega a hidratarse React.
       launchAutoHide: true,
-      launchShowDuration: 8000,
+      launchShowDuration: 3000,
       backgroundColor: "#080c10",
       androidScaleType: "CENTER_CROP",
       showSpinner: false,
