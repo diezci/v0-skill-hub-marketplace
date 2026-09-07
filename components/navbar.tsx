@@ -3,7 +3,21 @@
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Menu, X, Search, Megaphone, Inbox, MessageSquare, FolderKanban, LogOut, Settings, UserCircle, FileText, ShieldAlert } from "lucide-react"
+import {
+  Menu,
+  X,
+  Search,
+  Megaphone,
+  Inbox,
+  MessageSquare,
+  FolderKanban,
+  LogOut,
+  Settings,
+  UserCircle,
+  FileText,
+  ShieldAlert,
+  WalletCards,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -26,6 +40,7 @@ import {
 import { CelebracionNotificacion } from "@/components/celebracion-notificacion"
 import { useToast } from "@/hooks/use-toast"
 import { ToastAction } from "@/components/ui/toast"
+import { ResumenCobrosMenu } from "@/components/resumen-cobros-menu"
 
 // Notificaciones que merecen un aviso destacado a pantalla completa: los hitos
 // buenos (entrega recibida, cobro) y también la resolución de una disputa, que
@@ -48,6 +63,7 @@ const Navbar = () => {
   const [userName, setUserName] = useState<string | null>(null)
   const [userPhoto, setUserPhoto] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [isProfessional, setIsProfessional] = useState(false)
   const [notificacionesNoLeidas, setNotificacionesNoLeidas] = useState(0)
   const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0)
   const [porSeccion, setPorSeccion] = useState<Record<string, number>>({})
@@ -84,17 +100,22 @@ const Navbar = () => {
       setUserEmail(user?.email ?? null)
       if (!user) {
         setIsAdmin(false)
+        setIsProfessional(false)
         setUserName(null)
         setUserPhoto(null)
         return
       }
       // Datos del perfil para el avatar + comprobación de admin.
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("es_admin, nombre, apellido, foto_perfil")
-        .eq("id", user.id)
-        .maybeSingle()
+      const [{ data: profile }, { data: professional }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("es_admin, nombre, apellido, foto_perfil")
+          .eq("id", user.id)
+          .maybeSingle(),
+        supabase.from("profesionales").select("id").eq("id", user.id).maybeSingle(),
+      ])
       setIsAdmin(!!profile?.es_admin)
+      setIsProfessional(!!professional)
       const nombreCompleto = `${profile?.nombre ?? ""} ${profile?.apellido ?? ""}`.trim()
       setUserName(nombreCompleto || null)
       setUserPhoto(profile?.foto_perfil ?? null)
@@ -228,6 +249,7 @@ const Navbar = () => {
     setUserName(null)
     setUserPhoto(null)
     setIsAdmin(false)
+    setIsProfessional(false)
     setIsOpen(false)
     router.push("/")
     router.refresh()
@@ -338,7 +360,7 @@ const Navbar = () => {
                     </Avatar>
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-60">
+                <DropdownMenuContent align="end" className="w-[22rem]">
                   <DropdownMenuLabel className="flex items-center gap-3 py-2 font-normal">
                     <Avatar className="h-9 w-9">
                       <AvatarImage src={userPhoto || undefined} alt={userName || "Perfil"} />
@@ -352,6 +374,18 @@ const Navbar = () => {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  {isProfessional && (
+                    <>
+                      <ResumenCobrosMenu />
+                      <DropdownMenuItem asChild>
+                        <Link href="/cobros" className="cursor-pointer">
+                          <WalletCards className="mr-2 h-4 w-4" />
+                          Gestionar cobros
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
                   <DropdownMenuItem asChild>
                     <Link href="/mi-perfil" className="cursor-pointer">
                       <UserCircle className="mr-2 h-4 w-4" />
@@ -500,6 +534,16 @@ const Navbar = () => {
                     <UserCircle className="h-5 w-5 shrink-0" />
                     Mi Perfil
                   </Link>
+                  {isProfessional && (
+                    <Link
+                      href="/cobros"
+                      onClick={() => setIsOpen(false)}
+                      className="px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted flex items-center gap-3"
+                    >
+                      <WalletCards className="h-5 w-5 shrink-0" />
+                      Cobros profesionales
+                    </Link>
+                  )}
                   <Link
                     href="/incidencias"
                     onClick={() => setIsOpen(false)}

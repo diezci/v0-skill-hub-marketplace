@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import PerfilProfesional from "@/components/perfil-profesional"
-import { StripeConnectCard } from "@/components/stripe-connect-card"
 
 export const metadata = {
   title: "Mi Perfil | Diime",
@@ -24,8 +23,7 @@ export default async function MiPerfilPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-6">
-      <StripeConnectCard />
+    <div className="container mx-auto px-4 py-8">
       <PerfilProfesional editable={true} />
     </div>
   )

@@ -10,7 +10,7 @@ function primerValor(valor?: string | string[]) {
 }
 
 function rutaSegura(valor?: string) {
-  return valor?.startsWith("/") && !valor.startsWith("//") ? valor : "/mi-perfil"
+  return valor?.startsWith("/") && !valor.startsWith("//") ? valor : "/cobros"
 }
 
 export default async function StripeConnectRefreshPage({

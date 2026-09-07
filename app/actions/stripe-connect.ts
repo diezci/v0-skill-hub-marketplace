@@ -12,12 +12,50 @@ function siteUrl() {
 }
 
 function rutaRetornoSegura(ruta?: string) {
-  return ruta?.startsWith("/") && !ruta.startsWith("//") ? ruta : "/mi-perfil"
+  return ruta?.startsWith("/") && !ruta.startsWith("//") ? ruta : "/cobros"
 }
 
 type OpcionesOnboarding = {
   appNativa?: boolean
   volverA?: string
+}
+
+export type SaldoStripePorMoneda = {
+  moneda: string
+  disponible: number
+  pendiente: number
+  instantaneo: number
+}
+
+export type EstadoStripeConnect = {
+  conectado: boolean
+  onboardingCompletado: boolean
+  transferenciasHabilitadas: boolean
+  payoutsHabilitados: boolean
+  requisitosPendientes: string[]
+  saldo: {
+    saldos: SaldoStripePorMoneda[]
+    proximoIngreso: {
+      importe: number
+      moneda: string
+      llegada: number
+      estado: string
+      metodo: string
+    } | null
+    proximaDisponibilidad: {
+      fecha: number
+      moneda: string
+    } | null
+    calendario: {
+      intervalo: "daily" | "manual" | "monthly" | "weekly" | null
+      diasSemana: string[]
+      diasMes: number[]
+      demoraDias: number | null
+    } | null
+    modoReal: boolean
+    actualizadoEn: string
+  } | null
+  saldoError: string | null
 }
 
 function estadoCuenta(account: Awaited<ReturnType<typeof stripe.accounts.retrieve>>) {
@@ -77,7 +115,9 @@ export async function obtenerEstadoStripeConnect() {
         transferenciasHabilitadas: false,
         payoutsHabilitados: false,
         requisitosPendientes: [] as string[],
-      },
+        saldo: null,
+        saldoError: null,
+      } satisfies EstadoStripeConnect,
     }
   }
 
@@ -95,11 +135,114 @@ export async function obtenerEstadoStripeConnect() {
           stripe_estado_actualizado_at: new Date().toISOString(),
         })
         .eq("id", profesional.id)
-      return { data: { conectado: false, onboardingCompletado: false, transferenciasHabilitadas: false, payoutsHabilitados: false, requisitosPendientes: [] as string[] } }
+      return {
+        data: {
+          conectado: false,
+          onboardingCompletado: false,
+          transferenciasHabilitadas: false,
+          payoutsHabilitados: false,
+          requisitosPendientes: [] as string[],
+          saldo: null,
+          saldoError: null,
+        } satisfies EstadoStripeConnect,
+      }
     }
 
     const estado = estadoCuenta(account)
     await supabase.from("profesionales").update(estado).eq("id", profesional.id)
+
+    const opcionesCuenta = { stripeAccount: profesional.stripe_account_id }
+    const [resultadoSaldo, resultadoPayouts, resultadoMovimientos, resultadoCalendario] = await Promise.allSettled([
+      stripe.balance.retrieve({}, opcionesCuenta),
+      stripe.payouts.list({ limit: 100 }, opcionesCuenta),
+      stripe.balanceTransactions.list({ limit: 100 }, opcionesCuenta),
+      stripe.balanceSettings.retrieve({}, opcionesCuenta),
+    ])
+
+    let saldo: EstadoStripeConnect["saldo"] = null
+    const erroresSaldo: string[] = []
+
+    if (resultadoSaldo.status === "fulfilled") {
+      const balance = resultadoSaldo.value
+      const monedas = new Set([
+        ...balance.available.map((item) => item.currency),
+        ...balance.pending.map((item) => item.currency),
+        ...(balance.instant_available || []).map((item) => item.currency),
+      ])
+      const sumar = (items: Array<{ amount: number; currency: string }>, moneda: string) =>
+        items.reduce((total, item) => total + (item.currency === moneda ? item.amount : 0), 0)
+
+      const saldos = Array.from(monedas)
+        .map((moneda) => ({
+          moneda,
+          disponible: sumar(balance.available, moneda),
+          pendiente: sumar(balance.pending, moneda),
+          instantaneo: sumar(balance.instant_available || [], moneda),
+        }))
+        .sort((a, b) => {
+          if (a.moneda === "eur") return -1
+          if (b.moneda === "eur") return 1
+          return a.moneda.localeCompare(b.moneda)
+        })
+
+      let proximoIngreso: NonNullable<EstadoStripeConnect["saldo"]>["proximoIngreso"] = null
+      if (resultadoPayouts.status === "fulfilled") {
+        for (const payout of resultadoPayouts.value.data) {
+          if (payout.status !== "pending" && payout.status !== "in_transit") continue
+          if (!proximoIngreso || payout.arrival_date < proximoIngreso.llegada) {
+            proximoIngreso = {
+              importe: payout.amount,
+              moneda: payout.currency,
+              llegada: payout.arrival_date,
+              estado: payout.status,
+              metodo: payout.method,
+            }
+          }
+        }
+      } else {
+        erroresSaldo.push("la fecha del próximo ingreso")
+      }
+
+      let proximaDisponibilidad: NonNullable<EstadoStripeConnect["saldo"]>["proximaDisponibilidad"] = null
+      if (resultadoMovimientos.status === "fulfilled") {
+        for (const movimiento of resultadoMovimientos.value.data) {
+          if (movimiento.status !== "pending" || movimiento.net <= 0) continue
+          if (!proximaDisponibilidad || movimiento.available_on < proximaDisponibilidad.fecha) {
+            proximaDisponibilidad = {
+              fecha: movimiento.available_on,
+              moneda: movimiento.currency,
+            }
+          }
+        }
+      } else {
+        erroresSaldo.push("la disponibilidad del saldo pendiente")
+      }
+
+      let calendario: NonNullable<EstadoStripeConnect["saldo"]>["calendario"] = null
+      if (resultadoCalendario.status === "fulfilled") {
+        const pagos = resultadoCalendario.value.payments
+        calendario = {
+          intervalo: pagos.payouts?.schedule?.interval || null,
+          diasSemana: pagos.payouts?.schedule?.weekly_payout_days || [],
+          diasMes: pagos.payouts?.schedule?.monthly_payout_days || [],
+          demoraDias: pagos.settlement_timing?.delay_days ?? null,
+        }
+      } else {
+        erroresSaldo.push("el calendario de ingresos")
+      }
+
+      saldo = {
+        saldos,
+        proximoIngreso,
+        proximaDisponibilidad,
+        calendario,
+        modoReal: balance.livemode,
+        actualizadoEn: new Date().toISOString(),
+      }
+    } else {
+      erroresSaldo.push("el saldo")
+    }
+
     return {
       data: {
         conectado: true,
@@ -107,7 +250,12 @@ export async function obtenerEstadoStripeConnect() {
         transferenciasHabilitadas: estado.stripe_transferencias_habilitadas,
         payoutsHabilitados: estado.stripe_payouts_habilitados,
         requisitosPendientes: estado.stripe_requisitos_pendientes,
-      },
+        saldo,
+        saldoError:
+          erroresSaldo.length > 0
+            ? `Stripe no ha podido consultar ${erroresSaldo.join(", ")} en este momento.`
+            : null,
+      } satisfies EstadoStripeConnect,
     }
   } catch (error: any) {
     return { error: error.message || "No se pudo consultar la cuenta de cobros." }
@@ -180,6 +328,6 @@ export async function crearEnlaceDashboardStripe() {
 
 export async function refrescarEstadoStripeConnect() {
   const resultado = await obtenerEstadoStripeConnect()
-  revalidatePath("/mi-perfil")
+  revalidatePath("/cobros")
   return resultado
 }
