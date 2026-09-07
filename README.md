@@ -10,7 +10,7 @@ producción con una pantalla offline local.
 
 ## Desarrollo local
 
-Requisitos: Node.js 22 y pnpm.
+Requisitos: Node.js 22.6 o posterior y pnpm.
 
 ```bash
 pnpm install --frozen-lockfile
@@ -26,6 +26,8 @@ secretos del entorno y nunca se guardan en Git.
 
 ```bash
 pnpm build
+pnpm test:comisiones
+pnpm test:notificaciones
 pnpm test:moderacion
 pnpm lint
 ```

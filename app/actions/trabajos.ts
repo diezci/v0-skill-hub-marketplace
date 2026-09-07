@@ -142,11 +142,28 @@ export async function obtenerMisTrabajos() {
         .eq("id", trabajo.profesional_id)
         .single()
 
-      const { data: escrow } = await supabase
+      const { data: escrows } = await supabase
         .from("transacciones_escrow")
         .select("*")
         .eq("trabajo_id", trabajo.id)
-        .single()
+        .order("created_at", { ascending: false })
+
+      // Puede haber varios intentos de Checkout cerrados para un mismo
+      // trabajo. Se usa la transacción que llegó a mover dinero, no un intento
+      // cancelado ni una consulta `.single()` que falle con varias filas.
+      const estadosEconomicos = new Set([
+        "retenido",
+        "fondos_retenidos",
+        "liquidando",
+        "liberado",
+        "completado",
+        "reembolsado",
+        "disputa",
+      ])
+      const escrow =
+        (escrows || []).find((fila: any) => fila.fecha_retencion || estadosEconomicos.has(fila.estado)) ??
+        (escrows || []).find((fila: any) => fila.estado === "pendiente") ??
+        null
 
       return {
         ...trabajo,

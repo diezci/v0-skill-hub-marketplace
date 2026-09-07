@@ -766,8 +766,8 @@ export async function resolverDisputa(data: {
 }
 
 // Avisa a las dos partes de cómo ha quedado la disputa. Cada una recibe solo su
-// lado económico: el cliente nunca ve el neto del profesional (tras el 5%) ni el
-// profesional el total que pagó el cliente (con el 10%).
+// lado económico: el cliente nunca ve el neto del profesional (tras la comisión
+// aplicable) ni el profesional el total que pagó el cliente (con el 10%).
 async function notificarResolucionDisputa({
   supabase,
   disputa,

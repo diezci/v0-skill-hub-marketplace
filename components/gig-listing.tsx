@@ -88,12 +88,15 @@ const GigListing = ({ filtros }: GigListingProps) => {
       const mapped = result.data.map((p: any) => {
         const nombre = `${p.perfil?.nombre || ""} ${p.perfil?.apellido || ""}`.trim() || "Profesional"
         const habilidades = Array.isArray(p.habilidades) ? p.habilidades : []
+        const categoriasInteres = Array.isArray(p.categorias_interes) ? p.categorias_interes : []
         return {
           id: p.id,
           title: p.titulo || nombre,
           description: p.perfil?.bio || p.titulo || "Profesional verificado en Diime",
           price: Number(p.tarifa_por_hora) || 0,
-          category: habilidades[0] || "",
+          // La etiqueta de la tarjeta representa un servicio seleccionado de la
+          // taxonomía, no una habilidad de texto libre.
+          category: categoriasInteres[0] || "",
           habilidades,
           provincia: p.perfil?.ubicacion || "",
           // La imagen grande de la tarjeta es la portada; el avatar pequeño es
@@ -236,7 +239,7 @@ const GigListing = ({ filtros }: GigListingProps) => {
                     alt={gig.title}
                     className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                   />
-                  <Badge className="absolute top-2 right-2">{gig.category}</Badge>
+                  {gig.category && <Badge className="absolute top-2 right-2">{gig.category}</Badge>}
                 </div>
                 <CardContent className="p-6">
                   <div className="flex items-center space-x-2 mb-4">
@@ -297,7 +300,7 @@ const GigListing = ({ filtros }: GigListingProps) => {
                       alt={gig.title}
                       className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                     />
-                    <Badge className="absolute top-2 right-2">{gig.category}</Badge>
+                    {gig.category && <Badge className="absolute top-2 right-2">{gig.category}</Badge>}
                   </div>
                   <div className="flex-1 p-6">
                     <div className="flex items-center space-x-2 mb-4">

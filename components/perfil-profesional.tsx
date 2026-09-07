@@ -60,6 +60,8 @@ import { uploadFile } from "@/lib/upload-helpers"
 import { createClient } from "@/lib/supabase/client"
 import { desvincularPushActual } from "@/lib/push/client"
 import { useRouter } from "next/navigation"
+import { RangoPrecio } from "@/components/rango-precio"
+import { PRECIO_MAX } from "@/lib/precios"
 
 const provincias = [
   { provincia: "Álava", codigo: "01" },
@@ -117,6 +119,14 @@ interface PerfilProfesionalProps {
   editable?: boolean
 }
 
+function formatearPresupuestoInteres([minimo, maximo]: [number, number]) {
+  if (minimo <= 0 && maximo >= PRECIO_MAX) return "Cualquier presupuesto"
+  if (maximo >= PRECIO_MAX) return `Desde ${formatearPrecioEuros(minimo)}`
+  if (minimo === maximo) return formatearPrecioEuros(minimo)
+  if (minimo <= 0) return `Hasta ${formatearPrecioEuros(maximo)}`
+  return `${formatearPrecioEuros(minimo)} – ${formatearPrecioEuros(maximo)}`
+}
+
 export default function PerfilProfesional({ editable = false }: PerfilProfesionalProps) {
   const { toast } = useToast()
   const router = useRouter()
@@ -146,10 +156,11 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     disponibilidad: "Disponible",
     verificado: false,
     habilidades: [] as string[],
-    // De estas dos dependen los avisos de demandas nuevas: sin ellas no se
-    // recibe ninguna, así que son obligatorias al guardar.
+    // De servicio y provincia depende que llegue un aviso; el rango añade un
+    // filtro opcional de presupuesto y empieza abierto para no ocultar nada.
     categorias_interes: [] as string[],
     provincias_cobertura: [] as string[],
+    presupuesto_interes: [0, PRECIO_MAX] as [number, number],
     certificaciones: [] as string[],
     idiomas: [] as string[],
     portfolio: [] as any[],
@@ -161,6 +172,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
       precio_calidad: 0,
     },
   })
+  const [snapshotEdicion, setSnapshotEdicion] = useState<typeof editData | null>(null)
 
   const [newSkill, setNewSkill] = useState("")
   const [newCert, setNewCert] = useState("")
@@ -224,6 +236,14 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
           habilidades: data.profesional?.habilidades || [],
           categorias_interes: data.profesional?.categorias_interes || [],
           provincias_cobertura: data.profesional?.provincias_cobertura || [],
+          presupuesto_interes: [
+            data.profesional?.presupuesto_min_interes == null
+              ? 0
+              : Number(data.profesional.presupuesto_min_interes),
+            data.profesional?.presupuesto_max_interes == null
+              ? PRECIO_MAX
+              : Number(data.profesional.presupuesto_max_interes),
+          ] as [number, number],
           certificaciones: data.profesional?.certificaciones || [],
           idiomas: data.profesional?.idiomas || [],
           portfolio: [],
@@ -400,6 +420,9 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
       habilidades: editData.habilidades,
       categorias_interes: editData.categorias_interes,
       provincias_cobertura: editData.provincias_cobertura,
+      presupuesto_min_interes: editData.presupuesto_interes[0] <= 0 ? null : editData.presupuesto_interes[0],
+      presupuesto_max_interes:
+        editData.presupuesto_interes[1] >= PRECIO_MAX ? null : editData.presupuesto_interes[1],
       certificaciones: editData.certificaciones,
       idiomas: editData.idiomas,
       tarifa_por_hora: editData.tarifa_hora,
@@ -419,8 +442,20 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
         title: "Perfil actualizado",
         description: "Tu información ha sido guardada correctamente.",
       })
+      setSnapshotEdicion(null)
       setIsEditing(false)
     }
+  }
+
+  const iniciarEdicion = () => {
+    setSnapshotEdicion(editData)
+    setIsEditing(true)
+  }
+
+  const cancelarEdicion = () => {
+    if (snapshotEdicion) setEditData(snapshotEdicion)
+    setSnapshotEdicion(null)
+    setIsEditing(false)
   }
 
   const addSkill = () => {
@@ -687,14 +722,14 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                           </Button>
                           <Button
                             variant="outline"
-                            onClick={() => setIsEditing(false)}
+                            onClick={cancelarEdicion}
                           >
                             Cancelar
                           </Button>
                         </>
                       ) : (
                         <>
-                          <Button onClick={() => setIsEditing(true)}>
+                          <Button onClick={iniciarEdicion}>
                             <Edit2 className="h-4 w-4 mr-2" />
                             Editar perfil
                           </Button>
@@ -841,16 +876,16 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 </CardContent>
               </Card>
 
-              {/* Servicios y zona: de esto dependen los avisos de demandas */}
+              {/* Servicio, zona y presupuesto: filtros de los avisos de demandas */}
               <Card className={sinCobertura ? "border-amber-500/50" : undefined}>
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Bell className="h-5 w-5 text-primary" />
-                    Servicios y zona de trabajo
+                    Avisos de nuevas demandas
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    Te avisamos de las demandas nuevas que encajen con los servicios y las provincias que marques
-                    aquí.
+                    Elige qué servicios, provincias y presupuestos te interesan. Solo te avisaremos de las demandas
+                    que encajen con estos filtros.
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-5">
@@ -895,6 +930,41 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                         onChange={(v) => setEditData({ ...editData, provincias_cobertura: v })}
                         disabled={!isEditing}
                       />
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-medium">Presupuesto total del proyecto</p>
+                      {isEditing &&
+                        (editData.presupuesto_interes[0] > 0 || editData.presupuesto_interes[1] < PRECIO_MAX) && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto px-2 py-1 text-xs"
+                            onClick={() =>
+                              setEditData({ ...editData, presupuesto_interes: [0, PRECIO_MAX] })
+                            }
+                          >
+                            Cualquier presupuesto
+                          </Button>
+                        )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Las demandas con presupuesto «A convenir» también se incluyen.
+                    </p>
+                    {isEditing ? (
+                      <RangoPrecio
+                        value={editData.presupuesto_interes}
+                        onChange={(v) => setEditData({ ...editData, presupuesto_interes: v })}
+                        progresivo
+                        etiqueta="Presupuesto de la demanda"
+                      />
+                    ) : (
+                      <p className="text-sm rounded-md border bg-muted/30 px-3 py-2">
+                        {formatearPresupuestoInteres(editData.presupuesto_interes)}
+                      </p>
                     )}
                   </div>
                 </CardContent>

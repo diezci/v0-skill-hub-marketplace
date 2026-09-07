@@ -38,9 +38,9 @@ const indiceMasCercano = (valores: number[], valor: number) => {
 
 /**
  * Control de rango de precio. Por defecto va de 0 a 100.000, que es el
- * presupuesto total de un proyecto (formulario de demanda y filtro de
- * /demandas), pero admite otro tope para usos con distinta escala, como la
- * tarifa por hora de /profesionales.
+ * presupuesto total de un proyecto (formulario de demanda, filtro de
+ * /demandas y preferencias de avisos), pero admite otro tope para usos con
+ * distinta escala, como la tarifa por hora de /profesionales.
  *
  * Las dos cifras SE PUEDEN ESCRIBIR, no solo arrastrar. Con la barra sola era
  * imposible publicar un presupuesto concreto: en 312 px de ancho para un rango
@@ -73,6 +73,9 @@ export function RangoPrecio({
 }) {
   const [minSel, maxSel] = value
   const escala = useMemo(() => (progresivo ? crearEscalaProgresiva(max) : null), [max, progresivo])
+  const indicesEscala = escala
+    ? [indiceMasCercano(escala, minSel), indiceMasCercano(escala, maxSel)] as [number, number]
+    : null
 
   // Mientras se teclea hace falta un estado propio: si se reformatea a cada
   // pulsación, borrar un dígito de "7000" para escribir "20000" es imposible.
@@ -97,7 +100,7 @@ export function RangoPrecio({
         type="text"
         inputMode="numeric"
         aria-label={cual === "min" ? `${etiqueta} mínimo` : `${etiqueta} máximo`}
-        className="w-28 rounded-md border bg-transparent px-2 py-1 text-sm tabular-nums text-center outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        className="w-full min-w-0 rounded-md border bg-transparent px-2 py-1 text-sm tabular-nums text-center outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
         value={
           enEdicion
             ? escribiendo!.texto
@@ -128,16 +131,28 @@ export function RangoPrecio({
       <Slider
         max={escala ? escala.length - 1 : max}
         step={escala ? 1 : paso}
-        value={
-          escala
-            ? [indiceMasCercano(escala, minSel), indiceMasCercano(escala, maxSel)]
-            : [Math.min(minSel, max), Math.min(maxSel, max)]
-        }
-        onValueChange={(v) =>
-          onChange(escala ? [escala[v[0]], escala[v[1]]] : [v[0], v[1]])
-        }
+        value={indicesEscala || [Math.min(minSel, max), Math.min(maxSel, max)]}
+        thumbLabels={[`${etiqueta} mínimo`, `${etiqueta} máximo`]}
+        thumbValueTexts={[
+          formatearPrecioEuros(minSel),
+          `${formatearPrecioEuros(Math.min(maxSel, max))}${maxSel >= max ? " o más" : ""}`,
+        ]}
+        onValueChange={(v) => {
+          if (!escala || !indicesEscala) {
+            onChange([v[0], v[1]])
+            return
+          }
+
+          // Si un importe exacto se escribió a mano y no pertenece a la escala,
+          // mover el otro tirador no debe redondearlo silenciosamente al punto
+          // más cercano de la barra.
+          const siguiente: [number, number] = [escala[v[0]], escala[v[1]]]
+          if (v[0] === indicesEscala[0] && escala[indicesEscala[0]] !== minSel) siguiente[0] = minSel
+          if (v[1] === indicesEscala[1] && escala[indicesEscala[1]] !== maxSel) siguiente[1] = maxSel
+          onChange(siguiente)
+        }}
       />
-      <div className="flex items-center justify-between gap-2 text-sm">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 text-sm">
         {caja("min", minSel)}
         <span className="text-muted-foreground shrink-0">a</span>
         {caja("max", maxSel)}

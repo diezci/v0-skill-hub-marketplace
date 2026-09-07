@@ -6,13 +6,18 @@ export const PLATFORM_CONFIG = {
   comision_cliente: 10, // 10% added on top
   comisionClientePorcentaje: 10, // Alias for display
   // Commission charged TO THE PROVIDER deducted from the agreed price (percentage)
-  comision_proveedor: 5, // 5% deducted from payment
-  comisionProveedorPorcentaje: 5, // Alias for display
+  comision_proveedor: 10, // 10% deducted from payment
+  comisionProveedorPorcentaje: 10, // Alias for display
   // Minimum commission in euros
   comision_minima: 2,
   // Currency
   moneda: "eur" as const,
 }
+
+// Todos los repartos se calculan en céntimos. Redondear comisión y neto por
+// separado podía crear o perder un céntimo en determinados precios.
+const aCentimos = (importe: number) => Math.round(importe * 100)
+const aEuros = (centimos: number) => centimos / 100
 
 /**
  * Calculate what the client pays:
@@ -23,14 +28,18 @@ export function calcularTotalCliente(precioAcordado: number): {
   comisionCliente: number
   totalCliente: number
 } {
-  const comisionCliente = Math.max(
-    precioAcordado * (PLATFORM_CONFIG.comision_cliente / 100),
-    PLATFORM_CONFIG.comision_minima
+  if (!Number.isFinite(precioAcordado) || precioAcordado <= 0) {
+    return { precioBase: 0, comisionCliente: 0, totalCliente: 0 }
+  }
+  const baseCentimos = aCentimos(precioAcordado)
+  const comisionClienteCentimos = Math.max(
+    Math.round((baseCentimos * PLATFORM_CONFIG.comision_cliente) / 100),
+    aCentimos(PLATFORM_CONFIG.comision_minima),
   )
   return {
-    precioBase: precioAcordado,
-    comisionCliente: Math.round(comisionCliente * 100) / 100,
-    totalCliente: Math.round((precioAcordado + comisionCliente) * 100) / 100,
+    precioBase: aEuros(baseCentimos),
+    comisionCliente: aEuros(comisionClienteCentimos),
+    totalCliente: aEuros(baseCentimos + comisionClienteCentimos),
   }
 }
 
@@ -43,19 +52,43 @@ export function calcularPagoProveedor(precioAcordado: number): {
   comisionProveedor: number
   pagoNeto: number
 } {
+  return calcularPagoProveedorConTarifa(
+    precioAcordado,
+    PLATFORM_CONFIG.comision_proveedor,
+    PLATFORM_CONFIG.comision_minima,
+  )
+}
+
+/**
+ * Calculate the provider settlement using the terms snapshotted in an offer.
+ * This keeps an accepted fee stable even if the platform tariff later changes.
+ */
+export function calcularPagoProveedorConTarifa(
+  precioAcordado: number,
+  porcentaje: number,
+  comisionMinima: number,
+): {
+  precioBase: number
+  comisionProveedor: number
+  pagoNeto: number
+} {
   if (!Number.isFinite(precioAcordado) || precioAcordado <= 0) {
     return { precioBase: 0, comisionProveedor: 0, pagoNeto: 0 }
   }
-  const comisionProveedor = Math.max(
-    precioAcordado * (PLATFORM_CONFIG.comision_proveedor / 100),
-    PLATFORM_CONFIG.comision_minima
+  if (!Number.isFinite(porcentaje) || porcentaje < 0 || !Number.isFinite(comisionMinima) || comisionMinima < 0) {
+    return { precioBase: 0, comisionProveedor: 0, pagoNeto: 0 }
+  }
+  const baseCentimos = aCentimos(precioAcordado)
+  const comisionProveedorCentimos = Math.max(
+    Math.round((baseCentimos * porcentaje) / 100),
+    aCentimos(comisionMinima),
   )
   // Un importe muy pequeño nunca puede producir un neto negativo.
-  const comisionAplicada = Math.min(comisionProveedor, precioAcordado)
+  const comisionAplicadaCentimos = Math.min(comisionProveedorCentimos, baseCentimos)
   return {
-    precioBase: precioAcordado,
-    comisionProveedor: Math.round(comisionAplicada * 100) / 100,
-    pagoNeto: Math.round((precioAcordado - comisionAplicada) * 100) / 100,
+    precioBase: aEuros(baseCentimos),
+    comisionProveedor: aEuros(comisionAplicadaCentimos),
+    pagoNeto: aEuros(baseCentimos - comisionAplicadaCentimos),
   }
 }
 

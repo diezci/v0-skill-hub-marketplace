@@ -1,6 +1,8 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { encajaEnPresupuestoDeAvisos } from "@/lib/filtros-notificaciones"
+import { formatearRangoPresupuesto } from "@/lib/utils"
 
 function normalizar(s: string) {
   return s
@@ -24,7 +26,8 @@ function cubreLaZona(ubicacionDemanda: string | null, provincias: string[] | nul
 }
 
 // Al publicarse una demanda, avisa (campana del navbar) a los profesionales que
-// han declarado trabajar en esa subcategoría Y cubrir esa provincia.
+// han declarado trabajar en esa subcategoría, cubrir esa provincia Y aceptar
+// el presupuesto publicado dentro del rango que configuraron.
 //
 // Antes esto se decidía por coincidencia de texto entre la categoría y el
 // título/habilidades del profesional (substring o raíz de 5 letras), que
@@ -33,6 +36,7 @@ function cubreLaZona(ubicacionDemanda: string | null, provincias: string[] | nul
 // precio de que el aviso sea fiable, y la app se lo reclama de forma visible.
 export async function buscarYEnviarInvitaciones(solicitudId: string) {
   const supabase = await createClient()
+  if (!supabase) return { error: "Base de datos no disponible" }
 
   const {
     data: { user },
@@ -41,7 +45,7 @@ export async function buscarYEnviarInvitaciones(solicitudId: string) {
 
   const { data: solicitud, error: solicitudError } = await supabase
     .from("solicitudes")
-    .select("id, titulo, ubicacion, categoria_id, categorias(nombre)")
+    .select("id, titulo, ubicacion, presupuesto_min, presupuesto_max, categoria_id, categorias(nombre)")
     .eq("id", solicitudId)
     .maybeSingle()
 
@@ -58,7 +62,7 @@ export async function buscarYEnviarInvitaciones(solicitudId: string) {
   // la zona se comprueba después porque admite coincidencia laxa.
   const { data: profesionales, error: profError } = await supabase
     .from("profesionales")
-    .select("id, provincias_cobertura")
+    .select("id, provincias_cobertura, presupuesto_min_interes, presupuesto_max_interes")
     .contains("categorias_interes", [categoriaNombre])
 
   if (profError) {
@@ -71,14 +75,23 @@ export async function buscarYEnviarInvitaciones(solicitudId: string) {
   const destinatarios = profesionales
     .filter((p) => p.id !== user.id)
     .filter((p) => cubreLaZona(solicitud.ubicacion, p.provincias_cobertura as string[] | null))
+    .filter((p) =>
+      encajaEnPresupuestoDeAvisos(
+        solicitud.presupuesto_min,
+        solicitud.presupuesto_max,
+        p.presupuesto_min_interes,
+        p.presupuesto_max_interes,
+      ),
+    )
 
   if (destinatarios.length === 0) {
-    return { message: "Sin profesionales que cubran esta categoría y zona" }
+    return { message: "Sin profesionales que cubran esta categoría, zona y presupuesto" }
   }
 
   const zona = solicitud.ubicacion ? ` en ${solicitud.ubicacion}` : ""
+  const presupuesto = formatearRangoPresupuesto(solicitud.presupuesto_min, solicitud.presupuesto_max)
   const titulo = "Nueva demanda en tu área"
-  const mensaje = `Se ha publicado "${solicitud.titulo}" (${categoriaNombre})${zona}. Échale un vistazo y envía tu oferta.`
+  const mensaje = `Se ha publicado "${solicitud.titulo}" (${categoriaNombre})${zona}. Presupuesto: ${presupuesto}. Échale un vistazo y envía tu oferta.`
 
   const { error: insertError } = await supabase.from("notificaciones").insert(
     destinatarios.map((p) => ({
@@ -119,6 +132,7 @@ export async function buscarYEnviarInvitaciones(solicitudId: string) {
 // Get invitations for a professional
 export async function getInvitacionesProfesional(profesionalId: string) {
   const supabase = await createClient()
+  if (!supabase) return { error: "Base de datos no disponible" }
 
   const { data, error } = await supabase
     .from("invitaciones")
@@ -140,6 +154,7 @@ export async function responderInvitacion(
   respuesta: "aceptada" | "rechazada"
 ) {
   const supabase = await createClient()
+  if (!supabase) return { error: "Base de datos no disponible" }
 
   const { error } = await supabase
     .from("invitaciones")

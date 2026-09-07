@@ -50,10 +50,19 @@ No son cambios que deban automatizarse con credenciales o claves inventadas:
 
 ### Google Play: punto de continuación
 
-- Cuenta abierta en Chrome: desarrollador `8713826654791303474`, página
-  «Verifica que tienes acceso a un dispositivo móvil Android». El contenido
-  completo y el resto de tareas de Console aún no se han podido comprobar:
-  Chrome tiene desactivado «Permitir JavaScript desde Eventos de Apple».
+- Console comprobada tras habilitar JavaScript desde Eventos de Apple el
+  5 de septiembre de 2026: cuenta personal `diezcii`, desarrollador
+  `8713826654791303474`, **sin aplicaciones creadas**. «Crear aplicación» está
+  deshabilitado hasta completar las verificaciones de la cuenta.
+- La página principal muestra dos tareas: verificar el dispositivo Android y
+  verificar el teléfono de contacto. El detalle del teléfono indica que primero
+  deben completarse las demás verificaciones; el acceso a su formulario también
+  está deshabilitado. No se ha solicitado ni enviado ningún código SMS.
+- En «Cuenta de desarrollador», los correos de contacto y del perfil constan
+  verificados; el teléfono no. El domicilio legal de la cuenta Google no
+  coincide con el domicilio autorizado en `STORE_COMPLIANCE_ES.md`: queda
+  contrastarlo con el titular antes de confirmar datos públicos del comerciante.
+  No se ha modificado la identidad ni el perfil de pagos de la cuenta.
 - Para la verificación física Google exige Android **10 o posterior**, sin
   root. El Huawei conectado tiene Android **9**: sirve para probar Diime, pero
   no cumple ese requisito. Se puede usar otro dispositivo prestado iniciando

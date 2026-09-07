@@ -3,6 +3,11 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { errorContenidoProhibido } from "@/lib/moderacion"
+import {
+  calcularPagoProveedor,
+  calcularPagoProveedorConTarifa,
+  PLATFORM_CONFIG,
+} from "@/lib/comisiones"
 
 // NOTA SOBRE `solicitudes.total_ofertas`: aquí no se toca, a propósito.
 //
@@ -84,6 +89,10 @@ export async function crearOferta(formData: {
     return { error: "Debes aceptar los gastos de servicio de la plataforma para enviar la oferta." }
   }
 
+  // Se guarda la tarifa aceptada junto a la oferta. De ese modo una subida
+  // futura no altera silenciosamente lo que cobrará el profesional.
+  const liquidacionPrevista = calcularPagoProveedor(formData.precio)
+
   // Puede haber ofertas históricas del mismo profesional para esta demanda. La
   // consulta anterior usaba maybeSingle(), por lo que dejaba de funcionar en
   // cuanto había más de una, y además intentaba borrar la rechazada ignorando
@@ -139,6 +148,10 @@ export async function crearOferta(formData: {
     condiciones_pago: formData.condiciones_pago,
     notas: formData.notas,
     archivos: formData.archivos || [],
+    comision_proveedor_porcentaje: PLATFORM_CONFIG.comision_proveedor,
+    comision_proveedor_minima: PLATFORM_CONFIG.comision_minima,
+    comision_proveedor_prevista: liquidacionPrevista.comisionProveedor,
+    pago_neto_proveedor_previsto: liquidacionPrevista.pagoNeto,
     estado: "pendiente",
   }
 
@@ -297,7 +310,7 @@ export async function actualizarOferta(
   // Solo el profesional dueño y mientras la oferta no esté aceptada.
   const { data: oferta } = await supabase
     .from("ofertas")
-    .select("profesional_id, estado, solicitud_id")
+    .select("profesional_id, estado, solicitud_id, precio, comision_proveedor_porcentaje, comision_proveedor_minima")
     .eq("id", ofertaId)
     .maybeSingle()
 
@@ -314,6 +327,25 @@ export async function actualizarOferta(
     return { error: "El tiempo estimado debe ser mayor que 0." }
   }
 
+  const precioActualizado = campos.precio ?? Number(oferta.precio)
+  const porcentajeAceptado = Number(oferta.comision_proveedor_porcentaje)
+  const minimoAceptado = Number(oferta.comision_proveedor_minima)
+  if (
+    !Number.isFinite(precioActualizado) ||
+    precioActualizado <= 0 ||
+    !Number.isFinite(porcentajeAceptado) ||
+    porcentajeAceptado < 0 ||
+    !Number.isFinite(minimoAceptado) ||
+    minimoAceptado < 0
+  ) {
+    return { error: "No se pudieron verificar los gastos de servicio aceptados en esta oferta." }
+  }
+  const liquidacionActualizada = calcularPagoProveedorConTarifa(
+    precioActualizado,
+    porcentajeAceptado,
+    minimoAceptado,
+  )
+
   const { data, error } = await supabase
     .from("ofertas")
     .update({
@@ -321,6 +353,12 @@ export async function actualizarOferta(
       tiempo_estimado: campos.tiempo_estimado,
       unidad_tiempo: campos.unidad_tiempo,
       descripcion: campos.descripcion,
+      ...(campos.precio !== undefined
+        ? {
+            comision_proveedor_prevista: liquidacionActualizada.comisionProveedor,
+            pago_neto_proveedor_previsto: liquidacionActualizada.pagoNeto,
+          }
+        : {}),
       // Solo se sobreescriben los adjuntos si se envían (edición explícita).
       ...(campos.archivos !== undefined ? { archivos: campos.archivos } : {}),
       updated_at: new Date().toISOString(),
@@ -378,9 +416,22 @@ export async function eliminarOferta(ofertaId: string) {
   if (oferta.estado === "aceptada") {
     return { error: "No puedes eliminar una oferta que ya ha sido aceptada." }
   }
+  if (["rechazada", "retirada"].includes(oferta.estado)) {
+    return { error: "Esta oferta ya está cerrada." }
+  }
 
-  const { error } = await supabase.from("ofertas").delete().eq("id", ofertaId).eq("profesional_id", user.id)
+  // Repetir el estado leído en el DELETE evita borrar una oferta que haya
+  // cambiado (por ejemplo, aceptada por el cliente) entre ambas consultas.
+  const { data: ofertaEliminada, error } = await supabase
+    .from("ofertas")
+    .delete()
+    .eq("id", ofertaId)
+    .eq("profesional_id", user.id)
+    .eq("estado", oferta.estado)
+    .select("id")
+    .maybeSingle()
   if (error) return { error: error.message }
+  if (!ofertaEliminada) return { error: "La oferta ha cambiado. Actualiza la página e inténtalo de nuevo." }
 
   // El cliente puede estar comparando ofertas ahora mismo: si una desaparece de
   // su lista sin avisar, parece un fallo de la web.
@@ -408,6 +459,40 @@ export async function eliminarOferta(ofertaId: string) {
   revalidatePath("/mis-ofertas")
   revalidatePath("/mis-solicitudes")
   revalidatePath("/demandas")
+  return { success: true }
+}
+
+/**
+ * Quita una puja perdida de "Mis Pujas" sin destruir el registro histórico.
+ * `retirada` ya es un estado cerrado y no se muestra en la pantalla; usarlo
+ * evita romper el enlace si la oferta llegó a generar un trabajo sin pagar.
+ */
+export async function eliminarOfertaPerdida(ofertaId: string) {
+  const supabase = await createClient()
+  if (!supabase) return { error: "Base de datos no disponible" }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+
+  // El filtro de estado forma parte de la escritura: aunque la oferta cambie
+  // mientras se confirma el diálogo, solo una rechazada puede ocultarse.
+  const { data: ofertaOcultada, error } = await supabase
+    .from("ofertas")
+    .update({ estado: "retirada", updated_at: new Date().toISOString() })
+    .eq("id", ofertaId)
+    .eq("profesional_id", user.id)
+    .eq("estado", "rechazada")
+    .select("id")
+    .maybeSingle()
+
+  if (error) return { error: error.message }
+  if (!ofertaOcultada) {
+    return { error: "La puja ya no está marcada como perdida. Actualiza la página e inténtalo de nuevo." }
+  }
+
+  revalidatePath("/mis-ofertas")
   return { success: true }
 }
 

@@ -4,11 +4,35 @@ import { createClient } from "@/lib/supabase/server"
 import { stripe } from "@/lib/stripe"
 import type Stripe from "stripe"
 import { revalidatePath } from "next/cache"
-import { calcularTotalCliente, calcularPagoProveedor, PLATFORM_CONFIG } from "@/lib/comisiones"
+import { calcularTotalCliente, PLATFORM_CONFIG } from "@/lib/comisiones"
 import { rechazarYNotificarOfertasPerdedoras } from "@/lib/ofertas-perdedoras"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { calcularLiquidacion } from "@/lib/liquidacion"
 import { crearTransferGroup, ejecutarLiquidacionStripe, obtenerCargoDePaymentIntent } from "@/lib/stripe-liquidacion"
+
+type DesglosePago = {
+  precioBase: number
+  comisionCliente: number
+  totalCliente: number
+  comisionProveedor: number
+  pagoNeto: number
+}
+
+// Reconcilia filas creadas por versiones antiguas que redondeaban dos lados de
+// una operación por separado. El total cobrado y la comisión del profesional
+// quedan fijos; los importes derivados se ajustan para conservar cada céntimo.
+function normalizarDesgloseGuardado(desglose: DesglosePago): DesglosePago {
+  const baseCentimos = Math.round(desglose.precioBase * 100)
+  const totalCentimos = Math.round(desglose.totalCliente * 100)
+  const comisionProveedorCentimos = Math.round(desglose.comisionProveedor * 100)
+  return {
+    precioBase: baseCentimos / 100,
+    comisionCliente: (totalCentimos - baseCentimos) / 100,
+    totalCliente: totalCentimos / 100,
+    comisionProveedor: comisionProveedorCentimos / 100,
+    pagoNeto: (baseCentimos - comisionProveedorCentimos) / 100,
+  }
+}
 
 /**
  * Create Stripe Checkout Session for escrow payment.
@@ -58,7 +82,7 @@ export async function crearPagoEscrow(data: {
   const [{ data: oferta, error: ofertaError }, { data: solicitud, error: solicitudError }] = await Promise.all([
     admin
       .from("ofertas")
-      .select("id, solicitud_id, profesional_id, precio, estado")
+      .select("id, solicitud_id, profesional_id, precio, estado, comision_proveedor_prevista, pago_neto_proveedor_previsto")
       .eq("id", trabajo.oferta_id)
       .maybeSingle(),
     admin
@@ -114,8 +138,24 @@ export async function crearPagoEscrow(data: {
   }
 
   // Calculate amounts with commissions
-  const { precioBase, comisionCliente, totalCliente } = calcularTotalCliente(precioAcordado)
-  const { comisionProveedor, pagoNeto } = calcularPagoProveedor(precioAcordado)
+  const desgloseClienteOferta = calcularTotalCliente(precioAcordado)
+  const comisionProveedorOferta = Number(oferta.comision_proveedor_prevista)
+  const pagoNetoOferta = Number(oferta.pago_neto_proveedor_previsto)
+  if (
+    !Number.isFinite(comisionProveedorOferta) ||
+    comisionProveedorOferta < 0 ||
+    !Number.isFinite(pagoNetoOferta) ||
+    pagoNetoOferta < 0 ||
+    Math.round((comisionProveedorOferta + pagoNetoOferta) * 100) !==
+      Math.round(desgloseClienteOferta.precioBase * 100)
+  ) {
+    return { error: "No se pudieron verificar los gastos de servicio aceptados por el profesional. No se realizará ningún cargo." }
+  }
+  const desgloseOferta: DesglosePago = {
+    ...desgloseClienteOferta,
+    comisionProveedor: comisionProveedorOferta,
+    pagoNeto: pagoNetoOferta,
+  }
 
   try {
     // Al no fijar `payment_method_types`, Checkout usa los métodos dinámicos
@@ -140,7 +180,31 @@ export async function crearPagoEscrow(data: {
       return { error: "No se pudo comprobar si ya había un pago preparado." }
     }
 
-    let escrowPreparado = escrowAbierto
+    let { precioBase, comisionCliente, totalCliente, comisionProveedor, pagoNeto } = desgloseOferta
+
+    if (escrowAbierto?.stripe_session_id) {
+      const desgloseAnterior = {
+        precioBase: Number(escrowAbierto.monto_base),
+        comisionCliente: Number(escrowAbierto.comision_cliente),
+        totalCliente: Number(escrowAbierto.monto),
+        comisionProveedor: Number(escrowAbierto.comision_proveedor),
+        pagoNeto: Number(escrowAbierto.pago_neto_proveedor),
+      }
+      const importesAnterioresValidos =
+        Object.values(desgloseAnterior).every((importe) => Number.isFinite(importe) && importe >= 0) &&
+        Math.round(desgloseAnterior.precioBase * 100) === Math.round(precioAcordado * 100) &&
+        desgloseAnterior.totalCliente >= desgloseAnterior.precioBase &&
+        desgloseAnterior.comisionProveedor <= desgloseAnterior.precioBase &&
+        escrowAbierto.cliente_id === clienteId &&
+        escrowAbierto.profesional_id === profesionalId
+      if (!importesAnterioresValidos) {
+        return { error: "El intento de pago anterior tiene un desglose incoherente. No se realizará ningún cargo." }
+      }
+
+      // La fila está ligada a una sesión ya creada. Conservamos exactamente su
+      // total y solo normalizamos los importes derivados al recuperarla.
+      ;({ precioBase, comisionCliente, totalCliente, comisionProveedor, pagoNeto } = desgloseAnterior)
+    }
 
     if (escrowAbierto?.stripe_session_id) {
       const anterior = await stripe.checkout.sessions.retrieve(escrowAbierto.stripe_session_id)
@@ -163,10 +227,34 @@ export async function crearPagoEscrow(data: {
           Math.round(Number(anterior.metadata?.precio_acordado) * 100) === Math.round(precioAcordado * 100)
 
         if (sesionCoincide && anterior.client_secret) {
+          // La fila de escrow es la foto contractual del intento de pago. Si
+          // la tarifa cambia mientras Checkout sigue abierto, mostramos sus
+          // importes guardados y no un desglose recalculado con la tarifa nueva.
+          const desgloseGuardado = normalizarDesgloseGuardado({
+            precioBase,
+            comisionCliente,
+            totalCliente,
+            comisionProveedor,
+            pagoNeto,
+          })
+          const { data: escrowNormalizado, error: normalizarError } = await admin
+            .from("transacciones_escrow")
+            .update({
+              comision_cliente: desgloseGuardado.comisionCliente,
+              pago_neto_proveedor: desgloseGuardado.pagoNeto,
+              monto_bruto_proveedor: desgloseGuardado.precioBase,
+            })
+            .eq("id", escrowAbierto.id)
+            .eq("estado", "pendiente")
+            .select()
+            .single()
+          if (normalizarError) {
+            return { error: "No se pudo conciliar el desglose del intento de pago anterior." }
+          }
           return {
             clientSecret: anterior.client_secret,
-            escrow: escrowAbierto,
-            desglose: { precioBase, comisionCliente, totalCliente, comisionProveedor, pagoNeto },
+            escrow: escrowNormalizado,
+            desglose: desgloseGuardado,
           }
         }
 
@@ -181,7 +269,21 @@ export async function crearPagoEscrow(data: {
       if (cancelarEscrowError) {
         return { error: "No se pudo cerrar de forma segura el intento de pago anterior." }
       }
-      escrowPreparado = null
+      ;({ precioBase, comisionCliente, totalCliente, comisionProveedor, pagoNeto } = desgloseOferta)
+    } else if (escrowAbierto) {
+      // Si faltó guardar el id, el navegador nunca recibió el client secret.
+      // No se puede repetir la petición con seguridad porque parámetros como
+      // `expires_at` cambian; cerramos la fila huérfana y usamos una nueva clave
+      // idempotente. Cualquier sesión inaccesible expirará por sí sola.
+      const { error: cancelarEscrowError } = await admin
+        .from("transacciones_escrow")
+        .update({ estado: "cancelado" })
+        .eq("id", escrowAbierto.id)
+        .eq("estado", "pendiente")
+        .is("stripe_session_id", null)
+      if (cancelarEscrowError) {
+        return { error: "No se pudo cerrar de forma segura el intento de pago anterior." }
+      }
     }
 
     const camposEscrow = {
@@ -199,18 +301,11 @@ export async function crearPagoEscrow(data: {
       stripe_transfer_group: transferGroup,
       liquidacion_estado: "pendiente",
     }
-    // Si Stripe creó la sesión pero el guardado de su id falló, esta fila queda
-    // pendiente y sin `stripe_session_id`. La reutilizamos: la clave idempotente
-    // basada en su id recuperará exactamente la misma sesión en el reintento.
-    const prepararEscrow = escrowPreparado
-      ? admin
-          .from("transacciones_escrow")
-          .update(camposEscrow)
-          .eq("id", escrowPreparado.id)
-          .eq("estado", "pendiente")
-          .is("stripe_session_id", null)
-      : admin.from("transacciones_escrow").insert(camposEscrow)
-    const { data: escrowNuevo, error: crearEscrowError } = await prepararEscrow.select().single()
+    const { data: escrowNuevo, error: crearEscrowError } = await admin
+      .from("transacciones_escrow")
+      .insert(camposEscrow)
+      .select()
+      .single()
     if (crearEscrowError || !escrowNuevo) {
       return { error: crearEscrowError?.message || "No se pudo preparar el pago." }
     }
@@ -267,30 +362,41 @@ export async function crearPagoEscrow(data: {
       { idempotencyKey: `diime-checkout-${escrowNuevo.id}` },
     )
 
+    const desgloseNormalizado = normalizarDesgloseGuardado({
+      precioBase,
+      comisionCliente,
+      totalCliente,
+      comisionProveedor,
+      pagoNeto,
+    })
     const { data: escrow, error: escrowError } = await admin
       .from("transacciones_escrow")
       .update({
         stripe_session_id: session.id,
         stripe_payment_intent_id: (session.payment_intent as string) || null,
+        comision_cliente: desgloseNormalizado.comisionCliente,
+        pago_neto_proveedor: desgloseNormalizado.pagoNeto,
+        monto_bruto_proveedor: desgloseNormalizado.precioBase,
       })
       .eq("id", escrowNuevo.id)
+      .eq("estado", "pendiente")
+      .is("stripe_session_id", null)
       .select()
-      .single()
+      .maybeSingle()
 
-    if (escrowError) {
-      return { error: escrowError.message }
+    if (escrowError || !escrow) {
+      // Otra petición pudo cerrar o sustituir esta fila mientras Stripe creaba
+      // la sesión. Nunca devolvemos un secreto cuyo escrow ya no está abierto.
+      if (session.status === "open") {
+        await stripe.checkout.sessions.expire(session.id)
+      }
+      return { error: escrowError?.message || "El intento de pago fue sustituido. Vuelve a intentarlo." }
     }
 
     return { 
       clientSecret: session.client_secret,
       escrow,
-      desglose: {
-        precioBase,
-        comisionCliente,
-        totalCliente,
-        comisionProveedor,
-        pagoNeto,
-      }
+      desglose: desgloseNormalizado,
     }
   } catch (error: any) {
     return { error: error.message }

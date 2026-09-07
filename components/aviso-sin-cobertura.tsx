@@ -7,10 +7,11 @@ import { createClient } from "@/lib/supabase/server"
  * Avisa al profesional de que no le va a llegar ninguna demanda mientras no
  * diga a qué se dedica y dónde trabaja.
  *
- * El emparejamiento filtra por `categorias_interes` y `provincias_cobertura`
- * (ver buscarYEnviarInvitaciones), así que con esos campos vacíos NO se recibe
- * nada. Ese aviso ya existía dentro de /mi-perfil, pero ahí solo lo veía quien
- * ya había entrado a configurarlo: justo el que no lo necesita. Va donde el
+ * El emparejamiento exige `categorias_interes` y `provincias_cobertura` y,
+ * cuando se configura, también aplica el rango de presupuesto (ver
+ * buscarYEnviarInvitaciones). Con servicio o zona vacíos NO se recibe nada.
+ * Ese aviso ya existía dentro de /mi-perfil, pero ahí solo lo veía quien ya
+ * había entrado a configurarlo: justo el que no lo necesita. Va donde el
  * profesional pasa el rato —Mis Pujas y Gestión de proyectos—, que es donde se
  * pregunta por qué no le llega trabajo.
  *

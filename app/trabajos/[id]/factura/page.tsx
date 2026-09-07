@@ -122,8 +122,20 @@ export default async function FacturaPage({
   const mostrarProveedor = esAdmin ? vistaAdmin !== "cliente" : esProfesional
   const tituloDocumento = contratado ? "Factura" : "Propuesta y términos"
   const { comisionCliente, totalCliente } = calcularTotalCliente(trabajo.precio_acordado || 0)
-  const { comisionProveedor, pagoNeto } = calcularPagoProveedor(trabajo.precio_acordado || 0)
   const baseOriginal = Number(escrow?.monto_base ?? trabajo.precio_acordado ?? 0)
+  const liquidacionProveedorActual = calcularPagoProveedor(baseOriginal)
+  const comisionProveedorOferta = Number(oferta?.comision_proveedor_prevista)
+  const pagoNetoProveedorOferta = Number(oferta?.pago_neto_proveedor_previsto)
+  const liquidacionOfertaValida =
+    Number.isFinite(comisionProveedorOferta) &&
+    comisionProveedorOferta >= 0 &&
+    Number.isFinite(pagoNetoProveedorOferta) &&
+    pagoNetoProveedorOferta >= 0 &&
+    Math.round((comisionProveedorOferta + pagoNetoProveedorOferta) * 100) === Math.round(baseOriginal * 100)
+  const comisionProveedor = liquidacionOfertaValida
+    ? comisionProveedorOferta
+    : liquidacionProveedorActual.comisionProveedor
+  const pagoNeto = liquidacionOfertaValida ? pagoNetoProveedorOferta : liquidacionProveedorActual.pagoNeto
   const reembolsoCliente = Number(escrow?.monto_reembolsado ?? 0)
   const liquidacionCerrada = escrow?.liquidacion_estado === "completada" || ["completado", "reembolsado", "liberado"].includes(escrow?.estado)
   const brutoProveedor = liquidacionCerrada
@@ -133,6 +145,12 @@ export default async function FacturaPage({
   const pagoNetoReal = Number(escrow?.pago_neto_proveedor ?? pagoNeto)
   const comisionClienteOriginal = Number(escrow?.comision_cliente ?? comisionCliente)
   const totalClienteOriginal = Number(escrow?.monto ?? totalCliente)
+  const porcentajeProveedorOferta = Number(oferta?.comision_proveedor_porcentaje)
+  const minimoProveedorOferta = Number(oferta?.comision_proveedor_minima)
+  const mostrarTarifaProveedorOferta =
+    !escrow &&
+    Number.isFinite(porcentajeProveedorOferta) &&
+    Number.isFinite(minimoProveedorOferta)
   const anio = new Date(escrow?.fecha_retencion || trabajo.created_at).getFullYear()
   const numero = `${contratado ? "FAC" : "PROP"}-${anio}-${String(trabajo.id).slice(0, 8).toUpperCase()}`
   const fechaEmision = escrow?.fecha_retencion || trabajo.created_at
@@ -290,8 +308,10 @@ export default async function FacturaPage({
               <>
                 <div className="grid grid-cols-[1fr_auto] gap-4 px-4 py-2.5">
                   <span>
-                    Gastos de servicio Diime ({PLATFORM_CONFIG.comisionClientePorcentaje}%, mín.{" "}
-                    {formatearEuros(PLATFORM_CONFIG.comision_minima)})
+                    Gastos de servicio Diime
+                    {!escrow && (
+                      <> ({PLATFORM_CONFIG.comisionClientePorcentaje}%, mín. {formatearEuros(PLATFORM_CONFIG.comision_minima)})</>
+                    )}
                   </span>
                   <span className="font-medium">{formatearEuros(comisionClienteOriginal)}</span>
                 </div>
@@ -329,7 +349,12 @@ export default async function FacturaPage({
                 <span className="font-medium">{formatearEuros(brutoProveedor)}</span>
               </div>
               <div className="flex justify-between px-4 py-2.5">
-                <span>Gastos de servicio Diime ({PLATFORM_CONFIG.comisionProveedorPorcentaje}%)</span>
+                <span>
+                  Gastos de servicio Diime
+                  {mostrarTarifaProveedorOferta && (
+                    <> ({porcentajeProveedorOferta}%, mín. {formatearEuros(minimoProveedorOferta)})</>
+                  )}
+                </span>
                 <span className="font-medium text-destructive">
                   −{formatearEuros(comisionProveedorReal)}
                 </span>

@@ -68,7 +68,7 @@ import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
 import MisDisputas from "@/components/mis-disputas"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
 import { EnlacePerfil } from "@/components/enlace-perfil"
-import { calcularPagoProveedor, PLATFORM_CONFIG } from "@/lib/comisiones"
+import { calcularPagoProveedor } from "@/lib/comisiones"
 
 type EstadoTrabajo = "pendiente_pago" | "en_progreso" | "entregado" | "completado" | "cancelado" | "en_disputa"
 
@@ -277,7 +277,7 @@ export default function MisTrabajosPage() {
   const trabajosCompletados = trabajos.filter((t) => t.estado === "completado")
   const trabajosEnDisputa = trabajos.filter((t) => t.estado === "en_disputa")
 
-  // Importes NETOS para el proveedor (tras la comisión del 5% de la plataforma).
+  // Importes NETOS para el proveedor (tras la comisión de la plataforma).
   const netoDe = (t: any) =>
     Number(t.transaccion_escrow?.pago_neto_proveedor ?? calcularPagoProveedor(t.precio_acordado || 0).pagoNeto)
   const totalPendienteCobro = trabajosEntregados.reduce((sum, t) => sum + netoDe(t), 0)
@@ -841,8 +841,7 @@ function TrabajoCard({
                 )}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Precio acordado {formatCurrency(trabajo.precio_acordado || 0)} − comisión Diime{" "}
-                {PLATFORM_CONFIG.comisionProveedorPorcentaje}% ({formatCurrency(comisionProveedor)}) ={" "}
+                Precio acordado {formatCurrency(trabajo.precio_acordado || 0)} − comisión Diime ({formatCurrency(comisionProveedor)}) ={" "}
                 <span className="font-medium text-foreground">{formatCurrency(pagoNeto)} netos</span>
               </p>
               <div className="flex gap-3 mt-2">
@@ -947,7 +946,7 @@ function TrabajoCard({
                     <CheckCheck className="h-8 w-8 text-emerald-500" />
                   </div>
                   <p className="font-medium text-emerald-600">Cobrado</p>
-                  <p className="text-2xl font-bold">{formatCurrency(trabajo.precio_acordado)}</p>
+                  <p className="text-2xl font-bold">{formatCurrency(pagoNeto)}</p>
                 </>
               ) : (
                 <>

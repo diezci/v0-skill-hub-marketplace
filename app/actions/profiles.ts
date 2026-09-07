@@ -6,6 +6,7 @@ import { CATEGORIAS_SERVICIO_NOMBRES } from "@/lib/categorias"
 import { PROVINCIAS_ES } from "@/lib/provincias"
 import { errorContenidoProhibido } from "@/lib/moderacion"
 import { formatearTramoPortfolio } from "@/lib/utils"
+import { PRECIO_MAX } from "@/lib/precios"
 
 export async function obtenerProfesionales(filtros?: {
   categoria?: string
@@ -124,10 +125,12 @@ export async function actualizarPerfil(formData: {
   tarifa_por_hora?: number
   anos_experiencia?: number
   titulo?: string
-  // En qué subcategorías de la taxonomía trabaja y qué provincias cubre: de
-  // esto dependen los avisos de demandas nuevas.
+  // Subcategorías, provincias y rango de presupuesto que determinan los avisos
+  // de demandas nuevas. null en un extremo del presupuesto = sin límite.
   categorias_interes?: string[]
   provincias_cobertura?: string[]
+  presupuesto_min_interes?: number | null
+  presupuesto_max_interes?: number | null
 }) {
   const supabase = await createClient()
 
@@ -175,6 +178,25 @@ export async function actualizarPerfil(formData: {
     }
   }
 
+  const incluyePresupuestoMin = formData.presupuesto_min_interes !== undefined
+  const incluyePresupuestoMax = formData.presupuesto_max_interes !== undefined
+  if (incluyePresupuestoMin !== incluyePresupuestoMax) {
+    return { error: "Guarda juntos el presupuesto mínimo y el máximo." }
+  }
+  if (incluyePresupuestoMin && incluyePresupuestoMax) {
+    const minimo = formData.presupuesto_min_interes
+    const maximo = formData.presupuesto_max_interes
+    const limiteValido = (valor: number | null) =>
+      valor === null || (Number.isFinite(valor) && valor >= 0 && valor <= PRECIO_MAX)
+
+    if (!limiteValido(minimo!) || !limiteValido(maximo!)) {
+      return { error: `El presupuesto de los avisos debe estar entre 0 y ${PRECIO_MAX.toLocaleString("es-ES")} €.` }
+    }
+    if (minimo !== null && maximo !== null && minimo! > maximo!) {
+      return { error: "El presupuesto mínimo de los avisos no puede superar el máximo." }
+    }
+  }
+
   const profileUpdates: any = {}
   if (formData.nombre !== undefined) profileUpdates.nombre = formData.nombre
   if (formData.apellido !== undefined) profileUpdates.apellido = formData.apellido
@@ -210,6 +232,18 @@ export async function actualizarPerfil(formData: {
   if (formData.anos_experiencia !== undefined) profData["años_experiencia"] = formData.anos_experiencia
   if (formData.categorias_interes !== undefined) profData.categorias_interes = formData.categorias_interes
   if (formData.provincias_cobertura !== undefined) profData.provincias_cobertura = formData.provincias_cobertura
+  if (formData.presupuesto_min_interes !== undefined) {
+    profData.presupuesto_min_interes =
+      formData.presupuesto_min_interes === null || formData.presupuesto_min_interes <= 0
+        ? null
+        : formData.presupuesto_min_interes
+  }
+  if (formData.presupuesto_max_interes !== undefined) {
+    profData.presupuesto_max_interes =
+      formData.presupuesto_max_interes === null || formData.presupuesto_max_interes >= PRECIO_MAX
+        ? null
+        : formData.presupuesto_max_interes
+  }
 
   if (Object.keys(profData).length > 0) {
     console.log("[v0] Updating profesional with:", profData)

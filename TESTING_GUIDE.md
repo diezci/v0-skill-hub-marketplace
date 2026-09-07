@@ -69,7 +69,7 @@ GUÍA COMPLETA DE PRUEBA DEL SISTEMA
 
 #### OPCIÓN A: Confirmar Finalización
 1. Haz click en "Confirmar Finalización"
-2. Los fondos se liberan al proveedor (500€ - 5% = 475€)
+2. Los fondos se liberan al proveedor (500€ - 10% = 450€)
 3. Aparece dialogo para dejar valoración
 4. Deja una reseña de 5 estrellas con comentario
 5. La valoración se guarda
@@ -78,7 +78,7 @@ GUÍA COMPLETA DE PRUEBA DEL SISTEMA
 1. Haz click en "Rechazar y Solicitar Reembolso"
 2. Selecciona motivo: "El color no es el acordado"
 3. Se crea una DISPUTA en estado "abierta"
-4. Se calcula reembolso: 500€ - 10% (comisión cliente) = 450€
+4. Se calcula el reembolso del precio del servicio: 500€. Diime conserva los 50€ de comisión del cliente
 5. La disputa aparece en el panel de admin
 
 ### Paso 6: Login como ADMINISTRADOR (resolver disputa)
@@ -94,19 +94,19 @@ GUÍA COMPLETA DE PRUEBA DEL SISTEMA
 5. RESUELVE DE 3 FORMAS:
 
 ##### Opción 1: Favorecer al CLIENTE (Reembolso total)
-- Cliente recibe: 450€ (menos comisión 10%)
+- Cliente recibe: 500€ (se le devuelve el precio del servicio; no la comisión de cliente)
 - Proveedor recibe: 0€
 - Plataforma retiene: 50€
 
 ##### Opción 2: Favorecer al PROVEEDOR (Pago completo)
 - Cliente recibe: 0€
-- Proveedor recibe: 475€ (menos comisión 5%)
-- Plataforma retiene: 25€
+- Proveedor recibe: 450€ (menos comisión 10%)
+- Plataforma retiene: 100€ (50€ del cliente + 50€ del proveedor)
 
 ##### Opción 3: DIVIDIR 50/50
-- Cliente recibe: 225€
-- Proveedor recibe: 237.50€
-- Plataforma retiene: 37.50€
+- Cliente recibe: 250€
+- Proveedor recibe: 225€ netos (250€ brutos - 25€ de comisión prorrateada)
+- Plataforma retiene: 75€ (50€ del cliente + 25€ del proveedor)
 
 6. Haz click en resolver y confirma la decisión
 
@@ -132,7 +132,7 @@ GUÍA COMPLETA DE PRUEBA DEL SISTEMA
 
 ### Verificar Comisiones
 - Cliente paga 10% de comisión adicional
-- Proveedor se lleva 5% menos
+- Proveedor se lleva 10% menos
 - Plataforma retiene la diferencia
 
 ---

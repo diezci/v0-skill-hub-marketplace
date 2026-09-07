@@ -1000,10 +1000,9 @@ export default function DemandasServicios() {
                 <CheckCircle2 className="h-4 w-4" /> Cobro protegido
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                Cuando el cliente acepte tu puja y pague, Diime{" "}
-                <span className="font-medium text-foreground">aplaza la transferencia al profesional</span> antes de que
-                empieces: así tienes la <span className="font-medium text-foreground">garantía del cobro</span>. El
-                pago se te libera automáticamente al completar el servicio y confirmarlo el cliente.
+                Si el cliente acepta tu oferta, tendrá que pagar antes de que empieces. El dinero quedará protegido
+                durante el trabajo. Cuando entregues el servicio y el cliente confirme que todo está correcto, Diime
+                liberará tu pago.
               </p>
             </div>
 

@@ -6,6 +6,7 @@ import { buscarYEnviarInvitaciones } from "./invitaciones"
 import { evaluarContenidoSolicitud } from "@/lib/moderacion"
 import { CATEGORIAS_SERVICIO_NOMBRES } from "@/lib/categorias"
 import { esFechaISOValida, fechaHoyEnEspana } from "@/lib/urgencias"
+import { esRangoPresupuestoValido } from "@/lib/precios"
 
 function claveCategoria(nombre: string) {
   return nombre
@@ -92,6 +93,9 @@ export async function crearSolicitud(formData: {
   if (ubicacion.error) return { error: ubicacion.error }
   const categoriaNombre = categoriaCanonica(formData.categoria_id)
   if (!categoriaNombre) return { error: "Selecciona una categoría válida." }
+  if (!esRangoPresupuestoValido(formData.presupuesto_min, formData.presupuesto_max)) {
+    return { error: "El presupuesto debe usar importes no negativos y el mínimo no puede superar el máximo." }
+  }
 
   const moderacion = evaluarContenidoSolicitud({
     titulo: titulo.valor,
@@ -276,7 +280,7 @@ export async function actualizarSolicitud(
   // Solo se puede editar una demanda propia que siga abierta (sin trabajo en curso).
   const { data: solicitud } = await supabase
     .from("solicitudes")
-    .select("cliente_id, estado, titulo, descripcion, ubicacion, categoria_id")
+    .select("cliente_id, estado, titulo, descripcion, ubicacion, categoria_id, presupuesto_min, presupuesto_max")
     .eq("id", id)
     .maybeSingle()
 
@@ -285,6 +289,14 @@ export async function actualizarSolicitud(
   }
   if (solicitud.estado !== "abierta") {
     return { error: "Solo puedes editar demandas que sigan abiertas (sin ofertas aceptadas)." }
+  }
+
+  const presupuestoMinFinal =
+    campos.presupuesto_min === undefined ? solicitud.presupuesto_min : campos.presupuesto_min
+  const presupuestoMaxFinal =
+    campos.presupuesto_max === undefined ? solicitud.presupuesto_max : campos.presupuesto_max
+  if (!esRangoPresupuestoValido(presupuestoMinFinal, presupuestoMaxFinal)) {
+    return { error: "El presupuesto debe usar importes no negativos y el mínimo no puede superar el máximo." }
   }
 
   const titulo = textoSolicitud(

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { createClient } from "@/lib/supabase/client"
-import { formatearPrecio } from "@/lib/comisiones"
+import { formatearPrecio, PLATFORM_CONFIG } from "@/lib/comisiones"
 import { formatearFecha } from "@/lib/utils"
 import { Users, Briefcase, Scale, CreditCard, TrendingUp, AlertCircle, ShieldAlert, Euro, Wallet } from "lucide-react"
 import Link from "next/link"
@@ -314,7 +314,9 @@ export default function AdminDashboard() {
                 <span className="font-medium">{formatearPrecio(stats.ingresosComisionCliente)}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Gastos de servicio a profesionales (5%)</span>
+                <span className="text-muted-foreground">
+                  Gastos de servicio a profesionales (tarifa actual {PLATFORM_CONFIG.comisionProveedorPorcentaje}%)
+                </span>
                 <span className="font-medium">{formatearPrecio(stats.ingresosComisionProveedor)}</span>
               </div>
               <div className="flex items-center justify-between">

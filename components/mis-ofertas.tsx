@@ -30,12 +30,19 @@ import {
 import { Clock, MessageSquare, MapPin, Calendar, FileText, Loader2, Pencil, Trash2, Check, Paperclip, X, Eye, Send } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { EnlacePerfil } from "@/components/enlace-perfil"
-import { obtenerOfertasPorProfesional, actualizarOferta, eliminarOferta, crearOferta } from "@/app/actions/ofertas"
+import {
+  obtenerOfertasPorProfesional,
+  actualizarOferta,
+  eliminarOferta,
+  eliminarOfertaPerdida,
+  crearOferta,
+} from "@/app/actions/ofertas"
 import { crearConversacion } from "@/app/actions/messages"
 import { uploadFile } from "@/lib/upload-helpers"
 import { PlazoNecesidad } from "@/components/plazo-necesidad"
 import { useToast } from "@/hooks/use-toast"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
+import { calcularPagoProveedor, formatearPrecio, PLATFORM_CONFIG } from "@/lib/comisiones"
 
 // Aquí viven las pujas pendientes de respuesta y también las aceptadas cuyo
 // pago el cliente aún no ha completado: hasta que se pague, el trabajo no
@@ -174,12 +181,19 @@ export default function MisOfertas() {
 
   const handleEliminar = async () => {
     if (!deleteOferta) return
+    const esPujaPerdida = esPerdida(deleteOferta)
     setActionLoading(true)
-    const result = await eliminarOferta(deleteOferta.id)
+    const result = esPujaPerdida
+      ? await eliminarOfertaPerdida(deleteOferta.id)
+      : await eliminarOferta(deleteOferta.id)
     if (result.error) {
       toast({ title: "Error", description: result.error, variant: "destructive" })
     } else {
-      toast({ title: "Oferta retirada", description: "Tu oferta se ha retirado." })
+      toast(
+        esPujaPerdida
+          ? { title: "Puja borrada", description: "La puja perdida se ha eliminado." }
+          : { title: "Oferta retirada", description: "Tu oferta se ha retirado." },
+      )
       setDeleteOferta(null)
       await cargarOfertas()
     }
@@ -208,6 +222,9 @@ export default function MisOfertas() {
       </Card>
     )
   }
+
+  const precioRepuja = Number.parseFloat(editForm.precio)
+  const liquidacionRepuja = precioRepuja > 0 ? calcularPagoProveedor(precioRepuja) : null
 
   return (
     <div className="space-y-6">
@@ -385,7 +402,8 @@ export default function MisOfertas() {
               Pujas perdidas ({perdidas.length})
             </CardTitle>
             <CardDescription>
-              Puedes revisar qué ofertaste y, si la demanda sigue abierta, enviar una nueva propuesta.
+              Puedes revisar qué ofertaste, borrar las pujas que ya no quieras conservar y, si la demanda sigue
+              abierta, enviar una nueva propuesta.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -435,6 +453,15 @@ export default function MisOfertas() {
                         Volver a pujar
                       </Button>
                     )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 bg-transparent text-destructive border-destructive/40 hover:bg-destructive/10"
+                    onClick={() => setDeleteOferta(oferta)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1.5" />
+                    Borrar
+                  </Button>
                 </div>
               </div>
             ))}
@@ -555,7 +582,13 @@ export default function MisOfertas() {
                   className="mt-0.5"
                 />
                 <span>
-                  Acepto los gastos de servicio de Diime aplicables a esta nueva oferta.
+                  Acepto los gastos de servicio de Diime ({PLATFORM_CONFIG.comisionProveedorPorcentaje}% del precio,
+                  mín. {formatearPrecio(PLATFORM_CONFIG.comision_minima)}).
+                  {liquidacionRepuja && (
+                    <>
+                      {" "}Si el cliente acepta esta oferta, recibiré {formatearPrecio(liquidacionRepuja.pagoNeto)} netos.
+                    </>
+                  )}
                 </span>
               </label>
             )}
@@ -580,13 +613,17 @@ export default function MisOfertas() {
         </DialogContent>
       </Dialog>
 
-      {/* Confirmar retirada */}
+      {/* Confirmar retirada de una oferta viva o borrado de una perdida */}
       <AlertDialog open={!!deleteOferta} onOpenChange={(o) => !o && setDeleteOferta(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Retirar esta oferta?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {deleteOferta && esPerdida(deleteOferta) ? "¿Borrar esta puja perdida?" : "¿Retirar esta oferta?"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Se retirará tu oferta de "{deleteOferta?.solicitud?.titulo}". Esta acción no se puede deshacer.
+              {deleteOferta && esPerdida(deleteOferta)
+                ? `Se borrará tu puja de "${deleteOferta?.solicitud?.titulo || "esta demanda"}". Esta acción no se puede deshacer.`
+                : `Se retirará tu oferta de "${deleteOferta?.solicitud?.titulo || "esta demanda"}". Esta acción no se puede deshacer.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -600,7 +637,7 @@ export default function MisOfertas() {
               disabled={actionLoading}
             >
               {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-              Retirar oferta
+              {deleteOferta && esPerdida(deleteOferta) ? "Borrar puja" : "Retirar oferta"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
