@@ -74,11 +74,10 @@ El panel y el correo cubren webhooks, liquidaciones, incidencias, disputas y los
 fallos registrados por email y push. Si el propio correo falla, el evento queda
 visible en `/admin/operaciones` y en los logs del despliegue.
 
-El primer control manual del 4 de septiembre de 2026 autenticó y ejecutó el
-cron, pero Resend rechazó el envío. El DNS público de `diime.es` no expone aún
-los registros SPF/DKIM de Resend. Antes de dar la alerta por cerrada hay que
-verificar un dominio o subdominio de envío en Resend, configurar exactamente ese
-dominio en `RESEND_FROM` y repetir el control manual.
+El 7 de septiembre de 2026 se verificó `diime.es` en Resend, se configuraron
+`RESEND_FROM` y una nueva `RESEND_API_KEY` secreta solo para producción, y se
+repitió el control manual. El cron respondió con HTTP 200 y Resend confirmó la
+entrega del resumen a `contacto@diime.es`. La clave anterior quedó revocada.
 
 ## Cierre semanal
 

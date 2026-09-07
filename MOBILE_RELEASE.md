@@ -40,10 +40,10 @@ No son cambios que deban automatizarse con credenciales o claves inventadas:
    DSA como comerciante con la identidad legal real y elegir disponibilidad.
 4. Probar registro, Google/Apple, publicación, reporte, mensajería, adjuntos,
    pago/reembolso y borrado de cuenta en un iPhone y un Android reales.
-5. `CRON_SECRET` y `OPERATIONS_ALERT_EMAIL` ya están configurados en producción.
-   El panel `/admin/operaciones` y el cron están desplegados. La primera llamada
-   manual se ejecutó, pero Resend rechazó el correo: queda verificar el dominio
-   de envío, configurar `RESEND_FROM` y repetir la prueba a
+5. `CRON_SECRET`, `OPERATIONS_ALERT_EMAIL`, `RESEND_FROM` y `RESEND_API_KEY` ya
+   están configurados en producción. `diime.es` está verificado en Resend, el
+   panel `/admin/operaciones` y el cron están desplegados, y el 7 de septiembre
+   de 2026 se confirmó mediante un control manual la entrega del aviso a
    `contacto@diime.es`.
 
 ## Compilar Android
