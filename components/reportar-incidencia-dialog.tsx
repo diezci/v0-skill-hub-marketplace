@@ -27,6 +27,9 @@ interface ReportarIncidenciaDialogProps {
   trabajoId?: string
   usuarioReportadoId?: string
   trigger?: React.ReactNode
+  triggerLabel?: string
+  triggerVariant?: React.ComponentProps<typeof Button>["variant"]
+  triggerSize?: React.ComponentProps<typeof Button>["size"]
   asuntoInicial?: string
   categoriaInicial?: IncidenciaCategoria
   descripcionPlaceholder?: string
@@ -38,6 +41,9 @@ export function ReportarIncidenciaDialog({
   trabajoId,
   usuarioReportadoId,
   trigger,
+  triggerLabel = "Reportar incidencia",
+  triggerVariant = "ghost",
+  triggerSize = "sm",
   asuntoInicial = "",
   categoriaInicial = "otro",
   descripcionPlaceholder = "Cuéntanos qué ha ocurrido, cuándo y con qué usuarios o trabajo está relacionado...",
@@ -100,9 +106,9 @@ export function ReportarIncidenciaDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button variant="ghost" size="sm" className="gap-2">
+          <Button variant={triggerVariant} size={triggerSize} className="bg-transparent gap-2">
             <ShieldAlert className="h-4 w-4" />
-            Reportar incidencia
+            {triggerLabel}
           </Button>
         )}
       </DialogTrigger>

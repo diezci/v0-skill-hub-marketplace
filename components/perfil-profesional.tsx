@@ -59,7 +59,8 @@ import {
 import { uploadFile } from "@/lib/upload-helpers"
 import { createClient } from "@/lib/supabase/client"
 import { desvincularPushActual } from "@/lib/push/client"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { RangoPrecio } from "@/components/rango-precio"
 import { PRECIO_MAX } from "@/lib/precios"
 
@@ -130,11 +131,15 @@ function formatearPresupuestoInteres([minimo, maximo]: [number, number]) {
 export default function PerfilProfesional({ editable = false }: PerfilProfesionalProps) {
   const { toast } = useToast()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const completarProfesional = searchParams.get("completar") === "profesional"
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+  const [tienePerfilProfesional, setTienePerfilProfesional] = useState(false)
+  const mostrarEditorProfesional = tienePerfilProfesional || completarProfesional
 
   const [editData, setEditData] = useState({
     nombre: "",
@@ -204,11 +209,13 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
 
   useEffect(() => {
     async function cargarPerfil() {
+      setLoading(true)
       const result = await obtenerPerfilActual()
       if (result.data) {
         const { data } = result
+        setTienePerfilProfesional(Boolean(data.profesional))
         setProfesionalId(data.id)
-        setEditData({
+        const datosPerfil = {
           nombre: data.nombre || "",
           apellido: data.apellido || "",
           titulo: data.profesional?.titulo || "",
@@ -254,8 +261,11 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
             comunicacion: 0,
             precio_calidad: 0,
           },
-        })
-        await cargarPortfolio(data.id)
+        }
+        setEditData(datosPerfil)
+        setSnapshotEdicion(completarProfesional ? datosPerfil : null)
+        setIsEditing(completarProfesional)
+        if (data.profesional) await cargarPortfolio(data.id)
       } else if (result.error === "No autenticado") {
         router.push("/auth/login")
         return
@@ -263,7 +273,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
       setLoading(false)
     }
     cargarPerfil()
-  }, [])
+  }, [completarProfesional])
 
   // La tabla guarda `imagen_url`; las tarjetas de abajo leen `imagen`.
   const cargarPortfolio = async (id: string) => {
@@ -389,7 +399,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
   const handleSave = async () => {
     // Sin categorías ni provincias no se puede avisar de ninguna demanda, así
     // que no se deja guardar el perfil a medias.
-    if (editData.categorias_interes.length === 0) {
+    if (mostrarEditorProfesional && editData.categorias_interes.length === 0) {
       toast({
         title: "Elige tus servicios",
         description: "Marca al menos una categoría para que te lleguen las demandas que te interesan.",
@@ -397,7 +407,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
       })
       return
     }
-    if (editData.provincias_cobertura.length === 0) {
+    if (mostrarEditorProfesional && editData.provincias_cobertura.length === 0) {
       toast({
         title: "Elige tu zona",
         description: "Marca al menos una provincia en la que quieras cubrir demandas.",
@@ -411,22 +421,24 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     const result = await actualizarPerfil({
       nombre: editData.nombre,
       apellido: editData.apellido,
-      titulo: editData.titulo,
       bio: editData.bio,
       ubicacion: editData.ubicacion,
       telefono: editData.telefono,
       foto_perfil: editData.foto_perfil,
       foto_portada: editData.foto_portada,
-      habilidades: editData.habilidades,
-      categorias_interes: editData.categorias_interes,
-      provincias_cobertura: editData.provincias_cobertura,
-      presupuesto_min_interes: editData.presupuesto_interes[0] <= 0 ? null : editData.presupuesto_interes[0],
-      presupuesto_max_interes:
-        editData.presupuesto_interes[1] >= PRECIO_MAX ? null : editData.presupuesto_interes[1],
-      certificaciones: editData.certificaciones,
-      idiomas: editData.idiomas,
-      tarifa_por_hora: editData.tarifa_hora,
-      anos_experiencia: editData.anos_experiencia,
+      ...(mostrarEditorProfesional ? {
+        titulo: editData.titulo,
+        habilidades: editData.habilidades,
+        categorias_interes: editData.categorias_interes,
+        provincias_cobertura: editData.provincias_cobertura,
+        presupuesto_min_interes: editData.presupuesto_interes[0] <= 0 ? null : editData.presupuesto_interes[0],
+        presupuesto_max_interes:
+          editData.presupuesto_interes[1] >= PRECIO_MAX ? null : editData.presupuesto_interes[1],
+        certificaciones: editData.certificaciones,
+        idiomas: editData.idiomas,
+        tarifa_por_hora: editData.tarifa_hora,
+        anos_experiencia: editData.anos_experiencia,
+      } : {}),
     })
 
     setSaving(false)
@@ -444,6 +456,9 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
       })
       setSnapshotEdicion(null)
       setIsEditing(false)
+      if (mostrarEditorProfesional) setTienePerfilProfesional(true)
+      if (completarProfesional) router.replace("/mi-perfil")
+      router.refresh()
     }
   }
 
@@ -456,6 +471,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     if (snapshotEdicion) setEditData(snapshotEdicion)
     setSnapshotEdicion(null)
     setIsEditing(false)
+    if (completarProfesional) router.replace("/mi-perfil")
   }
 
   const addSkill = () => {
@@ -550,6 +566,101 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  // La ficha profesional puede coexistir con el uso como cliente. Su existencia,
+  // y no el tipo de cuenta elegido al registrarse, decide qué editor mostrar.
+  if (!mostrarEditorProfesional) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-6 pb-24 md:pb-0">
+        <Card>
+          <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <Avatar className="h-20 w-20">
+                <AvatarImage src={editData.foto_perfil || undefined} alt="Tu foto de perfil" />
+                <AvatarFallback className="text-2xl">{editData.nombre.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 space-y-2">
+                <h1 className="break-words text-2xl font-bold">{editData.nombre} {editData.apellido}</h1>
+                <Badge variant="secondary">Cliente</Badge>
+              </div>
+            </div>
+            {editable ? (
+              <div className="flex flex-wrap gap-2">
+                {isEditing ? (
+                  <>
+                    <Button onClick={handleSave} disabled={saving || isUploading}>
+                      {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Guardar cambios
+                    </Button>
+                    <Button variant="outline" onClick={cancelarEdicion} disabled={saving}>Cancelar</Button>
+                  </>
+                ) : (
+                  <Button onClick={iniciarEdicion}><Edit2 className="mr-2 h-4 w-4" />Editar perfil</Button>
+                )}
+              </div>
+            ) : null}
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {isEditing ? (
+              <div className="space-y-2">
+                <Label htmlFor="cliente-avatar-upload">Foto de perfil</Label>
+                <Input id="cliente-avatar-upload" type="file" accept="image/*" onChange={handleAvatarUpload} disabled={isUploading} />
+                {isUploading ? <p className="text-sm text-muted-foreground">Subiendo foto...</p> : null}
+              </div>
+            ) : null}
+            <div className="grid gap-4 sm:grid-cols-2">
+              {([
+                ["nombre", "Nombre", "text"],
+                ["apellido", "Apellidos", "text"],
+                ["telefono", "Teléfono", "tel"],
+              ] as const).map(([campo, etiqueta, tipo]) => (
+                <div key={campo} className="space-y-2">
+                  <Label htmlFor={`cliente-${campo}`}>{etiqueta}</Label>
+                  {isEditing ? (
+                    <Input id={`cliente-${campo}`} type={tipo} value={editData[campo]}
+                      onChange={(e) => setEditData({ ...editData, [campo]: e.target.value })} />
+                  ) : <p>{editData[campo] || "No especificado"}</p>}
+                </div>
+              ))}
+              <div className="space-y-2">
+                <Label htmlFor="cliente-provincia">Provincia</Label>
+                {isEditing ? (
+                  <Select value={editData.ubicacion} onValueChange={(ubicacion) => setEditData({ ...editData, ubicacion })}>
+                    <SelectTrigger id="cliente-provincia"><SelectValue placeholder="Elige tu provincia" /></SelectTrigger>
+                    <SelectContent>
+                      {provincias.map((prov) => <SelectItem key={prov.codigo} value={prov.provincia}>{prov.provincia}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                ) : <p>{editData.ubicacion || "No especificada"}</p>}
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <p className="text-sm font-medium">Correo electrónico</p>
+                <p className="break-all">{editData.email || "No especificado"}</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cliente-bio">Sobre mí</Label>
+              {isEditing ? (
+                <Textarea id="cliente-bio" rows={4} value={editData.bio} placeholder="Cuéntanos algo sobre ti."
+                  onChange={(e) => setEditData({ ...editData, bio: e.target.value })} />
+              ) : <p className="text-muted-foreground">{editData.bio || "No has añadido una descripción todavía."}</p>}
+            </div>
+          </CardContent>
+        </Card>
+        {editable ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">También puedes ofrecer servicios</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-muted-foreground">Completa tu perfil de proveedor para enviar ofertas. Podrás seguir contratando servicios con esta misma cuenta.</p>
+              <Button asChild><Link href="/convertirse-profesional">Crear perfil de proveedor</Link></Button>
+            </CardContent>
+          </Card>
+        ) : null}
       </div>
     )
   }

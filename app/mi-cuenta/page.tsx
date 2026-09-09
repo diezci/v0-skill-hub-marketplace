@@ -14,7 +14,6 @@ import {
   ChevronRight,
   Briefcase,
   Bell,
-  ShieldAlert,
   BadgeCheck,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
@@ -174,12 +173,9 @@ export default async function MiCuentaPage() {
           </CardHeader>
           <CardContent>
             <ReportarIncidenciaDialog
-              trigger={
-                <Button variant="outline" className="bg-transparent gap-2">
-                  <ShieldAlert className="h-4 w-4" />
-                  Reportar un problema
-                </Button>
-              }
+              triggerLabel="Reportar un problema"
+              triggerVariant="outline"
+              triggerSize="default"
             />
           </CardContent>
         </Card>
