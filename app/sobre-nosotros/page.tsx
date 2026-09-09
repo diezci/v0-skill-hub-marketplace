@@ -19,7 +19,7 @@ export default function SobreNosotros() {
         <h1 className="text-4xl font-bold mb-4">Sobre Diime</h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
           Somos la plataforma que conecta a personas que necesitan servicios del hogar y la construcción con
-          profesionales verificados de toda España.
+          profesionales de toda España.
         </p>
       </div>
 

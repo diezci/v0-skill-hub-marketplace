@@ -131,7 +131,7 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
                 ) : (
                   perfil.verificado && (
                     <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 gap-1">
-                      <BadgeCheck className="h-3.5 w-3.5" /> Verificado
+                      <BadgeCheck className="h-3.5 w-3.5" /> Verificado por Diime
                     </Badge>
                   )
                 )}
@@ -258,12 +258,13 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
               {certificaciones.length > 0 && (
                 <div>
                   <h3 className="font-semibold mb-2 flex items-center gap-2">
-                    <Award className="h-4 w-4" /> Certificaciones
+                    <Award className="h-4 w-4" /> Certificaciones declaradas
                   </h3>
+                  <p className="text-xs text-muted-foreground mb-2">Información aportada por el proveedor. La insignia del perfil no acredita cada titulación.</p>
                   <ul className="space-y-1">
                     {certificaciones.map((c, i) => (
                       <li key={i} className="text-sm text-muted-foreground flex items-center gap-2">
-                        <BadgeCheck className="h-4 w-4 text-emerald-500" /> {c}
+                        <Award className="h-4 w-4" /> {c}
                       </li>
                     ))}
                   </ul>

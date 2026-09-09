@@ -5,10 +5,10 @@ import type { MetadataRoute } from "next"
 // adelante en iOS).
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Diime — Profesionales verificados",
+    name: "Diime — Profesionales y servicios",
     short_name: "Diime",
     description:
-      "Publica tu demanda y recibe ofertas de profesionales verificados, con el pago protegido de principio a fin.",
+      "Publica tu demanda y recibe ofertas de profesionales, con el pago protegido de principio a fin.",
     start_url: "/",
     scope: "/",
     // `standalone`: al abrirla desde el icono se ve sin barra de navegador,

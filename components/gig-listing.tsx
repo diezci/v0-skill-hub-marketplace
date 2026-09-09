@@ -92,7 +92,7 @@ const GigListing = ({ filtros }: GigListingProps) => {
         return {
           id: p.id,
           title: p.titulo || nombre,
-          description: p.perfil?.bio || p.titulo || "Profesional verificado en Diime",
+          description: p.perfil?.bio || p.titulo || "Profesional en Diime",
           price: Number(p.tarifa_por_hora) || 0,
           // La etiqueta de la tarjeta representa un servicio seleccionado de la
           // taxonomía, no una habilidad de texto libre.
@@ -109,7 +109,7 @@ const GigListing = ({ filtros }: GigListingProps) => {
           freelancer: {
             name: nombre,
             avatar: p.perfil?.foto_perfil || "",
-            level: p.nivel || "Profesional",
+            level: p.perfil?.verificado ? "Verificado por Diime" : "Profesional",
           },
         }
       })

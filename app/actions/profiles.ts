@@ -382,7 +382,7 @@ export async function obtenerProfesionalesDestacados() {
         return {
           id: prof.id,
           titulo_profesional: prof.titulo || "Profesional",
-          descripcion: "Profesional verificado",
+          descripcion: profile?.verificado ? "Perfil verificado por el equipo de Diime" : "Profesional en Diime",
           tarifa_hora: prof.tarifa_por_hora || 0,
           rating_promedio: prof.rating_promedio || 0,
           total_reviews: prof.total_reseñas || 0,

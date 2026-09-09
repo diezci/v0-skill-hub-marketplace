@@ -177,15 +177,14 @@ export default function AdminUsuariosPage() {
   }
 
   const cambiarVerificacion = async () => {
-    if (!usuarioPendiente?.profesional) return
+    if (!usuarioPendiente?.profesional || !usuarioPendiente.verificado) return
 
     const usuario = usuarioPendiente
-    const nuevoEstado = !usuario.verificado
     setActualizandoId(usuario.id)
     setUsuarioPendiente(null)
 
     try {
-      const result = await actualizarVerificacionProfesional(usuario.id, nuevoEstado)
+      const result = await actualizarVerificacionProfesional(usuario.id, false)
 
       if (result.error) {
         toast({ title: "No se pudo actualizar", description: result.error, variant: "destructive" })
@@ -198,7 +197,7 @@ export default function AdminUsuariosPage() {
         ),
       )
       toast({
-        title: nuevoEstado ? "Profesional verificado" : "Verificación retirada",
+        title: "Verificación retirada",
         description: `${usuario.nombre} ${usuario.apellido}`.trim(),
       })
     } catch {
@@ -215,14 +214,22 @@ export default function AdminUsuariosPage() {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Users className="h-8 w-8 text-primary" />
-          Usuarios Registrados
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Gestiona todos los usuarios de la plataforma
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <Users className="h-8 w-8 text-primary" />
+            Usuarios Registrados
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Gestiona todos los usuarios de la plataforma
+          </p>
+        </div>
+        <Button asChild variant="outline" className="gap-2">
+          <Link href="/admin/verificaciones">
+            <BadgeCheck className="h-4 w-4" />
+            Revisar verificaciones
+          </Link>
+        </Button>
       </div>
 
       {/* Stats */}
@@ -403,22 +410,17 @@ export default function AdminUsuariosPage() {
                           </Link>
                         </Button>
                         {usuario.profesional && !usuario.es_admin ? (
-                          <Button
+                          usuario.verificado ? <Button
                             size="sm"
-                            variant={usuario.verificado ? "outline" : "default"}
+                            variant="outline"
                             disabled={actualizandoId !== null}
                             onClick={() => setUsuarioPendiente(usuario)}
                           >
                             {actualizandoId === usuario.id ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : usuario.verificado ? (
-                              "Retirar"
-                            ) : (
-                              <>
-                                <BadgeCheck className="h-4 w-4" /> Verificar
-                              </>
-                            )}
+                            ) : "Retirar"}
                           </Button>
+                          : <Button asChild size="sm"><Link href="/admin/verificaciones"><BadgeCheck className="h-4 w-4" /> Revisar verificación</Link></Button>
                         ) : null}
                       </div>
                     </TableCell>
@@ -434,18 +436,16 @@ export default function AdminUsuariosPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {usuarioPendiente?.verificado ? "¿Retirar la verificación?" : "¿Verificar este profesional?"}
+              ¿Retirar la verificación?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {usuarioPendiente?.verificado
-                ? `La insignia dejará de mostrarse en el perfil de ${usuarioPendiente.nombre} ${usuarioPendiente.apellido}.`
-                : `Confirmas que has revisado el perfil de ${usuarioPendiente?.nombre || "este profesional"} ${usuarioPendiente?.apellido || ""}. La insignia se mostrará públicamente.`}
+              {`La insignia dejará de mostrarse en el perfil de ${usuarioPendiente?.nombre || "este profesional"} ${usuarioPendiente?.apellido || ""}.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={cambiarVerificacion}>
-              {usuarioPendiente?.verificado ? "Retirar verificación" : "Verificar profesional"}
+              Retirar verificación
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

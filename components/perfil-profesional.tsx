@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { cn, formatearPrecioEuros, formatearRangoPortfolio } from "@/lib/utils"
@@ -63,6 +63,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { RangoPrecio } from "@/components/rango-precio"
 import { PRECIO_MAX } from "@/lib/precios"
+import { SolicitudVerificacionProfesional } from "@/components/solicitud-verificacion-profesional"
 
 const provincias = [
   { provincia: "Álava", codigo: "01" },
@@ -178,6 +179,13 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     },
   })
   const [snapshotEdicion, setSnapshotEdicion] = useState<typeof editData | null>(null)
+  const actualizarVerificacion = useCallback((verificado: boolean) => {
+    setEditData((actual) => actual.verificado === verificado ? actual : {
+      ...actual,
+      verificado,
+      nivel: verificado ? "Profesional Verificado" : "Profesional",
+    })
+  }, [])
 
   const [newSkill, setNewSkill] = useState("")
   const [newCert, setNewCert] = useState("")
@@ -879,6 +887,15 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
         </Card>
       </div>
 
+      {editable && tienePerfilProfesional ? (
+        <div className="px-4 md:px-0">
+          <SolicitudVerificacionProfesional
+            key={profesionalId}
+            onVerificacionActualizada={actualizarVerificacion}
+          />
+        </div>
+      ) : null}
+
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 px-4 md:px-0">
         {/* Left Column - Main Info */}
@@ -1126,6 +1143,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                     <Award className="h-5 w-5 text-primary" />
                     Certificaciones
                   </CardTitle>
+                  <p className="text-sm text-muted-foreground">Declaradas por el proveedor</p>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {editData.certificaciones.length === 0 && !isEditing && (
@@ -1134,12 +1152,14 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                   <div className="space-y-2">
                     {editData.certificaciones.map((cert, i) => (
                       <div key={i} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-muted/50">
-                        <div className="flex items-center gap-3">
-                          <CheckCircle className="h-5 w-5 text-emerald-500" />
-                          <span>{cert}</span>
-                        </div>
+                        <span className="min-w-0 break-words">{cert}</span>
                         {isEditing && (
-                          <button onClick={() => removeCertification(i)} className="hover:text-destructive">
+                          <button
+                            type="button"
+                            onClick={() => removeCertification(i)}
+                            aria-label={`Eliminar certificación ${cert}`}
+                            className="shrink-0 hover:text-destructive"
+                          >
                             <X className="h-4 w-4" />
                           </button>
                         )}

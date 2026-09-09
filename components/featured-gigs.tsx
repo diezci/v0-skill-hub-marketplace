@@ -28,65 +28,6 @@ interface FeaturedGig {
   }
 }
 
-// Detecta si el ID es un UUID válido (los de la BD real)
-const isUUID = (id: string) =>
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
-
-const fallbackGigs: FeaturedGig[] = [
-  {
-    id: "fallback-1",
-    title: "Albañilería Profesional",
-    description: "Construcción y reformas con más de 15 años de experiencia",
-    price: 35,
-    category: "Albañilería",
-    image: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80",
-    rating: 4.9,
-    reviews: 127,
-    location: "Madrid",
-    verified: true,
-    freelancer: { name: "Carlos Rodríguez", avatar: "/placeholder.svg", level: "Experto" },
-  },
-  {
-    id: "fallback-2",
-    title: "Fontanería 24h",
-    description: "Reparaciones urgentes e instalaciones",
-    price: 40,
-    category: "Fontanería",
-    image: "https://images.unsplash.com/photo-1581244277943-fe4a9c777189?w=400&q=80",
-    rating: 4.8,
-    reviews: 89,
-    location: "Barcelona",
-    verified: true,
-    freelancer: { name: "María García", avatar: "/placeholder.svg", level: "Experta" },
-  },
-  {
-    id: "fallback-3",
-    title: "Electricista Certificado",
-    description: "Instalaciones eléctricas y certificados",
-    price: 45,
-    category: "Electricidad",
-    image: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=400&q=80",
-    rating: 4.9,
-    reviews: 156,
-    location: "Valencia",
-    verified: true,
-    freelancer: { name: "Antonio López", avatar: "/placeholder.svg", level: "Experto" },
-  },
-  {
-    id: "fallback-4",
-    title: "Pintura y Decoración",
-    description: "Acabados profesionales interior y exterior",
-    price: 30,
-    category: "Pintura",
-    image: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=400&q=80",
-    rating: 4.7,
-    reviews: 73,
-    location: "Sevilla",
-    verified: true,
-    freelancer: { name: "Elena Martín", avatar: "/placeholder.svg", level: "Profesional" },
-  },
-]
-
 const GigCard = ({ gig }: { gig: FeaturedGig }) => (
   <Card className="overflow-hidden card-hover cursor-pointer group h-full">
     <div className="relative h-40 overflow-hidden">
@@ -100,7 +41,7 @@ const GigCard = ({ gig }: { gig: FeaturedGig }) => (
         {gig.category}
       </Badge>
       {gig.verified && (
-        <div className="absolute top-3 right-3 bg-primary/90 text-primary-foreground rounded-full p-1">
+        <div className="absolute top-3 right-3 bg-primary/90 text-primary-foreground rounded-full p-1" title="Perfil revisado y verificado por el equipo de Diime" aria-label="Verificado por Diime">
           <CheckCircle2 className="h-3 w-3" />
         </div>
       )}
@@ -124,11 +65,11 @@ const GigCard = ({ gig }: { gig: FeaturedGig }) => (
 
       <div className="flex items-center justify-between text-sm">
         <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1 text-amber-500">
+          {gig.reviews > 0 ? <span className="flex items-center gap-1 text-amber-500">
             <Star className="h-3.5 w-3.5 fill-current" />
             <span className="font-medium">{gig.rating.toFixed(1)}</span>
             <span className="text-muted-foreground">({gig.reviews})</span>
-          </span>
+          </span> : <span className="text-muted-foreground">Sin valoraciones</span>}
           {gig.location && (
             <span className="flex items-center gap-1 text-muted-foreground">
               <MapPin className="h-3 w-3" />
@@ -136,7 +77,7 @@ const GigCard = ({ gig }: { gig: FeaturedGig }) => (
             </span>
           )}
         </div>
-        <span className="font-bold text-primary">{formatearPrecioEuros(gig.price)}/h</span>
+        <span className="font-bold text-primary">{gig.price > 0 ? `${formatearPrecioEuros(gig.price)}/h` : "Consultar"}</span>
       </div>
     </div>
   </Card>
@@ -144,7 +85,7 @@ const GigCard = ({ gig }: { gig: FeaturedGig }) => (
 
 const FeaturedGigs = () => {
   const t = useT()
-  const [gigs, setGigs] = useState<FeaturedGig[]>(fallbackGigs)
+  const [gigs, setGigs] = useState<FeaturedGig[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -159,10 +100,10 @@ const FeaturedGigs = () => {
           id: prof.id,
           title: prof.titulo_profesional,
           description: prof.descripcion || "Profesional cualificado",
-          price: prof.tarifa_hora || 50,
+          price: prof.tarifa_hora || 0,
           category: prof.categoria || "Servicios",
           image: prof.foto_portada || "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80",
-          rating: prof.rating_promedio || 5.0,
+          rating: Number(prof.rating_promedio) || 0,
           reviews: prof.total_reviews || 0,
           location: prof.ubicacion || "España",
           verified: prof.verificado || false,
@@ -175,11 +116,13 @@ const FeaturedGigs = () => {
         setGigs(formattedGigs)
       }
     } catch {
-      // Muestra los fallback gigs sin links rotos
+      setGigs([])
     } finally {
       setLoading(false)
     }
   }
+
+  if (!loading && gigs.length === 0) return null
 
   return (
     <section className="container mx-auto px-4 py-16">
@@ -204,17 +147,11 @@ const FeaturedGigs = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {gigs.map((gig) =>
-            isUUID(gig.id) ? (
-              <Link key={gig.id} href={`/profesional/${gig.id}`}>
-                <GigCard gig={gig} />
-              </Link>
-            ) : (
-              <Link key={gig.id} href="/profesionales">
-                <GigCard gig={gig} />
-              </Link>
-            )
-          )}
+          {gigs.map((gig) => (
+            <Link key={gig.id} href={`/profesional/${gig.id}`}>
+              <GigCard gig={gig} />
+            </Link>
+          ))}
         </div>
       )}
     </section>

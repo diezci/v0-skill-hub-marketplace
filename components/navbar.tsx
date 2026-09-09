@@ -316,7 +316,7 @@ const Navbar = () => {
             <span className="font-bold text-xl hidden sm:block">Diime</span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden xl:flex items-center gap-1">
             {navLinks.map((link) => {
               const Icon = link.icon
               return (
@@ -343,7 +343,7 @@ const Navbar = () => {
             })}
           </nav>
 
-          <div className="hidden md:flex items-center gap-2">
+          <div className="hidden xl:flex items-center gap-2">
             <ThemeToggle />
             {isAuthenticated ? (
               <DropdownMenu>
@@ -437,7 +437,7 @@ const Navbar = () => {
             )}
           </div>
 
-          <div className="flex md:hidden items-center gap-2">
+          <div className="flex xl:hidden items-center gap-2">
             <ThemeToggle />
             {isAuthenticated ? (
               <Link
@@ -489,7 +489,7 @@ const Navbar = () => {
         </div>
 
         {isOpen && (
-          <div id="mobile-navigation" className="md:hidden py-4 border-t animate-in slide-in-from-top-2">
+          <div id="mobile-navigation" className="xl:hidden py-4 border-t animate-in slide-in-from-top-2">
             <nav className="flex flex-col gap-1">
               {navLinks.map((link) => {
                 const Icon = link.icon

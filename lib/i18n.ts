@@ -40,7 +40,7 @@ const ES: Diccionario = {
   "nav.idioma": "Idioma",
 
   // Portada
-  "home.badge": "Profesionales verificados en toda España",
+  "home.badge": "Profesionales en toda España",
   "home.titulo1": "Publica tu",
   "home.tituloResaltado": "solicitud",
   "home.titulo2": "y recibe ofertas en minutos",
@@ -71,7 +71,7 @@ const ES: Diccionario = {
   "comoFunciona.1.titulo": "Publica tu proyecto",
   "comoFunciona.1.texto": "Cuéntanos qué necesitas en menos de 2 minutos. Es gratis y sin compromiso.",
   "comoFunciona.2.titulo": "Recibe ofertas",
-  "comoFunciona.2.texto": "Profesionales verificados te enviarán sus mejores propuestas en pocas horas.",
+  "comoFunciona.2.texto": "Profesionales te enviarán sus mejores propuestas en pocas horas.",
   "comoFunciona.3.titulo": "Paga con seguridad",
   "comoFunciona.3.texto": "Tu dinero queda retenido hasta que el trabajo esté completado a tu satisfacción.",
   "comoFunciona.4.titulo": "Valora la experiencia",
@@ -97,10 +97,10 @@ const ES: Diccionario = {
   // Bienvenida
   "bienvenida.titulo": "Bienvenido a Diime",
   "bienvenida.subtitulo":
-    "Conectamos a quien necesita un servicio con profesionales verificados, con el pago protegido de principio a fin.",
+    "Conectamos a quien necesita un servicio con profesionales, con el pago protegido de principio a fin.",
   "bienvenida.cliente.etiqueta": "Necesito un servicio",
   "bienvenida.cliente.1": "Publicas gratis y recibes varias ofertas con precio y plazo.",
-  "bienvenida.cliente.2": "Profesionales verificados de tu provincia y especialidad.",
+  "bienvenida.cliente.2": "Profesionales de tu provincia y especialidad.",
   "bienvenida.cliente.3": "Pagas por adelantado y la transferencia al profesional espera a tu confirmación.",
   "bienvenida.cliente.4": "Si algo no encaja, media el equipo de Diime.",
   "bienvenida.cliente.cta": "Publicar una demanda",
@@ -129,7 +129,7 @@ const EN: Diccionario = {
   "nav.idioma": "Language",
 
   // Home
-  "home.badge": "Verified professionals across Spain",
+  "home.badge": "Professionals across Spain",
   "home.titulo1": "Post your",
   "home.tituloResaltado": "request",
   "home.titulo2": "and get offers in minutes",
@@ -160,7 +160,7 @@ const EN: Diccionario = {
   "comoFunciona.1.titulo": "Post your project",
   "comoFunciona.1.texto": "Tell us what you need in under 2 minutes. It's free and with no strings attached.",
   "comoFunciona.2.titulo": "Get offers",
-  "comoFunciona.2.texto": "Verified professionals will send you their best proposals within hours.",
+  "comoFunciona.2.texto": "Professionals will send you their best proposals within hours.",
   "comoFunciona.3.titulo": "Pay securely",
   "comoFunciona.3.texto": "The provider is paid only after you confirm the completed work.",
   "comoFunciona.4.titulo": "Leave a review",
@@ -186,10 +186,10 @@ const EN: Diccionario = {
   // Welcome
   "bienvenida.titulo": "Welcome to Diime",
   "bienvenida.subtitulo":
-    "We connect people who need a service with verified professionals, with the payment protected from start to finish.",
+    "We connect people who need a service with professionals, with the payment protected from start to finish.",
   "bienvenida.cliente.etiqueta": "I need a service",
   "bienvenida.cliente.1": "Post for free and get several offers with price and timeline.",
-  "bienvenida.cliente.2": "Verified professionals in your province and speciality.",
+  "bienvenida.cliente.2": "Professionals in your province and speciality.",
   "bienvenida.cliente.3": "Pay up front; the provider transfer waits for your confirmation.",
   "bienvenida.cliente.4": "If something goes wrong, the Diime team steps in.",
   "bienvenida.cliente.cta": "Post a request",

@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
     return {
       title: `${nombre} - ${profile.titulo || "Profesional"} | Diime`,
-      description: `${profile.perfil?.bio || "Profesional verificado en Diime"} - ${profile.proyectos_completados || 0} proyectos completados.`,
+      description: `${profile.perfil?.bio || "Profesional en Diime"} - ${profile.proyectos_completados || 0} proyectos completados.`,
     }
   } catch {
     return { title: "Perfil | Diime" }

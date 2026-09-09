@@ -141,6 +141,8 @@ export async function actualizarVerificacionProfesional(profesionalId: string, v
   }
 
   revalidatePath("/admin/usuarios")
+  revalidatePath("/admin/verificaciones")
+  revalidatePath("/")
   revalidatePath("/profesionales")
   revalidatePath(`/profesional/${profesionalId}`)
   revalidatePath("/mi-perfil")
