@@ -58,17 +58,6 @@ export async function enviarAvisoPorEmail(params: {
     const config = AVISOS_POR_EMAIL[params.tipo]
     if (!config) return
 
-    const resend = getResend()
-    if (!resend) {
-      await registrarEventoOperativo({
-        area: "email",
-        severidad: "critica",
-        codigo: "resend_no_configurado",
-        mensaje: "Los avisos por email están desactivados porque falta RESEND_API_KEY.",
-      })
-      return
-    }
-
     // La sesión de quien provoca el aviso no puede leer el correo del
     // destinatario (y a menudo no tiene ninguna relación con él: pensemos en
     // avisar de una demanda nueva a los profesionales de esa categoría), así
@@ -95,6 +84,19 @@ export async function enviarAvisoPorEmail(params: {
     }
     if (!perfil?.email) return
     if (perfil.email_notificaciones === false) return
+
+    // La falta de servicio solo es una incidencia cuando hay un correo que
+    // enviar; quien desactivó los avisos no necesita inicializar Resend.
+    const resend = getResend()
+    if (!resend) {
+      await registrarEventoOperativo({
+        area: "email",
+        severidad: "critica",
+        codigo: "resend_no_configurado",
+        mensaje: "Los avisos por email están desactivados porque falta RESEND_API_KEY.",
+      })
+      return
+    }
 
     const url = params.link ? `${BASE_URL}${params.link}` : BASE_URL
     const contenido = {
