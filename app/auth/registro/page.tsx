@@ -70,7 +70,13 @@ export default function RegistroPage() {
   // useSearchParams para no forzar una frontera de Suspense en esta página.
   const [quiereSerProfesional, setQuiereSerProfesional] = useState(false)
   useEffect(() => {
-    setQuiereSerProfesional(new URLSearchParams(window.location.search).get("siguiente") === "profesional")
+    const parametros = new URLSearchParams(window.location.search)
+    setQuiereSerProfesional(parametros.get("siguiente") === "profesional")
+    const token = parametros.get("token")?.trim()
+    if (token) {
+      setTokenInvitacion(token)
+      setTipoEntidad("empresa")
+    }
   }, [])
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -102,7 +108,7 @@ export default function RegistroPage() {
       return
     }
 
-    if (!documento.trim()) {
+    if (!documento.trim() && (tipoEntidad !== "empresa" || !tokenInvitacion.trim())) {
       setError(`Por favor ingresa tu ${tipoEntidad === "empresa" ? "CIF" : "DNI"}`)
       setIsLoading(false)
       return
@@ -150,7 +156,11 @@ export default function RegistroPage() {
 
       // Si venía de "quiero ser profesional", se arrastra la intención para
       // invitarle a completar su perfil profesional nada más registrarse.
-      router.push(quiereSerProfesional ? "/auth/registro-exitoso?siguiente=profesional" : "/auth/registro-exitoso")
+      if (tipoEntidad === "empresa") {
+        router.push("/mi-empresa")
+      } else {
+        router.push(quiereSerProfesional ? "/auth/registro-exitoso?siguiente=profesional" : "/auth/registro-exitoso")
+      }
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "Error al crear la cuenta")
     } finally {
@@ -300,7 +310,7 @@ export default function RegistroPage() {
                     id="documento"
                     type="text"
                     placeholder={tipoEntidad === "empresa" ? "A12345678" : "12345678X"}
-                    required
+                    required={tipoEntidad !== "empresa" || !tokenInvitacion.trim()}
                     value={documento}
                     onChange={(e) => setDocumento(e.target.value.toUpperCase())}
                   />
@@ -351,7 +361,7 @@ export default function RegistroPage() {
                       onChange={(e) => setTokenInvitacion(e.target.value)}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Si tienes un token de invitación, tu cuenta se unirá automáticamente a la empresa
+                      El vínculo se completa desde Mi Empresa, después de confirmar tu correo.
                     </p>
                   </div>
                 )}
@@ -436,7 +446,7 @@ export default function RegistroPage() {
 
               <div className="mt-4 text-center text-sm">
                 ¿Ya tienes cuenta?{" "}
-                <Link href="/auth/login" className="underline underline-offset-4 hover:text-primary">
+                <Link href={tokenInvitacion ? `/auth/login?next=${encodeURIComponent(`/mi-empresa?token=${encodeURIComponent(tokenInvitacion)}`)}` : "/auth/login"} className="underline underline-offset-4 hover:text-primary">
                   Inicia sesión
                 </Link>
               </div>

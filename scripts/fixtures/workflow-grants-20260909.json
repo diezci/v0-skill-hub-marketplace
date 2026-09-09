@@ -1,0 +1,3238 @@
+{
+  "tables": [
+    {
+      "table": "solicitudes",
+      "role": "anon",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "solicitudes",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "solicitudes",
+      "role": "anon",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "solicitudes",
+      "role": "anon",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "solicitudes",
+      "role": "anon",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "solicitudes",
+      "role": "anon",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "solicitudes",
+      "role": "anon",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "solicitudes",
+      "role": "anon",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "solicitudes",
+      "role": "authenticated",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "solicitudes",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "solicitudes",
+      "role": "authenticated",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "solicitudes",
+      "role": "authenticated",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "solicitudes",
+      "role": "authenticated",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "solicitudes",
+      "role": "authenticated",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "solicitudes",
+      "role": "authenticated",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "solicitudes",
+      "role": "authenticated",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "solicitudes",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "solicitudes",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "solicitudes",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "solicitudes",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "solicitudes",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "solicitudes",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "solicitudes",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "solicitudes",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "categorias",
+      "role": "anon",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "categorias",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "categorias",
+      "role": "anon",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "categorias",
+      "role": "anon",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "categorias",
+      "role": "anon",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "categorias",
+      "role": "anon",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "categorias",
+      "role": "anon",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "categorias",
+      "role": "anon",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "categorias",
+      "role": "authenticated",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "categorias",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "categorias",
+      "role": "authenticated",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "categorias",
+      "role": "authenticated",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "categorias",
+      "role": "authenticated",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "categorias",
+      "role": "authenticated",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "categorias",
+      "role": "authenticated",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "categorias",
+      "role": "authenticated",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "categorias",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "categorias",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "categorias",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "categorias",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "categorias",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "categorias",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "categorias",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "categorias",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "portfolio",
+      "role": "anon",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "portfolio",
+      "role": "anon",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "portfolio",
+      "role": "anon",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "portfolio",
+      "role": "anon",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "portfolio",
+      "role": "anon",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "portfolio",
+      "role": "anon",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "portfolio",
+      "role": "anon",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "portfolio",
+      "role": "authenticated",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "portfolio",
+      "role": "authenticated",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "portfolio",
+      "role": "authenticated",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "portfolio",
+      "role": "authenticated",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "portfolio",
+      "role": "authenticated",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "portfolio",
+      "role": "authenticated",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "portfolio",
+      "role": "authenticated",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "portfolio",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "portfolio",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "portfolio",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "portfolio",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "portfolio",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "portfolio",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "portfolio",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "ofertas",
+      "role": "anon",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "ofertas",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "ofertas",
+      "role": "anon",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "ofertas",
+      "role": "anon",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "ofertas",
+      "role": "anon",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "ofertas",
+      "role": "anon",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "ofertas",
+      "role": "anon",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "ofertas",
+      "role": "anon",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "ofertas",
+      "role": "authenticated",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "ofertas",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "ofertas",
+      "role": "authenticated",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "ofertas",
+      "role": "authenticated",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "ofertas",
+      "role": "authenticated",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "ofertas",
+      "role": "authenticated",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "ofertas",
+      "role": "authenticated",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "ofertas",
+      "role": "authenticated",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "ofertas",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "ofertas",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "ofertas",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "ofertas",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "ofertas",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "ofertas",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "ofertas",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "ofertas",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "eventos_operativos",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "eventos_operativos",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "eventos_operativos",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "eventos_operativos",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "eventos_operativos",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "eventos_operativos",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "eventos_operativos",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "eventos_operativos",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "reseñas",
+      "role": "anon",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "reseñas",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "reseñas",
+      "role": "anon",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "reseñas",
+      "role": "anon",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "reseñas",
+      "role": "anon",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "reseñas",
+      "role": "anon",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "reseñas",
+      "role": "anon",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "reseñas",
+      "role": "anon",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "reseñas",
+      "role": "authenticated",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "reseñas",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "reseñas",
+      "role": "authenticated",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "reseñas",
+      "role": "authenticated",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "reseñas",
+      "role": "authenticated",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "reseñas",
+      "role": "authenticated",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "reseñas",
+      "role": "authenticated",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "reseñas",
+      "role": "authenticated",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "reseñas",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "reseñas",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "reseñas",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "reseñas",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "reseñas",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "reseñas",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "reseñas",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "reseñas",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "conversaciones",
+      "role": "anon",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "conversaciones",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "conversaciones",
+      "role": "anon",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "conversaciones",
+      "role": "anon",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "conversaciones",
+      "role": "anon",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "conversaciones",
+      "role": "anon",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "conversaciones",
+      "role": "anon",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "conversaciones",
+      "role": "anon",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "conversaciones",
+      "role": "authenticated",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "conversaciones",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "conversaciones",
+      "role": "authenticated",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "conversaciones",
+      "role": "authenticated",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "conversaciones",
+      "role": "authenticated",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "conversaciones",
+      "role": "authenticated",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "conversaciones",
+      "role": "authenticated",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "conversaciones",
+      "role": "authenticated",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "conversaciones",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "conversaciones",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "conversaciones",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "conversaciones",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "conversaciones",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "conversaciones",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "conversaciones",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "conversaciones",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "empresas",
+      "role": "anon",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "empresas",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "empresas",
+      "role": "anon",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "empresas",
+      "role": "anon",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "empresas",
+      "role": "anon",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "empresas",
+      "role": "anon",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "empresas",
+      "role": "anon",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "empresas",
+      "role": "anon",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "empresas",
+      "role": "authenticated",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "empresas",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "empresas",
+      "role": "authenticated",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "empresas",
+      "role": "authenticated",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "empresas",
+      "role": "authenticated",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "empresas",
+      "role": "authenticated",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "empresas",
+      "role": "authenticated",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "empresas",
+      "role": "authenticated",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "empresas",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "empresas",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "empresas",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "empresas",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "empresas",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "empresas",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "empresas",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "empresas",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "trabajos",
+      "role": "anon",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "trabajos",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "trabajos",
+      "role": "anon",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "trabajos",
+      "role": "anon",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "trabajos",
+      "role": "anon",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "trabajos",
+      "role": "anon",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "trabajos",
+      "role": "anon",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "trabajos",
+      "role": "anon",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "trabajos",
+      "role": "authenticated",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "trabajos",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "trabajos",
+      "role": "authenticated",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "trabajos",
+      "role": "authenticated",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "trabajos",
+      "role": "authenticated",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "trabajos",
+      "role": "authenticated",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "trabajos",
+      "role": "authenticated",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "trabajos",
+      "role": "authenticated",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "trabajos",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "trabajos",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "trabajos",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "trabajos",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "trabajos",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "trabajos",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "trabajos",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "trabajos",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "role": "anon",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "role": "anon",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "role": "anon",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "role": "anon",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "role": "anon",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "role": "anon",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "role": "anon",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "role": "authenticated",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "role": "authenticated",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "role": "authenticated",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "role": "authenticated",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "role": "authenticated",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "role": "authenticated",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "role": "authenticated",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "favoritos",
+      "role": "anon",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "favoritos",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "favoritos",
+      "role": "anon",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "favoritos",
+      "role": "anon",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "favoritos",
+      "role": "anon",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "favoritos",
+      "role": "anon",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "favoritos",
+      "role": "anon",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "favoritos",
+      "role": "anon",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "favoritos",
+      "role": "authenticated",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "favoritos",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "favoritos",
+      "role": "authenticated",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "favoritos",
+      "role": "authenticated",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "favoritos",
+      "role": "authenticated",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "favoritos",
+      "role": "authenticated",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "favoritos",
+      "role": "authenticated",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "favoritos",
+      "role": "authenticated",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "favoritos",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "favoritos",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "favoritos",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "favoritos",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "favoritos",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "favoritos",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "favoritos",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "favoritos",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "disputas",
+      "role": "anon",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "disputas",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "disputas",
+      "role": "anon",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "disputas",
+      "role": "anon",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "disputas",
+      "role": "anon",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "disputas",
+      "role": "anon",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "disputas",
+      "role": "anon",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "disputas",
+      "role": "anon",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "disputas",
+      "role": "authenticated",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "disputas",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "disputas",
+      "role": "authenticated",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "disputas",
+      "role": "authenticated",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "disputas",
+      "role": "authenticated",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "disputas",
+      "role": "authenticated",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "disputas",
+      "role": "authenticated",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "disputas",
+      "role": "authenticated",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "disputas",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "disputas",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "disputas",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "disputas",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "disputas",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "disputas",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "disputas",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "disputas",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "profiles",
+      "role": "anon",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "profiles",
+      "role": "anon",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "profiles",
+      "role": "anon",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "profiles",
+      "role": "anon",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "profiles",
+      "role": "anon",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "profiles",
+      "role": "anon",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "profiles",
+      "role": "anon",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "profiles",
+      "role": "authenticated",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "profiles",
+      "role": "authenticated",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "profiles",
+      "role": "authenticated",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "profiles",
+      "role": "authenticated",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "profiles",
+      "role": "authenticated",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "profiles",
+      "role": "authenticated",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "profiles",
+      "role": "authenticated",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "profiles",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "profiles",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "profiles",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "profiles",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "profiles",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "profiles",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "profiles",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "notificaciones",
+      "role": "anon",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "notificaciones",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "notificaciones",
+      "role": "anon",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "notificaciones",
+      "role": "anon",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "notificaciones",
+      "role": "anon",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "notificaciones",
+      "role": "anon",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "notificaciones",
+      "role": "anon",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "notificaciones",
+      "role": "anon",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "notificaciones",
+      "role": "authenticated",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "notificaciones",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "notificaciones",
+      "role": "authenticated",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "notificaciones",
+      "role": "authenticated",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "notificaciones",
+      "role": "authenticated",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "notificaciones",
+      "role": "authenticated",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "notificaciones",
+      "role": "authenticated",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "notificaciones",
+      "role": "authenticated",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "notificaciones",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "notificaciones",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "notificaciones",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "notificaciones",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "notificaciones",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "notificaciones",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "notificaciones",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "notificaciones",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "evidencias_disputa",
+      "role": "anon",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "evidencias_disputa",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "evidencias_disputa",
+      "role": "anon",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "evidencias_disputa",
+      "role": "anon",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "evidencias_disputa",
+      "role": "anon",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "evidencias_disputa",
+      "role": "anon",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "evidencias_disputa",
+      "role": "anon",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "evidencias_disputa",
+      "role": "anon",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "evidencias_disputa",
+      "role": "authenticated",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "evidencias_disputa",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "evidencias_disputa",
+      "role": "authenticated",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "evidencias_disputa",
+      "role": "authenticated",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "evidencias_disputa",
+      "role": "authenticated",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "evidencias_disputa",
+      "role": "authenticated",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "evidencias_disputa",
+      "role": "authenticated",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "evidencias_disputa",
+      "role": "authenticated",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "evidencias_disputa",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "evidencias_disputa",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "evidencias_disputa",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "evidencias_disputa",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "evidencias_disputa",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "evidencias_disputa",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "evidencias_disputa",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "evidencias_disputa",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "invitaciones",
+      "role": "anon",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "invitaciones",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "invitaciones",
+      "role": "anon",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "invitaciones",
+      "role": "anon",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "invitaciones",
+      "role": "anon",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "invitaciones",
+      "role": "anon",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "invitaciones",
+      "role": "anon",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "invitaciones",
+      "role": "anon",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "invitaciones",
+      "role": "authenticated",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "invitaciones",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "invitaciones",
+      "role": "authenticated",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "invitaciones",
+      "role": "authenticated",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "invitaciones",
+      "role": "authenticated",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "invitaciones",
+      "role": "authenticated",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "invitaciones",
+      "role": "authenticated",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "invitaciones",
+      "role": "authenticated",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "invitaciones",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "invitaciones",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "invitaciones",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "invitaciones",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "invitaciones",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "invitaciones",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "invitaciones",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "invitaciones",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "usuarios_bloqueados",
+      "role": "authenticated",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "usuarios_bloqueados",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "usuarios_bloqueados",
+      "role": "authenticated",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "usuarios_bloqueados",
+      "role": "authenticated",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "usuarios_bloqueados",
+      "role": "authenticated",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "usuarios_bloqueados",
+      "role": "authenticated",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "usuarios_bloqueados",
+      "role": "authenticated",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "usuarios_bloqueados",
+      "role": "authenticated",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "usuarios_bloqueados",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "usuarios_bloqueados",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "usuarios_bloqueados",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "usuarios_bloqueados",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "usuarios_bloqueados",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "usuarios_bloqueados",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "usuarios_bloqueados",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "usuarios_bloqueados",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "profesionales",
+      "role": "anon",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "profesionales",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profesionales",
+      "role": "anon",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "profesionales",
+      "role": "anon",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "profesionales",
+      "role": "anon",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "profesionales",
+      "role": "anon",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "profesionales",
+      "role": "anon",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "profesionales",
+      "role": "anon",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "profesionales",
+      "role": "authenticated",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "profesionales",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profesionales",
+      "role": "authenticated",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "profesionales",
+      "role": "authenticated",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "profesionales",
+      "role": "authenticated",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "profesionales",
+      "role": "authenticated",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "profesionales",
+      "role": "authenticated",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "profesionales",
+      "role": "authenticated",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "profesionales",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "profesionales",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profesionales",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "profesionales",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "profesionales",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "profesionales",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "profesionales",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "profesionales",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "moderacion_reglas_solicitudes",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "moderacion_reglas_solicitudes",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "moderacion_reglas_solicitudes",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "moderacion_reglas_solicitudes",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "moderacion_reglas_solicitudes",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "moderacion_reglas_solicitudes",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "moderacion_reglas_solicitudes",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "moderacion_reglas_solicitudes",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "mensajes",
+      "role": "anon",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "mensajes",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "mensajes",
+      "role": "anon",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "mensajes",
+      "role": "anon",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "mensajes",
+      "role": "anon",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "mensajes",
+      "role": "anon",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "mensajes",
+      "role": "anon",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "mensajes",
+      "role": "anon",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "mensajes",
+      "role": "authenticated",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "mensajes",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "mensajes",
+      "role": "authenticated",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "mensajes",
+      "role": "authenticated",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "mensajes",
+      "role": "authenticated",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "mensajes",
+      "role": "authenticated",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "mensajes",
+      "role": "authenticated",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "mensajes",
+      "role": "authenticated",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "mensajes",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "mensajes",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "mensajes",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "mensajes",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "mensajes",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "mensajes",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "mensajes",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "mensajes",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "role": "anon",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "role": "anon",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "role": "anon",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "role": "anon",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "role": "anon",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "role": "anon",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "role": "anon",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "role": "authenticated",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "role": "authenticated",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "role": "authenticated",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "role": "authenticated",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "role": "authenticated",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "role": "authenticated",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "role": "authenticated",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "incidencias",
+      "role": "anon",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "incidencias",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "incidencias",
+      "role": "anon",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "incidencias",
+      "role": "anon",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "incidencias",
+      "role": "anon",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "incidencias",
+      "role": "anon",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "incidencias",
+      "role": "anon",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "incidencias",
+      "role": "anon",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "incidencias",
+      "role": "authenticated",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "incidencias",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "incidencias",
+      "role": "authenticated",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "incidencias",
+      "role": "authenticated",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "incidencias",
+      "role": "authenticated",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "incidencias",
+      "role": "authenticated",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "incidencias",
+      "role": "authenticated",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "incidencias",
+      "role": "authenticated",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "incidencias",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "incidencias",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "incidencias",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "incidencias",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "incidencias",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "incidencias",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "incidencias",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "incidencias",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "eventos_calendario",
+      "role": "anon",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "eventos_calendario",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "eventos_calendario",
+      "role": "anon",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "eventos_calendario",
+      "role": "anon",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "eventos_calendario",
+      "role": "anon",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "eventos_calendario",
+      "role": "anon",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "eventos_calendario",
+      "role": "anon",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "eventos_calendario",
+      "role": "anon",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "eventos_calendario",
+      "role": "authenticated",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "eventos_calendario",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "eventos_calendario",
+      "role": "authenticated",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "eventos_calendario",
+      "role": "authenticated",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "eventos_calendario",
+      "role": "authenticated",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "eventos_calendario",
+      "role": "authenticated",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "eventos_calendario",
+      "role": "authenticated",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "eventos_calendario",
+      "role": "authenticated",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "eventos_calendario",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "eventos_calendario",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "eventos_calendario",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "eventos_calendario",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "eventos_calendario",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "eventos_calendario",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "eventos_calendario",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "eventos_calendario",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "push_devices",
+      "role": "authenticated",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "push_devices",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "push_devices",
+      "role": "authenticated",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "push_devices",
+      "role": "authenticated",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "push_devices",
+      "role": "authenticated",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "push_devices",
+      "role": "authenticated",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "push_devices",
+      "role": "authenticated",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "push_devices",
+      "role": "authenticated",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "push_devices",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "push_devices",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "push_devices",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "push_devices",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "push_devices",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "push_devices",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "push_devices",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "push_devices",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "transacciones_escrow",
+      "role": "anon",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "transacciones_escrow",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "transacciones_escrow",
+      "role": "anon",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "transacciones_escrow",
+      "role": "anon",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "transacciones_escrow",
+      "role": "anon",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "transacciones_escrow",
+      "role": "anon",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "transacciones_escrow",
+      "role": "anon",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "transacciones_escrow",
+      "role": "anon",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "transacciones_escrow",
+      "role": "authenticated",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "transacciones_escrow",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "transacciones_escrow",
+      "role": "authenticated",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "transacciones_escrow",
+      "role": "authenticated",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "transacciones_escrow",
+      "role": "authenticated",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "transacciones_escrow",
+      "role": "authenticated",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "transacciones_escrow",
+      "role": "authenticated",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "transacciones_escrow",
+      "role": "authenticated",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "transacciones_escrow",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "transacciones_escrow",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "transacciones_escrow",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "transacciones_escrow",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "transacciones_escrow",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "transacciones_escrow",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "transacciones_escrow",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "transacciones_escrow",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "role": "anon",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "role": "anon",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "role": "anon",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "role": "anon",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "role": "anon",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "role": "anon",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "role": "anon",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "role": "authenticated",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "role": "authenticated",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "role": "authenticated",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "role": "authenticated",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "role": "authenticated",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "role": "authenticated",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "role": "authenticated",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "role": "service_role",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "role": "service_role",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "role": "service_role",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "role": "service_role",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "role": "service_role",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "role": "service_role",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "role": "service_role",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "role": "service_role",
+      "privilege": "MAINTAIN"
+    }
+  ],
+  "columns": [
+    {
+      "table": "portfolio",
+      "column": "id",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "column": "id",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "column": "profesional_id",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "column": "profesional_id",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "column": "trabajo_id",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "column": "trabajo_id",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "column": "titulo",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "column": "titulo",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "column": "descripcion",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "column": "descripcion",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "column": "categoria",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "column": "categoria",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "column": "imagenes",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "column": "imagenes",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "column": "ubicacion",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "column": "ubicacion",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "column": "duracion",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "column": "duracion",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "column": "fecha_proyecto",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "column": "fecha_proyecto",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "column": "visible",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "column": "visible",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "column": "created_at",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "column": "created_at",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "column": "contexto_proveedor",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "portfolio",
+      "column": "contexto_proveedor",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "id",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "id",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "nombre",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "nombre",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "apellido",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "apellido",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "foto_perfil",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "foto_perfil",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "foto_portada",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "foto_portada",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "ubicacion",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "ubicacion",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "bio",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "bio",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "tipo_usuario",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "tipo_usuario",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "verificado",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "verificado",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "fecha_registro",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "fecha_registro",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "ultima_conexion",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "ultima_conexion",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "created_at",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "created_at",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "updated_at",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "updated_at",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "es_admin",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "es_admin",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "empresa_id",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "empresa_id",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "cargo_empresa",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "cargo_empresa",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "email_notificaciones",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "email_notificaciones",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "cuenta_eliminada",
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "profiles",
+      "column": "cuenta_eliminada",
+      "role": "authenticated",
+      "privilege": "SELECT"
+    }
+  ]
+}

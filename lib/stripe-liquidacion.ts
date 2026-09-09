@@ -30,6 +30,27 @@ export async function obtenerCargoDePaymentIntent(paymentIntentId: string) {
   return typeof cargo === "string" ? cargo : cargo?.id || null
 }
 
+async function buscarMovimientoPorOperacion<T extends { id: string; metadata?: Record<string, string> | null }>(
+  obtenerPagina: (cursor?: string) => Promise<{ data: T[]; has_more: boolean }>,
+  operacionId: string,
+): Promise<T | undefined> {
+  let cursor: string | undefined
+  let encontrado: T | undefined
+  for (let pagina = 0; pagina < 1000; pagina++) {
+    const respuesta = await obtenerPagina(cursor)
+    for (const movimiento of respuesta.data) {
+      if (movimiento.metadata?.liquidacion_operacion_id !== operacionId) continue
+      if (encontrado) throw new Error("Stripe contiene movimientos duplicados para esta liquidación; requiere conciliación.")
+      encontrado = movimiento
+    }
+    if (!respuesta.has_more) return encontrado
+    const siguiente = respuesta.data.at(-1)?.id
+    if (!siguiente || siguiente === cursor) throw new Error("No se pudo recorrer el historial completo de Stripe.")
+    cursor = siguiente
+  }
+  throw new Error("El historial de Stripe requiere una conciliación adicional antes de repetir movimientos.")
+}
+
 /** Ejecuta los dos únicos movimientos permitidos por una liquidación. */
 export async function ejecutarLiquidacionStripe(params: {
   paymentIntentId: string
@@ -65,6 +86,8 @@ export async function ejecutarLiquidacionStripe(params: {
     throw new Error("El total cobrado en Stripe no coincide con el reparto guardado.")
   }
   const chargeId = params.chargeId || chargeDelIntent
+  const charge = await stripe.charges.retrieve(chargeId)
+  if (charge.disputed) throw new Error("El cargo tiene un contracargo bancario; requiere conciliación en Stripe antes de mover fondos.")
   let refundId: string | null = null
   let refundStatus: string | null = null
   let transferId: string | null = null
@@ -77,14 +100,10 @@ export async function ejecutarLiquidacionStripe(params: {
       // La idempotencia de Stripe puede caducar. La metadata permite recuperar
       // el movimiento original incluso tras ese plazo o tras una caída entre
       // Stripe y la escritura final en nuestra base de datos.
-      const refunds = await stripe.refunds.list({ payment_intent: params.paymentIntentId, limit: 100 })
-      const encontrados = refunds.data.filter(
-        (refund) => refund.metadata?.liquidacion_operacion_id === params.operacionId,
+      refundCreado = await buscarMovimientoPorOperacion(
+        (cursor) => stripe.refunds.list({ payment_intent: params.paymentIntentId, limit: 100, ...(cursor ? { starting_after: cursor } : {}) }),
+        params.operacionId,
       )
-      if (encontrados.length > 1) {
-        throw new Error("Stripe contiene más de un reembolso para esta liquidación; requiere revisión manual.")
-      }
-      refundCreado = encontrados[0]
       if (!refundCreado) {
         refundCreado = await stripe.refunds.create(
           {
@@ -124,6 +143,9 @@ export async function ejecutarLiquidacionStripe(params: {
   }
 
   if (transferenciaCentimos > 0) {
+    if ((await stripe.charges.retrieve(chargeId)).disputed) {
+      throw new Error("El cargo recibió un contracargo; no se ha emitido la transferencia.")
+    }
     if (!params.connectedAccountId) {
       throw new Error("El profesional no tiene una cuenta Stripe Connect preparada para recibir el pago.")
     }
@@ -135,18 +157,10 @@ export async function ejecutarLiquidacionStripe(params: {
     if (params.transferId) {
       transfer = await stripe.transfers.retrieve(params.transferId)
     } else {
-      const transfers = await stripe.transfers.list({
-        destination: params.connectedAccountId,
-        transfer_group: params.transferGroup,
-        limit: 100,
-      })
-      const encontradas = transfers.data.filter(
-        (item) => item.metadata?.liquidacion_operacion_id === params.operacionId,
+      transfer = await buscarMovimientoPorOperacion(
+        (cursor) => stripe.transfers.list({ transfer_group: params.transferGroup, limit: 100, ...(cursor ? { starting_after: cursor } : {}) }),
+        params.operacionId,
       )
-      if (encontradas.length > 1) {
-        throw new Error("Stripe contiene más de una transferencia para esta liquidación; requiere revisión manual.")
-      }
-      transfer = encontradas[0]
       if (!transfer) {
         transfer = await stripe.transfers.create(
           {

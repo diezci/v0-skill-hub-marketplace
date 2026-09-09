@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import type { RegistroEmpresa } from "@/app/actions/empresas"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,12 +14,22 @@ export default function MiEmpresaPage() {
   const [empresa, setEmpresa] = useState<any>(null)
   const [miembros, setMiembros] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [sinSesion, setSinSesion] = useState(false)
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [registro, setRegistro] = useState<RegistroEmpresa>({ documentoPersonal: "" })
 
   useEffect(() => {
     async function cargarDatos() {
       const { obtenerEmpresa, obtenerMiembrosEmpresa } = await import("@/app/actions/auth")
 
-      const [empresaResult, miembrosResult] = await Promise.all([obtenerEmpresa(), obtenerMiembrosEmpresa()])
+      const { obtenerRegistroEmpresaPendiente } = await import("@/app/actions/empresas")
+      const [empresaResult, miembrosResult, registroResult] = await Promise.all([
+        obtenerEmpresa(), obtenerMiembrosEmpresa(), obtenerRegistroEmpresaPendiente(),
+      ])
+      if (registroResult.error) setSinSesion(true)
+      const token = new URLSearchParams(window.location.search).get("token")?.trim()
+      setRegistro({ documentoPersonal: "", ...registroResult.data, ...(token ? { tokenInvitacion: token } : {}) })
 
       if (empresaResult.data) {
         setEmpresa(empresaResult.data)
@@ -31,7 +42,10 @@ export default function MiEmpresaPage() {
       setLoading(false)
     }
 
-    cargarDatos()
+    void cargarDatos().catch(() => {
+      setError("No se pudieron cargar los datos de tu empresa. Actualiza la página para volver a intentarlo.")
+      setLoading(false)
+    })
   }, [])
 
   const copiarLinkInvitacion = () => {
@@ -57,17 +71,63 @@ export default function MiEmpresaPage() {
   }
 
   if (!empresa) {
+    const actualizar = (campo: keyof RegistroEmpresa, valor: string) =>
+      setRegistro((actual) => ({ ...actual, [campo]: valor }))
+    const guardar = async (event: React.FormEvent) => {
+      event.preventDefault()
+      setGuardando(true)
+      setError(null)
+      try {
+        const { completarRegistroEmpresa } = await import("@/app/actions/empresas")
+        const resultado = await completarRegistroEmpresa(registro)
+        if (resultado.error) { setError(resultado.error); return }
+        window.location.reload()
+      } catch {
+        setError("No se pudo guardar la empresa. Puedes volver a intentarlo.")
+      } finally { setGuardando(false) }
+    }
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto max-w-xl px-4 py-8">
         <Card>
           <CardHeader>
-            <CardTitle>No perteneces a ninguna empresa</CardTitle>
-            <CardDescription>Regístrate como empresa para acceder a esta funcionalidad</CardDescription>
+            <CardTitle>Completar Mi Empresa</CardTitle>
+            <CardDescription>
+              {sinSesion
+                ? "Tu cuenta personal y tu empresa se completan en dos pasos. Confirma tu correo e inicia sesión para continuar."
+                : "Crea tu empresa o utiliza una invitación. Tu cuenta podrá contratar y ofrecer servicios en su nombre."}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link href="/auth/registro">
-              <Button>Registrar Empresa</Button>
-            </Link>
+            {sinSesion ? (
+              <Button asChild><Link href={`/auth/login?next=${encodeURIComponent(registro.tokenInvitacion ? `/mi-empresa?token=${encodeURIComponent(registro.tokenInvitacion)}` : "/mi-empresa")}`}>Iniciar sesión para continuar</Link></Button>
+            ) : (
+              <form onSubmit={guardar} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="empresa-token">Token de invitación (si te invitaron)</Label>
+                  <Input id="empresa-token" value={registro.tokenInvitacion || ""} onChange={(e) => actualizar("tokenInvitacion", e.target.value)} />
+                </div>
+                {!registro.tokenInvitacion?.trim() && <>
+                  <div className="space-y-2">
+                    <Label htmlFor="empresa-nombre">Nombre de la empresa</Label>
+                    <Input id="empresa-nombre" required value={registro.nombreEmpresa || ""} onChange={(e) => actualizar("nombreEmpresa", e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="empresa-cif">CIF</Label>
+                    <Input id="empresa-cif" required value={registro.cif || ""} onChange={(e) => actualizar("cif", e.target.value.toUpperCase())} />
+                  </div>
+                </>}
+                <div className="space-y-2">
+                  <Label htmlFor="empresa-dni">Tu DNI/NIE como representante</Label>
+                  <Input id="empresa-dni" required value={registro.documentoPersonal} onChange={(e) => actualizar("documentoPersonal", e.target.value.toUpperCase())} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="empresa-cargo">Tu cargo (opcional)</Label>
+                  <Input id="empresa-cargo" value={registro.cargoEmpresa || ""} onChange={(e) => actualizar("cargoEmpresa", e.target.value)} />
+                </div>
+                {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+                <Button type="submit" disabled={guardando}>{guardando ? "Guardando..." : "Vincular mi empresa"}</Button>
+              </form>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -89,6 +149,17 @@ export default function MiEmpresaPage() {
 
         <Card>
           <CardHeader>
+            <CardTitle>Tu cuenta ya representa a esta empresa</CardTitle>
+            <CardDescription>Puedes contratar servicios y completar tu perfil profesional para ofrecerlos en su nombre.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-3">
+            <Button asChild><Link href="/mi-perfil?completar=profesional">Completar perfil profesional</Link></Button>
+            <Button variant="outline" asChild><Link href="/">Publicar una demanda</Link></Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
               Invitar Empleados
@@ -105,7 +176,7 @@ export default function MiEmpresaPage() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Los empleados que se registren con este link se unirán automáticamente a tu empresa
+                Los empleados completarán la invitación desde Mi Empresa después de confirmar su correo.
               </p>
             </div>
           </CardContent>

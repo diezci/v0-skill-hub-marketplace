@@ -11,6 +11,7 @@ export async function crearTrabajo(data: {
   fecha_estimada_fin?: string
 }) {
   const supabase = await createClient()
+  if (!supabase) return { error: "Base de datos no disponible" }
 
   const {
     data: { user },
@@ -19,88 +20,22 @@ export async function crearTrabajo(data: {
     return { error: "No autenticado" }
   }
 
-  const { data: oferta } = await supabase
-    .from("ofertas")
-    .select("precio, descripcion, tiempo_estimado, unidad_tiempo")
-    .eq("id", data.oferta_id)
-    .single()
-
-  const { data: solicitud } = await supabase
-    .from("solicitudes")
-    .select("titulo, ubicacion")
-    .eq("id", data.solicitud_id)
-    .single()
-
-  // Calculate estimated end date based on offer
-  let fechaEstimadaFin = data.fecha_estimada_fin
-  if (!fechaEstimadaFin && oferta?.tiempo_estimado) {
-    const diasEstimados = oferta.unidad_tiempo === "semanas" 
-      ? oferta.tiempo_estimado * 7 
-      : oferta.unidad_tiempo === "meses" 
-        ? oferta.tiempo_estimado * 30 
-        : oferta.tiempo_estimado
-    const fecha = new Date()
-    fecha.setDate(fecha.getDate() + diasEstimados)
-    fechaEstimadaFin = fecha.toISOString()
-  }
-
-  // Si el cliente ya había aceptado otra oferta de esta demanda pero nunca la
-  // pagó, aceptar una nueva la sustituye: se anula aquel trabajo en limbo y su
-  // oferta vuelve a quedar rechazada para el otro profesional.
-  const { data: trabajoLimbo } = await supabase
-    .from("trabajos")
-    .select("id, oferta_id, profesional_id, titulo")
-    .eq("solicitud_id", data.solicitud_id)
-    .eq("estado", "pendiente_pago")
-    .neq("oferta_id", data.oferta_id)
-    .maybeSingle()
-  if (trabajoLimbo) {
-    await supabase.from("trabajos").update({ estado: "cancelado", fecha_fin: new Date().toISOString() }).eq("id", trabajoLimbo.id)
-    await createAdminClient()?.from("transacciones_escrow").update({ estado: "cancelado" }).eq("trabajo_id", trabajoLimbo.id).eq("estado", "pendiente")
-    if (trabajoLimbo.oferta_id) {
-      await supabase.from("ofertas").update({ estado: "rechazada", updated_at: new Date().toISOString() }).eq("id", trabajoLimbo.oferta_id)
-    }
-    const { crearNotificacion } = await import("./notificaciones")
-    await crearNotificacion({
-      usuarioId: trabajoLimbo.profesional_id,
-      tipo: "oferta_rechazada",
-      titulo: "Contratación no completada",
-      mensaje: `El cliente no llegó a completar el pago de "${trabajoLimbo.titulo}" y ha optado por otra oferta.`,
-      link: "/mis-ofertas",
-    })
-  }
-
-  const { data: trabajo, error } = await supabase
-    .from("trabajos")
-    .insert({
-      cliente_id: user.id,
-      profesional_id: data.profesional_id,
-      solicitud_id: data.solicitud_id,
-      oferta_id: data.oferta_id,
-      titulo: solicitud?.titulo || "Proyecto",
-      descripcion: oferta?.descripcion || "",
-      ubicacion: solicitud?.ubicacion || "",
-      precio_acordado: oferta?.precio || 0,
-      estado: "pendiente_pago",
-      fecha_inicio: new Date().toISOString(),
-      fecha_estimada_fin: fechaEstimadaFin,
-      progreso: 0,
-    })
-    .select()
-    .single()
-
-  if (error) {
-    return { error: error.message }
-  }
-
-  // La oferta elegida queda aceptada, pero la contratación NO se consuma aquí:
-  // la demanda sigue abierta y las demás ofertas siguen pendientes hasta que el
-  // cliente complete el pago (confirmarPagoEscrow o el webhook de Stripe). Si
-  // abandona la pasarela, nada ha cambiado para el resto.
-  await supabase.from("ofertas").update({ estado: "aceptada" }).eq("id", data.oferta_id)
+  // Una transacción bloquea la demanda, verifica los participantes y devuelve
+  // el mismo contrato si se repite la aceptación, incluso desde dos pestañas.
+  // Los datos económicos y descriptivos proceden de la oferta en la base de datos.
+  const { data: resultado, error } = await supabase.rpc("aceptar_oferta_y_crear_trabajo", {
+    p_oferta_id: data.oferta_id,
+    p_solicitud_id: data.solicitud_id,
+    p_profesional_id: data.profesional_id,
+    p_fecha_estimada_fin: data.fecha_estimada_fin ?? null,
+  })
+  if (error) return { error: error.message }
+  if (!resultado?.trabajo?.id) return { error: "No se pudo confirmar la contratación. Inténtalo de nuevo." }
 
   revalidatePath("/mis-solicitudes")
-  return { data: trabajo }
+  revalidatePath("/mis-trabajos")
+  revalidatePath("/mis-ofertas")
+  return { data: resultado.trabajo, reutilizado: resultado.reutilizado === true }
 }
 
 export async function obtenerMisTrabajos() {
@@ -214,67 +149,16 @@ function recortarEscrowSegunRol(escrow: any, esElCliente: boolean) {
       }
 }
 
+// Compatibilidad con pantallas antiguas: cada transición utiliza el flujo que
+// valida su actor y concilia el dinero; no existe un cambio genérico de estado.
 export async function actualizarEstadoTrabajo(trabajoId: string, estado: string) {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return { error: "No autenticado" }
-  }
-
-  const { data, error } = await supabase
-    .from("trabajos")
-    .update({ estado, updated_at: new Date().toISOString() })
-    .eq("id", trabajoId)
-    .or(`cliente_id.eq.${user.id},profesional_id.eq.${user.id}`)
-    .select()
-    .single()
-
-  if (error) {
-    return { error: error.message }
-  }
-
-  // If completed, update solicitud
-  if (estado === "completado") {
-    await supabase.from("solicitudes").update({ estado: "completada" }).eq("id", data.solicitud_id)
-  }
-
-  revalidatePath("/mis-solicitudes")
-  return { data }
+  if (estado === "entregado") return marcarTrabajoEntregado(trabajoId)
+  if (estado === "completado") return confirmarTrabajoCompletado(trabajoId)
+  return { error: "Usa la acción de entrega, confirmación, cancelación o disputa correspondiente al trabajo." }
 }
 
 export async function cancelarTrabajo(trabajoId: string, razon: string) {
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return { error: "No autenticado" }
-  }
-
-  const { data, error } = await supabase
-    .from("trabajos")
-    .update({
-      estado: "cancelado",
-      fecha_fin: new Date().toISOString(),
-    })
-    .eq("id", trabajoId)
-    .or(`cliente_id.eq.${user.id},profesional_id.eq.${user.id}`)
-    .select()
-    .single()
-
-  if (error) {
-    return { error: error.message }
-  }
-
-  // Update solicitud back to abierta
-  await supabase.from("solicitudes").update({ estado: "abierta" }).eq("id", data.solicitud_id)
-
-  revalidatePath("/mis-solicitudes")
-  return { data }
+  return solicitarCancelacion(trabajoId, razon)
 }
 
 // Publica un mensaje automático en el chat del trabajo (entre cliente y proveedor),
@@ -405,7 +289,7 @@ export async function solicitarCancelacion(trabajoId: string, razon: string, arc
   {
     const otroId = trabajo.cliente_id === user.id ? trabajo.profesional_id : trabajo.cliente_id
     const otroEsCliente = otroId === trabajo.cliente_id
-    const { crearNotificacion } = await import("./notificaciones")
+    const { crearNotificacion } = await import("@/lib/notificaciones")
     await crearNotificacion({
       usuarioId: otroId,
       tipo: "cancelacion_solicitada",
@@ -416,9 +300,9 @@ export async function solicitarCancelacion(trabajoId: string, razon: string, arc
       mensaje: `La otra parte quiere cancelar "${trabajo.titulo}". Acepta o rechaza la cancelación en ${
         otroEsCliente
           ? `Mis Solicitudes (pestaña ${trabajo.estado === "pendiente_pago" ? "Abiertas" : "En Progreso"})`
-          : "Gestión de proyectos (pestaña Activos)"
+          : trabajo.estado === "pendiente_pago" ? "Mis Pujas" : "Gestión de proyectos (pestaña Activos)"
       }.`,
-      link: otroEsCliente ? "/mis-solicitudes" : "/mis-trabajos",
+      link: otroEsCliente ? "/mis-solicitudes" : trabajo.estado === "pendiente_pago" ? "/mis-ofertas" : "/mis-trabajos",
     })
   }
 
@@ -487,13 +371,13 @@ export async function editarSolicitudCancelacion(
 
   const otroId = trabajo.cliente_id === user.id ? trabajo.profesional_id : trabajo.cliente_id
   const otroEsCliente = otroId === trabajo.cliente_id
-  const { crearNotificacion } = await import("./notificaciones")
+  const { crearNotificacion } = await import("@/lib/notificaciones")
   await crearNotificacion({
     usuarioId: otroId,
     tipo: "cancelacion_actualizada",
     titulo: "Solicitud de cancelación actualizada",
     mensaje: `La otra parte ha actualizado sus argumentos o archivos para cancelar "${trabajo.titulo}".`,
-    link: otroEsCliente ? "/mis-solicitudes" : "/mis-trabajos",
+    link: otroEsCliente ? "/mis-solicitudes" : trabajo.estado === "pendiente_pago" ? "/mis-ofertas" : "/mis-trabajos",
   })
 
   revalidatePath("/mis-solicitudes")
@@ -513,7 +397,7 @@ export async function retirarSolicitudCancelacion(trabajoId: string) {
 
   const { data: trabajo } = await supabase
     .from("trabajos")
-    .select("id, cliente_id, profesional_id, cancelacion_estado, cancelacion_solicitada_por, titulo")
+    .select("id, cliente_id, profesional_id, estado, cancelacion_estado, cancelacion_solicitada_por, titulo")
     .eq("id", trabajoId)
     .maybeSingle()
 
@@ -555,13 +439,13 @@ export async function retirarSolicitudCancelacion(trabajoId: string) {
 
   const otroId = trabajo.cliente_id === user.id ? trabajo.profesional_id : trabajo.cliente_id
   const otroEsCliente = otroId === trabajo.cliente_id
-  const { crearNotificacion } = await import("./notificaciones")
+  const { crearNotificacion } = await import("@/lib/notificaciones")
   await crearNotificacion({
     usuarioId: otroId,
     tipo: "cancelacion_retirada",
     titulo: "Solicitud de cancelación retirada",
     mensaje: `La otra parte ha retirado la solicitud de cancelación de "${trabajo.titulo}". El servicio continúa.`,
-    link: otroEsCliente ? "/mis-solicitudes" : "/mis-trabajos",
+    link: otroEsCliente ? "/mis-solicitudes" : trabajo.estado === "pendiente_pago" ? "/mis-ofertas" : "/mis-trabajos",
   })
 
   revalidatePath("/mis-solicitudes")
@@ -621,47 +505,7 @@ export async function responderCancelacion(
       return { error: `No se pudo emitir el reembolso al cliente: ${reembolsoResult.error}` }
     }
 
-    const { error } = await supabase
-      .from("trabajos")
-      .update({
-        estado: "cancelado",
-        cancelacion_estado: null,
-        cancelacion_respuesta_razon: null,
-        cancelacion_adjuntos_respuesta: [],
-        fecha_fin: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", trabajoId)
-    if (error) return { error: error.message }
-
-    if ((reembolsoResult.reembolso ?? 0) > 0) {
-      const { crearNotificacion } = await import("./notificaciones")
-      await crearNotificacion({
-        usuarioId: trabajo.cliente_id,
-        tipo: "reembolso_emitido",
-        titulo: "Reembolso emitido",
-        mensaje: `"${trabajo.titulo}" se ha cancelado de mutuo acuerdo y te hemos devuelto ${reembolsoResult.reembolso!.toFixed(2)}€ íntegros a tu método de pago.`,
-        link: "/mis-solicitudes",
-      })
-    }
-    if (trabajo.solicitud_id) {
-      // La demanda vuelve a estar abierta y utilizable de verdad:
-      await supabase.from("solicitudes").update({ estado: "abierta" }).eq("id", trabajo.solicitud_id)
-      // - la oferta del trabajo cancelado se retira (así el profesional puede
-      //   volver a ofertar más adelante si quiere)...
-      if (trabajo.oferta_id) {
-        await supabase.from("ofertas").update({ estado: "retirada" }).eq("id", trabajo.oferta_id)
-      }
-      // - ...y las demás ofertas, que se auto-rechazaron al aceptar esta,
-      //   vuelven a estar pendientes para que el cliente pueda elegir otra.
-      //   (Si responde el profesional, la RLS solo le deja tocar las suyas y
-      //   este paso no revive nada: es un mejor-esfuerzo.)
-      await supabase
-        .from("ofertas")
-        .update({ estado: "pendiente" })
-        .eq("solicitud_id", trabajo.solicitud_id)
-        .eq("estado", "rechazada")
-    }
+    if (reembolsoResult.reutilizado) return { data: { ok: true } }
     await postMensajeTrabajo(
       supabase,
       user.id,
@@ -669,73 +513,22 @@ export async function responderCancelacion(
       `✅ Ha aceptado la cancelación. El trabajo "${trabajo.titulo}" queda cancelado.`,
     )
   } else {
-    // Rechazar la cancelación abre AUTOMÁTICAMENTE una disputa: el equipo de
-    // Diime la resolverá según los términos de la contratación (en caso de
-    // duda, a favor del cliente).
-    const { data: escrowPrevio } = await supabase
-      .from("transacciones_escrow")
-      .select("estado")
-      .eq("trabajo_id", trabajoId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    const { error } = await supabase
-      .from("trabajos")
-      .update({
-        estado: "en_disputa",
-        cancelacion_estado: "rechazada",
-        cancelacion_respuesta_razon: razonOposicion,
-        cancelacion_adjuntos_respuesta: adjuntos.archivos,
-        updated_at: new Date().toISOString(),
+    const admin = createAdminClient()
+    if (!admin) return { error: "La configuración segura del servidor no está disponible." }
+    try {
+      const { cerrarCheckoutsPendientes } = await import("@/lib/flujo-pagos")
+      const { error: bloqueoError } = await admin.rpc("diime_bloquear_checkout", {
+        p_trabajo: trabajoId, p_actor: user.id, p_rechazo_cancelacion: true,
       })
-      .eq("id", trabajoId)
-    if (error) return { error: error.message }
-
-    const tipoDisputa = trabajo.cancelacion_solicitada_por === trabajo.cliente_id ? "cliente" : "proveedor"
-    const { error: errorDisputa } = await supabase.from("disputas").insert({
-      trabajo_id: trabajoId,
-      cliente_id: trabajo.cliente_id,
-      profesional_id: trabajo.profesional_id,
-      tipo: tipoDisputa,
-      motivo: `Cancelación solicitada y rechazada. Motivo de quien solicita: ${
-        (trabajo as any).cancelacion_razon || "no indicado"
-      }. Argumentos de quien se opone: ${razonOposicion}.`,
-      estado: "abierta",
-      estado_trabajo_previo: trabajo.estado,
-      estado_escrow_previo: escrowPrevio?.estado ?? null,
-    })
-    if (errorDisputa) {
-      // Sin disputa no habría nada que el admin pudiera revisar. Dejamos la
-      // solicitud pendiente para que la otra parte pueda volver a responder.
-      await supabase
-        .from("trabajos")
-        .update({
-          estado: trabajo.estado,
-          cancelacion_estado: "pendiente",
-          cancelacion_respuesta_razon: null,
-          cancelacion_adjuntos_respuesta: [],
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", trabajoId)
-      return { error: `No se pudo abrir la revisión: ${errorDisputa.message}` }
-    }
-    await createAdminClient()?.from("transacciones_escrow").update({ estado: "disputa" }).eq("trabajo_id", trabajoId)
-
-    const { data: admins } = await supabase.from("profiles").select("id").eq("es_admin", true)
-    if (admins?.length) {
-      const totalAdjuntos =
-        ((trabajo as any).cancelacion_adjuntos_solicitante?.length || 0) + (adjuntos.archivos ?? []).length
-      await supabase.from("notificaciones").insert(
-        admins.map((admin: { id: string }) => ({
-          usuario_id: admin.id,
-          tipo: "disputa_abierta_admin",
-          titulo: "Cancelación rechazada para revisar",
-          mensaje: `Se ha abierto una disputa sobre "${trabajo.titulo}" con los argumentos de ambas partes y ${totalAdjuntos} archivo${totalAdjuntos === 1 ? "" : "s"} adjunto${totalAdjuntos === 1 ? "" : "s"}.`,
-          link: "/admin/disputas",
-          leida: false,
-        })),
-      )
+      if (bloqueoError) throw bloqueoError
+      await cerrarCheckoutsPendientes(admin, trabajoId)
+      const { error: disputaError } = await admin.rpc("diime_abrir_disputa", {
+        p_trabajo: trabajoId, p_actor: user.id, p_motivo: razonOposicion,
+        p_rechazo_cancelacion: true, p_adjuntos: adjuntos.archivos,
+      })
+      if (disputaError) throw disputaError
+    } catch (error: any) {
+      return { error: error.message || "No se pudo conciliar el pago y abrir la disputa. Puedes reintentar." }
     }
 
     await postMensajeTrabajo(
@@ -749,7 +542,7 @@ export async function responderCancelacion(
   // Notificar el resultado a ambas partes.
   {
     const solicitanteEsCliente = trabajo.cancelacion_solicitada_por === trabajo.cliente_id
-    const { crearNotificacion } = await import("./notificaciones")
+    const { crearNotificacion } = await import("@/lib/notificaciones")
     await crearNotificacion({
       usuarioId: trabajo.cancelacion_solicitada_por,
       tipo: aceptar ? "cancelacion_aceptada" : "disputa_abierta",
@@ -757,7 +550,7 @@ export async function responderCancelacion(
       mensaje: aceptar
         ? `La otra parte ha aceptado cancelar "${trabajo.titulo}". El trabajo queda cancelado.`
         : `La otra parte ha rechazado cancelar "${trabajo.titulo}". Se ha abierto una disputa que resolverá el equipo de Diime según los términos de la contratación (en caso de duda, a favor del cliente).`,
-      link: solicitanteEsCliente ? "/mis-solicitudes" : "/mis-trabajos",
+      link: solicitanteEsCliente ? "/mis-solicitudes" : trabajo.estado === "pendiente_pago" ? "/mis-ofertas" : "/mis-trabajos",
     })
   }
 
@@ -771,6 +564,7 @@ export async function responderCancelacion(
 // Provider updates progress percentage
 export async function actualizarProgresoTrabajo(trabajoId: string, progreso: number, mensaje?: string) {
   const supabase = await createClient()
+  if (!supabase) return { error: "Base de datos no disponible" }
 
   const {
     data: { user },
@@ -779,10 +573,14 @@ export async function actualizarProgresoTrabajo(trabajoId: string, progreso: num
     return { error: "No autenticado" }
   }
 
+  if (!Number.isFinite(progreso) || !Number.isInteger(progreso) || progreso < 0 || progreso > 100) {
+    return { error: "El progreso debe ser un número entero entre 0 y 100." }
+  }
+
   // Verify user is the professional
   const { data: trabajo } = await supabase
     .from("trabajos")
-    .select("profesional_id, cliente_id")
+    .select("profesional_id, cliente_id, estado, cancelacion_estado")
     .eq("id", trabajoId)
     .single()
 
@@ -790,8 +588,12 @@ export async function actualizarProgresoTrabajo(trabajoId: string, progreso: num
     return { error: "No tienes permiso para actualizar este trabajo" }
   }
 
+  if (trabajo.estado !== "en_progreso" || trabajo.cancelacion_estado === "pendiente") {
+    return { error: "Solo puedes actualizar el progreso de un trabajo pagado y en curso, sin cancelación pendiente." }
+  }
+
   const updates: any = {
-    progreso: Math.min(100, Math.max(0, progreso)),
+    progreso,
     updated_at: new Date().toISOString(),
   }
 
@@ -799,6 +601,8 @@ export async function actualizarProgresoTrabajo(trabajoId: string, progreso: num
     .from("trabajos")
     .update(updates)
     .eq("id", trabajoId)
+    .eq("estado", "en_progreso")
+    .or("cancelacion_estado.is.null,cancelacion_estado.neq.pendiente")
     .select()
     .single()
 
@@ -819,7 +623,7 @@ export async function actualizarProgresoTrabajo(trabajoId: string, progreso: num
 
   // Avisar al cliente del avance.
   if (trabajo.cliente_id) {
-    const { crearNotificacion } = await import("./notificaciones")
+    const { crearNotificacion } = await import("@/lib/notificaciones")
     await crearNotificacion({
       usuarioId: trabajo.cliente_id,
       tipo: "progreso_trabajo",
@@ -836,6 +640,7 @@ export async function actualizarProgresoTrabajo(trabajoId: string, progreso: num
 // Provider marks work as completed/delivered
 export async function marcarTrabajoEntregado(trabajoId: string, mensaje?: string) {
   const supabase = await createClient()
+  if (!supabase) return { error: "Base de datos no disponible" }
 
   const {
     data: { user },
@@ -871,7 +676,7 @@ export async function marcarTrabajoEntregado(trabajoId: string, mensaje?: string
     })
     .eq("id", trabajoId)
     .eq("estado", "en_progreso")
-    .is("cancelacion_estado", null)
+    .or("cancelacion_estado.is.null,cancelacion_estado.neq.pendiente")
     .select()
     .maybeSingle()
 
@@ -900,7 +705,7 @@ export async function marcarTrabajoEntregado(trabajoId: string, mensaje?: string
       .eq("id", user.id)
       .maybeSingle()
     const nombrePro = `${perfilPro?.nombre ?? ""} ${perfilPro?.apellido ?? ""}`.trim() || "El profesional"
-    const { crearNotificacion } = await import("./notificaciones")
+    const { crearNotificacion } = await import("@/lib/notificaciones")
     await crearNotificacion({
       usuarioId: trabajo.cliente_id,
       tipo: "trabajo_entregado",

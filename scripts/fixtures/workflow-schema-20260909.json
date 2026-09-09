@@ -1,0 +1,3853 @@
+{
+  "tables": [
+    {
+      "name": "solicitudes",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notnull": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "cliente_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "categoria_id",
+          "type": "uuid",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "descripcion",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "ubicacion",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "presupuesto_min",
+          "type": "numeric(10,2)",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "presupuesto_max",
+          "type": "numeric(10,2)",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "urgencia",
+          "type": "text",
+          "notnull": false,
+          "default": "'media'::text"
+        },
+        {
+          "name": "estado",
+          "type": "text",
+          "notnull": false,
+          "default": "'abierta'::text"
+        },
+        {
+          "name": "archivos",
+          "type": "jsonb",
+          "notnull": false,
+          "default": "'[]'::jsonb"
+        },
+        {
+          "name": "fecha_necesaria",
+          "type": "date",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "total_ofertas",
+          "type": "integer",
+          "notnull": false,
+          "default": "0"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        }
+      ],
+      "rls": true
+    },
+    {
+      "name": "categorias",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notnull": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "nombre",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "descripcion",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "icono",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "color",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        }
+      ],
+      "rls": true
+    },
+    {
+      "name": "portfolio",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notnull": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "profesional_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "trabajo_id",
+          "type": "uuid",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "descripcion",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "categoria",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "imagenes",
+          "type": "text[]",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "ubicacion",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "duracion",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "presupuesto",
+          "type": "numeric(10,2)",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "fecha_proyecto",
+          "type": "date",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "visible",
+          "type": "boolean",
+          "notnull": true,
+          "default": "true"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        },
+        {
+          "name": "contexto_proveedor",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        }
+      ],
+      "rls": true
+    },
+    {
+      "name": "ofertas",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notnull": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "solicitud_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "profesional_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "precio",
+          "type": "numeric(10,2)",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "tiempo_estimado",
+          "type": "integer",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "unidad_tiempo",
+          "type": "text",
+          "notnull": false,
+          "default": "'dias'::text"
+        },
+        {
+          "name": "descripcion",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "materiales_incluidos",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "condiciones_pago",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "notas",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "estado",
+          "type": "text",
+          "notnull": false,
+          "default": "'enviada'::text"
+        },
+        {
+          "name": "archivos",
+          "type": "jsonb",
+          "notnull": false,
+          "default": "'[]'::jsonb"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        },
+        {
+          "name": "retirada_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": null
+        }
+      ],
+      "rls": true
+    },
+    {
+      "name": "eventos_operativos",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notnull": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "area",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "severidad",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "codigo",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "clave",
+          "type": "text",
+          "notnull": true,
+          "default": "'global'::text"
+        },
+        {
+          "name": "mensaje",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "contexto",
+          "type": "jsonb",
+          "notnull": true,
+          "default": "'{}'::jsonb"
+        },
+        {
+          "name": "estado",
+          "type": "text",
+          "notnull": true,
+          "default": "'abierto'::text"
+        },
+        {
+          "name": "ocurrencias",
+          "type": "integer",
+          "notnull": true,
+          "default": "1"
+        },
+        {
+          "name": "primer_evento_at",
+          "type": "timestamp with time zone",
+          "notnull": true,
+          "default": "now()"
+        },
+        {
+          "name": "ultimo_evento_at",
+          "type": "timestamp with time zone",
+          "notnull": true,
+          "default": "now()"
+        },
+        {
+          "name": "resuelto_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": null
+        }
+      ],
+      "rls": true
+    },
+    {
+      "name": "reseñas",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notnull": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "trabajo_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "autor_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "profesional_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "rating",
+          "type": "integer",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "comentario",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "tipo_proyecto",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "votos_utiles",
+          "type": "integer",
+          "notnull": false,
+          "default": "0"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        }
+      ],
+      "rls": true
+    },
+    {
+      "name": "conversaciones",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notnull": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "participante_1",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "participante_2",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "ultimo_mensaje",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "fecha_ultimo_mensaje",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        },
+        {
+          "name": "solicitud_id",
+          "type": "uuid",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "trabajo_id",
+          "type": "uuid",
+          "notnull": false,
+          "default": null
+        }
+      ],
+      "rls": true
+    },
+    {
+      "name": "empresas",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notnull": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "nombre",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "cif",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "propietario_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "logo",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "descripcion",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "ubicacion",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "telefono",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "email",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "sitio_web",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "token_invitacion",
+          "type": "text",
+          "notnull": false,
+          "default": "encode(gen_random_bytes(16), 'hex'::text)"
+        },
+        {
+          "name": "verificada",
+          "type": "boolean",
+          "notnull": false,
+          "default": "false"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        }
+      ],
+      "rls": true
+    },
+    {
+      "name": "trabajos",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notnull": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "solicitud_id",
+          "type": "uuid",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "oferta_id",
+          "type": "uuid",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "cliente_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "profesional_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "descripcion",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "precio_acordado",
+          "type": "numeric(10,2)",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "estado",
+          "type": "text",
+          "notnull": false,
+          "default": "'pendiente'::text"
+        },
+        {
+          "name": "fecha_inicio",
+          "type": "date",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "fecha_fin",
+          "type": "date",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "ubicacion",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "archivos",
+          "type": "jsonb",
+          "notnull": false,
+          "default": "'[]'::jsonb"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        },
+        {
+          "name": "progreso",
+          "type": "integer",
+          "notnull": false,
+          "default": "0"
+        },
+        {
+          "name": "fecha_estimada_fin",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "fecha_entrega",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "review_cliente_id",
+          "type": "uuid",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "review_proveedor_id",
+          "type": "uuid",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "horas_estimadas",
+          "type": "integer",
+          "notnull": false,
+          "default": "0"
+        },
+        {
+          "name": "horas_registradas",
+          "type": "integer",
+          "notnull": false,
+          "default": "0"
+        },
+        {
+          "name": "notas_privadas_proveedor",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "prioridad",
+          "type": "text",
+          "notnull": false,
+          "default": "'media'::text"
+        },
+        {
+          "name": "cancelacion_solicitada_por",
+          "type": "uuid",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "cancelacion_razon",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "cancelacion_estado",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "estado_flujo",
+          "type": "text",
+          "notnull": true,
+          "default": "'pendiente_pago'::text"
+        },
+        {
+          "name": "fecha_confirmacion",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "cancelacion_adjuntos_solicitante",
+          "type": "text[]",
+          "notnull": true,
+          "default": "'{}'::text[]"
+        },
+        {
+          "name": "cancelacion_respuesta_razon",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "cancelacion_adjuntos_respuesta",
+          "type": "text[]",
+          "notnull": true,
+          "default": "'{}'::text[]"
+        }
+      ],
+      "rls": true
+    },
+    {
+      "name": "actualizaciones_trabajo",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notnull": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "trabajo_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "usuario_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "tipo",
+          "type": "character varying(50)",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "mensaje",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "progreso",
+          "type": "integer",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "archivos",
+          "type": "text[]",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        }
+      ],
+      "rls": true
+    },
+    {
+      "name": "favoritos",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notnull": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "cliente_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "profesional_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        }
+      ],
+      "rls": true
+    },
+    {
+      "name": "disputas",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notnull": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "trabajo_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "cliente_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "profesional_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "tipo",
+          "type": "character varying(50)",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "motivo",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "estado",
+          "type": "character varying(50)",
+          "notnull": true,
+          "default": "'abierta'::character varying"
+        },
+        {
+          "name": "resolucion",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "resultado",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "resuelto_por",
+          "type": "uuid",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "fecha_resolucion",
+          "type": "timestamp without time zone",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp without time zone",
+          "notnull": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp without time zone",
+          "notnull": false,
+          "default": "now()"
+        },
+        {
+          "name": "estado_trabajo_previo",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "estado_escrow_previo",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        }
+      ],
+      "rls": true
+    },
+    {
+      "name": "profiles",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "email",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "nombre",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "apellido",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "foto_perfil",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "foto_portada",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "telefono",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "ubicacion",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "bio",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "tipo_usuario",
+          "type": "text",
+          "notnull": false,
+          "default": "'cliente'::text"
+        },
+        {
+          "name": "verificado",
+          "type": "boolean",
+          "notnull": false,
+          "default": "false"
+        },
+        {
+          "name": "fecha_registro",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        },
+        {
+          "name": "ultima_conexion",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        },
+        {
+          "name": "es_admin",
+          "type": "boolean",
+          "notnull": false,
+          "default": "false"
+        },
+        {
+          "name": "documento",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "empresa_id",
+          "type": "uuid",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "cargo_empresa",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "email_notificaciones",
+          "type": "boolean",
+          "notnull": true,
+          "default": "true"
+        },
+        {
+          "name": "cuenta_eliminada",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "mayor_edad_confirmada_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "mayor_edad_version",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        }
+      ],
+      "rls": true
+    },
+    {
+      "name": "notificaciones",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notnull": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "usuario_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "tipo",
+          "type": "character varying(50)",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "mensaje",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "link",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "leida",
+          "type": "boolean",
+          "notnull": false,
+          "default": "false"
+        },
+        {
+          "name": "metadata",
+          "type": "jsonb",
+          "notnull": false,
+          "default": "'{}'::jsonb"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        },
+        {
+          "name": "categoria",
+          "type": "text",
+          "notnull": true,
+          "default": "'general'::text"
+        },
+        {
+          "name": "enlace",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        }
+      ],
+      "rls": true
+    },
+    {
+      "name": "evidencias_disputa",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notnull": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "disputa_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "usuario_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "tipo",
+          "type": "character varying(50)",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "archivo_url",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "descripcion",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp without time zone",
+          "notnull": false,
+          "default": "now()"
+        }
+      ],
+      "rls": true
+    },
+    {
+      "name": "invitaciones",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notnull": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "solicitud_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "nombre_empresa",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "email_empresa",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "descripcion_empresa",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "sitio_web",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "token",
+          "type": "uuid",
+          "notnull": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "estado",
+          "type": "text",
+          "notnull": false,
+          "default": "'enviada'::text"
+        },
+        {
+          "name": "enviado_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        },
+        {
+          "name": "abierto_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "registrado_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        }
+      ],
+      "rls": true
+    },
+    {
+      "name": "usuarios_bloqueados",
+      "columns": [
+        {
+          "name": "bloqueador_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "bloqueado_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notnull": true,
+          "default": "now()"
+        }
+      ],
+      "rls": true
+    },
+    {
+      "name": "profesionales",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "tarifa_por_hora",
+          "type": "numeric(10,2)",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "años_experiencia",
+          "type": "integer",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "idiomas",
+          "type": "text[]",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "certificaciones",
+          "type": "jsonb",
+          "notnull": false,
+          "default": "'[]'::jsonb"
+        },
+        {
+          "name": "habilidades",
+          "type": "jsonb",
+          "notnull": false,
+          "default": "'[]'::jsonb"
+        },
+        {
+          "name": "disponible",
+          "type": "boolean",
+          "notnull": false,
+          "default": "true"
+        },
+        {
+          "name": "rating_promedio",
+          "type": "numeric(3,2)",
+          "notnull": false,
+          "default": "0"
+        },
+        {
+          "name": "total_trabajos",
+          "type": "integer",
+          "notnull": false,
+          "default": "0"
+        },
+        {
+          "name": "total_reseñas",
+          "type": "integer",
+          "notnull": false,
+          "default": "0"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        },
+        {
+          "name": "categorias_interes",
+          "type": "text[]",
+          "notnull": true,
+          "default": "'{}'::text[]"
+        },
+        {
+          "name": "provincias_cobertura",
+          "type": "text[]",
+          "notnull": true,
+          "default": "'{}'::text[]"
+        },
+        {
+          "name": "stripe_account_id",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "stripe_onboarding_completado",
+          "type": "boolean",
+          "notnull": true,
+          "default": "false"
+        },
+        {
+          "name": "stripe_transferencias_habilitadas",
+          "type": "boolean",
+          "notnull": true,
+          "default": "false"
+        },
+        {
+          "name": "stripe_payouts_habilitados",
+          "type": "boolean",
+          "notnull": true,
+          "default": "false"
+        },
+        {
+          "name": "stripe_requisitos_pendientes",
+          "type": "jsonb",
+          "notnull": true,
+          "default": "'[]'::jsonb"
+        },
+        {
+          "name": "stripe_estado_actualizado_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": null
+        }
+      ],
+      "rls": true
+    },
+    {
+      "name": "moderacion_reglas_solicitudes",
+      "columns": [
+        {
+          "name": "codigo",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "activa",
+          "type": "boolean",
+          "notnull": true,
+          "default": "true"
+        },
+        {
+          "name": "prioridad",
+          "type": "smallint",
+          "notnull": true,
+          "default": "100"
+        },
+        {
+          "name": "descripcion_interna",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "patron",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "patron_exclusion",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "motivo_usuario",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notnull": true,
+          "default": "now()"
+        }
+      ],
+      "rls": true
+    },
+    {
+      "name": "mensajes",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notnull": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "conversacion_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "remitente_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "contenido",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "leido",
+          "type": "boolean",
+          "notnull": false,
+          "default": "false"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        },
+        {
+          "name": "tipo",
+          "type": "text",
+          "notnull": true,
+          "default": "'texto'::text"
+        },
+        {
+          "name": "archivo_url",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "archivo_nombre",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "archivo_pathname",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "archivo_tipo",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "archivo_tamano",
+          "type": "bigint",
+          "notnull": false,
+          "default": null
+        }
+      ],
+      "rls": true
+    },
+    {
+      "name": "actualizaciones_proyecto",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notnull": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "trabajo_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "autor_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "porcentaje",
+          "type": "integer",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "mensaje",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notnull": true,
+          "default": "now()"
+        }
+      ],
+      "rls": true
+    },
+    {
+      "name": "incidencias",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notnull": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "reportado_por",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "asunto",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "descripcion",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "categoria",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "prioridad",
+          "type": "text",
+          "notnull": true,
+          "default": "'media'::text"
+        },
+        {
+          "name": "estado",
+          "type": "text",
+          "notnull": true,
+          "default": "'abierta'::text"
+        },
+        {
+          "name": "trabajo_id",
+          "type": "uuid",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "usuario_reportado",
+          "type": "uuid",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "notas_admin",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "resuelto_por",
+          "type": "uuid",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "fecha_resolucion",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        }
+      ],
+      "rls": true
+    },
+    {
+      "name": "eventos_calendario",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notnull": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "usuario_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "descripcion",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "fecha_inicio",
+          "type": "timestamp with time zone",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "fecha_fin",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "color",
+          "type": "text",
+          "notnull": false,
+          "default": "'emerald'::text"
+        },
+        {
+          "name": "tipo",
+          "type": "text",
+          "notnull": false,
+          "default": "'personal'::text"
+        },
+        {
+          "name": "todo_el_dia",
+          "type": "boolean",
+          "notnull": false,
+          "default": "true"
+        },
+        {
+          "name": "ubicacion",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        }
+      ],
+      "rls": true
+    },
+    {
+      "name": "push_devices",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notnull": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "usuario_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "token",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "plataforma",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "activo",
+          "type": "boolean",
+          "notnull": true,
+          "default": "true"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notnull": true,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notnull": true,
+          "default": "now()"
+        }
+      ],
+      "rls": true
+    },
+    {
+      "name": "transacciones_escrow",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notnull": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "trabajo_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "cliente_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "profesional_id",
+          "type": "uuid",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "monto",
+          "type": "numeric(10,2)",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "stripe_payment_intent_id",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "estado",
+          "type": "text",
+          "notnull": false,
+          "default": "'pendiente'::text"
+        },
+        {
+          "name": "fecha_retencion",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "fecha_liberacion",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "notas",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": "now()"
+        },
+        {
+          "name": "monto_base",
+          "type": "numeric(10,2)",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "comision_cliente",
+          "type": "numeric(10,2)",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "comision_proveedor",
+          "type": "numeric(10,2)",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "pago_neto_proveedor",
+          "type": "numeric(10,2)",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "monto_reembolsado",
+          "type": "numeric(10,2)",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "retencion_plataforma",
+          "type": "numeric(10,2)",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "fecha_reembolso",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "stripe_session_id",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "fecha_financiacion",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "resultado_abono",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "stripe_transfer_group",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "stripe_charge_id",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "stripe_transfer_id",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "stripe_refund_id",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "stripe_refund_status",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "monto_bruto_proveedor",
+          "type": "numeric(10,2)",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "comision_cliente_retenida",
+          "type": "numeric(10,2)",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "liquidacion_estado",
+          "type": "text",
+          "notnull": true,
+          "default": "'pendiente'::text"
+        },
+        {
+          "name": "liquidacion_operacion_id",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "liquidacion_error",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "comision_proveedor_original",
+          "type": "numeric(10,2)",
+          "notnull": true,
+          "default": null
+        }
+      ],
+      "rls": true
+    },
+    {
+      "name": "stripe_eventos_webhook",
+      "columns": [
+        {
+          "name": "id",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "tipo",
+          "type": "text",
+          "notnull": true,
+          "default": null
+        },
+        {
+          "name": "estado",
+          "type": "text",
+          "notnull": true,
+          "default": "'procesando'::text"
+        },
+        {
+          "name": "intentos",
+          "type": "integer",
+          "notnull": true,
+          "default": "1"
+        },
+        {
+          "name": "ultimo_error",
+          "type": "text",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notnull": true,
+          "default": "now()"
+        },
+        {
+          "name": "procesado_at",
+          "type": "timestamp with time zone",
+          "notnull": false,
+          "default": null
+        },
+        {
+          "name": "ultimo_intento_at",
+          "type": "timestamp with time zone",
+          "notnull": true,
+          "default": "now()"
+        }
+      ],
+      "rls": true
+    }
+  ],
+  "constraints": [
+    {
+      "table": "moderacion_reglas_solicitudes",
+      "name": "moderacion_reglas_codigo_formato",
+      "type": "c",
+      "definition": "CHECK ((codigo ~ '^[a-z0-9_]+$'::text))"
+    },
+    {
+      "table": "notificaciones",
+      "name": "notificaciones_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "name": "actualizaciones_proyecto_mensaje_check",
+      "type": "c",
+      "definition": "CHECK (((char_length(mensaje) >= 1) AND (char_length(mensaje) <= 2000)))"
+    },
+    {
+      "table": "notificaciones",
+      "name": "notificaciones_usuario_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (usuario_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "favoritos",
+      "name": "favoritos_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "favoritos",
+      "name": "favoritos_cliente_id_profesional_id_key",
+      "type": "u",
+      "definition": "UNIQUE (cliente_id, profesional_id)"
+    },
+    {
+      "table": "favoritos",
+      "name": "favoritos_cliente_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (cliente_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "favoritos",
+      "name": "favoritos_profesional_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (profesional_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "name": "actualizaciones_proyecto_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "name": "actualizaciones_proyecto_trabajo_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (trabajo_id) REFERENCES trabajos(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "name": "actualizaciones_proyecto_autor_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (autor_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "incidencias",
+      "name": "incidencias_categoria_check",
+      "type": "c",
+      "definition": "CHECK ((categoria = ANY (ARRAY['fraude'::text, 'abuso'::text, 'pago'::text, 'tecnico'::text, 'perfil'::text, 'otro'::text])))"
+    },
+    {
+      "table": "trabajos",
+      "name": "trabajos_cancelacion_solicitada_por_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (cancelacion_solicitada_por) REFERENCES profiles(id)"
+    },
+    {
+      "table": "trabajos",
+      "name": "trabajos_cancelacion_estado_check",
+      "type": "c",
+      "definition": "CHECK (((cancelacion_estado IS NULL) OR (cancelacion_estado = ANY (ARRAY['pendiente'::text, 'rechazada'::text]))))"
+    },
+    {
+      "table": "trabajos",
+      "name": "trabajos_prioridad_check",
+      "type": "c",
+      "definition": "CHECK ((prioridad = ANY (ARRAY['baja'::text, 'media'::text, 'alta'::text, 'urgente'::text])))"
+    },
+    {
+      "table": "incidencias",
+      "name": "incidencias_prioridad_check",
+      "type": "c",
+      "definition": "CHECK ((prioridad = ANY (ARRAY['baja'::text, 'media'::text, 'alta'::text, 'critica'::text])))"
+    },
+    {
+      "table": "profiles",
+      "name": "profiles_tipo_usuario_check",
+      "type": "c",
+      "definition": "CHECK ((tipo_usuario = ANY (ARRAY['cliente'::text, 'profesional'::text, 'ambos'::text])))"
+    },
+    {
+      "table": "profiles",
+      "name": "profiles_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "profiles",
+      "name": "profiles_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "profesionales",
+      "name": "profesionales_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "profesionales",
+      "name": "profesionales_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "categorias",
+      "name": "categorias_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "categorias",
+      "name": "categorias_nombre_key",
+      "type": "u",
+      "definition": "UNIQUE (nombre)"
+    },
+    {
+      "table": "solicitudes",
+      "name": "solicitudes_urgencia_check",
+      "type": "c",
+      "definition": "CHECK ((urgencia = ANY (ARRAY['baja'::text, 'media'::text, 'alta'::text, 'urgente'::text])))"
+    },
+    {
+      "table": "solicitudes",
+      "name": "solicitudes_estado_check",
+      "type": "c",
+      "definition": "CHECK ((estado = ANY (ARRAY['abierta'::text, 'en_progreso'::text, 'completada'::text, 'cancelada'::text])))"
+    },
+    {
+      "table": "solicitudes",
+      "name": "solicitudes_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "solicitudes",
+      "name": "solicitudes_cliente_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (cliente_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "solicitudes",
+      "name": "solicitudes_categoria_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (categoria_id) REFERENCES categorias(id)"
+    },
+    {
+      "table": "ofertas",
+      "name": "ofertas_unidad_tiempo_check",
+      "type": "c",
+      "definition": "CHECK ((unidad_tiempo = ANY (ARRAY['horas'::text, 'dias'::text, 'semanas'::text])))"
+    },
+    {
+      "table": "conversaciones",
+      "name": "conversaciones_participante_2_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (participante_2) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "mensajes",
+      "name": "mensajes_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "mensajes",
+      "name": "mensajes_conversacion_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (conversacion_id) REFERENCES conversaciones(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "mensajes",
+      "name": "mensajes_remitente_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (remitente_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "evidencias_disputa",
+      "name": "evidencias_disputa_usuario_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (usuario_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "ofertas",
+      "name": "ofertas_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "ofertas",
+      "name": "ofertas_solicitud_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (solicitud_id) REFERENCES solicitudes(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "ofertas",
+      "name": "ofertas_profesional_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (profesional_id) REFERENCES profesionales(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "trabajos",
+      "name": "trabajos_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "trabajos",
+      "name": "trabajos_solicitud_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (solicitud_id) REFERENCES solicitudes(id) ON DELETE SET NULL"
+    },
+    {
+      "table": "trabajos",
+      "name": "trabajos_oferta_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (oferta_id) REFERENCES ofertas(id) ON DELETE SET NULL"
+    },
+    {
+      "table": "trabajos",
+      "name": "trabajos_cliente_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (cliente_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "trabajos",
+      "name": "trabajos_profesional_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (profesional_id) REFERENCES profesionales(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "portfolio",
+      "name": "portfolio_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "portfolio",
+      "name": "portfolio_profesional_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (profesional_id) REFERENCES profesionales(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "portfolio",
+      "name": "portfolio_trabajo_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (trabajo_id) REFERENCES trabajos(id) ON DELETE SET NULL"
+    },
+    {
+      "table": "\"reseñas\"",
+      "name": "reseñas_rating_check",
+      "type": "c",
+      "definition": "CHECK (((rating >= 1) AND (rating <= 5)))"
+    },
+    {
+      "table": "\"reseñas\"",
+      "name": "reseñas_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "\"reseñas\"",
+      "name": "reseñas_trabajo_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (trabajo_id) REFERENCES trabajos(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "\"reseñas\"",
+      "name": "reseñas_autor_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (autor_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "\"reseñas\"",
+      "name": "reseñas_profesional_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (profesional_id) REFERENCES profesionales(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "conversaciones",
+      "name": "conversaciones_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "conversaciones",
+      "name": "conversaciones_participante_1_participante_2_key",
+      "type": "u",
+      "definition": "UNIQUE (participante_1, participante_2)"
+    },
+    {
+      "table": "conversaciones",
+      "name": "conversaciones_participante_1_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (participante_1) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "incidencias",
+      "name": "incidencias_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "incidencias",
+      "name": "incidencias_reportado_por_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (reportado_por) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "incidencias",
+      "name": "incidencias_trabajo_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (trabajo_id) REFERENCES trabajos(id) ON DELETE SET NULL"
+    },
+    {
+      "table": "incidencias",
+      "name": "incidencias_usuario_reportado_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (usuario_reportado) REFERENCES auth.users(id) ON DELETE SET NULL"
+    },
+    {
+      "table": "transacciones_escrow",
+      "name": "transacciones_escrow_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "transacciones_escrow",
+      "name": "transacciones_escrow_stripe_payment_intent_id_key",
+      "type": "u",
+      "definition": "UNIQUE (stripe_payment_intent_id)"
+    },
+    {
+      "table": "transacciones_escrow",
+      "name": "transacciones_escrow_trabajo_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (trabajo_id) REFERENCES trabajos(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "transacciones_escrow",
+      "name": "transacciones_escrow_cliente_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (cliente_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "transacciones_escrow",
+      "name": "transacciones_escrow_profesional_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (profesional_id) REFERENCES profesionales(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "incidencias",
+      "name": "incidencias_resuelto_por_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (resuelto_por) REFERENCES auth.users(id) ON DELETE SET NULL"
+    },
+    {
+      "table": "empresas",
+      "name": "empresas_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "empresas",
+      "name": "empresas_cif_key",
+      "type": "u",
+      "definition": "UNIQUE (cif)"
+    },
+    {
+      "table": "empresas",
+      "name": "empresas_token_invitacion_key",
+      "type": "u",
+      "definition": "UNIQUE (token_invitacion)"
+    },
+    {
+      "table": "empresas",
+      "name": "empresas_propietario_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (propietario_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "disputas",
+      "name": "disputas_resuelto_por_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (resuelto_por) REFERENCES auth.users(id) ON DELETE SET NULL"
+    },
+    {
+      "table": "evidencias_disputa",
+      "name": "evidencias_disputa_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "evidencias_disputa",
+      "name": "evidencias_disputa_disputa_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (disputa_id) REFERENCES disputas(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "trabajos",
+      "name": "trabajos_progreso_check",
+      "type": "c",
+      "definition": "CHECK (((progreso >= 0) AND (progreso <= 100)))"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "name": "actualizaciones_trabajo_tipo_check",
+      "type": "c",
+      "definition": "CHECK (((tipo)::text = ANY ((ARRAY['progreso'::character varying, 'mensaje'::character varying, 'entrega'::character varying, 'confirmacion'::character varying, 'disputa'::character varying])::text[])))"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "name": "actualizaciones_trabajo_progreso_check",
+      "type": "c",
+      "definition": "CHECK (((progreso >= 0) AND (progreso <= 100)))"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "name": "actualizaciones_trabajo_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "name": "actualizaciones_trabajo_trabajo_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (trabajo_id) REFERENCES trabajos(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "actualizaciones_trabajo",
+      "name": "actualizaciones_trabajo_usuario_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (usuario_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "conversaciones",
+      "name": "conversaciones_solicitud_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (solicitud_id) REFERENCES solicitudes(id) ON DELETE SET NULL"
+    },
+    {
+      "table": "conversaciones",
+      "name": "conversaciones_trabajo_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (trabajo_id) REFERENCES trabajos(id) ON DELETE SET NULL"
+    },
+    {
+      "table": "disputas",
+      "name": "disputas_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "disputas",
+      "name": "disputas_trabajo_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (trabajo_id) REFERENCES trabajos(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "disputas",
+      "name": "disputas_cliente_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (cliente_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "disputas",
+      "name": "disputas_profesional_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (profesional_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "eventos_calendario",
+      "name": "eventos_calendario_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "eventos_calendario",
+      "name": "eventos_calendario_usuario_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (usuario_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "profiles",
+      "name": "profiles_empresa_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE SET NULL"
+    },
+    {
+      "table": "usuarios_bloqueados",
+      "name": "usuarios_bloqueados_distintos",
+      "type": "c",
+      "definition": "CHECK ((bloqueador_id <> bloqueado_id))"
+    },
+    {
+      "table": "actualizaciones_proyecto",
+      "name": "actualizaciones_proyecto_porcentaje_check",
+      "type": "c",
+      "definition": "CHECK (((porcentaje >= 0) AND (porcentaje <= 100)))"
+    },
+    {
+      "table": "invitaciones",
+      "name": "invitaciones_estado_check",
+      "type": "c",
+      "definition": "CHECK ((estado = ANY (ARRAY['enviada'::text, 'abierta'::text, 'registrado'::text, 'rechazada'::text])))"
+    },
+    {
+      "table": "invitaciones",
+      "name": "invitaciones_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "invitaciones",
+      "name": "invitaciones_token_key",
+      "type": "u",
+      "definition": "UNIQUE (token)"
+    },
+    {
+      "table": "invitaciones",
+      "name": "invitaciones_solicitud_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (solicitud_id) REFERENCES solicitudes(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "usuarios_bloqueados",
+      "name": "usuarios_bloqueados_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (bloqueador_id, bloqueado_id)"
+    },
+    {
+      "table": "usuarios_bloqueados",
+      "name": "usuarios_bloqueados_bloqueador_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (bloqueador_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "usuarios_bloqueados",
+      "name": "usuarios_bloqueados_bloqueado_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (bloqueado_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "ofertas",
+      "name": "ofertas_estado_check",
+      "type": "c",
+      "definition": "CHECK ((estado = ANY (ARRAY['pendiente'::text, 'enviada'::text, 'aceptada'::text, 'rechazada'::text, 'en_negociacion'::text, 'retirada'::text])))"
+    },
+    {
+      "table": "trabajos",
+      "name": "trabajos_estado_check",
+      "type": "c",
+      "definition": "CHECK ((estado = ANY (ARRAY['pendiente'::text, 'pendiente_pago'::text, 'en_progreso'::text, 'entregado'::text, 'completado'::text, 'rechazado'::text, 'cancelado'::text, 'en_disputa'::text])))"
+    },
+    {
+      "table": "incidencias",
+      "name": "incidencias_estado_check",
+      "type": "c",
+      "definition": "CHECK ((estado = ANY (ARRAY['abierta'::text, 'en_revision'::text, 'resuelta'::text, 'cerrada'::text, 'retirada'::text])))"
+    },
+    {
+      "table": "push_devices",
+      "name": "push_devices_plataforma_check",
+      "type": "c",
+      "definition": "CHECK ((plataforma = ANY (ARRAY['ios'::text, 'android'::text])))"
+    },
+    {
+      "table": "push_devices",
+      "name": "push_devices_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "push_devices",
+      "name": "push_devices_token_key",
+      "type": "u",
+      "definition": "UNIQUE (token)"
+    },
+    {
+      "table": "push_devices",
+      "name": "push_devices_usuario_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (usuario_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "trabajos",
+      "name": "trabajos_cancelacion_adjuntos_limite_check",
+      "type": "c",
+      "definition": "CHECK (((cardinality(cancelacion_adjuntos_solicitante) <= 5) AND (cardinality(cancelacion_adjuntos_respuesta) <= 5)))"
+    },
+    {
+      "table": "moderacion_reglas_solicitudes",
+      "name": "moderacion_reglas_motivo_no_vacio",
+      "type": "c",
+      "definition": "CHECK ((length(TRIM(BOTH FROM motivo_usuario)) > 0))"
+    },
+    {
+      "table": "moderacion_reglas_solicitudes",
+      "name": "moderacion_reglas_solicitudes_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (codigo)"
+    },
+    {
+      "table": "transacciones_escrow",
+      "name": "transacciones_escrow_liquidacion_estado_check",
+      "type": "c",
+      "definition": "CHECK ((liquidacion_estado = ANY (ARRAY['pendiente'::text, 'procesando'::text, 'completada'::text, 'error'::text])))"
+    },
+    {
+      "table": "transacciones_escrow",
+      "name": "transacciones_escrow_estado_check",
+      "type": "c",
+      "definition": "CHECK ((estado = ANY (ARRAY['pendiente'::text, 'retenido'::text, 'fondos_retenidos'::text, 'liquidando'::text, 'liberado'::text, 'completado'::text, 'reembolsado'::text, 'disputa'::text, 'cancelado'::text])))"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "name": "stripe_eventos_webhook_estado_check",
+      "type": "c",
+      "definition": "CHECK ((estado = ANY (ARRAY['procesando'::text, 'completado'::text, 'error'::text])))"
+    },
+    {
+      "table": "stripe_eventos_webhook",
+      "name": "stripe_eventos_webhook_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "transacciones_escrow",
+      "name": "transacciones_escrow_comision_original_check",
+      "type": "c",
+      "definition": "CHECK (((comision_proveedor_original >= (0)::numeric) AND ((monto_base IS NULL) OR (comision_proveedor_original <= GREATEST(monto_base, (0)::numeric))))) NOT VALID"
+    },
+    {
+      "table": "transacciones_escrow",
+      "name": "transacciones_escrow_estado_no_nulo_check",
+      "type": "c",
+      "definition": "CHECK ((estado IS NOT NULL)) NOT VALID"
+    },
+    {
+      "table": "transacciones_escrow",
+      "name": "transacciones_escrow_liquidacion_importes_check",
+      "type": "c",
+      "definition": "CHECK (((liquidacion_operacion_id IS NULL) OR (liquidacion_estado <> 'completada'::text) OR ((COALESCE(monto, (0)::numeric) >= (0)::numeric) AND (COALESCE(monto_reembolsado, (0)::numeric) >= (0)::numeric) AND (COALESCE(monto_bruto_proveedor, (0)::numeric) >= (0)::numeric) AND (COALESCE(comision_proveedor, (0)::numeric) >= (0)::numeric) AND (COALESCE(pago_neto_proveedor, (0)::numeric) >= (0)::numeric) AND (COALESCE(comision_cliente_retenida, (0)::numeric) >= (0)::numeric) AND (COALESCE(retencion_plataforma, (0)::numeric) >= (0)::numeric) AND (COALESCE(monto_bruto_proveedor, (0)::numeric) = (COALESCE(pago_neto_proveedor, (0)::numeric) + COALESCE(comision_proveedor, (0)::numeric))) AND (COALESCE(retencion_plataforma, (0)::numeric) = (COALESCE(comision_cliente_retenida, (0)::numeric) + COALESCE(comision_proveedor, (0)::numeric))) AND (COALESCE(monto, (0)::numeric) = ((COALESCE(monto_reembolsado, (0)::numeric) + COALESCE(pago_neto_proveedor, (0)::numeric)) + COALESCE(retencion_plataforma, (0)::numeric))) AND (((COALESCE(monto_reembolsado, (0)::numeric) = COALESCE(monto, (0)::numeric)) AND (COALESCE(monto_bruto_proveedor, (0)::numeric) = (0)::numeric) AND (COALESCE(comision_proveedor, (0)::numeric) = (0)::numeric) AND (COALESCE(comision_cliente_retenida, (0)::numeric) = (0)::numeric) AND (COALESCE(retencion_plataforma, (0)::numeric) = (0)::numeric)) OR ((COALESCE(monto_base, (0)::numeric) > (0)::numeric) AND (COALESCE(monto, (0)::numeric) = (COALESCE(monto_base, (0)::numeric) + COALESCE(comision_cliente, (0)::numeric))) AND (COALESCE(monto_reembolsado, (0)::numeric) <= COALESCE(monto_base, (0)::numeric)) AND (COALESCE(monto_bruto_proveedor, (0)::numeric) = (COALESCE(monto_base, (0)::numeric) - COALESCE(monto_reembolsado, (0)::numeric))) AND (COALESCE(comision_cliente_retenida, (0)::numeric) = COALESCE(comision_cliente, (0)::numeric)) AND (COALESCE(comision_proveedor, (0)::numeric) = LEAST(round(((comision_proveedor_original * COALESCE(monto_bruto_proveedor, (0)::numeric)) / NULLIF(COALESCE(monto_base, (0)::numeric), (0)::numeric)), 2), COALESCE(monto_bruto_proveedor, (0)::numeric)))))))) NOT VALID"
+    },
+    {
+      "table": "eventos_operativos",
+      "name": "eventos_operativos_area_check",
+      "type": "c",
+      "definition": "CHECK ((area = ANY (ARRAY['stripe'::text, 'liquidaciones'::text, 'email'::text, 'push'::text, 'moderacion'::text, 'sistema'::text])))"
+    },
+    {
+      "table": "eventos_operativos",
+      "name": "eventos_operativos_severidad_check",
+      "type": "c",
+      "definition": "CHECK ((severidad = ANY (ARRAY['aviso'::text, 'critica'::text])))"
+    },
+    {
+      "table": "eventos_operativos",
+      "name": "eventos_operativos_estado_check",
+      "type": "c",
+      "definition": "CHECK ((estado = ANY (ARRAY['abierto'::text, 'resuelto'::text])))"
+    },
+    {
+      "table": "eventos_operativos",
+      "name": "eventos_operativos_ocurrencias_check",
+      "type": "c",
+      "definition": "CHECK ((ocurrencias > 0))"
+    },
+    {
+      "table": "eventos_operativos",
+      "name": "eventos_operativos_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "eventos_operativos",
+      "name": "eventos_operativos_area_codigo_clave_key",
+      "type": "u",
+      "definition": "UNIQUE (area, codigo, clave)"
+    }
+  ],
+  "functions": [
+    "CREATE OR REPLACE FUNCTION public.is_admin()\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  select coalesce((select es_admin from public.profiles where id = auth.uid()), false);\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.update_updated_at_column()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n    NEW.updated_at = NOW();\n    RETURN NEW;\nEND;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.handle_new_user()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nBEGIN\n  INSERT INTO public.profiles (\n    id,\n    email,\n    nombre,\n    apellido,\n    foto_perfil,\n    tipo_usuario,\n    verificado,\n    es_admin,\n    fecha_registro,\n    created_at,\n    updated_at\n  ) VALUES (\n    NEW.id,\n    NEW.email,\n    COALESCE(NEW.raw_user_meta_data->>'nombre', NEW.raw_user_meta_data->>'full_name', SPLIT_PART(NEW.email, '@', 1)),\n    COALESCE(NEW.raw_user_meta_data->>'apellido', ''),\n    COALESCE(NEW.raw_user_meta_data->>'avatar_url', NEW.raw_user_meta_data->>'picture', NULL),\n    'cliente',\n    FALSE,\n    FALSE,\n    NOW(),\n    NOW(),\n    NOW()\n  );\n  RETURN NEW;\nEXCEPTION\n  WHEN unique_violation THEN\n    -- Profile already exists, just return\n    RETURN NEW;\n  WHEN OTHERS THEN\n    -- Log error but don't fail the signup\n    RAISE WARNING 'Error creating profile for user %: %', NEW.id, SQLERRM;\n    RETURN NEW;\nEND;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.update_solicitud_ofertas_count()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF TG_OP = 'INSERT' THEN\n    UPDATE public.solicitudes \n    SET total_ofertas = total_ofertas + 1 \n    WHERE id = NEW.solicitud_id;\n  ELSIF TG_OP = 'DELETE' THEN\n    UPDATE public.solicitudes \n    SET total_ofertas = total_ofertas - 1 \n    WHERE id = OLD.solicitud_id;\n  END IF;\n  RETURN NULL;\nEND;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.update_profesional_rating()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  UPDATE public.profesionales\n  SET \n    rating_promedio = (\n      SELECT AVG(rating)::NUMERIC(3,2)\n      FROM public.reseñas\n      WHERE profesional_id = NEW.profesional_id\n    ),\n    total_reseñas = (\n      SELECT COUNT(*)\n      FROM public.reseñas\n      WHERE profesional_id = NEW.profesional_id\n    )\n  WHERE id = NEW.profesional_id;\n  RETURN NEW;\nEND;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.update_incidencias_updated_at()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  NEW.updated_at = NOW();\n  RETURN NEW;\nEND;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.recalc_rating_profesional()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nDECLARE\n  pid uuid := COALESCE(NEW.profesional_id, OLD.profesional_id);\nBEGIN\n  UPDATE public.profesionales p\n  SET\n    rating_promedio = COALESCE((SELECT ROUND(AVG(r.rating)::numeric, 1) FROM public.reseñas r WHERE r.profesional_id = pid), 0),\n    total_reseñas   = (SELECT COUNT(*) FROM public.reseñas r WHERE r.profesional_id = pid)\n  WHERE p.id = pid;\n  RETURN NULL;\nEND;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.ha_pujado_en_solicitud(solicitud_uuid uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  select exists (\n    select 1 from ofertas\n    where solicitud_id = solicitud_uuid\n      and profesional_id = auth.uid()\n  );\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.empresa_id_por_token(p_token text)\n RETURNS uuid\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  select id\n  from public.empresas\n  where p_token is not null\n    and length(trim(p_token)) > 0\n    and token_invitacion = p_token\n  limit 1;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.retirar_disputa(p_disputa_id uuid)\n RETURNS text\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare\n  d public.disputas%rowtype;\n  v_uid uuid := auth.uid();\n  v_autor uuid;\nbegin\n  select * into d from public.disputas where id = p_disputa_id;\n  if not found then return 'no_encontrada'; end if;\n  if d.estado <> 'abierta' then return 'no_abierta'; end if;\n\n  v_autor := case when d.tipo = 'cliente' then d.cliente_id else d.profesional_id end;\n  if v_uid is null or v_uid <> v_autor then return 'no_autorizado'; end if;\n\n  update public.trabajos\n    set estado = coalesce(d.estado_trabajo_previo, 'en_progreso')\n    where id = d.trabajo_id and estado = 'en_disputa';\n  update public.transacciones_escrow\n    set estado = coalesce(d.estado_escrow_previo, 'fondos_retenidos')\n    where trabajo_id = d.trabajo_id and estado = 'disputa';\n\n  update public.disputas set estado = 'retirada', updated_at = now() where id = p_disputa_id;\n  return 'ok';\nend;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.retirar_incidencia(p_incidencia_id uuid)\n RETURNS text\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare\n  i public.incidencias%rowtype;\n  v_uid uuid := auth.uid();\nbegin\n  select * into i from public.incidencias where id = p_incidencia_id;\n  if not found then return 'no_encontrada'; end if;\n  if v_uid is null or v_uid <> i.reportado_por then return 'no_autorizado'; end if;\n  if i.estado not in ('abierta', 'en_revision') then return 'no_retirable'; end if;\n\n  update public.incidencias set estado = 'retirada', updated_at = now() where id = p_incidencia_id;\n  return 'ok';\nend;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.facturacion_trabajo(p_trabajo_id uuid)\n RETURNS TABLE(parte text, empresa_nombre text, empresa_cif text, empresa_ubicacion text, empresa_email text, persona_nombre text, persona_apellido text, persona_documento text, persona_cargo text)\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare\n  t public.trabajos%rowtype;\n  v_uid uuid := auth.uid();\nbegin\n  select * into t from public.trabajos where id = p_trabajo_id;\n  if not found then return; end if;\n\n  if not (v_uid = t.cliente_id or v_uid = t.profesional_id or is_admin()) then\n    return;\n  end if;\n\n  return query\n  select\n    d.parte::text,\n    e.nombre,\n    e.cif,\n    e.ubicacion,\n    e.email,\n    p.nombre,\n    p.apellido,\n    case when p.empresa_id is null then p.documento else null end,\n    p.cargo_empresa\n  from (\n    values ('cliente', t.cliente_id), ('profesional', t.profesional_id)\n  ) as d(parte, usuario_id)\n  join public.profiles p on p.id = d.usuario_id\n  left join public.empresas e on e.id = p.empresa_id;\nend;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.telefono_publico(p_id uuid)\n RETURNS text\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  select p.telefono\n  from public.profiles p\n  join public.profesionales pr on pr.id = p.id\n  where p.id = p_id;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.contacto_perfiles(p_ids uuid[])\n RETURNS TABLE(id uuid, email text, telefono text, documento text)\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  select\n    p.id,\n    p.email,\n    p.telefono,\n    case when p.id = auth.uid() or public.is_admin() then p.documento end\n  from public.profiles p\n  where p.id = any(p_ids)\n    and (\n      p.id = auth.uid()\n      or public.is_admin()\n      or exists (\n        select 1 from public.trabajos t\n        where (t.cliente_id = auth.uid() and t.profesional_id = p.id)\n           or (t.profesional_id = auth.uid() and t.cliente_id = p.id)\n      )\n      or exists (\n        select 1 from public.profiles yo\n        where yo.id = auth.uid()\n          and yo.empresa_id is not null\n          and yo.empresa_id = p.empresa_id\n      )\n    );\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.contar_ofertas_por_solicitud(p_ids uuid[])\n RETURNS TABLE(solicitud_id uuid, total bigint)\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  select o.solicitud_id, count(*)::bigint\n  from public.ofertas o\n  where o.solicitud_id = any(p_ids)\n    and o.estado not in ('retirada', 'rechazada')\n  group by o.solicitud_id;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.avisar_entregas_fuera_de_plazo()\n RETURNS integer\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare\n  insertadas integer := 0;\nbegin\n  with vencidos as (\n    select t.id, t.titulo, t.cliente_id, t.profesional_id, t.fecha_estimada_fin\n    from public.trabajos t\n    where t.fecha_estimada_fin is not null\n      and t.fecha_estimada_fin < current_date\n      and t.estado = 'en_progreso'\n      and not exists (\n        select 1 from public.notificaciones n\n        where n.tipo = 'entrega_retrasada'\n          and n.metadata ->> 'trabajo_id' = t.id::text\n      )\n  ),\n  nuevas as (\n    insert into public.notificaciones (usuario_id, tipo, titulo, mensaje, link, leida, metadata)\n    select\n      destinatario.usuario_id,\n      'entrega_retrasada',\n      'Entrega fuera de plazo',\n      case\n        when destinatario.es_cliente then\n          'La fecha de entrega prevista de \"' || v.titulo || '\" (' ||\n          to_char(v.fecha_estimada_fin, 'DD/MM/YYYY') ||\n          ') ya ha pasado y el trabajo sigue en curso. Habla con el profesional; si no hay avances, puedes abrir una incidencia.'\n        else\n          'La fecha de entrega prevista de \"' || v.titulo || '\" (' ||\n          to_char(v.fecha_estimada_fin, 'DD/MM/YYYY') ||\n          ') ya ha pasado. Actualiza el progreso o entrega el trabajo para que el cliente sepa cómo va.'\n      end,\n      case when destinatario.es_cliente then '/mis-solicitudes' else '/mis-trabajos' end,\n      false,\n      jsonb_build_object('trabajo_id', v.id)\n    from vencidos v\n    cross join lateral (\n      values (v.cliente_id, true), (v.profesional_id, false)\n    ) as destinatario(usuario_id, es_cliente)\n    where destinatario.usuario_id is not null\n    returning 1\n  )\n  select count(*) into insertadas from nuevas;\n\n  return insertadas;\nend;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.consecuencias_de_eliminar_mi_cuenta()\n RETURNS json\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare\n  yo uuid := auth.uid();\n  r json;\nbegin\n  if yo is null then\n    raise exception 'No autenticado';\n  end if;\n\n  select json_build_object(\n    'es_profesional', exists(select 1 from public.profesionales where id = yo),\n\n    'demandas_a_borrar', (\n      select count(*) from public.solicitudes s\n      where s.cliente_id = yo and s.estado = 'abierta'\n        and not exists (select 1 from public.trabajos t where t.solicitud_id = s.id)\n    ),\n\n    'ofertas_a_retirar', (\n      select count(*) from public.ofertas o\n      where o.profesional_id = yo and o.estado in ('pendiente', 'enviada', 'en_negociacion')\n    ),\n\n    'trabajos_proveedor', (\n      select count(*) from public.trabajos t\n      where t.profesional_id = yo and t.estado in ('pendiente_pago', 'en_progreso', 'entregado')\n    ),\n    'importe_a_devolver', (\n      select coalesce(sum(e.monto), 0) from public.trabajos t\n      join public.transacciones_escrow e on e.trabajo_id = t.id and e.estado = 'fondos_retenidos'\n      where t.profesional_id = yo and t.estado in ('pendiente_pago', 'en_progreso', 'entregado')\n    ),\n\n    'trabajos_cliente_con_dinero', (\n      select count(*) from public.trabajos t\n      where t.cliente_id = yo and t.estado in ('en_progreso', 'entregado')\n    ),\n    'importe_en_custodia', (\n      select coalesce(sum(e.monto), 0) from public.trabajos t\n      join public.transacciones_escrow e on e.trabajo_id = t.id and e.estado = 'fondos_retenidos'\n      where t.cliente_id = yo and t.estado in ('en_progreso', 'entregado')\n    ),\n\n    'trabajos_cliente_sin_pagar', (\n      select count(*) from public.trabajos t\n      where t.cliente_id = yo and t.estado = 'pendiente_pago'\n    ),\n\n    'disputas_abiertas', (\n      select count(*) from public.disputas d\n      where (d.cliente_id = yo or d.profesional_id = yo) and d.estado = 'abierta'\n    )\n  ) into r;\n\n  return r;\nend;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.interaccion_bloqueada_con(p_otro uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  select auth.uid() is not null and exists (\n    select 1 from public.usuarios_bloqueados b\n    where (b.bloqueador_id = auth.uid() and b.bloqueado_id = p_otro)\n       or (b.bloqueador_id = p_otro and b.bloqueado_id = auth.uid())\n  );\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.usuarios_incompatibles()\n RETURNS SETOF uuid\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  select case\n    when b.bloqueador_id = auth.uid() then b.bloqueado_id\n    else b.bloqueador_id\n  end\n  from public.usuarios_bloqueados b\n  where b.bloqueador_id = auth.uid() or b.bloqueado_id = auth.uid();\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.impedir_conversacion_bloqueada()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nbegin\n  if exists (\n    select 1 from public.usuarios_bloqueados b\n    where (b.bloqueador_id = new.participante_1 and b.bloqueado_id = new.participante_2)\n       or (b.bloqueador_id = new.participante_2 and b.bloqueado_id = new.participante_1)\n  ) then\n    raise exception 'No se puede iniciar una conversación entre estos usuarios.';\n  end if;\n  return new;\nend;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.impedir_mensaje_bloqueado()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare\n  p1 uuid;\n  p2 uuid;\nbegin\n  select participante_1, participante_2 into p1, p2\n  from public.conversaciones where id = new.conversacion_id;\n\n  if exists (\n    select 1 from public.usuarios_bloqueados b\n    where (b.bloqueador_id = p1 and b.bloqueado_id = p2)\n       or (b.bloqueador_id = p2 and b.bloqueado_id = p1)\n  ) then\n    raise exception 'No se pueden enviar mensajes entre estos usuarios.';\n  end if;\n  return new;\nend;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.limpiar_bloqueos_al_eliminar_cuenta()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nbegin\n  if old.cuenta_eliminada is null and new.cuenta_eliminada is not null then\n    delete from public.usuarios_bloqueados\n    where bloqueador_id = new.id or bloqueado_id = new.id;\n  end if;\n  return new;\nend;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.eliminar_mi_cuenta()\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare\n  yo uuid := auth.uid();\n  disputas_vivas integer;\nbegin\n  if yo is null then\n    raise exception 'No autenticado';\n  end if;\n\n  select count(*) into disputas_vivas\n  from public.disputas d\n  where (d.cliente_id = yo or d.profesional_id = yo) and d.estado = 'abierta';\n\n  if disputas_vivas > 0 then\n    raise exception 'Tienes % disputa(s) abierta(s). Hay que resolverlas antes de darte de baja: si desapareces, la otra parte se queda sin nadie con quien cerrarlas.', disputas_vivas;\n  end if;\n\n  update public.profiles\n  set foto_perfil = null,\n      foto_portada = null,\n      bio = null,\n      email_notificaciones = false,\n      cuenta_eliminada = now(),\n      updated_at = now()\n  where id = yo;\n\n  update public.profesionales\n  set tarifa_por_hora = null,\n      \"años_experiencia\" = null,\n      idiomas = '{}',\n      certificaciones = '[]'::jsonb,\n      habilidades = '[]'::jsonb,\n      categorias_interes = '{}',\n      provincias_cobertura = '{}',\n      disponible = false,\n      updated_at = now()\n  where id = yo;\n\n  delete from public.solicitudes s\n  where s.cliente_id = yo and s.estado = 'abierta'\n    and not exists (select 1 from public.trabajos t where t.solicitud_id = s.id);\n\n  update public.solicitudes set estado = 'cancelada'\n  where cliente_id = yo and estado = 'abierta';\n\n  -- 'pendiente' es el estado con el que nacen las ofertas (ver crearOferta);\n  -- los otros dos se mantienen por si quedan filas antiguas.\n  update public.ofertas set estado = 'retirada'\n  where profesional_id = yo and estado in ('pendiente', 'enviada', 'en_negociacion');\n\n  delete from public.portfolio where profesional_id = yo;\n  delete from public.favoritos where cliente_id = yo or profesional_id = yo;\n  delete from public.notificaciones where usuario_id = yo;\n  delete from public.eventos_calendario where usuario_id = yo;\n\n  delete from auth.identities where user_id = yo;\n\n  update auth.users\n  set email = 'eliminado+' || yo::text || '@diime.es',\n      phone = null,\n      encrypted_password = null,\n      email_change = '',\n      phone_change = '',\n      confirmation_token = '',\n      recovery_token = '',\n      raw_user_meta_data = '{}'::jsonb,\n      banned_until = 'infinity'::timestamptz,\n      updated_at = now()\n  where id = yo;\nend;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.registrar_dispositivo_push(p_token text, p_plataforma text)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nbegin\n  if auth.uid() is null then\n    raise exception 'No autenticado';\n  end if;\n\n  if p_token is null or length(trim(p_token)) < 16 then\n    raise exception 'Token push inválido';\n  end if;\n\n  if p_plataforma not in ('ios', 'android') then\n    raise exception 'Plataforma push inválida';\n  end if;\n\n  insert into public.push_devices (usuario_id, token, plataforma, activo, updated_at)\n  values (auth.uid(), trim(p_token), p_plataforma, true, now())\n  on conflict (token) do update\n    set usuario_id = excluded.usuario_id,\n        plataforma = excluded.plataforma,\n        activo = true,\n        updated_at = now();\nend;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.eliminar_dispositivo_push(p_token text)\n RETURNS void\n LANGUAGE sql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  delete from public.push_devices\n  where usuario_id = auth.uid()\n    and token = trim(p_token);\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.completar_mayoria_edad_perfil()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare\n  metadata jsonb;\nbegin\n  select raw_user_meta_data into metadata\n  from auth.users\n  where id = new.id;\n\n  if new.mayor_edad_confirmada_at is null\n     and nullif(metadata->>'mayor_edad_confirmada_at', '') is not null then\n    begin\n      new.mayor_edad_confirmada_at := (metadata->>'mayor_edad_confirmada_at')::timestamptz;\n    exception when invalid_datetime_format then\n      new.mayor_edad_confirmada_at := null;\n    end;\n  end if;\n\n  if new.mayor_edad_version is null then\n    new.mayor_edad_version := nullif(metadata->>'mayor_edad_version', '');\n  end if;\n\n  return new;\nend;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.proteger_campos_administrativos_perfil()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nbegin\n  if TG_OP = 'INSERT' then\n    if (\n      coalesce(new.verificado, false)\n      or coalesce(new.es_admin, false)\n    ) and coalesce(auth.role(), '') <> 'service_role' then\n      raise exception 'No puedes crear un perfil verificado o administrador'\n        using errcode = '42501';\n    end if;\n\n    return new;\n  end if;\n\n  if (\n    new.verificado is distinct from old.verificado\n    or new.es_admin is distinct from old.es_admin\n  ) and not public.is_admin() and coalesce(auth.role(), '') <> 'service_role' then\n    raise exception 'Solo un administrador puede modificar la verificación o el rol administrativo'\n      using errcode = '42501';\n  end if;\n\n  return new;\nend;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.actualizar_verificacion_profesional(p_profesional_id uuid, p_verificado boolean)\n RETURNS boolean\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nbegin\n  if not public.is_admin() then\n    raise exception 'No tienes permiso para verificar profesionales'\n      using errcode = '42501';\n  end if;\n\n  if p_verificado is null then\n    raise exception 'El estado de verificación no puede estar vacío'\n      using errcode = '22004';\n  end if;\n\n  if not exists (\n    select 1\n    from public.profesionales\n    where id = p_profesional_id\n  ) then\n    raise exception 'El usuario seleccionado no es profesional'\n      using errcode = 'P0002';\n  end if;\n\n  update public.profiles\n  set verificado = p_verificado\n  where id = p_profesional_id;\n\n  return found;\nend;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.bloquear_cambios_oferta_vinculada()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare\n  oferta_uuid uuid := case when tg_op = 'DELETE' then old.id else new.id end;\nbegin\n  if coalesce(auth.role(), '') = 'service_role' then\n    if tg_op = 'DELETE' then return old; else return new; end if;\n  end if;\n\n  if exists (\n    select 1\n    from public.trabajos t\n    where t.oferta_id = oferta_uuid\n      and (\n        coalesce(t.estado, '') <> 'cancelado'\n        or exists (\n          select 1\n          from public.transacciones_escrow e\n          where e.trabajo_id = t.id\n            and (\n              e.fecha_retencion is not null\n              or e.estado in ('retenido', 'fondos_retenidos', 'liberado', 'completado', 'reembolsado', 'disputa')\n            )\n        )\n      )\n  ) then\n    raise exception 'No se pueden modificar o eliminar los términos de una oferta vinculada a un trabajo'\n      using errcode = '55000';\n  end if;\n\n  if tg_op = 'DELETE' then return old; else return new; end if;\nend;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.bloquear_cambios_solicitud_vinculada()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare\n  solicitud_uuid uuid := case when tg_op = 'DELETE' then old.id else new.id end;\nbegin\n  if coalesce(auth.role(), '') = 'service_role' then\n    if tg_op = 'DELETE' then return old; else return new; end if;\n  end if;\n\n  if exists (\n    select 1\n    from public.trabajos t\n    where t.solicitud_id = solicitud_uuid\n      and (\n        coalesce(t.estado, '') <> 'cancelado'\n        or exists (\n          select 1\n          from public.transacciones_escrow e\n          where e.trabajo_id = t.id\n            and (\n              e.fecha_retencion is not null\n              or e.estado in ('retenido', 'fondos_retenidos', 'liberado', 'completado', 'reembolsado', 'disputa')\n            )\n        )\n      )\n  ) then\n    raise exception 'No se pueden modificar o eliminar los términos de una solicitud vinculada a un trabajo'\n      using errcode = '55000';\n  end if;\n\n  if tg_op = 'DELETE' then return old; else return new; end if;\nend;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.validar_contexto_conversacion()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare\n  cliente_solicitud uuid;\n  estado_solicitud text;\n  profesional_contexto uuid;\n  otro_participante uuid;\n  cliente_trabajo uuid;\n  profesional_trabajo uuid;\n  solicitud_trabajo uuid;\nbegin\n  if coalesce(auth.role(), '') = 'service_role' then\n    return new;\n  end if;\n\n  if new.participante_1 = new.participante_2 then\n    raise exception 'No se puede abrir una conversación con uno mismo'\n      using errcode = '23514';\n  end if;\n\n  if exists (\n    select 1\n    from public.profiles p\n    where p.id in (new.participante_1, new.participante_2)\n      and p.cuenta_eliminada is not null\n  ) then\n    raise exception 'Uno de los usuarios ya no está disponible'\n      using errcode = '42501';\n  end if;\n\n  if tg_op = 'UPDATE'\n     and (new.participante_1 is distinct from old.participante_1\n       or new.participante_2 is distinct from old.participante_2) then\n    raise exception 'No se pueden cambiar los participantes de una conversación'\n      using errcode = '42501';\n  end if;\n\n  if new.trabajo_id is null and new.solicitud_id is null then\n    if auth.uid() not in (new.participante_1, new.participante_2) then\n      raise exception 'No perteneces a esta conversación' using errcode = '42501';\n    end if;\n\n    otro_participante := case\n      when auth.uid() = new.participante_1 then new.participante_2\n      else new.participante_1\n    end;\n\n    -- El contacto sin proyecto sirve para cliente -> profesional y para\n    -- soporte. Profesional -> cliente exige una demanda o trabajo real.\n    if not exists (select 1 from public.profesionales p where p.id = otro_participante)\n       and not exists (\n         select 1 from public.profiles p\n         where p.id in (new.participante_1, new.participante_2)\n           and p.es_admin is true\n       ) then\n      raise exception 'Para contactar a un cliente hace falta una demanda o trabajo'\n        using errcode = '42501';\n    end if;\n  elsif new.trabajo_id is not null then\n    select t.cliente_id, t.profesional_id, t.solicitud_id\n      into cliente_trabajo, profesional_trabajo, solicitud_trabajo\n    from public.trabajos t\n    where t.id = new.trabajo_id;\n\n    if not found\n       or not (\n         (new.participante_1 = cliente_trabajo and new.participante_2 = profesional_trabajo)\n         or (new.participante_2 = cliente_trabajo and new.participante_1 = profesional_trabajo)\n       ) then\n      raise exception 'El trabajo no corresponde a los participantes del chat'\n        using errcode = '42501';\n    end if;\n\n    if new.solicitud_id is not null and new.solicitud_id is distinct from solicitud_trabajo then\n      raise exception 'La demanda no corresponde al trabajo del chat'\n        using errcode = '23514';\n    end if;\n  elsif new.solicitud_id is not null then\n    select s.cliente_id, s.estado into cliente_solicitud, estado_solicitud\n    from public.solicitudes s\n    where s.id = new.solicitud_id;\n\n    if not found or cliente_solicitud not in (new.participante_1, new.participante_2) then\n      raise exception 'La demanda no corresponde a los participantes del chat'\n        using errcode = '42501';\n    end if;\n    if estado_solicitud is distinct from 'abierta' then\n      raise exception 'La demanda ya no admite nuevos contactos'\n        using errcode = '42501';\n    end if;\n\n    profesional_contexto := case\n      when new.participante_1 = cliente_solicitud then new.participante_2\n      else new.participante_1\n    end;\n    if not exists (select 1 from public.profesionales p where p.id = profesional_contexto) then\n      raise exception 'La otra parte de una demanda debe ser un proveedor'\n        using errcode = '42501';\n    end if;\n  end if;\n\n  return new;\nend;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.vincular_contexto_conversacion(p_conversacion_id uuid, p_solicitud_id uuid DEFAULT NULL::uuid, p_trabajo_id uuid DEFAULT NULL::uuid)\n RETURNS TABLE(id uuid, solicitud_id uuid, trabajo_id uuid)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare\n  conversacion public.conversaciones%rowtype;\n  cliente_solicitud uuid;\n  estado_solicitud text;\n  profesional_contexto uuid;\n  cliente_trabajo uuid;\n  profesional_trabajo uuid;\n  solicitud_trabajo uuid;\n  solicitud_final uuid;\n  trabajo_final uuid;\nbegin\n  if auth.uid() is null then\n    raise exception 'No autenticado' using errcode = '42501';\n  end if;\n\n  select c.* into conversacion\n  from public.conversaciones c\n  where c.id = p_conversacion_id\n    and auth.uid() in (c.participante_1, c.participante_2)\n  for update;\n\n  if not found then\n    raise exception 'Conversación no disponible' using errcode = '42501';\n  end if;\n\n  solicitud_final := conversacion.solicitud_id;\n  trabajo_final := conversacion.trabajo_id;\n\n  if p_trabajo_id is not null then\n    select t.cliente_id, t.profesional_id, t.solicitud_id\n      into cliente_trabajo, profesional_trabajo, solicitud_trabajo\n    from public.trabajos t\n    where t.id = p_trabajo_id;\n\n    if not found\n       or not (\n         (conversacion.participante_1 = cliente_trabajo and conversacion.participante_2 = profesional_trabajo)\n         or (conversacion.participante_2 = cliente_trabajo and conversacion.participante_1 = profesional_trabajo)\n       ) then\n      raise exception 'El trabajo no corresponde a la conversación' using errcode = '42501';\n    end if;\n    if p_solicitud_id is not null and p_solicitud_id is distinct from solicitud_trabajo then\n      raise exception 'La demanda no corresponde al trabajo' using errcode = '23514';\n    end if;\n\n    trabajo_final := p_trabajo_id;\n    solicitud_final := coalesce(p_solicitud_id, solicitud_trabajo, conversacion.solicitud_id);\n  elsif p_solicitud_id is not null then\n    select s.cliente_id, s.estado into cliente_solicitud, estado_solicitud\n    from public.solicitudes s\n    where s.id = p_solicitud_id;\n\n    if not found\n       or cliente_solicitud not in (conversacion.participante_1, conversacion.participante_2) then\n      raise exception 'La demanda no corresponde a la conversación' using errcode = '42501';\n    end if;\n    if estado_solicitud is distinct from 'abierta' then\n      raise exception 'La demanda ya no admite nuevos contactos' using errcode = '42501';\n    end if;\n\n    profesional_contexto := case\n      when conversacion.participante_1 = cliente_solicitud then conversacion.participante_2\n      else conversacion.participante_1\n    end;\n    if not exists (select 1 from public.profesionales p where p.id = profesional_contexto) then\n      raise exception 'La otra parte de una demanda debe ser un proveedor' using errcode = '42501';\n    end if;\n\n    -- Si el chat se abre desde una demanda distinta, el trabajo anterior ya no\n    -- puede quedar mezclado con el nuevo encargo.\n    if conversacion.solicitud_id is distinct from p_solicitud_id then\n      trabajo_final := null;\n    end if;\n    solicitud_final := p_solicitud_id;\n  end if;\n\n  update public.conversaciones c\n  set solicitud_id = solicitud_final,\n      trabajo_id = trabajo_final\n  where c.id = conversacion.id;\n\n  return query\n  select c.id, c.solicitud_id, c.trabajo_id\n  from public.conversaciones c\n  where c.id = conversacion.id;\nend;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.portfolio_publico(p_profesional_id uuid)\n RETURNS TABLE(id uuid, trabajo_id uuid, titulo text, descripcion text, categoria text, imagenes text[], ubicacion text, duracion text, fecha_proyecto date, contexto_proveedor text, tramo_precio smallint)\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  select\n    p.id,\n    p.trabajo_id,\n    p.titulo,\n    p.descripcion,\n    p.categoria,\n    p.imagenes,\n    p.ubicacion,\n    p.duracion,\n    p.fecha_proyecto,\n    p.contexto_proveedor,\n    case\n      when p.presupuesto is null or p.presupuesto <= 0 then null\n      when p.presupuesto < 100 then 0\n      when p.presupuesto < 250 then 1\n      when p.presupuesto < 500 then 2\n      when p.presupuesto < 1000 then 3\n      when p.presupuesto < 2500 then 4\n      when p.presupuesto < 5000 then 5\n      when p.presupuesto < 10000 then 6\n      when p.presupuesto < 25000 then 7\n      when p.presupuesto < 50000 then 8\n      when p.presupuesto < 100000 then 9\n      else 10\n    end::smallint as tramo_precio\n  from public.portfolio p\n  where p.profesional_id = p_profesional_id\n    and p.visible is true\n  order by p.fecha_proyecto desc nulls last, p.created_at desc;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.mi_portfolio()\n RETURNS SETOF portfolio\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  select p.*\n  from public.portfolio p\n  where p.profesional_id = auth.uid()\n  order by p.fecha_proyecto desc nulls last, p.created_at desc;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.normalizar_texto_moderacion(valor text)\n RETURNS text\n LANGUAGE plpgsql\n IMMUTABLE STRICT\n SET search_path TO ''\nAS $function$\ndeclare\n  limpio text;\n  resultado text := '';\n  token text;\n  letras text[] := array[]::text[];\nbegin\n  limpio := pg_catalog.lower(valor);\n  limpio := pg_catalog.translate(\n    limpio,\n    'áàäâãéèëêíìïîóòöôõúùüûñç013457@$',\n    'aaaaaeeeeiiiiooooouuuuncoieastas'\n  );\n  limpio := pg_catalog.regexp_replace(limpio, '([a-z])\\1{2,}', '\\1', 'g');\n  limpio := pg_catalog.regexp_replace(limpio, '[^a-z0-9]+', ' ', 'g');\n  limpio := pg_catalog.btrim(pg_catalog.regexp_replace(limpio, '[[:space:]]+', ' ', 'g'));\n\n  -- Reconstruye terminos ofuscados letra a letra. Las secuencias cortas se\n  -- conservan separadas para no alterar expresiones normales como \"a b\".\n  foreach token in array pg_catalog.string_to_array(limpio, ' ')\n  loop\n    if pg_catalog.length(token) = 1 then\n      letras := pg_catalog.array_append(letras, token);\n    else\n      if pg_catalog.cardinality(letras) >= 4 then\n        resultado := resultado || ' ' || pg_catalog.array_to_string(letras, '');\n      elsif pg_catalog.cardinality(letras) > 0 then\n        resultado := resultado || ' ' || pg_catalog.array_to_string(letras, ' ');\n      end if;\n      letras := array[]::text[];\n      resultado := resultado || ' ' || token;\n    end if;\n  end loop;\n\n  if pg_catalog.cardinality(letras) >= 4 then\n    resultado := resultado || ' ' || pg_catalog.array_to_string(letras, '');\n  elsif pg_catalog.cardinality(letras) > 0 then\n    resultado := resultado || ' ' || pg_catalog.array_to_string(letras, ' ');\n  end if;\n\n  return pg_catalog.btrim(pg_catalog.regexp_replace(resultado, '[[:space:]]+', ' ', 'g'));\nend;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.comprobar_moderacion_solicitud()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare\n  texto_normalizado text;\n  categoria_nombre text := '';\n  regla record;\nbegin\n  if tg_op = 'UPDATE'\n    and new.titulo is not distinct from old.titulo\n    and new.descripcion is not distinct from old.descripcion\n    and new.categoria_id is not distinct from old.categoria_id\n    and new.ubicacion is not distinct from old.ubicacion\n  then\n    return new;\n  end if;\n\n  if new.categoria_id is not null then\n    select nombre into categoria_nombre\n    from public.categorias\n    where id = new.categoria_id;\n  end if;\n\n  texto_normalizado := public.normalizar_texto_moderacion(\n    pg_catalog.concat_ws(' ', new.titulo, new.descripcion, categoria_nombre, new.ubicacion)\n  );\n\n  for regla in\n    select codigo, patron, patron_exclusion, motivo_usuario\n    from public.moderacion_reglas_solicitudes\n    where activa\n    order by prioridad, codigo\n  loop\n    if texto_normalizado ~ regla.patron\n      and (regla.patron_exclusion is null or texto_normalizado !~ regla.patron_exclusion)\n    then\n      raise exception using\n        errcode = '23514',\n        message = regla.motivo_usuario,\n        detail = 'MODERACION_SOLICITUD:' || regla.codigo,\n        hint = 'Describe una finalidad legitima y las autorizaciones aplicables.';\n    end if;\n  end loop;\n\n  return new;\nend;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.proteger_reparto_escrow()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'public'\nAS $function$\nbegin\n  if tg_op = 'INSERT' then\n    new.comision_proveedor_original := greatest(\n      coalesce(new.comision_proveedor_original, new.comision_proveedor, 0),\n      0\n    );\n    return new;\n  end if;\n\n  if new.comision_proveedor_original is distinct from old.comision_proveedor_original then\n    raise exception 'La comisión original del profesional es inmutable'\n      using errcode = '55000';\n  end if;\n\n  -- Algunas rutas antiguas completaban estos dos campos al confirmar Stripe,\n  -- no al reclamar la operación. Se fijan aquí, antes del primer movimiento,\n  -- para que desde ese instante también sean inmutables.\n  if old.liquidacion_operacion_id is null and new.liquidacion_operacion_id is not null then\n    new.comision_cliente_retenida := coalesce(\n      new.comision_cliente_retenida,\n      greatest(coalesce(old.comision_cliente, 0), 0)\n    );\n    new.retencion_plataforma := coalesce(\n      new.retencion_plataforma,\n      new.comision_cliente_retenida + greatest(coalesce(new.comision_proveedor, 0), 0)\n    );\n  end if;\n\n  -- Tras reclamar una operación, la clave idempotente y el reparto económico\n  -- quedan congelados. Los reintentos solo pueden cambiar estado, IDs externos,\n  -- fechas y errores, nunca mandar a Stripe cifras distintas.\n  if old.liquidacion_operacion_id is not null and (\n    new.liquidacion_operacion_id is distinct from old.liquidacion_operacion_id\n    or new.trabajo_id is distinct from old.trabajo_id\n    or new.cliente_id is distinct from old.cliente_id\n    or new.profesional_id is distinct from old.profesional_id\n    or new.monto is distinct from old.monto\n    or new.monto_base is distinct from old.monto_base\n    or new.comision_cliente is distinct from old.comision_cliente\n    or new.stripe_payment_intent_id is distinct from old.stripe_payment_intent_id\n    or new.stripe_transfer_group is distinct from old.stripe_transfer_group\n    or new.monto_reembolsado is distinct from old.monto_reembolsado\n    or new.monto_bruto_proveedor is distinct from old.monto_bruto_proveedor\n    or new.comision_proveedor is distinct from old.comision_proveedor\n    or new.pago_neto_proveedor is distinct from old.pago_neto_proveedor\n    or new.comision_cliente_retenida is distinct from old.comision_cliente_retenida\n    or new.retencion_plataforma is distinct from old.retencion_plataforma\n    or (\n      old.stripe_charge_id is not null\n      and new.stripe_charge_id is distinct from old.stripe_charge_id\n    )\n    or (\n      old.stripe_refund_id is not null\n      and new.stripe_refund_id is distinct from old.stripe_refund_id\n    )\n    or (\n      old.stripe_transfer_id is not null\n      and new.stripe_transfer_id is distinct from old.stripe_transfer_id\n    )\n  ) then\n    raise exception 'No se puede cambiar un reparto después de iniciar su liquidación'\n      using errcode = '55000';\n  end if;\n\n  return new;\nend;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.impedir_escrow_abierto_duplicado()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nbegin\n  if new.estado in ('pendiente', 'retenido', 'fondos_retenidos', 'liquidando', 'disputa') then\n    perform pg_advisory_xact_lock(hashtextextended(new.trabajo_id::text, 0));\n\n    if exists (\n      select 1\n      from public.transacciones_escrow existente\n      where existente.trabajo_id = new.trabajo_id\n        and existente.id is distinct from new.id\n        and existente.estado in ('pendiente', 'retenido', 'fondos_retenidos', 'liquidando', 'disputa')\n    ) then\n      raise exception 'Ya existe un escrow abierto para este trabajo'\n        using errcode = '23505';\n    end if;\n  end if;\n\n  return new;\nend;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.registrar_evento_operativo(p_area text, p_severidad text, p_codigo text, p_clave text, p_mensaje text, p_contexto jsonb DEFAULT '{}'::jsonb)\n RETURNS uuid\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare evento_id uuid;\nbegin\n  insert into public.eventos_operativos (area, severidad, codigo, clave, mensaje, contexto)\n  values (p_area, p_severidad, p_codigo, coalesce(nullif(p_clave, ''), 'global'), p_mensaje, coalesce(p_contexto, '{}'::jsonb))\n  on conflict (area, codigo, clave) do update set\n    severidad = excluded.severidad, mensaje = excluded.mensaje, contexto = excluded.contexto,\n    estado = 'abierto', ocurrencias = public.eventos_operativos.ocurrencias + 1,\n    ultimo_evento_at = now(), resuelto_at = null\n  returning id into evento_id;\n  return evento_id;\nend;\n$function$\n"
+  ],
+  "triggers": [
+    "CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+    "CREATE TRIGGER update_profesionales_updated_at BEFORE UPDATE ON public.profesionales FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+    "CREATE TRIGGER update_solicitudes_updated_at BEFORE UPDATE ON public.solicitudes FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+    "CREATE TRIGGER update_ofertas_updated_at BEFORE UPDATE ON public.ofertas FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+    "CREATE TRIGGER update_trabajos_updated_at BEFORE UPDATE ON public.trabajos FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+    "CREATE TRIGGER update_transacciones_updated_at BEFORE UPDATE ON public.transacciones_escrow FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+    "CREATE TRIGGER trigger_update_ofertas_count AFTER INSERT OR DELETE ON public.ofertas FOR EACH ROW EXECUTE FUNCTION update_solicitud_ofertas_count()",
+    "CREATE TRIGGER trigger_update_profesional_rating AFTER INSERT ON public.\"reseñas\" FOR EACH ROW EXECUTE FUNCTION update_profesional_rating()",
+    "CREATE TRIGGER trg_incidencias_updated_at BEFORE UPDATE ON public.incidencias FOR EACH ROW EXECUTE FUNCTION update_incidencias_updated_at()",
+    "CREATE TRIGGER trg_recalc_rating AFTER INSERT OR DELETE OR UPDATE ON public.\"reseñas\" FOR EACH ROW EXECUTE FUNCTION recalc_rating_profesional()",
+    "CREATE TRIGGER trg_impedir_conversacion_bloqueada BEFORE INSERT OR UPDATE OF participante_1, participante_2 ON public.conversaciones FOR EACH ROW EXECUTE FUNCTION impedir_conversacion_bloqueada()",
+    "CREATE TRIGGER trg_impedir_mensaje_bloqueado BEFORE INSERT ON public.mensajes FOR EACH ROW EXECUTE FUNCTION impedir_mensaje_bloqueado()",
+    "CREATE TRIGGER trg_limpiar_bloqueos_al_eliminar_cuenta AFTER UPDATE OF cuenta_eliminada ON public.profiles FOR EACH ROW EXECUTE FUNCTION limpiar_bloqueos_al_eliminar_cuenta()",
+    "CREATE TRIGGER trg_completar_mayoria_edad_perfil BEFORE INSERT ON public.profiles FOR EACH ROW EXECUTE FUNCTION completar_mayoria_edad_perfil()",
+    "CREATE TRIGGER trg_proteger_campos_administrativos_perfil BEFORE UPDATE OF verificado, es_admin ON public.profiles FOR EACH ROW EXECUTE FUNCTION proteger_campos_administrativos_perfil()",
+    "CREATE TRIGGER trg_proteger_campos_administrativos_perfil_insert BEFORE INSERT ON public.profiles FOR EACH ROW EXECUTE FUNCTION proteger_campos_administrativos_perfil()",
+    "CREATE TRIGGER trg_bloquear_edicion_oferta_vinculada BEFORE UPDATE OF precio, tiempo_estimado, unidad_tiempo, descripcion, materiales_incluidos, condiciones_pago, notas, archivos ON public.ofertas FOR EACH ROW EXECUTE FUNCTION bloquear_cambios_oferta_vinculada()",
+    "CREATE TRIGGER trg_bloquear_borrado_oferta_vinculada BEFORE DELETE ON public.ofertas FOR EACH ROW EXECUTE FUNCTION bloquear_cambios_oferta_vinculada()",
+    "CREATE TRIGGER trg_bloquear_edicion_solicitud_vinculada BEFORE UPDATE OF categoria_id, titulo, descripcion, ubicacion, presupuesto_min, presupuesto_max, urgencia, archivos, fecha_necesaria ON public.solicitudes FOR EACH ROW EXECUTE FUNCTION bloquear_cambios_solicitud_vinculada()",
+    "CREATE TRIGGER trg_bloquear_borrado_solicitud_vinculada BEFORE DELETE ON public.solicitudes FOR EACH ROW EXECUTE FUNCTION bloquear_cambios_solicitud_vinculada()",
+    "CREATE TRIGGER trg_validar_contexto_conversacion BEFORE INSERT OR UPDATE OF participante_1, participante_2, solicitud_id, trabajo_id ON public.conversaciones FOR EACH ROW EXECUTE FUNCTION validar_contexto_conversacion()",
+    "CREATE TRIGGER moderar_solicitud_antes_de_escribir BEFORE INSERT OR UPDATE ON public.solicitudes FOR EACH ROW EXECUTE FUNCTION comprobar_moderacion_solicitud()",
+    "CREATE TRIGGER trg_proteger_reparto_escrow BEFORE INSERT OR UPDATE ON public.transacciones_escrow FOR EACH ROW EXECUTE FUNCTION proteger_reparto_escrow()",
+    "CREATE TRIGGER trg_impedir_escrow_abierto_duplicado BEFORE INSERT OR UPDATE OF trabajo_id, estado ON public.transacciones_escrow FOR EACH ROW EXECUTE FUNCTION impedir_escrow_abierto_duplicado()"
+  ],
+  "policies": [
+    {
+      "schemaname": "public",
+      "tablename": "solicitudes",
+      "policyname": "Actualizar solicitudes propias",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "UPDATE",
+      "qual": "(cliente_id = auth.uid())",
+      "with_check": "(cliente_id = auth.uid())"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "solicitudes",
+      "policyname": "Admins pueden actualizar",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "UPDATE",
+      "qual": "is_admin()",
+      "with_check": "is_admin()"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "solicitudes",
+      "policyname": "Admins pueden ver todo",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "is_admin()",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "solicitudes",
+      "policyname": "Crear solicitudes propias",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "(cliente_id = auth.uid())"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "solicitudes",
+      "policyname": "Eliminar solicitudes propias",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "DELETE",
+      "qual": "(cliente_id = auth.uid())",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "solicitudes",
+      "policyname": "Quien pujó o fue contratado puede ver la solicitud",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "(ha_pujado_en_solicitud(id) OR (EXISTS ( SELECT 1\n   FROM trabajos t\n  WHERE ((t.solicitud_id = solicitudes.id) AND (t.profesional_id = auth.uid())))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "solicitudes",
+      "policyname": "Ver solicitudes abiertas o propias",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "((estado = 'abierta'::text) OR (cliente_id = auth.uid()))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "categorias",
+      "policyname": "Todos pueden ver categorías",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "true",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "categorias",
+      "policyname": "Usuarios autenticados pueden crear categorías",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "true"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "portfolio",
+      "policyname": "Profesionales pueden gestionar su portfolio",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "(auth.uid() = profesional_id)",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "portfolio",
+      "policyname": "Todos pueden ver portfolio visible",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "anon",
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "((visible IS TRUE) OR (auth.uid() = profesional_id))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "ofertas",
+      "policyname": "Admins pueden ver todo",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "is_admin()",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "ofertas",
+      "policyname": "Clientes pueden actualizar ofertas de sus solicitudes",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "UPDATE",
+      "qual": "(auth.uid() IN ( SELECT solicitudes.cliente_id\n   FROM solicitudes\n  WHERE (solicitudes.id = ofertas.solicitud_id)))",
+      "with_check": "(auth.uid() IN ( SELECT solicitudes.cliente_id\n   FROM solicitudes\n  WHERE (solicitudes.id = ofertas.solicitud_id)))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "ofertas",
+      "policyname": "Clientes y profesionales pueden ver ofertas relacionadas",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "((auth.uid() = profesional_id) OR (auth.uid() IN ( SELECT solicitudes.cliente_id\n   FROM solicitudes\n  WHERE (solicitudes.id = ofertas.solicitud_id))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "ofertas",
+      "policyname": "Profesionales pueden actualizar sus ofertas",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "UPDATE",
+      "qual": "(auth.uid() = profesional_id)",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "ofertas",
+      "policyname": "Profesionales pueden crear ofertas",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "(auth.uid() = profesional_id)"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "ofertas",
+      "policyname": "Profesionales pueden eliminar sus ofertas",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "DELETE",
+      "qual": "(auth.uid() = profesional_id)",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "reseñas",
+      "policyname": "Clientes pueden crear reseñas",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "(auth.uid() = autor_id)"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "reseñas",
+      "policyname": "Todos pueden ver reseñas",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "true",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "conversaciones",
+      "policyname": "Admins pueden ver todo",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "is_admin()",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "conversaciones",
+      "policyname": "Usuarios pueden crear conversaciones",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "((auth.uid() = participante_1) OR (auth.uid() = participante_2))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "conversaciones",
+      "policyname": "Usuarios pueden ver sus conversaciones",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "((auth.uid() = participante_1) OR (auth.uid() = participante_2))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "empresas",
+      "policyname": "Actualizar mi empresa",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "UPDATE",
+      "qual": "((auth.uid() = propietario_id) OR is_admin())",
+      "with_check": "((auth.uid() = propietario_id) OR is_admin())"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "empresas",
+      "policyname": "Crear mi empresa",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "(auth.uid() = propietario_id)"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "empresas",
+      "policyname": "Ver mi empresa",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "((auth.uid() = propietario_id) OR (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.id = auth.uid()) AND (p.empresa_id = empresas.id)))) OR is_admin())",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "trabajos",
+      "policyname": "Admins pueden actualizar",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "UPDATE",
+      "qual": "is_admin()",
+      "with_check": "is_admin()"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "trabajos",
+      "policyname": "Admins pueden ver todo",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "is_admin()",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "trabajos",
+      "policyname": "Participantes pueden actualizar trabajos",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "UPDATE",
+      "qual": "((auth.uid() = cliente_id) OR (auth.uid() = profesional_id))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "trabajos",
+      "policyname": "Sistema puede crear trabajos",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "((auth.uid() = cliente_id) OR (auth.uid() = profesional_id))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "trabajos",
+      "policyname": "Usuarios pueden ver sus trabajos",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "((auth.uid() = cliente_id) OR (auth.uid() = profesional_id))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "actualizaciones_trabajo",
+      "policyname": "Admins pueden ver todo",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "is_admin()",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "actualizaciones_trabajo",
+      "policyname": "Users can create updates for their trabajos",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "(EXISTS ( SELECT 1\n   FROM trabajos t\n  WHERE ((t.id = actualizaciones_trabajo.trabajo_id) AND ((t.cliente_id = auth.uid()) OR (t.profesional_id = auth.uid())))))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "actualizaciones_trabajo",
+      "policyname": "Users can view their trabajo updates",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "(EXISTS ( SELECT 1\n   FROM trabajos t\n  WHERE ((t.id = actualizaciones_trabajo.trabajo_id) AND ((t.cliente_id = auth.uid()) OR (t.profesional_id = auth.uid())))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "favoritos",
+      "policyname": "Users can manage their favorites",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "(auth.uid() = cliente_id)",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "favoritos",
+      "policyname": "Users can view their favorites",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "(auth.uid() = cliente_id)",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "disputas",
+      "policyname": "Admins pueden actualizar",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "UPDATE",
+      "qual": "is_admin()",
+      "with_check": "is_admin()"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "disputas",
+      "policyname": "Admins pueden ver todo",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "is_admin()",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "disputas",
+      "policyname": "Las partes del trabajo pueden crear disputas",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "((auth.uid() = cliente_id) OR (auth.uid() = profesional_id) OR is_admin())"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "disputas",
+      "policyname": "Only admins can update disputes",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "UPDATE",
+      "qual": "( SELECT profiles.es_admin\n   FROM profiles\n  WHERE (profiles.id = auth.uid()))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "disputas",
+      "policyname": "Users can view their disputes",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "((auth.uid() = cliente_id) OR (auth.uid() = profesional_id) OR ( SELECT profiles.es_admin\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "profiles",
+      "policyname": "Usuarios pueden actualizar su propio perfil",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "UPDATE",
+      "qual": "(auth.uid() = id)",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "profiles",
+      "policyname": "Usuarios pueden insertar su propio perfil",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "(auth.uid() = id)"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "profiles",
+      "policyname": "Usuarios pueden ver todos los perfiles públicos",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "true",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "notificaciones",
+      "policyname": "Authenticated can create notifications",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "(auth.uid() IS NOT NULL)"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "notificaciones",
+      "policyname": "Users can update their own notifications",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "UPDATE",
+      "qual": "(auth.uid() = usuario_id)",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "notificaciones",
+      "policyname": "Users can view their own notifications",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "(auth.uid() = usuario_id)",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "evidencias_disputa",
+      "policyname": "Users can add evidences to their disputes",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "(auth.uid() IN ( SELECT disputas.cliente_id\n   FROM disputas\n  WHERE (disputas.id = evidencias_disputa.disputa_id)\nUNION\n SELECT disputas.profesional_id\n   FROM disputas\n  WHERE (disputas.id = evidencias_disputa.disputa_id)))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "evidencias_disputa",
+      "policyname": "Users can view dispute evidences",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "((auth.uid() IN ( SELECT disputas.cliente_id\n   FROM disputas\n  WHERE (disputas.id = evidencias_disputa.disputa_id)\nUNION\n SELECT disputas.profesional_id\n   FROM disputas\n  WHERE (disputas.id = evidencias_disputa.disputa_id))) OR ( SELECT profiles.es_admin\n   FROM profiles\n  WHERE (profiles.id = auth.uid())))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "invitaciones",
+      "policyname": "Admins can manage invitaciones",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "ALL",
+      "qual": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.es_admin = true))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "invitaciones",
+      "policyname": "Clients can view their solicitud invitaciones",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "(EXISTS ( SELECT 1\n   FROM solicitudes\n  WHERE ((solicitudes.id = invitaciones.solicitud_id) AND (solicitudes.cliente_id = auth.uid()))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "usuarios_bloqueados",
+      "policyname": "bloqueos_delete_propios",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "DELETE",
+      "qual": "(bloqueador_id = auth.uid())",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "usuarios_bloqueados",
+      "policyname": "bloqueos_insert_propios",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "((bloqueador_id = auth.uid()) AND (bloqueado_id <> auth.uid()))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "usuarios_bloqueados",
+      "policyname": "bloqueos_select_propios",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "(bloqueador_id = auth.uid())",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "profesionales",
+      "policyname": "Profesionales pueden actualizar su perfil",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "UPDATE",
+      "qual": "(auth.uid() = id)",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "profesionales",
+      "policyname": "Profesionales pueden crear su perfil",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "(auth.uid() = id)"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "profesionales",
+      "policyname": "Todos pueden ver profesionales",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "true",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "mensajes",
+      "policyname": "Admins pueden ver todo",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "is_admin()",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "mensajes",
+      "policyname": "Usuarios pueden actualizar mensajes (marcar como leído)",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "UPDATE",
+      "qual": "(auth.uid() IN ( SELECT conversaciones.participante_1\n   FROM conversaciones\n  WHERE (conversaciones.id = mensajes.conversacion_id)\nUNION\n SELECT conversaciones.participante_2\n   FROM conversaciones\n  WHERE (conversaciones.id = mensajes.conversacion_id)))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "mensajes",
+      "policyname": "Usuarios pueden enviar mensajes en sus conversaciones",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "((auth.uid() = remitente_id) AND (EXISTS ( SELECT 1\n   FROM conversaciones c\n  WHERE ((c.id = mensajes.conversacion_id) AND ((auth.uid() = c.participante_1) OR (auth.uid() = c.participante_2))))))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "mensajes",
+      "policyname": "Usuarios pueden ver mensajes de sus conversaciones",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "(auth.uid() IN ( SELECT conversaciones.participante_1\n   FROM conversaciones\n  WHERE (conversaciones.id = mensajes.conversacion_id)\nUNION\n SELECT conversaciones.participante_2\n   FROM conversaciones\n  WHERE (conversaciones.id = mensajes.conversacion_id)))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "actualizaciones_proyecto",
+      "policyname": "participants_view_project_updates",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "((EXISTS ( SELECT 1\n   FROM trabajos t\n  WHERE ((t.id = actualizaciones_proyecto.trabajo_id) AND ((auth.uid() = t.cliente_id) OR (auth.uid() = t.profesional_id))))) OR (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.id = auth.uid()) AND (p.es_admin = true)))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "actualizaciones_proyecto",
+      "policyname": "provider_creates_project_updates",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "((auth.uid() = autor_id) AND (EXISTS ( SELECT 1\n   FROM trabajos t\n  WHERE ((t.id = actualizaciones_proyecto.trabajo_id) AND (t.profesional_id = auth.uid())))))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "incidencias",
+      "policyname": "incidencias_insert_own",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "(auth.uid() = reportado_por)"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "incidencias",
+      "policyname": "incidencias_select_admin",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "is_admin()",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "incidencias",
+      "policyname": "incidencias_select_own",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "(auth.uid() = reportado_por)",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "incidencias",
+      "policyname": "incidencias_update_admin",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "UPDATE",
+      "qual": "is_admin()",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "eventos_calendario",
+      "policyname": "Usuarios borran sus eventos",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "DELETE",
+      "qual": "(auth.uid() = usuario_id)",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "eventos_calendario",
+      "policyname": "Usuarios crean sus eventos",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "(auth.uid() = usuario_id)"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "eventos_calendario",
+      "policyname": "Usuarios editan sus eventos",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "UPDATE",
+      "qual": "(auth.uid() = usuario_id)",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "eventos_calendario",
+      "policyname": "Usuarios ven sus eventos",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "(auth.uid() = usuario_id)",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "push_devices",
+      "policyname": "push_devices_delete_own",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "DELETE",
+      "qual": "(auth.uid() = usuario_id)",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "push_devices",
+      "policyname": "push_devices_select_own",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "(auth.uid() = usuario_id)",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "transacciones_escrow",
+      "policyname": "Admins pueden actualizar",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "UPDATE",
+      "qual": "is_admin()",
+      "with_check": "is_admin()"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "transacciones_escrow",
+      "policyname": "Admins pueden ver todo",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "is_admin()",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "transacciones_escrow",
+      "policyname": "Usuarios pueden ver sus transacciones",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "public"
+      ],
+      "cmd": "SELECT",
+      "qual": "((auth.uid() = cliente_id) OR (auth.uid() = profesional_id))",
+      "with_check": null
+    }
+  ],
+  "enums": null,
+  "indexes": [
+    "CREATE INDEX idx_solicitudes_cliente ON public.solicitudes USING btree (cliente_id)",
+    "CREATE INDEX idx_solicitudes_categoria ON public.solicitudes USING btree (categoria_id)",
+    "CREATE INDEX idx_portfolio_profesional ON public.portfolio USING btree (profesional_id)",
+    "CREATE INDEX idx_ofertas_solicitud ON public.ofertas USING btree (solicitud_id)",
+    "CREATE INDEX idx_ofertas_profesional ON public.ofertas USING btree (profesional_id)",
+    "CREATE INDEX eventos_operativos_estado_severidad_idx ON public.eventos_operativos USING btree (estado, severidad, ultimo_evento_at DESC)",
+    "CREATE INDEX \"idx_reseñas_profesional\" ON public.\"reseñas\" USING btree (profesional_id)",
+    "CREATE INDEX idx_conversaciones_participantes ON public.conversaciones USING btree (participante_1, participante_2)",
+    "CREATE INDEX idx_conversaciones_solicitud ON public.conversaciones USING btree (solicitud_id)",
+    "CREATE INDEX idx_conversaciones_trabajo ON public.conversaciones USING btree (trabajo_id)",
+    "CREATE UNIQUE INDEX idx_unique_conversation_solicitud ON public.conversaciones USING btree (participante_1, participante_2, solicitud_id) WHERE (solicitud_id IS NOT NULL)",
+    "CREATE UNIQUE INDEX idx_unique_conversation_trabajo ON public.conversaciones USING btree (participante_1, participante_2, trabajo_id) WHERE (trabajo_id IS NOT NULL)",
+    "CREATE INDEX idx_trabajos_cliente ON public.trabajos USING btree (cliente_id)",
+    "CREATE INDEX idx_trabajos_profesional ON public.trabajos USING btree (profesional_id)",
+    "CREATE INDEX idx_trabajos_calendario ON public.trabajos USING btree (profesional_id, fecha_inicio, fecha_estimada_fin) WHERE (estado = ANY (ARRAY['en_progreso'::text, 'pendiente'::text, 'pendiente_pago'::text]))",
+    "CREATE INDEX idx_actualizaciones_trabajo_trabajo_id ON public.actualizaciones_trabajo USING btree (trabajo_id)",
+    "CREATE INDEX idx_actualizaciones_trabajo_created_at ON public.actualizaciones_trabajo USING btree (created_at DESC)",
+    "CREATE INDEX idx_favoritos_cliente ON public.favoritos USING btree (cliente_id, created_at DESC)",
+    "CREATE INDEX idx_favoritos_profesional ON public.favoritos USING btree (profesional_id)",
+    "CREATE INDEX profiles_empresa_id_idx ON public.profiles USING btree (empresa_id)",
+    "CREATE INDEX notificaciones_usuario_categoria_idx ON public.notificaciones USING btree (usuario_id, categoria, leida)",
+    "CREATE INDEX idx_notificaciones_usuario ON public.notificaciones USING btree (usuario_id, leida, created_at DESC)",
+    "CREATE INDEX idx_invitaciones_solicitud_id ON public.invitaciones USING btree (solicitud_id)",
+    "CREATE INDEX idx_invitaciones_token ON public.invitaciones USING btree (token)",
+    "CREATE INDEX usuarios_bloqueados_bloqueado_idx ON public.usuarios_bloqueados USING btree (bloqueado_id)",
+    "CREATE INDEX profesionales_categorias_interes_idx ON public.profesionales USING gin (categorias_interes)",
+    "CREATE INDEX profesionales_provincias_cobertura_idx ON public.profesionales USING gin (provincias_cobertura)",
+    "CREATE UNIQUE INDEX profesionales_stripe_account_id_unique ON public.profesionales USING btree (stripe_account_id) WHERE (stripe_account_id IS NOT NULL)",
+    "CREATE INDEX idx_mensajes_conversacion ON public.mensajes USING btree (conversacion_id)",
+    "CREATE INDEX mensajes_conversacion_created_idx ON public.mensajes USING btree (conversacion_id, created_at)",
+    "CREATE INDEX actualizaciones_proyecto_trabajo_created_idx ON public.actualizaciones_proyecto USING btree (trabajo_id, created_at DESC)",
+    "CREATE INDEX idx_incidencias_estado ON public.incidencias USING btree (estado)",
+    "CREATE INDEX idx_incidencias_prioridad ON public.incidencias USING btree (prioridad)",
+    "CREATE INDEX idx_incidencias_reportado ON public.incidencias USING btree (reportado_por)",
+    "CREATE INDEX idx_incidencias_created ON public.incidencias USING btree (created_at DESC)",
+    "CREATE INDEX idx_eventos_calendario_usuario ON public.eventos_calendario USING btree (usuario_id)",
+    "CREATE INDEX idx_eventos_calendario_fecha ON public.eventos_calendario USING btree (fecha_inicio)",
+    "CREATE INDEX push_devices_usuario_activo_idx ON public.push_devices USING btree (usuario_id, activo)",
+    "CREATE UNIQUE INDEX transacciones_escrow_stripe_session_unique ON public.transacciones_escrow USING btree (stripe_session_id) WHERE (stripe_session_id IS NOT NULL)",
+    "CREATE UNIQUE INDEX transacciones_escrow_un_abierto_por_trabajo ON public.transacciones_escrow USING btree (trabajo_id) WHERE (estado = ANY (ARRAY['pendiente'::text, 'retenido'::text, 'fondos_retenidos'::text, 'liquidando'::text, 'disputa'::text]))",
+    "CREATE UNIQUE INDEX transacciones_escrow_stripe_transfer_id_unique ON public.transacciones_escrow USING btree (stripe_transfer_id) WHERE (stripe_transfer_id IS NOT NULL)",
+    "CREATE UNIQUE INDEX transacciones_escrow_liquidacion_operacion_unique ON public.transacciones_escrow USING btree (liquidacion_operacion_id) WHERE (liquidacion_operacion_id IS NOT NULL)"
+  ]
+}

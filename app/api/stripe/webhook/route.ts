@@ -2,9 +2,9 @@ import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
-import { rechazarYNotificarOfertasPerdedoras } from "@/lib/ofertas-perdedoras"
-import { obtenerCargoDePaymentIntent } from "@/lib/stripe-liquidacion"
+import { conciliarSesionPagada, liquidarPagoReclamado } from "@/lib/flujo-pagos"
 import { registrarEventoOperativo } from "@/lib/operaciones"
+import { errorIdentidadCuentaStripe } from "@/lib/stripe-connect-identidad"
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -17,97 +17,7 @@ const esPagoDiime = (metadata: Stripe.Metadata | null) =>
 
 async function procesarPagoPagado(session: Stripe.Checkout.Session) {
   if (session.payment_status !== "paid" || !esPagoDiime(session.metadata)) return
-  const supabase = getAdminClient()
-  const metadata = session.metadata || {}
-
-  let consulta = supabase.from("transacciones_escrow").select("*")
-  consulta = metadata.escrow_id
-    ? consulta.eq("id", metadata.escrow_id)
-    : consulta.eq("trabajo_id", metadata.trabajo_id || "").eq("stripe_session_id", session.id)
-  const { data: escrow, error } = await consulta.maybeSingle()
-  if (error || !escrow) throw new Error(error?.message || "No existe el pago preparado en Diime")
-  if (escrow.estado !== "pendiente") return
-
-  const esperado = Math.round(Number(escrow.monto || 0) * 100)
-  if (session.amount_total !== esperado || session.currency !== "eur") {
-    await supabase
-      .from("transacciones_escrow")
-      .update({ liquidacion_estado: "error", liquidacion_error: "El importe o la moneda de Stripe no coincide con el contrato." })
-      .eq("id", escrow.id)
-    throw new Error("El importe o la moneda del pago no coincide con la transacción preparada")
-  }
-
-  const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id
-  if (!paymentIntentId) throw new Error("Checkout no devolvió un PaymentIntent")
-  const chargeId = await obtenerCargoDePaymentIntent(paymentIntentId)
-  const ahora = new Date().toISOString()
-
-  const { data: confirmado, error: confirmarError } = await supabase
-    .from("transacciones_escrow")
-    .update({
-      estado: "fondos_retenidos",
-      fecha_retencion: ahora,
-      stripe_payment_intent_id: paymentIntentId,
-      stripe_charge_id: chargeId,
-    })
-    .eq("id", escrow.id)
-    .eq("estado", "pendiente")
-    .select("id")
-    .maybeSingle()
-  if (confirmarError) throw confirmarError
-  if (!confirmado) return
-
-  await supabase
-    .from("trabajos")
-    .update({ estado: "en_progreso", fecha_inicio: ahora, updated_at: ahora })
-    .eq("id", escrow.trabajo_id)
-
-  await supabase.from("actualizaciones_trabajo").insert({
-    trabajo_id: escrow.trabajo_id,
-    usuario_id: escrow.cliente_id,
-    tipo: "pago",
-    mensaje: `Pago de ${Number(escrow.monto).toFixed(2)} EUR recibido. La transferencia queda pendiente hasta la confirmación o resolución.`,
-    progreso: 0,
-  })
-
-  const { data: trabajo } = await supabase
-    .from("trabajos")
-    .select("titulo, solicitud_id")
-    .eq("id", escrow.trabajo_id)
-    .maybeSingle()
-
-  if (trabajo?.solicitud_id) {
-    const { data: solicitud } = await supabase
-      .from("solicitudes")
-      .update({ estado: "en_progreso" })
-      .eq("id", trabajo.solicitud_id)
-      .select("titulo")
-      .maybeSingle()
-    await rechazarYNotificarOfertasPerdedoras(supabase, {
-      solicitudId: trabajo.solicitud_id,
-      tituloSolicitud: solicitud?.titulo ?? trabajo.titulo,
-    })
-  }
-
-  if (escrow.profesional_id) {
-    const aviso = {
-      usuario_id: escrow.profesional_id,
-      tipo: "pago_recibido",
-      titulo: "El cliente ha pagado: puedes empezar",
-      mensaje: `El pago de "${trabajo?.titulo ?? "un trabajo"}" está confirmado. La transferencia se hará cuando el cliente acepte la entrega o se resuelva una disputa.`,
-      link: "/mis-trabajos",
-      leida: false,
-    }
-    await supabase.from("notificaciones").insert(aviso)
-    const { enviarAvisoPorEmail } = await import("@/lib/emails/enviar")
-    await enviarAvisoPorEmail({
-      usuarioId: aviso.usuario_id,
-      tipo: aviso.tipo,
-      titulo: aviso.titulo,
-      mensaje: aviso.mensaje,
-      link: aviso.link,
-    })
-  }
+  await conciliarSesionPagada(getAdminClient(), session)
 }
 
 async function registrarEvento(event: Stripe.Event) {
@@ -203,42 +113,78 @@ export async function POST(request: Request) {
       case "checkout.session.async_payment_failed": {
         const session = event.data.object
         if (!esPagoDiime(session.metadata)) break
-        let query = supabase.from("transacciones_escrow").update({ estado: "cancelado" }).eq("estado", "pendiente")
+        let query = supabase.from("transacciones_escrow").select("id,stripe_session_id")
         query = session.metadata?.escrow_id
           ? query.eq("id", session.metadata.escrow_id)
           : query.eq("stripe_session_id", session.id)
-        await query
+        const { data: intento, error: readError } = await query.maybeSingle()
+        if (readError) throw readError
+        if (intento) {
+          const { error: cierreError } = await supabase.rpc("diime_cerrar_intento", {
+            p_escrow: intento.id, p_session: session.id,
+          })
+          if (cierreError) throw cierreError
+        }
         break
       }
 
       case "account.updated": {
-        const account = event.data.object
-        await supabase
-          .from("profesionales")
-          .update({
-            stripe_onboarding_completado: account.details_submitted,
-            stripe_transferencias_habilitadas: account.capabilities?.transfers === "active",
-            stripe_payouts_habilitados: account.payouts_enabled,
-            stripe_requisitos_pendientes: account.requirements?.currently_due || [],
-            stripe_estado_actualizado_at: new Date().toISOString(),
+        const account = await stripe.accounts.retrieve(event.data.object.id)
+        const { data: profesional, error: profesionalError } = await supabase.from("profesionales")
+          .select("id").eq("stripe_account_id", account.id).maybeSingle()
+        if (profesionalError) throw profesionalError
+        if (profesional) {
+          const { data: perfil, error: perfilError } = await supabase.from("profiles")
+            .select("empresa_id").eq("id", profesional.id).single()
+          if (perfilError) throw perfilError
+          const identidadError = errorIdentidadCuentaStripe(account, { id: profesional.id, empresa_id: perfil.empresa_id })
+          const { error: actualizarError } = await supabase.rpc("actualizar_estado_cuenta_stripe", {
+            p_profesional_id: profesional.id, p_account_id: account.id,
+            p_empresa_esperada: perfil.empresa_id,
+            p_onboarding: !identidadError && account.details_submitted,
+            p_transferencias: !identidadError && account.capabilities?.transfers === "active",
+            p_payouts: !identidadError && account.payouts_enabled,
+            p_requisitos: account.requirements?.currently_due || [],
           })
-          .eq("stripe_account_id", account.id)
+          if (actualizarError) throw actualizarError
+        }
         break
       }
 
       case "refund.updated": {
-        const refund = event.data.object
+        // Delivery can be delayed or unordered. Re-read Stripe's current state
+        // and match the durable operation before changing our ledger.
+        const refund = await stripe.refunds.retrieve(event.data.object.id)
         const escrowId = refund.metadata?.escrow_id
         if (!escrowId) break
-        await supabase
-          .from("transacciones_escrow")
+        const { data: escrow, error: readError } = await supabase.from("transacciones_escrow")
+          .select("*").eq("id", escrowId).single()
+        if (readError) throw readError
+        const paymentIntentId = typeof refund.payment_intent === "string" ? refund.payment_intent : refund.payment_intent?.id
+        if (!escrow.liquidacion_operacion_id ||
+          refund.metadata?.liquidacion_operacion_id !== escrow.liquidacion_operacion_id ||
+          paymentIntentId !== escrow.stripe_payment_intent_id ||
+          (escrow.stripe_refund_id && escrow.stripe_refund_id !== refund.id) ||
+          refund.amount !== Math.round(Number(escrow.monto_reembolsado) * 100)) {
+          throw new Error("El reembolso de Stripe no coincide con la operación guardada.")
+        }
+        if (escrow.liquidacion_estado === "completada" && refund.status !== "succeeded") {
+          throw new Error("Una liquidación completada tiene un reembolso no confirmado; requiere conciliación.")
+        }
+        const { data: actualizado, error: actualizarError } = await supabase.from("transacciones_escrow")
           .update({
+            stripe_refund_id: refund.id,
             stripe_refund_status: refund.status,
             ...(refund.status === "failed" || refund.status === "canceled"
               ? { liquidacion_estado: "error", liquidacion_error: `El reembolso ${refund.id} terminó como ${refund.status}.` }
               : {}),
-          })
-          .eq("id", escrowId)
+          }).eq("id", escrow.id).eq("liquidacion_operacion_id", escrow.liquidacion_operacion_id)
+          .select("*").single()
+        if (actualizarError) throw actualizarError
+        if (refund.status === "succeeded" && actualizado.liquidacion_contexto &&
+          actualizado.liquidacion_estado !== "completada" && !actualizado.stripe_disputa_id) {
+          await liquidarPagoReclamado(supabase, actualizado)
+        }
         break
       }
 
@@ -248,31 +194,10 @@ export async function POST(request: Request) {
           ? disputaStripe.payment_intent
           : disputaStripe.payment_intent?.id
         if (!paymentIntentId) break
-        const { data: escrow } = await supabase
-          .from("transacciones_escrow")
-          .select("id, trabajo_id, cliente_id, profesional_id, estado")
-          .eq("stripe_payment_intent_id", paymentIntentId)
-          .maybeSingle()
-        if (!escrow) break
-        await supabase.from("transacciones_escrow").update({ estado: "disputa" }).eq("id", escrow.id)
-        await supabase.from("trabajos").update({ estado: "en_disputa" }).eq("id", escrow.trabajo_id)
-        const { data: abierta } = await supabase
-          .from("disputas")
-          .select("id")
-          .eq("trabajo_id", escrow.trabajo_id)
-          .eq("estado", "abierta")
-          .maybeSingle()
-        if (!abierta) {
-          await supabase.from("disputas").insert({
-            trabajo_id: escrow.trabajo_id,
-            cliente_id: escrow.cliente_id,
-            profesional_id: escrow.profesional_id,
-            tipo: "cliente",
-            motivo: `Stripe ha recibido un contracargo bancario (${disputaStripe.id}). Debe gestionarse también en Stripe antes de su fecha límite.`,
-            estado: "abierta",
-            estado_escrow_previo: escrow.estado,
-          })
-        }
+        const { data: disputa, error: disputaError } = await supabase.rpc("diime_registrar_contracargo", {
+          p_payment_intent: paymentIntentId, p_stripe_disputa: disputaStripe.id,
+        })
+        if (disputaError) throw disputaError
         const { data: admins } = await supabase.from("profiles").select("id").eq("es_admin", true)
         if (admins?.length) {
           await supabase.from("notificaciones").insert(
@@ -280,7 +205,7 @@ export async function POST(request: Request) {
               usuario_id: a.id,
               tipo: "disputa_abierta_admin",
               titulo: "Contracargo bancario en Stripe",
-              mensaje: `El pago del trabajo ${escrow.trabajo_id} tiene un contracargo. Revísalo inmediatamente en Stripe y en Diime.`,
+              mensaje: `El pago del trabajo ${disputa.trabajo_id} tiene un contracargo. Revísalo inmediatamente en Stripe y en Diime.`,
               link: "/admin/disputas",
               leida: false,
             })),

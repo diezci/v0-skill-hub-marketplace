@@ -26,6 +26,7 @@ import {
   saldoPrincipalStripe,
 } from "@/lib/stripe-connect-presentacion"
 import { useToast } from "@/hooks/use-toast"
+import { SupportChatButton } from "@/components/support-chat-button"
 
 type StripeConnectCardProps = {
   estadoInicial?: EstadoStripeConnect | null
@@ -44,6 +45,7 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
       setAccion("refresh")
       const result = await obtenerEstadoStripeConnect()
       if (result.error) {
+        setEstado(null)
         setError(result.error)
         if (avisar) {
           toast({ title: "No se pudo consultar Stripe", description: result.error, variant: "destructive" })
@@ -149,11 +151,12 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
       <CardContent className="space-y-5">
         {error && (
           <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-            {error}
+            <p>{error}</p>
+            <div className="mt-3"><SupportChatButton /></div>
           </div>
         )}
 
-        {!loading && !listo && (
+        {!loading && !listo && !error && (
           <p className="text-sm text-muted-foreground">
             {estado?.conectado
               ? "Stripe necesita que completes o actualices algunos datos antes de que podamos transferirte pagos."
@@ -256,7 +259,7 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
         )}
 
         <div className="flex flex-wrap gap-2">
-          {!listo && (
+          {!listo && !error && (
             <Button onClick={() => void abrir("onboarding")} disabled={!!accion || loading}>
               {accion === "onboarding" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {estado?.conectado ? "Completar datos en Stripe" : "Activar cobros con Stripe"}

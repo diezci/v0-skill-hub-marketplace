@@ -33,6 +33,23 @@ export async function registrarUsuario(formData: {
     return { error: "Para crear una cuenta debes confirmar que tienes 18 años o más." }
   }
 
+  const registroEmpresa = formData.tipoEntidad === "empresa" ? {
+    tokenInvitacion: formData.tokenInvitacion?.trim() || undefined,
+    nombreEmpresa: formData.nombreEmpresa?.trim(),
+    cif: formData.documento?.trim().toUpperCase(),
+    documentoPersonal: formData.documentoPersonal?.trim() || "",
+    cargoEmpresa: formData.cargoEmpresa,
+    telefono: formData.telefono,
+    ubicacion: formData.ubicacion,
+  } : null
+  if (registroEmpresa && !registroEmpresa.documentoPersonal) {
+    return { error: "Indica tu DNI/NIE como persona que representa a la empresa" }
+  }
+  if (registroEmpresa && !registroEmpresa.tokenInvitacion && (!registroEmpresa.nombreEmpresa || !registroEmpresa.cif)) {
+    return { error: "Indica el nombre y CIF de tu empresa o utiliza una invitación" }
+  }
+  const documentoDeLaPersona = registroEmpresa?.documentoPersonal || formData.documento || null
+
   const aceptacionLegal = new Date().toISOString()
 
   // Use NEXT_PUBLIC_SITE_URL for production, fallback to VERCEL_URL, then localhost
@@ -44,12 +61,13 @@ export async function registrarUsuario(formData: {
     email: formData.email,
     password: formData.password,
     options: {
-      emailRedirectTo: `${siteUrl}/auth/callback`,
+      emailRedirectTo: registroEmpresa ? `${siteUrl}/auth/callback?next=/mi-empresa` : `${siteUrl}/auth/callback`,
       data: {
         nombre: formData.nombre,
         apellido: formData.apellido,
         tipo_entidad: formData.tipoEntidad,
-        documento: formData.documento,
+        documento: documentoDeLaPersona,
+        registro_empresa: registroEmpresa,
         telefono: formData.telefono,
         ubicacion: formData.ubicacion,
         terms_accepted_at: aceptacionLegal,
@@ -77,52 +95,11 @@ export async function registrarUsuario(formData: {
     return { error: "Error al crear usuario" }
   }
 
-  let empresaId: string | null = null
-
-  if (formData.tipoEntidad === "empresa") {
-    if (formData.tokenInvitacion) {
-      // Unirse a una empresa existente con el token de invitación. Va por RPC
-      // porque `empresas` tiene RLS: quien usa el token todavía no es su
-      // propietario, así que no puede leer la tabla. La función devuelve solo
-      // el id de la empresa cuyo token coincide (nunca el CIF ni otros tokens).
-      const { data: empresaIdPorToken, error: empresaError } = await supabase.rpc("empresa_id_por_token", {
-        p_token: formData.tokenInvitacion,
-      })
-
-      if (empresaError || !empresaIdPorToken) {
-        return { error: "Token de invitación inválido" }
-      }
-
-      empresaId = empresaIdPorToken as string
-    } else if (formData.nombreEmpresa) {
-      // Create new company
-      // Se guardan también contacto y ubicación: son los datos fiscales que
-      // luego salen en la factura a nombre de la empresa.
-      const { data: newEmpresa, error: empresaError } = await supabase
-        .from("empresas")
-        .insert({
-          nombre: formData.nombreEmpresa,
-          cif: formData.documento,
-          propietario_id: authData.user.id,
-          email: formData.email,
-          telefono: formData.telefono || null,
-          ubicacion: formData.ubicacion || null,
-        })
-        .select()
-        .single()
-
-      if (empresaError) {
-        return { error: "Error al crear la empresa: " + empresaError.message }
-      }
-
-      empresaId = newEmpresa.id
-    }
+  // Con confirmación por correo todavía no hay sesión: el trigger crea el
+  // perfil y la empresa se completa al entrar en Mi Empresa tras verificarlo.
+  if (!authData.session) {
+    return { data: { success: true, user: authData.user, empresaPendiente: !!registroEmpresa } }
   }
-
-  // El documento que se guarda en el perfil es SIEMPRE el de la persona: si se
-  // registra una empresa, `documento` es el CIF y el DNI va en documentoPersonal.
-  const documentoDeLaPersona =
-    formData.tipoEntidad === "empresa" ? formData.documentoPersonal || null : formData.documento || null
 
   const { error: profileError } = await supabase
     .from("profiles")
@@ -136,9 +113,6 @@ export async function registrarUsuario(formData: {
         ubicacion: formData.ubicacion || null,
         tipo_usuario: "cliente",
         documento: documentoDeLaPersona,
-        // Vínculo con la empresa en cuyo nombre actúa (antes se calculaba y se
-        // descartaba, así que la empresa quedaba huérfana).
-        empresa_id: empresaId,
         cargo_empresa: formData.cargoEmpresa || null,
         mayor_edad_confirmada_at: aceptacionLegal,
         mayor_edad_version: "18-plus-2026-08",
@@ -166,25 +140,13 @@ export async function registrarUsuario(formData: {
     return { error: profileError.message }
   }
 
-  // El vínculo con la empresa no puede perderse en silencio: si se traga el
-  // error de arriba (trigger o RLS), la empresa quedaría huérfana y las facturas
-  // no saldrían a su nombre. Se reintenta explícitamente y, si tampoco cuela, se
-  // avisa en vez de dejar una cuenta de empresa a medias.
-  if (empresaId) {
-    const { error: vinculoError } = await supabase
-      .from("profiles")
-      .update({
-        empresa_id: empresaId,
-        documento: documentoDeLaPersona,
-        cargo_empresa: formData.cargoEmpresa || null,
-      })
-      .eq("id", authData.user.id)
-
-    if (vinculoError) {
-      return {
-        error:
-          "Tu cuenta se ha creado, pero no se ha podido vincular con la empresa. Inicia sesión y complétalo desde Mi Empresa.",
-      }
+  if (registroEmpresa) {
+    const { completarRegistroEmpresa } = await import("./empresas")
+    const resultado = await completarRegistroEmpresa(registroEmpresa)
+    if (resultado.error) {
+      // La cuenta ya existe. Conservar el borrador permite corregir un token o
+      // reanudar después de verificar el correo sin volver a registrar el email.
+      return { data: { success: true, user: authData.user, empresaPendiente: true }, aviso: resultado.error }
     }
   }
 
@@ -290,6 +252,8 @@ export type ConsecuenciasBaja = {
   importe_en_custodia: number
   trabajos_cliente_sin_pagar: number
   disputas_abiertas: number
+  trabajos_pendientes: number
+  pagos_pendientes: number
 }
 
 // Qué le va a pasar EXACTAMENTE a esta persona si se da de baja. Se enseña antes
@@ -314,24 +278,15 @@ export async function consecuenciasDeEliminarMiCuenta() {
       importe_en_custodia: Number(c.importe_en_custodia ?? 0),
       trabajos_cliente_sin_pagar: Number(c.trabajos_cliente_sin_pagar ?? 0),
       disputas_abiertas: Number(c.disputas_abiertas ?? 0),
+      trabajos_pendientes: Number(c.trabajos_pendientes ?? 0),
+      pagos_pendientes: Number(c.pagos_pendientes ?? 0),
     } satisfies ConsecuenciasBaja,
   }
 }
 
-// Baja de la cuenta a petición de la propia persona.
-//
-// Apple no acepta en la App Store (guía 5.1.1(v)) que el borrado haya que
-// pedírselo a soporte: tiene que poder completarlo el usuario desde la app.
-//
-// El orden importa: primero se cierra el dinero (reembolsos de Stripe y avisos a
-// la otra parte, que tienen que salir de aquí y no de la base de datos), y solo
-// al final se llama a `eliminar_mi_cuenta()` (scripts/046), que es lo que corta
-// el acceso. Si se hiciera al revés, el usuario quedaría baneado a mitad y los
-// reembolsos se quedarían sin hacer.
-//
-// Lo que NO se borra —nombre, NIF, dirección, correo, y los trabajos y facturas
-// cerrados— está explicado en scripts/046: la otra parte tiene que poder
-// reclamar contra alguien con nombre y apellidos.
+// La baja solo se completa cuando no quedan contratos, disputas o movimientos
+// de dinero abiertos. La RPC comprueba todo dentro de la misma transacción;
+// una negativa conserva la sesión para que la persona pueda resolverlos.
 export async function eliminarMiCuenta() {
   const supabase = await createClient()
   if (!supabase) return { error: "No se pudo conectar con la base de datos" }
@@ -341,97 +296,6 @@ export async function eliminarMiCuenta() {
   } = await supabase.auth.getUser()
 
   if (!user) return { error: "Debes iniciar sesión" }
-
-  const { crearNotificacion } = await import("./notificaciones")
-  const { reembolsarPorCancelacion } = await import("./escrow")
-
-  const { data: perfil } = await supabase
-    .from("profiles")
-    .select("nombre, apellido")
-    .eq("id", user.id)
-    .maybeSingle()
-  const quienSeVa = `${perfil?.nombre ?? ""} ${perfil?.apellido ?? ""}`.trim() || "El otro usuario"
-
-  const { data: trabajosVivos } = await supabase
-    .from("trabajos")
-    .select("id, titulo, estado, cliente_id, profesional_id")
-    .or(`cliente_id.eq.${user.id},profesional_id.eq.${user.id}`)
-    .in("estado", ["pendiente_pago", "en_progreso", "entregado"])
-
-  for (const t of trabajosVivos ?? []) {
-    const titulo = t.titulo ?? "un trabajo"
-
-    if (t.profesional_id === user.id) {
-      // Se va el proveedor: el trabajo no lo va a hacer nadie, así que se
-      // cancela y el cliente recupera hasta el último euro (incluida la
-      // comisión: no llegó a prestarse ningún servicio).
-      const refund = await reembolsarPorCancelacion(t.id)
-      if ((refund as any)?.error) {
-        return {
-          error: `No se ha podido devolver el dinero de "${titulo}". No se ha dado de baja la cuenta; inténtalo de nuevo o escríbenos.`,
-        }
-      }
-
-      await supabase
-        .from("trabajos")
-        .update({ estado: "cancelado", updated_at: new Date().toISOString() })
-        .eq("id", t.id)
-
-      const devuelto = Number((refund as any)?.reembolso ?? 0)
-      await crearNotificacion({
-        usuarioId: t.cliente_id,
-        tipo: "trabajo_cancelado",
-        titulo: "El profesional se ha dado de baja",
-        mensaje:
-          devuelto > 0
-            ? `${quienSeVa} ha cerrado su cuenta, así que "${titulo}" queda cancelado y se te devuelven ${devuelto.toFixed(2)}€. El reembolso tarda unos días en verse en tu banco.`
-            : `${quienSeVa} ha cerrado su cuenta, así que "${titulo}" queda cancelado. No habías llegado a pagar nada.`,
-        link: "/mis-solicitudes",
-      })
-      continue
-    }
-
-    // Se va el cliente.
-    if (t.estado === "pendiente_pago") {
-      // Todavía no había pagado: no hay dinero de por medio, se cancela y ya.
-      await supabase
-        .from("trabajos")
-        .update({ estado: "cancelado", updated_at: new Date().toISOString() })
-        .eq("id", t.id)
-
-      await crearNotificacion({
-        usuarioId: t.profesional_id,
-        tipo: "trabajo_cancelado",
-        titulo: "El cliente se ha dado de baja",
-        mensaje: `${quienSeVa} ha cerrado su cuenta antes de pagar, así que "${titulo}" queda cancelado.`,
-        link: "/mis-trabajos",
-      })
-      continue
-    }
-
-    // Hay dinero en custodia y el cliente ya no está para confirmar la entrega.
-    // No se toca: lo decide Diime caso por caso, porque el trabajo puede estar
-    // hecho (y habría que pagar al proveedor) o a medias.
-    await crearNotificacion({
-      usuarioId: t.profesional_id,
-      tipo: "revision_diime",
-      titulo: "El cliente se ha dado de baja: lo revisa Diime",
-      mensaje: `${quienSeVa} ha cerrado su cuenta y ya no puede confirmar la recepción de "${titulo}". El dinero sigue retenido en custodia y Diime decidirá qué hacer con él. Te avisaremos.`,
-      link: "/mis-trabajos",
-    })
-
-    await supabase.from("incidencias").insert({
-      reportado_por: user.id,
-      asunto: `Baja de cliente con pago en custodia: ${titulo}`,
-      descripcion:
-        `El cliente ${quienSeVa} ha cerrado su cuenta con el trabajo "${titulo}" en estado "${t.estado}" y el pago retenido en custodia. ` +
-        `Nadie va a confirmar la recepción, así que hay que decidir a mano si se libera al proveedor o se reembolsa.`,
-      categoria: "pago",
-      prioridad: "alta",
-      trabajo_id: t.id,
-      usuario_reportado: null,
-    })
-  }
 
   const { error } = await supabase.rpc("eliminar_mi_cuenta")
 

@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { encajaEnPresupuestoDeAvisos } from "@/lib/filtros-notificaciones"
 import { formatearRangoPresupuesto } from "@/lib/utils"
 
@@ -45,13 +46,19 @@ export async function buscarYEnviarInvitaciones(solicitudId: string) {
 
   const { data: solicitud, error: solicitudError } = await supabase
     .from("solicitudes")
-    .select("id, titulo, ubicacion, presupuesto_min, presupuesto_max, categoria_id, categorias(nombre)")
+    .select("id, cliente_id, estado, titulo, ubicacion, presupuesto_min, presupuesto_max, categoria_id, categorias(nombre)")
     .eq("id", solicitudId)
     .maybeSingle()
 
   if (solicitudError || !solicitud) {
     return { error: "Solicitud no encontrada" }
   }
+
+  if (solicitud.cliente_id !== user.id || solicitud.estado !== "abierta") {
+    return { error: "Solo el cliente puede avisar de su demanda abierta" }
+  }
+  const admin = createAdminClient()
+  if (!admin) return { error: "No se pudo preparar el envío de avisos" }
 
   const categoriaNombre = (solicitud as any).categorias?.nombre as string | undefined
   if (!categoriaNombre) {
@@ -93,7 +100,7 @@ export async function buscarYEnviarInvitaciones(solicitudId: string) {
   const titulo = "Nueva demanda en tu área"
   const mensaje = `Se ha publicado "${solicitud.titulo}" (${categoriaNombre})${zona}. Presupuesto: ${presupuesto}. Échale un vistazo y envía tu oferta.`
 
-  const { error: insertError } = await supabase.from("notificaciones").insert(
+  const { error: insertError } = await admin.from("notificaciones").insert(
     destinatarios.map((p) => ({
       usuario_id: p.id,
       tipo: "demanda_nueva",

@@ -14,21 +14,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { AlertCircle, AlertTriangle, Ban, FileText, Loader2, ShieldAlert, Trash2 } from "lucide-react"
+import { AlertCircle, AlertTriangle, Ban, FileText, Loader2, Trash2 } from "lucide-react"
 import {
   consecuenciasDeEliminarMiCuenta,
   eliminarMiCuenta,
   type ConsecuenciasBaja,
 } from "@/app/actions/auth"
 import { useToast } from "@/hooks/use-toast"
+import Link from "next/link"
 
-// La palabra que hay que teclear para confirmar. Es irreversible y puede mover
-// dinero de terceros: un clic de más no debería bastar para provocarlo.
+// Confirmación del cierre irreversible, una vez resueltos los contratos y pagos.
 const CONFIRMACION = "ELIMINAR"
-
-function euros(n: number) {
-  return n.toLocaleString("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 2 })
-}
 
 // Cada consecuencia real de esta cuenta concreta, con sus números. Un aviso
 // genérico ("perderás el acceso") no basta cuando lo que se puede llevar por
@@ -56,51 +52,6 @@ function avisos(c: ConsecuenciasBaja) {
     })
   }
 
-  if (c.trabajos_proveedor > 0) {
-    const n = c.trabajos_proveedor
-    const uno = n === 1
-    lista.push({
-      grave: true,
-      texto:
-        (uno
-          ? "Tienes un trabajo contratado como profesional. Se cancelará y "
-          : `Tienes ${n} trabajos contratados como profesional. Se cancelarán y `) +
-        (c.importe_a_devolver > 0
-          ? `se ${uno ? "le devolverán" : "les devolverán"} ${euros(c.importe_a_devolver)} a ${
-              uno ? "tu cliente" : "tus clientes"
-            }. No cobrarás nada por ${uno ? "él" : "ellos"}.`
-          : `${uno ? "tu cliente se quedará" : "tus clientes se quedarán"} sin el servicio. No cobrarás nada por ${
-              uno ? "él" : "ellos"
-            }.`),
-    })
-  }
-
-  if (c.trabajos_cliente_con_dinero > 0) {
-    const n = c.trabajos_cliente_con_dinero
-    const uno = n === 1
-    lista.push({
-      grave: true,
-      texto:
-        (uno ? "Tienes un trabajo pagado y sin confirmar" : `Tienes ${n} trabajos pagados y sin confirmar`) +
-        (c.importe_en_custodia > 0 ? `, con ${euros(c.importe_en_custodia)} retenidos en custodia` : "") +
-        `. Al no estar tú para confirmar la entrega, avisaremos ${
-          uno ? "al profesional" : "a los profesionales"
-        } y será Diime quien decida qué hacer con ese dinero. Si el trabajo está bien hecho, lo normal será pagárselo ${
-          uno ? "a él" : "a ellos"
-        }.`,
-    })
-  }
-
-  if (c.trabajos_cliente_sin_pagar > 0) {
-    const n = c.trabajos_cliente_sin_pagar
-    lista.push({
-      texto:
-        n === 1
-          ? "Se cancelará un trabajo que aún no habías pagado."
-          : `Se cancelarán ${n} trabajos que aún no habías pagado.`,
-    })
-  }
-
   if (c.es_profesional) {
     lista.push({ texto: "Desaparecerás de la sección de Profesionales y dejarás de recibir avisos de demandas." })
   }
@@ -125,18 +76,18 @@ export function EliminarCuentaDialog() {
   useEffect(() => {
     if (!open) return
     setCargando(true)
+    setError(null)
     consecuenciasDeEliminarMiCuenta().then((r) => {
       if (r.error) setError(r.error)
       else setConsecuencias(r.data ?? null)
-      setCargando(false)
-    })
+    }).catch(() => setError("No se pudo comprobar tu cuenta. Cierra esta ventana y vuelve a intentarlo."))
+      .finally(() => setCargando(false))
   }, [open])
 
-  // Una disputa abierta no se puede dejar a medias: la otra parte se quedaría
-  // sin nadie con quien cerrarla, así que ni se ofrece el botón.
-  const bloqueado = (consecuencias?.disputas_abiertas ?? 0) > 0
-  const hayDinero =
-    (consecuencias?.trabajos_proveedor ?? 0) > 0 || (consecuencias?.trabajos_cliente_con_dinero ?? 0) > 0
+  const trabajosPendientes = (consecuencias?.trabajos_proveedor ?? 0) +
+    (consecuencias?.trabajos_cliente_con_dinero ?? 0) + (consecuencias?.trabajos_cliente_sin_pagar ?? 0)
+  const bloqueado = trabajosPendientes > 0 || (consecuencias?.trabajos_pendientes ?? 0) > 0 ||
+    (consecuencias?.pagos_pendientes ?? 0) > 0 || (consecuencias?.disputas_abiertas ?? 0) > 0
 
   const confirmar = async () => {
     setEnviando(true)
@@ -201,6 +152,8 @@ export function EliminarCuentaDialog() {
           </div>
         )}
 
+        {!cargando && error && !consecuencias && <p role="alert" className="text-sm text-destructive">{error}</p>}
+
         {!cargando && consecuencias && (
           <div className="space-y-4 text-sm">
             {bloqueado ? (
@@ -209,31 +162,16 @@ export function EliminarCuentaDialog() {
                 <div>
                   <p className="font-semibold text-destructive">Ahora mismo no puedes darte de baja</p>
                   <p className="text-muted-foreground mt-1">
-                    Tienes {consecuencias.disputas_abiertas} disputa
-                    {consecuencias.disputas_abiertas !== 1 ? "s" : ""} abierta
-                    {consecuencias.disputas_abiertas !== 1 ? "s" : ""}. Hay que resolverla
-                    {consecuencias.disputas_abiertas !== 1 ? "s" : ""} antes: si desapareces, la otra parte se queda
-                    sin nadie con quien cerrarla.
+                    Primero finaliza o cancela de mutuo acuerdo tus contratos, resuelve las disputas y completa
+                    los cobros o reembolsos pendientes. Conservas el acceso para hacerlo desde {" "}
+                    <Link href="/mis-trabajos" className="underline">Mis trabajos</Link>, {" "}
+                    <Link href="/mis-solicitudes" className="underline">Mis solicitudes</Link> y {" "}
+                    <Link href="/cobros" className="underline">Cobros</Link>. Si un pago está bloqueado, contacta con soporte.
                   </p>
                 </div>
               </div>
             ) : (
               <>
-                {/* El aviso fuerte va arriba y solo aparece cuando de verdad hay
-                    dinero de por medio, para que no se convierta en ruido. */}
-                {hayDinero && (
-                  <div className="rounded-lg border-2 border-destructive bg-destructive/10 p-4 flex items-start gap-3">
-                    <ShieldAlert className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
-                    <div>
-                      <p className="font-semibold text-destructive">Hay dinero de por medio</p>
-                      <p className="text-muted-foreground mt-1">
-                        Tienes trabajos en marcha con pagos abiertos. Si te das de baja ahora, decides por ti y por la
-                        otra parte. Asegúrate de cerrarlos antes si te interesa cobrarlos o recibirlos.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
                 <div className="rounded-lg border border-destructive/40 p-4">
                   <p className="font-semibold text-destructive mb-2 flex items-center gap-2">
                     <AlertTriangle className="h-4 w-4" />
@@ -316,7 +254,7 @@ export function EliminarCuentaDialog() {
             <Button
               variant="destructive"
               onClick={confirmar}
-              disabled={enviando || cargando || !entendido || texto.trim() !== CONFIRMACION}
+              disabled={enviando || cargando || !consecuencias || !entendido || texto.trim() !== CONFIRMACION}
             >
               {enviando ? (
                 <>

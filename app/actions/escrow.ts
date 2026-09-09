@@ -5,10 +5,9 @@ import { stripe } from "@/lib/stripe"
 import type Stripe from "stripe"
 import { revalidatePath } from "next/cache"
 import { calcularTotalCliente, PLATFORM_CONFIG } from "@/lib/comisiones"
-import { rechazarYNotificarOfertasPerdedoras } from "@/lib/ofertas-perdedoras"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { calcularLiquidacion } from "@/lib/liquidacion"
-import { crearTransferGroup, ejecutarLiquidacionStripe, obtenerCargoDePaymentIntent } from "@/lib/stripe-liquidacion"
+import { crearTransferGroup } from "@/lib/stripe-liquidacion"
+import { cerrarCheckoutsPendientes, conciliarSesionPagada, liquidarPagoReclamado } from "@/lib/flujo-pagos"
 
 type DesglosePago = {
   precioBase: number
@@ -59,7 +58,7 @@ export async function crearPagoEscrow(data: {
   // desde la oferta aceptada y la solicitud que la originó.
   const { data: trabajo, error: trabajoError } = await admin
     .from("trabajos")
-    .select("id, titulo, precio_acordado, profesional_id, cliente_id, estado, oferta_id, solicitud_id")
+    .select("id, titulo, precio_acordado, profesional_id, cliente_id, estado, oferta_id, solicitud_id, pago_bloqueado, cancelacion_estado")
     .eq("id", data.trabajo_id)
     .single()
 
@@ -71,7 +70,7 @@ export async function crearPagoEscrow(data: {
     return { error: "Solo el cliente puede realizar el pago" }
   }
 
-  if (trabajo.estado !== "pendiente_pago") {
+  if (trabajo.estado !== "pendiente_pago" || trabajo.pago_bloqueado || trabajo.cancelacion_estado === "pendiente") {
     return { error: "Este trabajo ya ha sido pagado" }
   }
 
@@ -142,6 +141,8 @@ export async function crearPagoEscrow(data: {
   const comisionProveedorOferta = Number(oferta.comision_proveedor_prevista)
   const pagoNetoOferta = Number(oferta.pago_neto_proveedor_previsto)
   if (
+    oferta.comision_proveedor_prevista == null ||
+    oferta.pago_neto_proveedor_previsto == null ||
     !Number.isFinite(comisionProveedorOferta) ||
     comisionProveedorOferta < 0 ||
     !Number.isFinite(pagoNetoOferta) ||
@@ -262,10 +263,9 @@ export async function crearPagoEscrow(data: {
         // coinciden con los documentos contractuales verificados.
         await stripe.checkout.sessions.expire(anterior.id)
       }
-      const { error: cancelarEscrowError } = await admin
-        .from("transacciones_escrow")
-        .update({ estado: "cancelado" })
-        .eq("id", escrowAbierto.id)
+      const { error: cancelarEscrowError } = await admin.rpc("diime_cerrar_intento", {
+        p_escrow: escrowAbierto.id, p_session: escrowAbierto.stripe_session_id,
+      })
       if (cancelarEscrowError) {
         return { error: "No se pudo cerrar de forma segura el intento de pago anterior." }
       }
@@ -275,12 +275,9 @@ export async function crearPagoEscrow(data: {
       // No se puede repetir la petición con seguridad porque parámetros como
       // `expires_at` cambian; cerramos la fila huérfana y usamos una nueva clave
       // idempotente. Cualquier sesión inaccesible expirará por sí sola.
-      const { error: cancelarEscrowError } = await admin
-        .from("transacciones_escrow")
-        .update({ estado: "cancelado" })
-        .eq("id", escrowAbierto.id)
-        .eq("estado", "pendiente")
-        .is("stripe_session_id", null)
+      const { error: cancelarEscrowError } = await admin.rpc("diime_cerrar_intento", {
+        p_escrow: escrowAbierto.id,
+      })
       if (cancelarEscrowError) {
         return { error: "No se pudo cerrar de forma segura el intento de pago anterior." }
       }
@@ -409,445 +406,88 @@ export async function crearPagoEscrow(data: {
  */
 export async function confirmarPagoEscrow(sessionId: string) {
   const supabase = await createClient()
-  if (!supabase) return { error: "Conexión con la base de datos no disponible." }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return { error: "No autenticado" }
-  }
-  const admin = createAdminClient()
-  if (!admin) return { error: "La configuración segura del servidor no está disponible." }
-
-  // Verify payment with Stripe
-  try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId, { expand: ["payment_intent.latest_charge"] })
-    
-    if (session.payment_status !== "paid") {
-      return { error: "El pago no se ha completado" }
-    }
-
-    // Update escrow
-    const paymentIntent = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id
-    if (!paymentIntent) return { error: "Stripe no ha devuelto el identificador del pago." }
-    const latestCharge = typeof session.payment_intent === "object" && session.payment_intent
-      ? session.payment_intent.latest_charge
-      : null
-    const chargeId = typeof latestCharge === "string" ? latestCharge : latestCharge?.id || null
-
-    const { data: escrow, error } = await admin
-      .from("transacciones_escrow")
-      .update({
-        estado: "fondos_retenidos",
-        fecha_retencion: new Date().toISOString(),
-        stripe_payment_intent_id: paymentIntent,
-        stripe_charge_id: chargeId,
-      })
-      .eq("stripe_session_id", sessionId)
-      .eq("cliente_id", user.id)
-      .eq("estado", "pendiente")
-      .select()
-      .maybeSingle()
-
-    if (error) {
-      return { error: error.message }
-    }
-    if (!escrow) {
-      const { data: yaConfirmado } = await admin
-        .from("transacciones_escrow")
-        .select("*")
-        .eq("stripe_session_id", sessionId)
-        .eq("cliente_id", user.id)
-        .maybeSingle()
-      return yaConfirmado ? { data: yaConfirmado } : { error: "No se encontró el pago preparado." }
-    }
-
-    // Update trabajo to en_progreso
-    await admin.from("trabajos").update({
-      estado: "en_progreso",
-      updated_at: new Date().toISOString(),
-    }).eq("id", escrow.trabajo_id)
-
-    const { data: trabajoPagado } = await admin
-      .from("trabajos")
-      .select("titulo, solicitud_id, oferta_id")
-      .eq("id", escrow.trabajo_id)
-      .maybeSingle()
-
-    // El pago consuma la contratación: hasta aquí la demanda seguía abierta y
-    // las demás ofertas pendientes (por si el cliente abandonaba la pasarela).
-    if (trabajoPagado?.solicitud_id) {
-      const { data: solicitudPagada } = await admin
-        .from("solicitudes")
-        .update({ estado: "en_progreso" })
-        .eq("id", trabajoPagado.solicitud_id)
-        .select("titulo")
-        .maybeSingle()
-
-      await rechazarYNotificarOfertasPerdedoras(admin, {
-        solicitudId: trabajoPagado.solicitud_id,
-        tituloSolicitud: solicitudPagada?.titulo ?? trabajoPagado.titulo,
-      })
-    }
-    const { crearNotificacion } = await import("./notificaciones")
-    await crearNotificacion({
-      usuarioId: escrow.profesional_id,
-      tipo: "pago_recibido",
-      titulo: "El cliente ha pagado: puedes empezar",
-      mensaje: `El pago de "${trabajoPagado?.titulo ?? "un trabajo"}" está confirmado y su transferencia queda aplazada. El trabajo pasa a En Progreso.`,
-      link: "/mis-trabajos",
-    })
-
-    revalidatePath("/mis-solicitudes")
-    revalidatePath("/mis-trabajos")
-    return { data: escrow }
-  } catch (error: any) {
-    return { error: error.message }
-  }
-}
-
-/**
- * Release funds to the provider after client confirms work completion.
- * Provider receives: agreed price - platform commission.
- */
-export async function liberarFondosEscrow(trabajoId: string) {
-  const supabase = await createClient()
-  if (!supabase) return { error: "Conexión con la base de datos no disponible." }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return { error: "No autenticado" }
-  }
-  const admin = createAdminClient()
-  if (!admin) return { error: "La configuración segura del servidor no está disponible." }
-
-  const { data: trabajoActual } = await admin
-    .from("trabajos")
-    .select("id, cliente_id, profesional_id, estado, titulo, solicitud_id, cancelacion_estado")
-    .eq("id", trabajoId)
-    .maybeSingle()
-  if (!trabajoActual || trabajoActual.cliente_id !== user.id) {
-    return { error: "No tienes permiso para confirmar este trabajo." }
-  }
-
-  // Antes de buscar trabajo pendiente, comprobamos cualquier liquidación ya
-  // finalizada. Esto evita que una fila antigua/duplicada más reciente pueda
-  // ocultarla y provocar un segundo intento de transferencia.
-  const { data: liquidacionCompletada, error: liquidacionCompletadaError } = await admin
-    .from("transacciones_escrow")
-    .select("id")
-    .eq("trabajo_id", trabajoId)
-    .eq("cliente_id", user.id)
-    .eq("liquidacion_estado", "completada")
-    .in("estado", ["completado", "liberado"])
-    .limit(1)
-    .maybeSingle()
-  if (liquidacionCompletadaError) {
-    return { error: "No se pudo comprobar el estado de la liquidación." }
-  }
-  if (liquidacionCompletada) {
-    return { success: true }
-  }
-
-  // Get escrow transaction
-  const { data: escrow, error: escrowError } = await admin
-    .from("transacciones_escrow")
-    .select("*")
-    .eq("trabajo_id", trabajoId)
-    .eq("cliente_id", user.id)
-    .in("estado", ["fondos_retenidos", "liquidando"])
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (escrowError) {
-    return { error: "No se encontró un pago retenido que pueda liquidarse." }
-  }
-  if (!escrow) {
-    // Puede haber finalizado entre las dos lecturas anteriores por otro clic o
-    // proceso. Una última comprobación convierte esa carrera en éxito idempotente.
-    const { data: completadaDuranteLectura } = await admin
-      .from("transacciones_escrow")
-      .select("id")
-      .eq("trabajo_id", trabajoId)
-      .eq("cliente_id", user.id)
-      .eq("liquidacion_estado", "completada")
-      .in("estado", ["completado", "liberado"])
-      .limit(1)
-      .maybeSingle()
-    return completadaDuranteLectura
-      ? { success: true }
-      : { error: "No se encontró un pago retenido que pueda liquidarse." }
-  }
-
-  if (trabajoActual.estado !== "entregado") {
-    return { error: "El profesional debe marcar el trabajo como entregado antes de liberar el pago." }
-  }
-  if (trabajoActual.cancelacion_estado === "pendiente") {
-    return { error: "Hay una cancelación pendiente. Debe resolverse antes de liberar el pago." }
-  }
-
-  const operacionId = `confirmacion-${escrow.id}`
-  if (escrow.liquidacion_operacion_id && escrow.liquidacion_operacion_id !== operacionId) {
-    return { error: "Este pago ya tiene otra liquidación en curso. Revísalo desde administración." }
-  }
-
-  const liquidacion = calcularLiquidacion(
-    Number(escrow.monto_base || 0),
-    0,
-    Number(escrow.comision_proveedor_original ?? escrow.comision_proveedor ?? 0),
-  )
-  const { data: profesional } = await admin
-    .from("profesionales")
-    .select("stripe_account_id, stripe_transferencias_habilitadas, stripe_payouts_habilitados")
-    .eq("id", escrow.profesional_id)
-    .maybeSingle()
-  if (
-    !profesional?.stripe_account_id ||
-    !profesional.stripe_transferencias_habilitadas ||
-    !profesional.stripe_payouts_habilitados
-  ) {
-    return { error: "La cuenta de cobros del profesional no está habilitada. El dinero sigue sin moverse." }
-  }
-  if (!escrow.stripe_payment_intent_id) {
-    return { error: "El pago no tiene un PaymentIntent conciliado con Stripe." }
-  }
-
-  try {
-    // Reclamar la liquidación antes de hablar con Stripe. Reintentar la misma
-    // operación es seguro; cambiar la decisión una vez reclamada no lo es.
-    const { data: reclamada, error: claimError } = await admin
-      .from("transacciones_escrow")
-      .update({
-        estado: "liquidando",
-        liquidacion_estado: "procesando",
-        liquidacion_operacion_id: operacionId,
-        liquidacion_error: null,
-        monto_reembolsado: 0,
-        monto_bruto_proveedor: liquidacion.brutoProveedor,
-        comision_proveedor: liquidacion.comisionProveedor,
-        pago_neto_proveedor: liquidacion.netoProveedor,
-      })
-      .eq("id", escrow.id)
-      .or(`liquidacion_operacion_id.is.null,liquidacion_operacion_id.eq.${operacionId}`)
-      .select("id")
-      .maybeSingle()
-
-    if (claimError || !reclamada) {
-      return { error: claimError?.message || "Otro proceso está liquidando este pago." }
-    }
-
-    const movimientos = await ejecutarLiquidacionStripe({
-      paymentIntentId: escrow.stripe_payment_intent_id,
-      chargeId: escrow.stripe_charge_id,
-      connectedAccountId: profesional.stripe_account_id,
-      transferGroup: escrow.stripe_transfer_group || crearTransferGroup(trabajoId),
-      reembolsoCliente: 0,
-      netoProveedor: liquidacion.netoProveedor,
-      operacionId,
-      metadata: { trabajo_id: trabajoId, escrow_id: escrow.id, motivo: "confirmacion_cliente" },
-    })
-
-    const ahora = new Date().toISOString()
-    const { data: finalizada, error: updateError } = await admin
-      .from("transacciones_escrow")
-      .update({
-        estado: "completado",
-        liquidacion_estado: "completada",
-        liquidacion_error: null,
-        stripe_charge_id: movimientos.chargeId,
-        stripe_transfer_id: movimientos.transferId,
-        monto_bruto_proveedor: liquidacion.brutoProveedor,
-        comision_proveedor: liquidacion.comisionProveedor,
-        pago_neto_proveedor: liquidacion.netoProveedor,
-        comision_cliente_retenida: Number(escrow.comision_cliente || 0),
-        retencion_plataforma: Number(escrow.comision_cliente || 0) + liquidacion.comisionProveedor,
-        fecha_liberacion: ahora,
-      })
-      .eq("id", escrow.id)
-      .neq("liquidacion_estado", "completada")
-      .select("id")
-      .maybeSingle()
-
-    if (updateError) return { error: updateError.message }
-    // Otro reintento idéntico ya pudo finalizar y notificar.
-    if (!finalizada) return { success: true }
-
-    // Update trabajo to completado
-    await admin
-      .from("trabajos")
-      .update({
-        estado: "completado",
-        fecha_fin: ahora,
-        updated_at: ahora,
-      })
-      .eq("id", trabajoId)
-
-    // Update solicitud
-    if (trabajoActual.solicitud_id) {
-      await admin.from("solicitudes").update({ estado: "completada" }).eq("id", trabajoActual.solicitud_id)
-    }
-
-    // Create update record
-    await admin.from("actualizaciones_trabajo").insert({
-      trabajo_id: trabajoId,
-      usuario_id: user.id,
-      tipo: "pago_liberado",
-      mensaje: `Pago liberado. El proveedor recibe ${liquidacion.netoProveedor.toFixed(2)} EUR netos.`,
-      progreso: 100,
-    })
-
-    // Avisar al proveedor de que su pago ha sido liberado.
-    {
-      const { crearNotificacion } = await import("./notificaciones")
-      await crearNotificacion({
-        usuarioId: escrow.profesional_id,
-        tipo: "pago_liberado",
-        titulo: "Pago liberado",
-        mensaje: `El cliente ha confirmado "${trabajoActual.titulo ?? "el trabajo"}". Se te ha transferido un pago de ${liquidacion.netoProveedor.toFixed(2)}€ netos.`,
-        link: "/mis-trabajos",
-      })
-    }
-
-    revalidatePath("/mis-solicitudes")
-    revalidatePath("/mis-trabajos")
-    return { success: true }
-  } catch (error: any) {
-    await admin
-      .from("transacciones_escrow")
-      .update({ estado: "fondos_retenidos", liquidacion_estado: "error", liquidacion_error: error.message || "Error de Stripe" })
-      .eq("id", escrow.id)
-      .eq("liquidacion_operacion_id", operacionId)
-    return { error: error.message }
-  }
-}
-
-/**
- * Reembolso íntegro al cliente cuando un trabajo pagado se cancela de mutuo
- * acuerdo: al haber acuerdo entre las partes se devuelve todo lo pagado
- * (incluida la comisión), a diferencia del rechazo de una entrega.
- * Devuelve el importe reembolsado, o 0 si no había fondos retenidos.
- */
-export async function reembolsarPorCancelacion(trabajoId: string) {
-  const supabase = await createClient()
-  if (!supabase) return { error: "Conexión con la base de datos no disponible." }
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  if (!supabase) return { error: "No se pudo conectar con la base de datos." }
+  const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: "No autenticado" }
   const admin = createAdminClient()
   if (!admin) return { error: "La configuración segura del servidor no está disponible." }
-
-  const { data: trabajo } = await admin
-    .from("trabajos")
-    .select("cliente_id, profesional_id, estado, cancelacion_estado, cancelacion_solicitada_por")
-    .eq("id", trabajoId)
-    .maybeSingle()
-  if (!trabajo || (trabajo.cliente_id !== user.id && trabajo.profesional_id !== user.id)) {
-    return { error: "No tienes permiso sobre este trabajo." }
-  }
-  if (trabajo.cancelacion_estado !== "pendiente" || trabajo.cancelacion_solicitada_por === user.id) {
-    return { error: "El reembolso íntegro exige una cancelación pendiente aceptada por la otra parte." }
-  }
-
-  const { data: escrow, error: escrowError } = await admin
-    .from("transacciones_escrow")
-    .select("*")
-    .eq("trabajo_id", trabajoId)
-    .in("estado", ["fondos_retenidos", "liquidando"])
-    .maybeSingle()
-
-  if (escrowError) return { error: "No se pudo comprobar de forma segura el pago retenido." }
-  if (!escrow) {
-    return trabajo.estado === "pendiente_pago"
-      ? { reembolso: 0 }
-      : { error: "No se encontró un pago retenido que pueda reembolsarse." }
-  }
-
   try {
-    const operacionId = `cancelacion-mutua-${escrow.id}`
-    if (escrow.liquidacion_operacion_id && escrow.liquidacion_operacion_id !== operacionId) {
-      return { error: "Este pago ya tiene otra liquidación en curso. Revísalo desde administración." }
-    }
-    if (!escrow.stripe_payment_intent_id) {
-      return { error: "El pago no tiene un PaymentIntent conciliado con Stripe." }
-    }
-
-    const montoTotal = Number(escrow.monto || 0)
-    const { data: reclamada, error: claimError } = await admin
-      .from("transacciones_escrow")
-      .update({
-        estado: "liquidando",
-        liquidacion_estado: "procesando",
-        liquidacion_operacion_id: operacionId,
-        liquidacion_error: null,
-        monto_reembolsado: montoTotal,
-        retencion_plataforma: 0,
-        comision_cliente_retenida: 0,
-        monto_bruto_proveedor: 0,
-        comision_proveedor: 0,
-        pago_neto_proveedor: 0,
-      })
-      .eq("id", escrow.id)
-      .or(`liquidacion_operacion_id.is.null,liquidacion_operacion_id.eq.${operacionId}`)
-      .select("id")
-      .maybeSingle()
-    if (claimError || !reclamada) {
-      return { error: claimError?.message || "Otro proceso está liquidando este pago." }
-    }
-
-    const movimientos = await ejecutarLiquidacionStripe({
-      paymentIntentId: escrow.stripe_payment_intent_id,
-      chargeId: escrow.stripe_charge_id,
-      connectedAccountId: null,
-      transferGroup: escrow.stripe_transfer_group || crearTransferGroup(trabajoId),
-      montoTotal,
-      refundId: escrow.stripe_refund_id,
-      transferId: null,
-      reembolsoCliente: montoTotal,
-      netoProveedor: 0,
-      operacionId,
-      metadata: { trabajo_id: trabajoId, escrow_id: escrow.id, motivo: "cancelacion_mutuo_acuerdo" },
-    })
-
-    const { data: finalizada, error: updateError } = await admin
-      .from("transacciones_escrow")
-      .update({
-        estado: "reembolsado",
-        liquidacion_estado: "completada",
-        liquidacion_operacion_id: operacionId,
-        monto_reembolsado: montoTotal,
-        retencion_plataforma: 0,
-        comision_cliente_retenida: 0,
-        monto_bruto_proveedor: 0,
-        comision_proveedor: 0,
-        pago_neto_proveedor: 0,
-        stripe_charge_id: movimientos.chargeId,
-        stripe_refund_id: movimientos.refundId,
-        stripe_refund_status: movimientos.refundStatus,
-        fecha_reembolso: new Date().toISOString(),
-        notas: "Cancelación de mutuo acuerdo: reembolso íntegro al cliente.",
-      })
-      .eq("id", escrow.id)
-      .eq("liquidacion_operacion_id", operacionId)
-      .neq("liquidacion_estado", "completada")
-      .select("id")
-      .maybeSingle()
-
-    if (updateError) return { error: updateError.message }
-    if (!finalizada) return { reembolso: montoTotal }
-
-    return { reembolso: montoTotal }
+    const session = await stripe.checkout.sessions.retrieve(sessionId)
+    const resultado = await conciliarSesionPagada(admin, session, user.id)
+    revalidatePath("/mis-solicitudes")
+    revalidatePath("/mis-trabajos")
+    if (resultado.tardio) return { error: "Este pago llegó después del cierre del intento. Se ha reembolsado íntegramente y el servicio no se ha reactivado." }
+    return { data: resultado.escrow }
   } catch (error: any) {
-    const operacionId = `cancelacion-mutua-${escrow.id}`
-    await admin
-      .from("transacciones_escrow")
-      .update({ liquidacion_estado: "error", liquidacion_error: error.message || "Error de Stripe" })
-      .eq("id", escrow.id)
-      .eq("liquidacion_operacion_id", operacionId)
-    return { error: error.message }
+    return { error: error.message || "No se pudo conciliar el pago." }
+  }
+}
+
+/** A durable claim arbitrates confirmation, dispute and cancellation. */
+export async function liberarFondosEscrow(trabajoId: string) {
+  const supabase = await createClient()
+  if (!supabase) return { error: "No se pudo conectar con la base de datos." }
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+  const admin = createAdminClient()
+  if (!admin) return { error: "La configuración segura del servidor no está disponible." }
+  try {
+    // Include the same completed operation so a retry also repairs a previous
+    // interruption between the Stripe movement and the contract closure.
+    const { data: escrow, error } = await admin.from("transacciones_escrow").select("*")
+      .eq("trabajo_id", trabajoId).eq("cliente_id", user.id)
+      .or("estado.in.(retenido,fondos_retenidos,liquidando),liquidacion_operacion_id.like.confirmacion-%")
+      .maybeSingle()
+    if (error || !escrow) return { error: "No se encontró un único pago retenido para confirmar." }
+    const { data: reclamada, error: claimError } = await admin.rpc("diime_reclamar_liquidacion", {
+      p_escrow: escrow.id, p_actor: user.id, p_tipo: "confirmacion",
+    })
+    if (claimError) throw claimError
+    await liquidarPagoReclamado(admin, reclamada)
+    revalidatePath("/mis-solicitudes")
+    revalidatePath("/mis-trabajos")
+    return { success: true }
+  } catch (error: any) {
+    return { error: error.message || "No se pudo completar la liquidación." }
+  }
+}
+
+/** Accept, close Checkout links, refund if necessary and close atomically. */
+export async function reembolsarPorCancelacion(trabajoId: string) {
+  const supabase = await createClient()
+  if (!supabase) return { error: "No se pudo conectar con la base de datos." }
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+  const admin = createAdminClient()
+  if (!admin) return { error: "La configuración segura del servidor no está disponible." }
+  try {
+    const { error: bloqueoError } = await admin.rpc("diime_bloquear_checkout", {
+      p_trabajo: trabajoId, p_actor: user.id, p_cancelacion: true,
+    })
+    if (bloqueoError) throw bloqueoError
+    await cerrarCheckoutsPendientes(admin, trabajoId)
+    const { data: escrow, error } = await admin.from("transacciones_escrow").select("*")
+      .eq("trabajo_id", trabajoId)
+      .or("estado.in.(retenido,fondos_retenidos,liquidando),liquidacion_operacion_id.like.cancelacion-mutua-%")
+      .maybeSingle()
+    if (error) throw error
+    let reembolso = 0
+    let nuevoCierre = false
+    if (escrow) {
+      const { data: reclamada, error: claimError } = await admin.rpc("diime_reclamar_liquidacion", {
+        p_escrow: escrow.id, p_actor: user.id, p_tipo: "cancelacion",
+      })
+      if (claimError) throw claimError
+      const finalizada = await liquidarPagoReclamado(admin, reclamada)
+      nuevoCierre = Boolean(finalizada.nuevo_cierre)
+      reembolso = Number(reclamada.monto_reembolsado)
+    }
+    const { data: cierre, error: cierreError } = await admin.rpc("diime_cerrar_cancelacion", { p_trabajo: trabajoId, p_actor: user.id })
+    if (cierreError) throw cierreError
+    revalidatePath("/mis-solicitudes")
+    revalidatePath("/mis-trabajos")
+    return { reembolso, reutilizado: !nuevoCierre && !cierre?.nuevo_cierre }
+  } catch (error: any) {
+    return { error: error.message || "No se pudo conciliar la cancelación. Puedes reintentar sin duplicar el reembolso." }
   }
 }

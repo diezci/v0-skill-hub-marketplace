@@ -42,6 +42,7 @@ import { uploadFile } from "@/lib/upload-helpers"
 import { PlazoNecesidad } from "@/components/plazo-necesidad"
 import { useToast } from "@/hooks/use-toast"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
+import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
 import { calcularPagoProveedor, formatearPrecio, PLATFORM_CONFIG } from "@/lib/comisiones"
 
 // Aquí viven las pujas pendientes de respuesta y también las aceptadas cuyo
@@ -53,6 +54,9 @@ const esPendiente = (oferta: any) => !["aceptada", "rechazada", "retirada"].incl
 const esAceptadaSinPagar = (oferta: any) => oferta.estado === "aceptada" && oferta.trabajo?.estado === "pendiente_pago"
 const esVisible = (oferta: any) => esPendiente(oferta) || esAceptadaSinPagar(oferta)
 const esPerdida = (oferta: any) => oferta.estado === "rechazada"
+const necesitaConfirmarGastos = (oferta: any) => oferta.comision_proveedor_porcentaje == null ||
+  oferta.comision_proveedor_minima == null || oferta.comision_proveedor_prevista == null ||
+  oferta.pago_neto_proveedor_previsto == null
 
 export default function MisOfertas() {
   const [ofertas, setOfertas] = useState<any[]>([])
@@ -75,6 +79,11 @@ export default function MisOfertas() {
   async function cargarOfertas() {
     setLoading(true)
     const result = await obtenerOfertasPorProfesional()
+    if (result.error) {
+      toast({ title: "No se pudieron cargar tus pujas", description: result.error, variant: "destructive" })
+      setLoading(false)
+      return
+    }
     const todas = result.data || []
     setOfertas(todas.filter(esVisible))
     setPerdidas(todas.filter(esPerdida))
@@ -105,10 +114,10 @@ export default function MisOfertas() {
   const handleGuardarEdicion = async () => {
     if (!editOferta) return
     const esRepuja = esPerdida(editOferta)
-    if (esRepuja && !aceptaGastosRepuja) {
+    if ((esRepuja || necesitaConfirmarGastos(editOferta)) && !aceptaGastosRepuja) {
       toast({
         title: "Falta aceptar los gastos de servicio",
-        description: "Debes aceptar los gastos de servicio de Diime antes de volver a enviar la oferta.",
+        description: "Debes revisar y aceptar los gastos de servicio de Diime antes de enviar la oferta.",
         variant: "destructive",
       })
       return
@@ -162,6 +171,7 @@ export default function MisOfertas() {
           unidad_tiempo: editForm.unidad_tiempo,
           descripcion: editForm.descripcion,
           archivos: archivosFinales,
+          acepta_gastos: aceptaGastosRepuja,
         })
     if (result.error) {
       toast({ title: "Error", description: result.error, variant: "destructive" })
@@ -288,6 +298,13 @@ export default function MisOfertas() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {necesitaConfirmarGastos(oferta) && (
+                    <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+                      {esAceptadaSinPagar(oferta)
+                        ? "Falta confirmar la tarifa de esta oferta. Solicita cancelar el contrato pendiente y envía una nueva oferta revisando los gastos de servicio."
+                        : "Para que el cliente pueda contratar esta oferta, ábrela en Editar y confirma los gastos de servicio y tu importe neto."}
+                    </p>
+                  )}
                   <div className="grid gap-3 text-sm">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Calendar className="h-4 w-4" />
@@ -344,6 +361,10 @@ export default function MisOfertas() {
                       El cliente aceptó tu puja pero aún no ha completado el pago protegido. Cuando lo haga, el
                       trabajo aparecerá en Gestión de Proyectos.
                     </div>
+                  )}
+
+                  {esAceptadaSinPagar(oferta) && oferta.trabajo && (
+                    <CancelacionTrabajo trabajo={oferta.trabajo} onChange={cargarOfertas} />
                   )}
 
                   <div className="flex flex-wrap gap-2 pt-2">
@@ -574,7 +595,7 @@ export default function MisOfertas() {
                 </label>
               </div>
             </div>
-            {editOferta && esPerdida(editOferta) && (
+            {editOferta && (esPerdida(editOferta) || necesitaConfirmarGastos(editOferta)) && (
               <label className="flex items-start gap-3 rounded-lg border p-3 text-sm cursor-pointer">
                 <Checkbox
                   checked={aceptaGastosRepuja}

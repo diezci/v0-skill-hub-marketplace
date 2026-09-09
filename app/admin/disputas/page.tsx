@@ -100,7 +100,9 @@ export default function AdminDisputesPage() {
         return
       }
     }
-    if (!window.confirm("Esta decisión ejecutará el reembolso y/o la transferencia real en Stripe y no podrá modificarse después. ¿Continuar?")) return
+    if (!window.confirm(detalle.escrow
+      ? "Esta decisión ejecutará el reembolso y/o la transferencia real en Stripe y no podrá modificarse después. ¿Continuar?"
+      : "Esta mediación cambiará el estado de la contratación. No hay un pago que repartir. ¿Continuar?")) return
     setIsSubmitting(true)
     const result = await resolverDisputa({
       disputa_id: detalle.disputa.id,
@@ -111,20 +113,23 @@ export default function AdminDisputesPage() {
     if (result.error) {
       toast({ title: "Error", description: result.error, variant: "destructive" })
     } else {
-      toast({ title: "Disputa resuelta", description: "Se ha aplicado la resolución y el movimiento de fondos." })
+      toast({ title: "Disputa resuelta", description: detalle.escrow ? "Se ha aplicado la resolución y el movimiento de fondos." : "Se ha aplicado la mediación sin mover dinero." })
       setDetalle(null)
       cargarDisputas()
     }
     setIsSubmitting(false)
   }
 
-  const disputasAbiertas = disputas.filter((d) => d.estado === "abierta")
+  const disputasAbiertas = disputas.filter((d) => ["abierta", "en_revision"].includes(d.estado))
   const disputasResueltas = disputas.filter((d) => d.estado === "resuelta")
 
   // ---------- Vista de detalle ----------
   if (detalle) {
     const { disputa, trabajo, cliente, profesional, escrow, solicitud, oferta, mensajes, actualizaciones } = detalle
-    const base = Number(escrow?.monto_base ?? trabajo?.precio_acordado ?? 0)
+    const esContracargo = disputa.origen === "stripe" || Boolean(disputa.stripe_disputa_id)
+    const esMediacionSinPago = !escrow && disputa.estado_trabajo_previo === "pendiente_pago"
+    const requiereConciliacion = !escrow && !esMediacionSinPago
+    const base = Number(escrow?.monto_base ?? 0)
     const reembolsoPrevisto = resolucion === "cliente"
       ? base
       : resolucion === "parcial"
@@ -179,12 +184,12 @@ export default function AdminDisputesPage() {
             <Badge
               variant="outline"
               className={
-                disputa.estado === "abierta"
+                ["abierta", "en_revision"].includes(disputa.estado)
                   ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
                   : "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
               }
             >
-              {disputa.estado === "abierta" ? "Abierta" : "Resuelta"}
+              {["abierta", "en_revision"].includes(disputa.estado) ? "Abierta" : "Resuelta"}
             </Badge>
           </div>
 
@@ -435,18 +440,31 @@ export default function AdminDisputesPage() {
           </Card>
 
           {/* Panel de resolución */}
-          {disputa.estado === "abierta" ? (
+          {["abierta", "en_revision"].includes(disputa.estado) && (esContracargo || requiereConciliacion) ? (
+            <Card className="border-amber-500/40">
+              <CardHeader><CardTitle className="text-base">{esContracargo ? "Gestionar contracargo bancario" : "Conciliar el pago de este expediente"}</CardTitle></CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <p>{esContracargo
+                  ? "La entidad bancaria está disputando este cargo. Revisa su plazo y presenta las pruebas en Stripe. Antes de emitir otros movimientos, concilia el resultado bancario y las transferencias ya realizadas."
+                  : "El expediente no tiene un pago identificado con seguridad. Revisa el cargo en Stripe y vincúlalo al expediente antes de resolver; los intentos abandonados no son dinero retenido."}</p>
+                <a className="underline font-medium" href="https://dashboard.stripe.com/disputes" target="_blank" rel="noopener noreferrer">Abrir disputas en Stripe</a>
+              </CardContent>
+            </Card>
+          ) : ["abierta", "en_revision"].includes(disputa.estado) ? (
             <Card className="border-primary/30">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Resolver disputa</CardTitle>
+                <CardTitle className="text-base">{esMediacionSinPago ? "Resolver mediación sin pago" : "Resolver disputa"}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid sm:grid-cols-3 gap-3">
-                  {[
+                  {(esMediacionSinPago ? [
+                    { v: "cliente", label: "Cancelar la contratación", desc: "La demanda vuelve a estar abierta; no hay reembolso" },
+                    { v: "proveedor", label: "Mantener la contratación", desc: "El cliente debe pagar antes de iniciar el servicio" },
+                  ] : [
                     { v: "cliente", label: "Reembolsar al cliente", desc: `Devolver ${base.toFixed(2)} € del servicio` },
                     { v: "proveedor", label: "Liberar al proveedor", desc: "Transferir su neto en Stripe" },
                     { v: "parcial", label: "Reembolso parcial", desc: "Repartir el importe" },
-                  ].map((opt) => (
+                  ]).map((opt) => (
                     <button
                       key={opt.v}
                       type="button"
@@ -480,7 +498,7 @@ export default function AdminDisputesPage() {
                   </div>
                 )}
 
-                {resolucion && (
+                {resolucion && !esMediacionSinPago && (
                   <div className="rounded-lg border bg-muted/30 p-3 text-sm space-y-1.5">
                     <p className="font-medium">Vista previa cerrada del reparto</p>
                     <div className="flex justify-between"><span>Reembolso al cliente</span><span>{liquidacionPrevista.reembolsoCliente.toFixed(2)} €</span></div>
@@ -511,7 +529,7 @@ export default function AdminDisputesPage() {
 
                 <Button onClick={handleResolver} disabled={isSubmitting || !resolucion || !nota.trim()} className="w-full">
                   {isSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                  Ejecutar resolución en Stripe
+                  {esMediacionSinPago ? "Guardar decisión de mediación" : "Ejecutar resolución en Stripe"}
                 </Button>
               </CardContent>
             </Card>
@@ -527,9 +545,9 @@ export default function AdminDisputesPage() {
                   Resolución:{" "}
                   <span className="font-medium">
                     {disputa.resolucion === "cliente"
-                      ? "Reembolso al cliente"
+                      ? (esMediacionSinPago ? "Contratación cancelada sin pago" : "Reembolso al cliente")
                       : disputa.resolucion === "proveedor"
-                        ? "Pago liberado al proveedor"
+                        ? (esMediacionSinPago ? "Contratación mantenida; pendiente de pago" : "Pago liberado al proveedor")
                         : "Reembolso parcial"}
                   </span>
                 </p>
@@ -553,11 +571,11 @@ export default function AdminDisputesPage() {
       </Card>
     ) : (
       lista.map((d) => (
-        <Card key={d.id} className={d.estado === "abierta" ? "border-amber-500/20" : "border-emerald-500/20"}>
+        <Card key={d.id} className={["abierta", "en_revision"].includes(d.estado) ? "border-amber-500/20" : "border-emerald-500/20"}>
           <CardContent className="pt-6 flex items-center justify-between gap-4">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                {d.estado === "abierta" ? (
+                {["abierta", "en_revision"].includes(d.estado) ? (
                   <AlertCircle className="h-5 w-5 text-amber-500 shrink-0" />
                 ) : (
                   <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
@@ -571,7 +589,7 @@ export default function AdminDisputesPage() {
               <p className="text-xs text-muted-foreground">{formatearFecha(d.created_at)}</p>
             </div>
             <Button onClick={() => abrirDetalle(d.id)} disabled={loadingDetalle}>
-              {d.estado === "abierta" ? "Revisar y resolver" : "Ver detalle"}
+              {["abierta", "en_revision"].includes(d.estado) ? "Revisar y resolver" : "Ver detalle"}
             </Button>
           </CardContent>
         </Card>

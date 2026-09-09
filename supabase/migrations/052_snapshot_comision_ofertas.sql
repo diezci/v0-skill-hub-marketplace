@@ -8,64 +8,58 @@ alter table public.ofertas
   add column if not exists comision_proveedor_prevista decimal(10, 2),
   add column if not exists pago_neto_proveedor_previsto decimal(10, 2);
 
--- Todas las ofertas que ya existían se enviaron bajo la tarifa anterior:
--- 5 %, con un mínimo de 2 EUR y sin poder descontar más que el precio.
-update public.ofertas
-set
-  comision_proveedor_porcentaje = 5.00,
+-- Prioridad: conservar un snapshot existente y acreditar las ofertas antiguas
+-- con los importes originales del Checkout. Nunca se reescriben escrows, cargos,
+-- reembolsos ni liquidaciones históricas para adaptarlos a una tarifa nueva.
+-- Cuando 5 % y 10 % coinciden por el mínimo, la fecha anterior al cambio de
+-- tarifa identifica el acuerdo antiguo (commit f922645, 2026-09-07 18:00:47Z).
+-- Las ofertas sin ningún intento de pago anteriores a ese cambio conservan 5 %.
+-- Si la evidencia es incompatible o posterior/desconocida, los cuatro campos
+-- quedan NULL: contratar y pagar exige que el proveedor vuelva a aceptar gastos.
+with evidencia as (
+  select o.id, o.precio, o.created_at,
+    count(e.id) as intentos,
+    coalesce(bool_and(e.monto_base = o.precio and
+      e.comision_proveedor_original = least(o.precio, greatest(round(o.precio * 0.05, 2), 2))), false) as coincide_5,
+    coalesce(bool_and(e.monto_base = o.precio and
+      e.comision_proveedor_original = least(o.precio, greatest(round(o.precio * 0.10, 2), 2))), false) as coincide_10
+  from public.ofertas o
+  left join public.trabajos t on t.oferta_id = o.id
+  left join public.transacciones_escrow e on e.trabajo_id = t.id
+  group by o.id
+), tarifas as (
+  select id, case
+    when intentos > 0 and coincide_5 and not coincide_10 then 5.00
+    when intentos > 0 and coincide_10 and not coincide_5 then 10.00
+    when intentos > 0 and coincide_5 and coincide_10
+      then case when created_at < timestamptz '2026-09-07 18:00:47+00' then 5.00 else 10.00 end
+    when intentos = 0 and created_at < timestamptz '2026-09-07 18:00:47+00' then 5.00
+    else null
+  end as porcentaje
+  from evidencia
+)
+update public.ofertas o set
+  comision_proveedor_porcentaje = t.porcentaje,
   comision_proveedor_minima = 2.00,
-  comision_proveedor_prevista = least(
-    precio,
-    greatest(round(precio * 0.05, 2), 2.00)
-  ),
-  pago_neto_proveedor_previsto = precio - least(
-    precio,
-    greatest(round(precio * 0.05, 2), 2.00)
-  )
-where
-  comision_proveedor_porcentaje is null
-  or comision_proveedor_minima is null
-  or comision_proveedor_prevista is null
-  or pago_neto_proveedor_previsto is null;
-
--- Versiones anteriores redondeaban la comisión y el neto por separado. Eso
--- podía descuadrar un céntimo y hacer fallar el cierre en base de datos después
--- de que Stripe ya hubiera transferido el dinero. Se corrigen solo operaciones
--- que todavía no han iniciado una liquidación externa; el total cobrado y la
--- comisión original aceptada por el profesional permanecen inmutables.
-update public.transacciones_escrow
-set
-  comision_cliente = round(monto - monto_base, 2),
-  comision_proveedor = least(
-    greatest(comision_proveedor_original, 0),
-    monto_base
-  ),
-  pago_neto_proveedor = monto_base - least(
-    greatest(comision_proveedor_original, 0),
-    monto_base
-  ),
-  monto_bruto_proveedor = monto_base
-where
-  estado in ('pendiente', 'retenido', 'fondos_retenidos', 'disputa')
-  and liquidacion_operacion_id is null
-  and monto is not null
-  and monto_base is not null
-  and comision_proveedor_original is not null
-  and monto >= monto_base
-  and monto_base >= 0;
-
-alter table public.ofertas
-  alter column comision_proveedor_porcentaje set not null,
-  alter column comision_proveedor_minima set not null,
-  alter column comision_proveedor_prevista set not null,
-  alter column pago_neto_proveedor_previsto set not null;
+  comision_proveedor_prevista = least(o.precio, greatest(round(o.precio * t.porcentaje / 100, 2), 2.00)),
+  pago_neto_proveedor_previsto = o.precio - least(o.precio, greatest(round(o.precio * t.porcentaje / 100, 2), 2.00))
+from tarifas t
+where t.id = o.id and t.porcentaje is not null
+  and o.comision_proveedor_porcentaje is null
+  and o.comision_proveedor_minima is null
+  and o.comision_proveedor_prevista is null
+  and o.pago_neto_proveedor_previsto is null;
 
 alter table public.ofertas
   drop constraint if exists ofertas_comision_proveedor_snapshot_check;
 
 alter table public.ofertas
   add constraint ofertas_comision_proveedor_snapshot_check check (
-    precio > 0
+    (comision_proveedor_porcentaje is null and comision_proveedor_minima is null
+      and comision_proveedor_prevista is null and pago_neto_proveedor_previsto is null)
+    or (comision_proveedor_porcentaje is not null and comision_proveedor_minima is not null
+      and comision_proveedor_prevista is not null and pago_neto_proveedor_previsto is not null
+    and precio > 0
     and comision_proveedor_porcentaje >= 0
     and comision_proveedor_porcentaje <= 100
     and comision_proveedor_minima >= 0
@@ -80,7 +74,7 @@ alter table public.ofertas
     )
     and pago_neto_proveedor_previsto >= 0
     and pago_neto_proveedor_previsto = precio - comision_proveedor_prevista
-  );
+  ));
 
 -- La RLS permite que el profesional inserte y edite su propia oferta. Por eso
 -- estos importes no pueden confiar en valores enviados por el navegador: el
@@ -128,6 +122,27 @@ begin
     end if;
     new.comision_proveedor_porcentaje := 10.00;
     new.comision_proveedor_minima := 2.00;
+  elsif old.comision_proveedor_porcentaje is null then
+    if auth.uid() = old.profesional_id
+      and new.comision_proveedor_porcentaje = 10.00
+      and new.comision_proveedor_minima = 2.00 then
+      if exists (select 1 from public.trabajos t where t.oferta_id = old.id
+        and (t.estado <> 'cancelado' or exists (
+          select 1 from public.transacciones_escrow e where e.trabajo_id = t.id
+            and (e.fecha_retencion is not null or e.estado in
+              ('retenido','fondos_retenidos','liquidando','liberado','completado','reembolsado','disputa'))))) then
+        raise exception 'La oferta tiene historial contractual; crea una oferta nueva para aceptar los gastos vigentes'
+          using errcode = '55000';
+      end if;
+      new.comision_proveedor_porcentaje := 10.00;
+      new.comision_proveedor_minima := 2.00;
+    else
+      new.comision_proveedor_porcentaje := null;
+      new.comision_proveedor_minima := null;
+      new.comision_proveedor_prevista := null;
+      new.pago_neto_proveedor_previsto := null;
+      return new;
+    end if;
   else
     new.comision_proveedor_porcentaje := old.comision_proveedor_porcentaje;
     new.comision_proveedor_minima := old.comision_proveedor_minima;

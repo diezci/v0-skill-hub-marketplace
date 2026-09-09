@@ -1,5 +1,7 @@
 "use server"
 
+import { createAdminClient } from "@/lib/supabase/admin"
+
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { buscarYEnviarInvitaciones } from "./invitaciones"
@@ -478,7 +480,7 @@ async function avisarAQuienHaPujado(
   const destinatarios = [...new Set(((ofertas as any[] | null) || []).map((o) => o.profesional_id).filter(Boolean))]
   if (destinatarios.length === 0) return
 
-  await supabase.from("notificaciones").insert(
+  await createAdminClient()?.from("notificaciones").insert(
     destinatarios.map((id) => ({
       usuario_id: id,
       tipo: aviso.tipo,

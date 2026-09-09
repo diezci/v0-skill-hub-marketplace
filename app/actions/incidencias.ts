@@ -250,7 +250,7 @@ export async function actualizarIncidencia(
   if (cierra && incidencia?.reportado_por) {
     const resuelta = cambios.estado === "resuelta"
     const nota = incidencia.notas_admin?.trim()
-    const { crearNotificacion } = await import("./notificaciones")
+    const { crearNotificacion } = await import("@/lib/notificaciones")
     await crearNotificacion({
       usuarioId: incidencia.reportado_por,
       tipo: "incidencia_resuelta",

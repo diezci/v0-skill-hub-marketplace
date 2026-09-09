@@ -82,7 +82,10 @@ export async function crearOferta(formData: {
   if (!Number.isFinite(formData.precio) || formData.precio <= 0) {
     return { error: "El precio propuesto debe ser mayor que 0." }
   }
-  if (!Number.isFinite(formData.tiempo_estimado) || formData.tiempo_estimado <= 0) {
+  if (!["horas", "dias", "semanas", "meses"].includes(formData.unidad_tiempo)) {
+    return { error: "La unidad de tiempo de la oferta no es válida." }
+  }
+  if (!Number.isInteger(formData.tiempo_estimado) || formData.tiempo_estimado <= 0) {
     return { error: "El tiempo estimado debe ser mayor que 0." }
   }
   if (!formData.acepta_gastos) {
@@ -180,7 +183,7 @@ export async function crearOferta(formData: {
     .eq("id", formData.solicitud_id)
     .maybeSingle()
   if (solicitud?.cliente_id) {
-    const { crearNotificacion } = await import("./notificaciones")
+    const { crearNotificacion } = await import("@/lib/notificaciones")
     await crearNotificacion({
       usuarioId: solicitud.cliente_id,
       tipo: "oferta_nueva",
@@ -198,6 +201,7 @@ export async function crearOferta(formData: {
 
 export async function obtenerMisOfertas() {
   const supabase = await createClient()
+  if (!supabase) return { error: "Base de datos no disponible" }
 
   const {
     data: { user },
@@ -237,14 +241,33 @@ export async function obtenerMisOfertas() {
   // Para las pujas aceptadas, el estado de su trabajo: mientras esté sin pagar
   // (pendiente_pago) la puja sigue viviendo aquí, no en Gestión de Proyectos.
   const idsAceptadas = (data || []).filter((o: any) => o.estado === "aceptada").map((o: any) => o.id)
-  const trabajosPorOferta: Record<string, { id: string; estado: string }> = {}
+  type TrabajoOferta = {
+    id: string
+    estado: string
+    oferta_id: string
+    cliente_id: string
+    profesional_id: string
+    cancelacion_estado: string | null
+    cancelacion_solicitada_por: string | null
+    cancelacion_razon: string | null
+    cancelacion_adjuntos_solicitante: string[]
+    cancelacion_respuesta_razon: string | null
+    cancelacion_adjuntos_respuesta: string[]
+  }
+  const trabajosPorOferta: Record<string, TrabajoOferta> = {}
   if (idsAceptadas.length > 0) {
-    const { data: trabajosDeOfertas } = await supabase
+    const { data: trabajosDeOfertas, error: trabajosError } = await supabase
       .from("trabajos")
-      .select("id, estado, oferta_id")
+      .select("id, estado, oferta_id, cliente_id, profesional_id, cancelacion_estado, cancelacion_solicitada_por, cancelacion_razon, cancelacion_adjuntos_solicitante, cancelacion_respuesta_razon, cancelacion_adjuntos_respuesta")
       .in("oferta_id", idsAceptadas)
-    for (const t of trabajosDeOfertas || []) {
-      trabajosPorOferta[t.oferta_id] = { id: t.id, estado: t.estado }
+      .order("created_at", { ascending: false })
+    if (trabajosError) return { error: "No se pudo consultar el estado de tus contratos. Inténtalo de nuevo." }
+    for (const t of (trabajosDeOfertas || []) as TrabajoOferta[]) {
+      // Conserva el contrato vigente; un duplicado histórico cancelado nunca
+      // debe esconder un trabajo ya pagado ni mostrar una cancelación antigua.
+      if (!trabajosPorOferta[t.oferta_id] || trabajosPorOferta[t.oferta_id].estado === "cancelado") {
+        trabajosPorOferta[t.oferta_id] = t
+      }
     }
   }
 
@@ -295,9 +318,11 @@ export async function actualizarOferta(
     unidad_tiempo?: string
     descripcion?: string
     archivos?: string[]
+    acepta_gastos?: boolean
   },
 ) {
   const supabase = await createClient()
+  if (!supabase) return { error: "Base de datos no disponible" }
 
   const {
     data: { user },
@@ -310,7 +335,7 @@ export async function actualizarOferta(
   // Solo el profesional dueño y mientras la oferta no esté aceptada.
   const { data: oferta } = await supabase
     .from("ofertas")
-    .select("profesional_id, estado, solicitud_id, precio, comision_proveedor_porcentaje, comision_proveedor_minima")
+    .select("profesional_id, estado, solicitud_id, precio, comision_proveedor_porcentaje, comision_proveedor_minima, comision_proveedor_prevista, pago_neto_proveedor_previsto")
     .eq("id", ofertaId)
     .maybeSingle()
 
@@ -323,13 +348,24 @@ export async function actualizarOferta(
   if (campos.precio != null && (!Number.isFinite(campos.precio) || campos.precio <= 0)) {
     return { error: "El precio propuesto debe ser mayor que 0." }
   }
-  if (campos.tiempo_estimado != null && (!Number.isFinite(campos.tiempo_estimado) || campos.tiempo_estimado <= 0)) {
+  if (campos.unidad_tiempo != null && !["horas", "dias", "semanas", "meses"].includes(campos.unidad_tiempo)) {
+    return { error: "La unidad de tiempo de la oferta no es válida." }
+  }
+  if (campos.tiempo_estimado != null && (!Number.isInteger(campos.tiempo_estimado) || campos.tiempo_estimado <= 0)) {
     return { error: "El tiempo estimado debe ser mayor que 0." }
   }
 
   const precioActualizado = campos.precio ?? Number(oferta.precio)
-  const porcentajeAceptado = Number(oferta.comision_proveedor_porcentaje)
-  const minimoAceptado = Number(oferta.comision_proveedor_minima)
+  const requiereAceptarGastos = oferta.comision_proveedor_porcentaje == null ||
+    oferta.comision_proveedor_minima == null || oferta.comision_proveedor_prevista == null ||
+    oferta.pago_neto_proveedor_previsto == null
+  if (requiereAceptarGastos && campos.acepta_gastos !== true) {
+    return { error: "Debes revisar y aceptar los gastos de servicio de esta oferta antes de guardarla." }
+  }
+  const porcentajeAceptado = requiereAceptarGastos
+    ? PLATFORM_CONFIG.comision_proveedor : Number(oferta.comision_proveedor_porcentaje)
+  const minimoAceptado = requiereAceptarGastos
+    ? PLATFORM_CONFIG.comision_minima : Number(oferta.comision_proveedor_minima)
   if (
     !Number.isFinite(precioActualizado) ||
     precioActualizado <= 0 ||
@@ -353,7 +389,11 @@ export async function actualizarOferta(
       tiempo_estimado: campos.tiempo_estimado,
       unidad_tiempo: campos.unidad_tiempo,
       descripcion: campos.descripcion,
-      ...(campos.precio !== undefined
+      ...(requiereAceptarGastos ? {
+        comision_proveedor_porcentaje: porcentajeAceptado,
+        comision_proveedor_minima: minimoAceptado,
+      } : {}),
+      ...(campos.precio !== undefined || requiereAceptarGastos
         ? {
             comision_proveedor_prevista: liquidacionActualizada.comisionProveedor,
             pago_neto_proveedor_previsto: liquidacionActualizada.pagoNeto,
@@ -378,7 +418,7 @@ export async function actualizarOferta(
       .eq("id", oferta.solicitud_id)
       .maybeSingle()
     if (solicitud?.cliente_id) {
-      const { crearNotificacion } = await import("./notificaciones")
+      const { crearNotificacion } = await import("@/lib/notificaciones")
       await crearNotificacion({
         usuarioId: solicitud.cliente_id,
         tipo: "oferta_actualizada",
@@ -398,6 +438,7 @@ export async function actualizarOferta(
 
 export async function eliminarOferta(ofertaId: string) {
   const supabase = await createClient()
+  if (!supabase) return { error: "Base de datos no disponible" }
 
   const {
     data: { user },
@@ -444,7 +485,7 @@ export async function eliminarOferta(ofertaId: string) {
 
     // Solo si la demanda sigue viva: en una ya contratada el aviso sobraría.
     if (solicitud?.cliente_id && solicitud.estado === "abierta") {
-      const { crearNotificacion } = await import("./notificaciones")
+      const { crearNotificacion } = await import("@/lib/notificaciones")
       await crearNotificacion({
         usuarioId: solicitud.cliente_id,
         tipo: "oferta_retirada",
@@ -498,6 +539,7 @@ export async function eliminarOfertaPerdida(ofertaId: string) {
 
 export async function aceptarOferta(ofertaId: string) {
   const supabase = await createClient()
+  if (!supabase) return { error: "Base de datos no disponible" }
 
   const {
     data: { user },
@@ -518,7 +560,7 @@ export async function aceptarOferta(ofertaId: string) {
   }
 
   // Verify user is the client of this solicitud
-  if (oferta.solicitud.cliente_id !== user.id) {
+  if (oferta.solicitud?.cliente_id !== user.id) {
     return { error: "No tienes permiso para aceptar esta oferta" }
   }
 
@@ -534,8 +576,11 @@ export async function aceptarOferta(ofertaId: string) {
     return { error: trabajoResult.error }
   }
 
+  // Reintentar una aceptación no vuelve a enviar el aviso.
+  if (trabajoResult.reutilizado) return { data: trabajoResult.data }
+
   // Notificar al profesional que su oferta ha sido aceptada.
-  const { crearNotificacion } = await import("./notificaciones")
+  const { crearNotificacion } = await import("@/lib/notificaciones")
   await crearNotificacion({
     usuarioId: oferta.profesional_id,
     tipo: "oferta_aceptada",
@@ -549,6 +594,7 @@ export async function aceptarOferta(ofertaId: string) {
 
 export async function rechazarOferta(ofertaId: string) {
   const supabase = await createClient()
+  if (!supabase) return { error: "Base de datos no disponible" }
 
   const {
     data: { user },
@@ -590,7 +636,7 @@ export async function rechazarOferta(ofertaId: string) {
     return { error: error.message }
   }
 
-  const { crearNotificacion } = await import("./notificaciones")
+  const { crearNotificacion } = await import("@/lib/notificaciones")
   await crearNotificacion({
     usuarioId: oferta.profesional_id,
     tipo: "oferta_rechazada",
@@ -605,33 +651,28 @@ export async function rechazarOferta(ofertaId: string) {
 }
 
 export async function actualizarEstadoOferta(ofertaId: string, estado: string) {
+  // Un profesional no puede aceptar su propia oferta ni cambiar el acuerdo
+  // mediante una acción genérica expuesta por el servidor.
+  if (estado !== "retirada") return { error: "Solo puedes retirar una oferta pendiente desde esta acción." }
   const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return { error: "No autenticado" }
-  }
-
-  const { data, error } = await supabase
-    .from("ofertas")
-    .update({ estado, updated_at: new Date().toISOString() })
-    .eq("id", ofertaId)
-    .eq("profesional_id", user.id)
-    .select()
-    .single()
-
-  if (error) {
-    return { error: error.message }
-  }
-
+  if (!supabase) return { error: "Base de datos no disponible" }
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+  const { data, error } = await supabase.from("ofertas")
+    .update({ estado: "retirada", updated_at: new Date().toISOString() })
+    .eq("id", ofertaId).eq("profesional_id", user.id)
+    .in("estado", ["pendiente", "enviada", "en_negociacion", "rechazada"])
+    .select().maybeSingle()
+  if (error) return { error: error.message }
+  if (!data) return { error: "La oferta ya no se puede retirar. Si está contratada, solicita la cancelación del trabajo." }
   revalidatePath("/mis-solicitudes")
+  revalidatePath("/mis-ofertas")
   return { data }
 }
 
 export async function obtenerOfertasPorSolicitud(solicitudId: string) {
   const supabase = await createClient()
+  if (!supabase) return { error: "Base de datos no disponible" }
 
   const { data, error } = await supabase
     .from("ofertas")
@@ -662,7 +703,7 @@ export async function obtenerOfertasPorSolicitud(solicitudId: string) {
         ...oferta,
         profesional: profesional
           ? {
-              ...profesional,
+              ...(profesional as unknown as Record<string, unknown>),
               profiles: profile,
             }
           : null,

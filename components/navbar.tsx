@@ -17,6 +17,7 @@ import {
   FileText,
   ShieldAlert,
   WalletCards,
+  Building2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -399,6 +400,12 @@ const Navbar = () => {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
+                    <Link href="/mi-empresa" className="cursor-pointer">
+                      <Building2 className="h-4 w-4 mr-2" />
+                      Mi empresa
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link href="/mi-cuenta" className="cursor-pointer">
                       <Settings className="mr-2 h-4 w-4" />
                       Configuración
@@ -551,6 +558,14 @@ const Navbar = () => {
                   >
                     <ShieldAlert className="h-5 w-5 shrink-0" />
                     Incidencias
+                  </Link>
+                  <Link
+                    href="/mi-empresa"
+                    onClick={() => setIsOpen(false)}
+                    className="px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted flex items-center gap-3"
+                  >
+                    <Building2 className="h-5 w-5 shrink-0" />
+                    Mi empresa
                   </Link>
                   <Link
                     href="/mi-cuenta"

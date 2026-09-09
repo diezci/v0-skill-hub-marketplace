@@ -1,7 +1,9 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
+import { errorIdentidadCuentaStripe } from "@/lib/stripe-connect-identidad"
 import { revalidatePath } from "next/cache"
 
 function siteUrl() {
@@ -85,7 +87,7 @@ async function usuarioProfesional() {
   // profesional aunque sí estuviera creada.
   const { data: perfil, error: perfilError } = await supabase
     .from("profiles")
-    .select("id, nombre, apellido")
+    .select("id, nombre, apellido, empresa_id")
     .eq("id", user.id)
     .maybeSingle()
   const { data: profesional, error } = await supabase
@@ -99,13 +101,15 @@ async function usuarioProfesional() {
   if (perfilError) return { error: `No se pudo leer el perfil: ${perfilError.message}` as const }
   if (error) return { error: `No se pudo leer Stripe Connect: ${error.message}` as const }
   if (!perfil || !profesional) return { error: "Necesitas un perfil profesional antes de configurar cobros." as const }
-  return { supabase, user, perfil, profesional }
+  const admin = createAdminClient()
+  if (!admin) return { error: "No se pudo preparar la conexión segura de cobros." as const }
+  return { supabase, admin, user, perfil, profesional }
 }
 
 export async function obtenerEstadoStripeConnect() {
   const contexto = await usuarioProfesional()
   if ("error" in contexto) return { error: contexto.error }
-  const { supabase, profesional } = contexto
+  const { admin, perfil, profesional } = contexto
 
   if (!profesional.stripe_account_id) {
     return {
@@ -124,7 +128,7 @@ export async function obtenerEstadoStripeConnect() {
   try {
     const account = await stripe.accounts.retrieve(profesional.stripe_account_id)
     if ("deleted" in account && account.deleted) {
-      await supabase
+      const { error: guardarError } = await admin
         .from("profesionales")
         .update({
           stripe_account_id: null,
@@ -135,6 +139,7 @@ export async function obtenerEstadoStripeConnect() {
           stripe_estado_actualizado_at: new Date().toISOString(),
         })
         .eq("id", profesional.id)
+      if (guardarError) throw guardarError
       return {
         data: {
           conectado: false,
@@ -149,7 +154,27 @@ export async function obtenerEstadoStripeConnect() {
     }
 
     const estado = estadoCuenta(account)
-    await supabase.from("profesionales").update(estado).eq("id", profesional.id)
+    const errorIdentidad = errorIdentidadCuentaStripe(account, perfil)
+    if (errorIdentidad) {
+      await admin.from("profesionales").update({
+        stripe_onboarding_completado: false,
+        stripe_transferencias_habilitadas: false,
+        stripe_payouts_habilitados: false,
+        stripe_estado_actualizado_at: new Date().toISOString(),
+      }).eq("id", profesional.id)
+      return { error: errorIdentidad }
+    }
+    const { data: guardado, error: guardarError } = await admin.rpc("actualizar_estado_cuenta_stripe", {
+      p_profesional_id: profesional.id,
+      p_account_id: profesional.stripe_account_id,
+      p_empresa_esperada: perfil.empresa_id,
+      p_onboarding: estado.stripe_onboarding_completado,
+      p_transferencias: estado.stripe_transferencias_habilitadas,
+      p_payouts: estado.stripe_payouts_habilitados,
+      p_requisitos: estado.stripe_requisitos_pendientes,
+    })
+    if (guardarError) throw guardarError
+    if (!guardado) return { error: "Tu perfil de cobros ha cambiado. Actualiza el estado para volver a comprobarlo." }
 
     const opcionesCuenta = { stripeAccount: profesional.stripe_account_id }
     const [resultadoSaldo, resultadoPayouts, resultadoMovimientos, resultadoCalendario] = await Promise.allSettled([
@@ -266,32 +291,44 @@ export async function obtenerEstadoStripeConnect() {
 export async function crearEnlaceOnboardingStripe(opciones: OpcionesOnboarding = {}) {
   const contexto = await usuarioProfesional()
   if ("error" in contexto) return { error: contexto.error }
-  const { supabase, user, perfil, profesional } = contexto
+  const { admin, user, perfil, profesional } = contexto
 
   try {
     let accountId = profesional.stripe_account_id as string | null
     if (!accountId) {
+      let nombreCobros = [perfil.nombre, perfil.apellido].filter(Boolean).join(" ")
+      if (perfil.empresa_id) {
+        const { data: empresa, error: empresaError } = await admin.from("empresas")
+          .select("nombre").eq("id", perfil.empresa_id).single()
+        if (empresaError || !empresa) return { error: "No se pudieron verificar los datos de tu empresa." }
+        nombreCobros = empresa.nombre
+      }
       const account = await stripe.accounts.create(
         {
           type: "express",
           country: "ES",
+          business_type: perfil.empresa_id ? "company" : "individual",
           email: user.email || undefined,
           business_profile: {
-            name: [perfil.nombre, perfil.apellido].filter(Boolean).join(" ") || undefined,
+            name: nombreCobros || undefined,
             product_description: "Servicios profesionales contratados a través de Diime",
           },
           capabilities: { transfers: { requested: true } },
-          metadata: { diime_profesional_id: profesional.id },
+          metadata: { diime_profesional_id: profesional.id, ...(perfil.empresa_id ? { diime_empresa_id: perfil.empresa_id } : {}) },
         },
         { idempotencyKey: `diime-connect-account-${profesional.id}` },
       )
       accountId = account.id
-      const { error } = await supabase
+      const { error } = await admin
         .from("profesionales")
         .update({ stripe_account_id: accountId, ...estadoCuenta(account) })
         .eq("id", profesional.id)
       if (error) throw error
     }
+
+    const cuenta = await stripe.accounts.retrieve(accountId)
+    const errorIdentidad = errorIdentidadCuentaStripe(cuenta, perfil)
+    if (errorIdentidad) return { error: errorIdentidad }
 
     const base = siteUrl()
     const parametrosRetorno = new URLSearchParams({ volver: rutaRetornoSegura(opciones.volverA) })
@@ -315,10 +352,13 @@ export async function crearEnlaceOnboardingStripe(opciones: OpcionesOnboarding =
 export async function crearEnlaceDashboardStripe() {
   const contexto = await usuarioProfesional()
   if ("error" in contexto) return { error: contexto.error }
-  const { profesional } = contexto
+  const { perfil, profesional } = contexto
   if (!profesional.stripe_account_id) return { error: "Completa primero el alta de cobros." }
 
   try {
+    const cuenta = await stripe.accounts.retrieve(profesional.stripe_account_id)
+    const errorIdentidad = errorIdentidadCuentaStripe(cuenta, perfil)
+    if (errorIdentidad) return { error: errorIdentidad }
     const link = await stripe.accounts.createLoginLink(profesional.stripe_account_id)
     return { data: { url: link.url } }
   } catch (error: any) {

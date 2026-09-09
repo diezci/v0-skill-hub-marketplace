@@ -1,3 +1,5 @@
+import "server-only"
+import { createAdminClient } from "@/lib/supabase/admin"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 /**
@@ -11,7 +13,8 @@ import type { SupabaseClient } from "@supabase/supabase-js"
  * dependía de por dónde se hubiera cerrado la demanda.
  *
  * La oferta ganadora no entra aquí: al aceptarla pasa a "aceptada" y este filtro
- * solo toca las que siguen en "pendiente".
+ * solo toca las pujas abiertas, incluidos los estados históricos "enviada" y
+ * "en_negociacion".
  *
  * Recibe el cliente de Supabase porque los dos llamadores usan uno distinto: la
  * server action va con la sesión del cliente (que por RLS puede actualizar las
@@ -30,7 +33,7 @@ export async function rechazarYNotificarOfertasPerdedoras(
     .from("ofertas")
     .update({ estado: "rechazada", updated_at: new Date().toISOString() })
     .eq("solicitud_id", params.solicitudId)
-    .eq("estado", "pendiente")
+    .in("estado", ["pendiente", "enviada", "en_negociacion"])
     .select("id, profesional_id")
 
   if (!perdedoras?.length) return { notificadas: 0 }
@@ -48,7 +51,7 @@ export async function rechazarYNotificarOfertasPerdedoras(
     }))
 
   if (avisos.length > 0) {
-    await supabase.from("notificaciones").insert(avisos)
+    await createAdminClient()?.from("notificaciones").insert(avisos)
 
     // Alta masiva: no pasa por `crearNotificacion`, así que el correo se manda
     // aquí. Quien ha dedicado tiempo a preparar una oferta merece enterarse sin

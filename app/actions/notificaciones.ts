@@ -2,49 +2,6 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
-import { enviarPushAUsuario } from "@/lib/push/enviar"
-
-// Crea una notificación para un usuario (puede ser distinto del actual: p. ej. el
-// profesional que oferta notifica al cliente). La RLS permite INSERT a cualquier
-// autenticado.
-export async function crearNotificacion(params: {
-  usuarioId: string
-  tipo: string
-  titulo: string
-  mensaje?: string
-  link?: string
-}) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return
-  // No notificarse a uno mismo.
-  if (params.usuarioId === user.id) return
-
-  const { error } = await supabase.from("notificaciones").insert({
-    usuario_id: params.usuarioId,
-    tipo: params.tipo,
-    titulo: params.titulo,
-    mensaje: params.mensaje ?? null,
-    link: params.link ?? null,
-    leida: false,
-  })
-  if (error) return
-
-  // El mismo aviso, por correo, si es de los que lo merecen. Va aquí porque es
-  // el paso por el que ya pasan casi todos los avisos. `enviarAvisoPorEmail` no
-  // lanza nunca: si no hay correo configurado o Resend falla, el aviso de la
-  // web ya está guardado y la acción que lo provocó sigue adelante.
-  const { enviarAvisoPorEmail } = await import("@/lib/emails/enviar")
-  await enviarAvisoPorEmail(params)
-  await enviarPushAUsuario(params.usuarioId, {
-    titulo: params.titulo,
-    cuerpo: params.mensaje || "Tienes una novedad en Diime.",
-    link: params.link,
-    tipo: params.tipo,
-  })
-}
 
 // Activa o desactiva los avisos por correo. Los avisos se siguen viendo en la
 // web: esto solo decide si además se mandan por email.

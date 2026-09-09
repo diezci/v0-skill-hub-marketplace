@@ -125,7 +125,7 @@ export async function actualizarVerificacionProfesional(profesionalId: string, v
   // El cambio principal ya está guardado. El aviso es complementario y no debe
   // deshacer la operación si el canal de notificaciones no está disponible.
   try {
-    const { crearNotificacion } = await import("./notificaciones")
+    const { crearNotificacion } = await import("@/lib/notificaciones")
     await crearNotificacion({
       usuarioId: profesionalId,
       tipo: verificado ? "perfil_verificado" : "verificacion_retirada",
