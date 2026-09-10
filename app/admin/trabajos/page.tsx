@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic"
 export default async function AdminTrabajosPage() {
   const resultado = await obtenerTrabajosAdmin()
   // Esta sección es de contrataciones consumadas: aceptar una oferta crea un
-  // trabajo pendiente, pero solo el pago retenido genera factura.
+  // trabajo pendiente, pero solo el pago retenido genera justificante.
   const trabajos = (resultado.data || []).filter((trabajo) => trabajo.contratado)
   const activos = trabajos.filter((trabajo) =>
     ["en_progreso", "entregado", "en_disputa"].includes(trabajo.estado),
@@ -20,7 +20,7 @@ export default async function AdminTrabajosPage() {
       <div>
         <h1 className="flex items-center gap-2 text-3xl font-bold">
           <Briefcase className="h-8 w-8 text-primary" />
-          Trabajos y facturas
+          Trabajos y justificantes
         </h1>
         <p className="mt-1 text-muted-foreground">
           Consulta todas las contrataciones y abre el documento generado para el cliente o para el proveedor.
@@ -61,7 +61,7 @@ export default async function AdminTrabajosPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <FileText className="h-4 w-4" /> Facturas disponibles
+              <FileText className="h-4 w-4" /> Justificantes disponibles
             </CardTitle>
           </CardHeader>
           <CardContent>

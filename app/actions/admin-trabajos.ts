@@ -105,7 +105,7 @@ async function requerirAdmin() {
     .maybeSingle()
 
   if (!perfil?.es_admin) {
-    return { error: "No tienes permiso para consultar trabajos y facturas", supabase: null, userId: null }
+    return { error: "No tienes permiso para consultar trabajos y justificantes", supabase: null, userId: null }
   }
 
   return { error: null, supabase, userId: user.id }

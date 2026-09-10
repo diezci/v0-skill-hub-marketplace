@@ -167,7 +167,7 @@ export default async function AdminUsuarioDetallePage({ params }: { params: Prom
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Historial de trabajos y facturas</CardTitle>
+          <CardTitle className="text-base">Historial de trabajos y justificantes</CardTitle>
         </CardHeader>
         <CardContent>
           <AdminUsuarioTrabajos trabajos={trabajos} usuarioId={usuario.id} />

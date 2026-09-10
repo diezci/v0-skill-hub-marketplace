@@ -274,7 +274,7 @@ export default function MisDisputas({
                   target="_blank"
                   className="text-xs text-primary hover:underline inline-flex items-center gap-1"
                 >
-                  <FileText className="h-3.5 w-3.5" /> Ver factura y términos
+                  <FileText className="h-3.5 w-3.5" /> Ver justificante y términos
                 </Link>
                 <Link
                   href="/mensajes"

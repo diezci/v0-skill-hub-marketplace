@@ -30,7 +30,6 @@ export function saldoPrincipalStripe(estado: EstadoStripeConnect | null): SaldoS
       moneda: "eur",
       disponible: 0,
       pendiente: 0,
-      instantaneo: 0,
     }
   )
 }

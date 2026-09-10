@@ -850,7 +850,7 @@ function TrabajoCard({
                   target="_blank"
                   className="text-xs text-primary hover:underline inline-flex items-center gap-1"
                 >
-                  <FileText className="h-3 w-3" /> Ver factura y términos
+                  <FileText className="h-3 w-3" /> Ver justificante y términos
                 </a>
               </div>
             </div>

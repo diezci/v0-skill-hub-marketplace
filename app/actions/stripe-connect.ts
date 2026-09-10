@@ -26,7 +26,6 @@ export type SaldoStripePorMoneda = {
   moneda: string
   disponible: number
   pendiente: number
-  instantaneo: number
 }
 
 export type EstadoStripeConnect = {
@@ -192,7 +191,6 @@ export async function obtenerEstadoStripeConnect() {
       const monedas = new Set([
         ...balance.available.map((item) => item.currency),
         ...balance.pending.map((item) => item.currency),
-        ...(balance.instant_available || []).map((item) => item.currency),
       ])
       const sumar = (items: Array<{ amount: number; currency: string }>, moneda: string) =>
         items.reduce((total, item) => total + (item.currency === moneda ? item.amount : 0), 0)
@@ -202,7 +200,6 @@ export async function obtenerEstadoStripeConnect() {
           moneda,
           disponible: sumar(balance.available, moneda),
           pendiente: sumar(balance.pending, moneda),
-          instantaneo: sumar(balance.instant_available || [], moneda),
         }))
         .sort((a, b) => {
           if (a.moneda === "eur") return -1

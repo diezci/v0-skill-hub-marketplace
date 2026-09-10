@@ -145,7 +145,7 @@ export function AdminTrabajosTable({
               <TableHead>Estado del trabajo</TableHead>
               <TableHead>Pago</TableHead>
               <TableHead>Contratación</TableHead>
-              <TableHead className="min-w-[245px] text-right">Factura</TableHead>
+              <TableHead className="min-w-[245px] text-right">Justificante</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -207,7 +207,7 @@ export function AdminTrabajosTable({
                               href={`/trabajos/${trabajo.id}/factura?vista=cliente`}
                               target="_blank"
                               rel="noreferrer"
-                              title="Ver la factura desde la perspectiva del cliente"
+                              title="Ver el justificante desde la perspectiva del cliente"
                             >
                               <FileText className="h-3.5 w-3.5" /> Vista cliente
                               <ExternalLink className="h-3 w-3" />
@@ -218,7 +218,7 @@ export function AdminTrabajosTable({
                               href={`/trabajos/${trabajo.id}/factura?vista=proveedor`}
                               target="_blank"
                               rel="noreferrer"
-                              title="Ver la factura y liquidación del proveedor"
+                              title="Ver el justificante y la liquidación del proveedor"
                             >
                               <FileText className="h-3.5 w-3.5" /> Vista proveedor
                               <ExternalLink className="h-3 w-3" />

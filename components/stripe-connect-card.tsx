@@ -138,7 +138,7 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
               </Badge>
             ) : listo ? (
               <Badge className="bg-emerald-600">
-                <ShieldCheck className="mr-1 h-3 w-3" /> Lista para cobrar
+                <ShieldCheck className="mr-1 h-3 w-3" /> Cuenta de cobros activa
               </Badge>
             ) : (
               <Badge variant="outline" className="border-amber-500 text-amber-700">
@@ -205,7 +205,13 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
             <div className="flex gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
               <CalendarClock className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
               <div>
-                <p className="font-medium">Próximo cobro</p>
+                <p className="font-medium">
+                  {proximoIngreso
+                    ? "Próximo ingreso al banco"
+                    : proximaDisponibilidad
+                      ? "Próxima disponibilidad"
+                      : "Próximo ingreso"}
+                </p>
                 {proximoIngreso ? (
                   <>
                     <p className="mt-1 text-sm">
@@ -222,8 +228,9 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
                   </>
                 ) : proximaDisponibilidad ? (
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Parte del saldo pendiente estará disponible el {formatearFechaStripe(proximaDisponibilidad.fecha)}.
-                    Después se enviará {describirCalendarioStripe(estado)}. Stripe todavía no ha generado una fecha bancaria exacta.
+                    El saldo pendiente empezará a estar disponible para enviarlo al banco el{" "}
+                    {formatearFechaStripe(proximaDisponibilidad.fecha)}. Después se enviará{" "}
+                    {describirCalendarioStripe(estado)}. Stripe todavía no ha generado una fecha de llegada al banco.
                   </p>
                 ) : estado.saldoError ? (
                   <p className="mt-1 text-sm text-muted-foreground">
@@ -235,11 +242,6 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
                   </p>
                 ) : (
                   <p className="mt-1 text-sm text-muted-foreground">No hay ingresos bancarios programados.</p>
-                )}
-                {saldo.instantaneo > 0 && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Stripe marca {formatearImporteStripe(saldo.instantaneo, saldo.moneda)} como disponible para ingreso instantáneo.
-                  </p>
                 )}
               </div>
             </div>

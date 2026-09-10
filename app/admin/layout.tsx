@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { desvincularPushActual } from "@/lib/push/client"
-import { Loader2, Users, Scale, CreditCard, LayoutDashboard, LogOut, ChevronRight, ShieldAlert, MessageSquare, Briefcase, BellRing, BadgeCheck } from "lucide-react"
+import { Loader2, Users, Scale, CreditCard, LayoutDashboard, LogOut, ChevronRight, ShieldAlert, MessageSquare, Briefcase, BellRing, BadgeCheck, ExternalLink, WalletCards } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { DiimeLogo } from "@/components/diime-logo"
@@ -15,7 +15,7 @@ const navItems = [
   { href: "/admin/operaciones", label: "Operaciones", icon: BellRing },
   { href: "/admin/usuarios", label: "Usuarios", icon: Users },
   { href: "/admin/verificaciones", label: "Verificaciones", icon: BadgeCheck },
-  { href: "/admin/trabajos", label: "Trabajos y facturas", icon: Briefcase },
+  { href: "/admin/trabajos", label: "Trabajos y justificantes", icon: Briefcase },
   { href: "/admin/disputas", label: "Disputas", icon: Scale },
   { href: "/admin/incidencias", label: "Incidencias", icon: ShieldAlert },
   { href: "/admin/mensajes", label: "Soporte", icon: MessageSquare },
@@ -146,6 +146,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </Link>
             )
           })}
+          <a
+            href="https://dashboard.stripe.com/balance/overview"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex shrink-0 items-center gap-3 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            <WalletCards className="h-5 w-5" />
+            Stripe
+            <ExternalLink className="ml-auto h-4 w-4" />
+            <span className="sr-only">Abrir saldo y movimientos de Diime en una pestaña nueva</span>
+          </a>
         </nav>
 
         {/* User section */}

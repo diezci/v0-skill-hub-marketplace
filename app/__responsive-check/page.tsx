@@ -74,7 +74,7 @@ export default function ResponsiveCheckPage() {
               <p className="break-words text-sm text-muted-foreground">Materiales: incluidos</p>
               <div className="flex min-w-0 flex-wrap gap-3 pt-1">
                 <span className="inline-flex min-w-0 max-w-full items-center gap-1 break-words text-xs text-primary">
-                  <FileText className="h-3 w-3 shrink-0" /> Ver factura y terminos
+                  <FileText className="h-3 w-3 shrink-0" /> Ver justificante y terminos
                 </span>
               </div>
             </div>

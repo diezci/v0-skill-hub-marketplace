@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 
-// Datos completos de una contratación para los documentos (contrato y factura).
+// Datos completos de una contratación para su propuesta, justificante y desglose.
 // Solo las partes del trabajo (o un admin) pueden verlos.
 export async function obtenerDatosContratacion(trabajoId: string) {
   const supabase = await createClient()
@@ -60,13 +60,13 @@ export async function obtenerDatosContratacion(trabajoId: string) {
   ])
   const escrows = (escrowR.data as any[] | null) || []
   // Un reintento de checkout pendiente puede ser más nuevo que el pago que sí
-  // se completó. La factura debe usar primero la transacción económica real.
+  // se completó. El justificante debe usar primero la transacción económica real.
   const escrow =
     escrows.find((fila) => fila.fecha_retencion || estadosContratados.has(fila.estado)) ?? escrows[0] ?? null
   const contratado = !!escrow && (!!escrow.fecha_retencion || estadosContratados.has(escrow.estado))
 
-  // Datos de facturación de ambas partes: si actúan por una empresa, la factura
-  // va a nombre de la empresa (con su CIF) indicando quién actúa en su nombre.
+  // Datos fiscales de ambas partes: si actúan por una empresa se identifica a la
+  // empresa (con su CIF) y a quien actúa en su nombre.
   // Va por RPC porque `empresas` tiene RLS y cada parte no puede leer la empresa
   // de la otra; la función solo responde a las partes de este trabajo.
   const { data: facturacion, error: errorFacturacion } = await supabase.rpc("facturacion_trabajo", {

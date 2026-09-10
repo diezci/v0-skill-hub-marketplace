@@ -1016,7 +1016,9 @@ export default function DemandasServicios() {
               />
               <span className="text-sm text-muted-foreground">
                 Acepto los gastos de servicio de Diime ({PLATFORM_CONFIG.comisionProveedorPorcentaje}% del precio,
-                mín. {formatearPrecio(PLATFORM_CONFIG.comision_minima)}).{" "}
+                mín. {formatearPrecio(PLATFORM_CONFIG.comision_minima)}; IVA del{" "}
+                {PLATFORM_CONFIG.ivaDiimePorcentaje}% incluido). Mi oferta es un precio final y soy responsable de
+                facturar y declarar los impuestos de mi servicio.{" "}
                 {Number.parseFloat(formData.precio) > 0 && (
                   <>
                     Si el cliente acepta esta oferta de {formatearPrecio(Number.parseFloat(formData.precio))},{" "}

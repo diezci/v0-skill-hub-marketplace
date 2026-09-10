@@ -41,5 +41,9 @@ next-env.d.ts
 /ios/App/diime-ios-simulator.png
 /.build/
 
+# Informes, capturas y estado temporal generados durante auditorías locales.
+/outputs/
+/supabase/.temp/
+
 # El ejemplo sí se versiona: solo lleva nombres de variables, ningún valor.
 !.env.example

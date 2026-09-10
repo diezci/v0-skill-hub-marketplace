@@ -2,10 +2,17 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import {
+  preferenciasEmailAFila,
+  sonPreferenciasEmailValidas,
+  type PreferenciasEmail,
+} from "@/lib/preferencias-notificaciones"
 
-// Activa o desactiva los avisos por correo. Los avisos se siguen viendo en la
-// web: esto solo decide si además se mandan por email.
-export async function actualizarPreferenciaEmails(activo: boolean) {
+// Guarda el interruptor general y cada categoría. La fila siempre se vincula al
+// usuario autenticado en el servidor; el navegador no decide su propietario.
+export async function actualizarPreferenciasEmails(preferencias: PreferenciasEmail) {
+  if (!sonPreferenciasEmailValidas(preferencias)) return { error: "Preferencias no válidas" }
+
   const supabase = await createClient()
   if (!supabase) return { error: "Base de datos no disponible" }
 
@@ -14,7 +21,14 @@ export async function actualizarPreferenciaEmails(activo: boolean) {
   } = await supabase.auth.getUser()
   if (!user) return { error: "No autenticado" }
 
-  const { error } = await supabase.from("profiles").update({ email_notificaciones: activo }).eq("id", user.id)
+  const { error } = await supabase.from("preferencias_notificaciones").upsert(
+    {
+      usuario_id: user.id,
+      ...preferenciasEmailAFila(preferencias),
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "usuario_id" },
+  )
   if (error) return { error: error.message }
 
   revalidatePath("/mi-cuenta")

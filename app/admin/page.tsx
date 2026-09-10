@@ -385,7 +385,7 @@ export default function AdminDashboard() {
           >
             <Briefcase className="h-5 w-5 text-primary" />
             <div>
-              <p className="font-medium">Trabajos y facturas</p>
+              <p className="font-medium">Trabajos y justificantes</p>
               <p className="text-sm text-muted-foreground">Consultar todas las contrataciones</p>
             </div>
           </Link>

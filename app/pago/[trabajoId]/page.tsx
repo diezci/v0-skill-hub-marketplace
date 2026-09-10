@@ -175,12 +175,13 @@ export default function PagoPage() {
                     <h3 className="font-medium text-sm">Desglose del pago</h3>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Precio del servicio</span>
+                        <span className="text-muted-foreground">Precio final del servicio</span>
                         <span>{formatearPrecio(desglose.precioBase)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">
-                          Gastos de servicio Diime ({PLATFORM_CONFIG.comisionClientePorcentaje}%)
+                          Gastos de servicio Diime ({PLATFORM_CONFIG.comisionClientePorcentaje}%; IVA del{" "}
+                          {PLATFORM_CONFIG.ivaDiimePorcentaje}% incluido)
                         </span>
                         <span>{formatearPrecio(desglose.comisionCliente)}</span>
                       </div>

@@ -105,12 +105,18 @@ export function ResumenCobrosMenu() {
       <div className="mt-2.5 flex gap-2 border-t border-emerald-500/10 pt-2.5 text-xs">
         <CalendarClock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
         <div>
-          <p className="font-medium">Próximo cobro</p>
+          <p className="font-medium">
+            {proximoIngreso
+              ? "Próximo ingreso al banco"
+              : proximaDisponibilidad
+                ? "Próxima disponibilidad"
+                : "Próximo ingreso"}
+          </p>
           <p className="mt-0.5 leading-snug text-muted-foreground">
             {proximoIngreso
               ? `${formatearImporteStripe(proximoIngreso.importe, proximoIngreso.moneda)} llegará ${formatearFechaStripe(proximoIngreso.llegada)}`
               : proximaDisponibilidad
-                ? `Parte del saldo estará disponible ${formatearFechaStripe(proximaDisponibilidad.fecha)}; después se enviará ${describirCalendarioStripe(estado)}.`
+                ? `El saldo pendiente empezará a estar disponible para enviarlo al banco ${formatearFechaStripe(proximaDisponibilidad.fecha)}; después se enviará ${describirCalendarioStripe(estado)}.`
                 : estado.saldoError
                   ? "Stripe no ha podido confirmar ahora la fecha del próximo ingreso."
                   : saldo.disponible > 0

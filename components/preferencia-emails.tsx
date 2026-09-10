@@ -1,63 +1,138 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Mail, MailX, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { actualizarPreferenciaEmails } from "@/app/actions/notificaciones"
+import { actualizarPreferenciasEmails } from "@/app/actions/notificaciones"
+import {
+  OPCIONES_EMAIL,
+  type CategoriaEmail,
+  type PreferenciasEmail,
+} from "@/lib/preferencias-notificaciones"
 
-// Baja de los avisos por correo. El RGPD exige que darse de baja sea tan fácil
-// como el alta, así que está aquí y también enlazado al pie de cada correo.
-export function PreferenciaEmails({ inicial }: { inicial: boolean }) {
-  const [activo, setActivo] = useState(inicial)
-  const [guardando, startTransition] = useTransition()
+export function PreferenciaEmails({
+  inicial,
+  esProfesional,
+}: {
+  inicial: PreferenciasEmail
+  esProfesional: boolean
+}) {
+  const [preferencias, setPreferencias] = useState(inicial)
+  const [guardando, setGuardando] = useState<keyof PreferenciasEmail | null>(null)
   const { toast } = useToast()
 
-  const alternar = () => {
-    const nuevo = !activo
-    // Optimista: se pinta ya y se revierte si el guardado falla.
-    setActivo(nuevo)
-    startTransition(async () => {
-      const res = await actualizarPreferenciaEmails(nuevo)
-      if (res?.error) {
-        setActivo(!nuevo)
-        toast({ title: "No se pudo guardar", description: res.error, variant: "destructive" })
-        return
-      }
+  const guardar = async (siguientes: PreferenciasEmail, clave: keyof PreferenciasEmail) => {
+    const anteriores = preferencias
+    setPreferencias(siguientes)
+    setGuardando(clave)
+    try {
+      const res = await actualizarPreferenciasEmails(siguientes)
+      if (!res?.error) return true
+      setPreferencias(anteriores)
+      toast({ title: "No se pudo guardar", description: res.error, variant: "destructive" })
+      return false
+    } catch {
+      setPreferencias(anteriores)
       toast({
-        title: nuevo ? "Avisos por correo activados" : "Avisos por correo desactivados",
-        description: nuevo
-          ? "Te escribiremos cuando pase algo importante en tus proyectos."
-          : "Seguirás viendo los avisos dentro de Diime.",
+        title: "No se pudo guardar",
+        description: "Comprueba tu conexión y vuelve a intentarlo.",
+        variant: "destructive",
       })
-    })
+      return false
+    } finally {
+      setGuardando(null)
+    }
+  }
+
+  const alternarGeneral = async () => {
+    const activo = !preferencias.emailActivo
+    if (await guardar({ ...preferencias, emailActivo: activo }, "emailActivo")) {
+      toast({
+        title: activo ? "Avisos por correo activados" : "Avisos por correo desactivados",
+        description: activo
+          ? "Recibirás las categorías que tienes seleccionadas."
+          : "Seguirás viendo todos los avisos dentro de Diime.",
+      })
+    }
+  }
+
+  const alternarCategoria = async (clave: CategoriaEmail, activo: boolean) => {
+    const opcion = OPCIONES_EMAIL.find((item) => item.clave === clave)
+    if (await guardar({ ...preferencias, [clave]: activo }, clave)) {
+      toast({
+        title: activo ? "Categoría activada" : "Categoría desactivada",
+        description: opcion?.titulo,
+      })
+    }
   }
 
   return (
-    <div className="flex items-start justify-between gap-4">
-      <div>
-        <h3 className="text-sm font-medium mb-1">Avisos por correo</h3>
-        <p className="text-sm text-muted-foreground">
-          {activo
-            ? "Recibes un correo cuando te hacen una oferta, cobras o se abre una disputa."
-            : "No recibes correos. Los avisos siguen apareciendo dentro de Diime."}
-        </p>
+    <div className="space-y-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="mb-1 text-sm font-medium">Avisos por correo</h3>
+          <p className="text-sm text-muted-foreground">
+            {preferencias.emailActivo
+              ? "Elige qué novedades quieres recibir también en tu correo."
+              : "No recibes correos. Todos los avisos siguen apareciendo dentro de Diime."}
+          </p>
+        </div>
+        <Button
+          variant={preferencias.emailActivo ? "outline" : "default"}
+          size="sm"
+          onClick={() => void alternarGeneral()}
+          disabled={guardando !== null}
+        >
+          {guardando === "emailActivo" ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : preferencias.emailActivo ? (
+            <>
+              <MailX className="mr-1.5 h-4 w-4" />
+              Desactivar todo
+            </>
+          ) : (
+            <>
+              <Mail className="mr-1.5 h-4 w-4" />
+              Activar
+            </>
+          )}
+        </Button>
       </div>
-      <Button variant={activo ? "outline" : "default"} size="sm" onClick={alternar} disabled={guardando}>
-        {guardando ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : activo ? (
-          <>
-            <MailX className="h-4 w-4 mr-1.5" />
-            Desactivar
-          </>
-        ) : (
-          <>
-            <Mail className="h-4 w-4 mr-1.5" />
-            Activar
-          </>
+
+      <div className="divide-y rounded-lg border">
+        {OPCIONES_EMAIL.filter((opcion) => !opcion.soloProfesionales || esProfesional).map(
+          (opcion) => (
+            <label
+              key={opcion.clave}
+              className={`flex cursor-pointer items-start gap-3 p-3.5 ${
+                !preferencias.emailActivo ? "cursor-not-allowed opacity-60" : ""
+              }`}
+            >
+              <Checkbox
+                className="mt-0.5"
+                checked={preferencias[opcion.clave]}
+                disabled={!preferencias.emailActivo || guardando !== null}
+                onCheckedChange={(valor) => void alternarCategoria(opcion.clave, valor === true)}
+                aria-label={opcion.titulo}
+              />
+              <span>
+                <span className="block text-sm font-medium">{opcion.titulo}</span>
+                <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
+                  {opcion.descripcion}
+                </span>
+              </span>
+              {guardando === opcion.clave && <Loader2 className="ml-auto mt-0.5 h-4 w-4 animate-spin" />}
+            </label>
+          ),
         )}
-      </Button>
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        Los mensajes de chat no generan un correo por cada mensaje; siguen llegando dentro de Diime y mediante las
+        notificaciones del dispositivo.
+      </p>
     </div>
   )
 }

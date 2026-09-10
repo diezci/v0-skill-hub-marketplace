@@ -1,20 +1,83 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 
-export async function obtenerEstadoBloqueo(otroUsuarioId: string) {
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+type EstadoBloqueo = {
+  autenticado: boolean
+  bloqueadoPorMi: boolean
+  meHaBloqueado: boolean
+  esMismoUsuario?: boolean
+  esEquipoDiime: boolean
+  pendienteMigracion?: boolean
+  error?: string
+}
+
+async function comprobarEquipoDiime(
+  usuarioId: string,
+  supabase: NonNullable<Awaited<ReturnType<typeof createClient>>>,
+) {
+  // La comprobación ocurre en el servidor y, cuando está disponible, con el
+  // cliente administrativo. Así no depende de que una política pública de
+  // perfiles exponga el rol interno del destinatario.
+  const lectorPerfiles = createAdminClient() ?? supabase
+  const { data, error } = await lectorPerfiles
+    .from("profiles")
+    .select("id, es_admin")
+    .eq("id", usuarioId)
+    .maybeSingle()
+
+  return {
+    existe: !!data,
+    esEquipoDiime: !!data?.es_admin,
+    error,
+  }
+}
+
+export async function obtenerEstadoBloqueo(otroUsuarioId: string): Promise<EstadoBloqueo> {
   const supabase = await createClient()
-  if (!supabase) return { autenticado: false, bloqueadoPorMi: false, meHaBloqueado: false }
+  if (!supabase) {
+    return { autenticado: false, bloqueadoPorMi: false, meHaBloqueado: false, esEquipoDiime: false }
+  }
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) return { autenticado: false, bloqueadoPorMi: false, meHaBloqueado: false }
+  if (!user) {
+    return { autenticado: false, bloqueadoPorMi: false, meHaBloqueado: false, esEquipoDiime: false }
+  }
+  if (!UUID_RE.test(otroUsuarioId)) {
+    return {
+      autenticado: true,
+      bloqueadoPorMi: false,
+      meHaBloqueado: false,
+      esEquipoDiime: false,
+      error: "Usuario no válido.",
+    }
+  }
   if (user.id === otroUsuarioId) {
-    return { autenticado: true, esMismoUsuario: true, bloqueadoPorMi: false, meHaBloqueado: false }
+    return {
+      autenticado: true,
+      esMismoUsuario: true,
+      bloqueadoPorMi: false,
+      meHaBloqueado: false,
+      esEquipoDiime: false,
+    }
   }
 
+  const equipo = await comprobarEquipoDiime(otroUsuarioId, supabase)
+  if (equipo.error) {
+    return {
+      autenticado: true,
+      bloqueadoPorMi: false,
+      meHaBloqueado: false,
+      esEquipoDiime: false,
+      error: "No se pudo comprobar el perfil.",
+    }
+  }
   const { data, error } = await supabase
     .from("usuarios_bloqueados")
     .select("bloqueador_id, bloqueado_id")
@@ -23,19 +86,36 @@ export async function obtenerEstadoBloqueo(otroUsuarioId: string) {
     )
 
   if (error) {
-    if (error.code === "42P01") return { autenticado: true, pendienteMigracion: true, bloqueadoPorMi: false, meHaBloqueado: false }
-    return { autenticado: true, error: error.message, bloqueadoPorMi: false, meHaBloqueado: false }
+    if (error.code === "42P01") {
+      return {
+        autenticado: true,
+        pendienteMigracion: true,
+        bloqueadoPorMi: false,
+        meHaBloqueado: false,
+        esEquipoDiime: equipo.esEquipoDiime,
+      }
+    }
+    return {
+      autenticado: true,
+      error: error.message,
+      bloqueadoPorMi: false,
+      meHaBloqueado: false,
+      esEquipoDiime: equipo.esEquipoDiime,
+    }
   }
 
-  const bloqueadoPorMi = (data || []).some((b) => b.bloqueador_id === user.id)
+  const bloqueadoPorMiAnterior = (data || []).some((b) => b.bloqueador_id === user.id)
   const { data: hayBloqueo } = await supabase.rpc("interaccion_bloqueada_con", { p_otro: otroUsuarioId })
 
   return {
     autenticado: true,
-    bloqueadoPorMi,
+    // Una relación antigua dirigida al equipo deja de contar como bloqueo. La
+    // migración también la elimina para mantener la base de datos coherente.
+    bloqueadoPorMi: equipo.esEquipoDiime ? false : bloqueadoPorMiAnterior,
     // La política de la tabla no revela quién te bloqueó. La RPC devuelve solo
     // el estado agregado, suficiente para desactivar la interacción.
-    meHaBloqueado: !!hayBloqueo && !bloqueadoPorMi,
+    meHaBloqueado: !!hayBloqueo && !bloqueadoPorMiAnterior,
+    esEquipoDiime: equipo.esEquipoDiime,
   }
 }
 
@@ -47,7 +127,13 @@ export async function bloquearUsuario(otroUsuarioId: string) {
   } = await supabase.auth.getUser()
 
   if (!user) return { error: "Inicia sesión para bloquear a un usuario." }
+  if (!UUID_RE.test(otroUsuarioId)) return { error: "Usuario no válido." }
   if (user.id === otroUsuarioId) return { error: "No puedes bloquearte a ti mismo." }
+
+  const equipo = await comprobarEquipoDiime(otroUsuarioId, supabase)
+  if (equipo.error) return { error: "No se pudo comprobar el perfil. Inténtalo de nuevo." }
+  if (!equipo.existe) return { error: "El usuario ya no está disponible." }
+  if (equipo.esEquipoDiime) return { error: "No puedes bloquear al equipo de Diime." }
 
   const { error } = await supabase.from("usuarios_bloqueados").upsert(
     { bloqueador_id: user.id, bloqueado_id: otroUsuarioId },
@@ -72,6 +158,7 @@ export async function desbloquearUsuario(otroUsuarioId: string) {
   } = await supabase.auth.getUser()
 
   if (!user) return { error: "No autenticado" }
+  if (!UUID_RE.test(otroUsuarioId)) return { error: "Usuario no válido." }
   const { error } = await supabase
     .from("usuarios_bloqueados")
     .delete()

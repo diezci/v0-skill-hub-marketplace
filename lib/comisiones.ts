@@ -2,6 +2,8 @@
 // The platform charges a service fee on top of the agreed price
 
 export const PLATFORM_CONFIG = {
+  // Las tarifas visibles de Diime son precios finales: ya incluyen este IVA.
+  ivaDiimePorcentaje: 21,
   // Commission charged TO THE CLIENT on top of the agreed price (percentage)
   comision_cliente: 10, // 10% added on top
   comisionClientePorcentaje: 10, // Alias for display
@@ -18,6 +20,30 @@ export const PLATFORM_CONFIG = {
 // separado podía crear o perder un céntimo en determinados precios.
 const aCentimos = (importe: number) => Math.round(importe * 100)
 const aEuros = (centimos: number) => centimos / 100
+
+/**
+ * Separa la base y la cuota de IVA de un importe que ya incluye el impuesto.
+ * El redondeo se hace en centimos para que base + IVA conserve siempre el total.
+ */
+export function desglosarIvaIncluido(
+  totalConIva: number,
+  porcentajeIva = PLATFORM_CONFIG.ivaDiimePorcentaje,
+): {
+  baseImponible: number
+  cuotaIva: number
+  total: number
+} {
+  if (!Number.isFinite(totalConIva) || totalConIva <= 0 || !Number.isFinite(porcentajeIva) || porcentajeIva < 0) {
+    return { baseImponible: 0, cuotaIva: 0, total: 0 }
+  }
+  const totalCentimos = aCentimos(totalConIva)
+  const baseCentimos = Math.round((totalCentimos * 100) / (100 + porcentajeIva))
+  return {
+    baseImponible: aEuros(baseCentimos),
+    cuotaIva: aEuros(totalCentimos - baseCentimos),
+    total: aEuros(totalCentimos),
+  }
+}
 
 /**
  * Calculate what the client pays:

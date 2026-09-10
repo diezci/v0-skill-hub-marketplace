@@ -317,7 +317,7 @@ export async function crearPagoEscrow(data: {
             currency: PLATFORM_CONFIG.moneda,
             product_data: {
               name: tituloServicio,
-              description: `Precio del servicio: ${precioBase.toFixed(2)}EUR + Comision plataforma: ${comisionCliente.toFixed(2)}EUR`,
+              description: `Precio final del servicio: ${precioBase.toFixed(2)}EUR + Gastos Diime con IVA incluido: ${comisionCliente.toFixed(2)}EUR`,
             },
             unit_amount: Math.round(totalCliente * 100), // Stripe uses cents
           },

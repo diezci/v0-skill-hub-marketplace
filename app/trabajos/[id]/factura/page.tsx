@@ -3,13 +3,18 @@ import { notFound } from "next/navigation"
 import { BotonImprimir } from "@/components/boton-imprimir"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
 import { DiimeLogo } from "@/components/diime-logo"
-import { PLATFORM_CONFIG, calcularTotalCliente, calcularPagoProveedor } from "@/lib/comisiones"
+import {
+  PLATFORM_CONFIG,
+  calcularTotalCliente,
+  calcularPagoProveedor,
+  desglosarIvaIncluido,
+} from "@/lib/comisiones"
 import { obtenerDatosContratacion, formatearEuros, formatearFechaLarga, etiquetaMateriales } from "../datos"
 
 // Lee la sesión: siempre dinámico (nunca shell estático).
 export const dynamic = "force-dynamic"
 
-export const metadata: Metadata = { title: "Factura | Diime" }
+export const metadata: Metadata = { title: "Justificante y desglose fiscal | Diime" }
 
 type DatosFacturacion = {
   empresa_nombre: string | null
@@ -22,12 +27,7 @@ type DatosFacturacion = {
   persona_cargo: string | null
 } | null
 
-/**
- * Bloque de una parte de la factura. Si actúa por una empresa, la factura se
- * emite a nombre de la empresa (razón social + CIF) y debajo se identifica a la
- * persona que actúa en su nombre, que es quien responde de lo acordado. Si es
- * un particular o autónomo, factura él mismo con su NIF.
- */
+/** Identifica a las partes del servicio sin presentar el justificante como su factura fiscal. */
 function ParteFactura({
   titulo,
   facturacion,
@@ -76,6 +76,23 @@ function ParteFactura({
   )
 }
 
+function DetalleIvaDiime({ importe }: { importe: number }) {
+  const desglose = desglosarIvaIncluido(importe)
+
+  return (
+    <div className="space-y-1 bg-muted/20 px-4 py-2.5 text-xs text-muted-foreground">
+      <div className="flex justify-between gap-4">
+        <span>Base imponible del servicio de Diime</span>
+        <span>{formatearEuros(desglose.baseImponible)}</span>
+      </div>
+      <div className="flex justify-between gap-4">
+        <span>IVA de Diime ({PLATFORM_CONFIG.ivaDiimePorcentaje} %)</span>
+        <span>{formatearEuros(desglose.cuotaIva)}</span>
+      </div>
+    </div>
+  )
+}
+
 const ETIQUETA_ESTADO_PAGO: Record<string, string> = {
   pendiente: "Pendiente de pago",
   fondos_retenidos: "Pagado · pendiente de liquidación",
@@ -120,7 +137,7 @@ export default async function FacturaPage({
   // pueden usarla para ver la parte económica ajena.
   const mostrarCliente = esAdmin ? vistaAdmin !== "proveedor" : esCliente
   const mostrarProveedor = esAdmin ? vistaAdmin !== "cliente" : esProfesional
-  const tituloDocumento = contratado ? "Factura" : "Propuesta y términos"
+  const tituloDocumento = contratado ? "Justificante de pago y desglose fiscal" : "Propuesta y términos"
   const { comisionCliente, totalCliente } = calcularTotalCliente(trabajo.precio_acordado || 0)
   const baseOriginal = Number(escrow?.monto_base ?? trabajo.precio_acordado ?? 0)
   const liquidacionProveedorActual = calcularPagoProveedor(baseOriginal)
@@ -152,7 +169,7 @@ export default async function FacturaPage({
     Number.isFinite(porcentajeProveedorOferta) &&
     Number.isFinite(minimoProveedorOferta)
   const anio = new Date(escrow?.fecha_retencion || trabajo.created_at).getFullYear()
-  const numero = `${contratado ? "FAC" : "PROP"}-${anio}-${String(trabajo.id).slice(0, 8).toUpperCase()}`
+  const numero = `${contratado ? "JUST" : "PROP"}-${anio}-${String(trabajo.id).slice(0, 8).toUpperCase()}`
   const fechaEmision = escrow?.fecha_retencion || trabajo.created_at
   const plazo = oferta?.tiempo_estimado
     ? `${oferta.tiempo_estimado} ${oferta.unidad_tiempo || "días"} desde el inicio del trabajo`
@@ -173,7 +190,7 @@ export default async function FacturaPage({
           <div>
             <h1 className="text-2xl font-bold">{tituloDocumento}</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {contratado ? "Nº" : "Ref."} {numero} · {contratado ? "Emitida" : "Generada"} el{" "}
+              Ref. {numero} · Generado el{" "}
               {formatearFechaLarga(fechaEmision)}
             </p>
             {esAdmin && vistaAdmin !== "completa" && (
@@ -193,25 +210,23 @@ export default async function FacturaPage({
           </div>
         </div>
 
-        {/* Partes. Si una actúa por una empresa, la factura va a nombre de la
-            empresa (con su CIF) y se identifica a la persona que actúa por ella. */}
+        {/* Si una parte actúa por una empresa se identifica también a su representante. */}
         <div className="grid sm:grid-cols-2 gap-4 text-sm">
           <ParteFactura
-            titulo="Facturar a (cliente)"
+            titulo="Cliente"
             facturacion={facturacionCliente}
             perfil={cliente}
             emailFallback={cliente?.email}
           />
           <ParteFactura
-            titulo="Servicio prestado por"
+            titulo="Proveedor del servicio"
             facturacion={facturacionProfesional}
             perfil={profesional}
             emailFallback={profesional?.email}
           />
         </div>
 
-        {/* Detalle de la propuesta aceptada. Tras el pago pasa a ser el servicio
-            contratado que la factura documenta. */}
+        {/* Detalle de la propuesta aceptada. Tras el pago pasa a ser el servicio contratado. */}
         <section className="text-sm space-y-3">
           <h2 className="font-semibold text-base">
             {contratado ? "Detalle del servicio contratado" : "Detalle de la propuesta aceptada"}
@@ -298,7 +313,7 @@ export default async function FacturaPage({
               <div>
                 <p className="font-medium">{trabajo.titulo}</p>
                 <p className="text-muted-foreground text-xs mt-0.5">
-                  {contratado ? "Servicio profesional contratado" : "Servicio pendiente de pago"} a través de Diime · Ref. TRB-
+                  {contratado ? "Servicio profesional contratado" : "Servicio pendiente de pago"} · Precio final indicado por el proveedor · Ref. TRB-
                   {String(trabajo.id).slice(0, 8).toUpperCase()}
                 </p>
               </div>
@@ -308,13 +323,14 @@ export default async function FacturaPage({
               <>
                 <div className="grid grid-cols-[1fr_auto] gap-4 px-4 py-2.5">
                   <span>
-                    Gastos de servicio Diime
+                    Gastos de servicio Diime (IVA del {PLATFORM_CONFIG.ivaDiimePorcentaje} % incluido)
                     {!escrow && (
                       <> ({PLATFORM_CONFIG.comisionClientePorcentaje}%, mín. {formatearEuros(PLATFORM_CONFIG.comision_minima)})</>
                     )}
                   </span>
                   <span className="font-medium">{formatearEuros(comisionClienteOriginal)}</span>
                 </div>
+                <DetalleIvaDiime importe={comisionClienteOriginal} />
                 <div className="grid grid-cols-[1fr_auto] gap-4 px-4 py-3 bg-muted/40">
                   <span className="font-semibold">
                     {contratado ? "Total pagado por el cliente" : "Total pendiente de pago por el cliente"}
@@ -336,7 +352,10 @@ export default async function FacturaPage({
               </>
             )}
           </div>
-          <p className="text-xs text-muted-foreground mt-2">Impuestos incluidos en los importes cuando resulten aplicables.</p>
+          <p className="text-xs text-muted-foreground mt-2">
+            El precio del servicio es el importe final indicado por el proveedor e incluye los impuestos que le
+            correspondan. Diime no calcula ni retiene esos impuestos.
+          </p>
         </section>
 
         {/* Liquidación del profesional: solo la ve el profesional (y un admin). */}
@@ -350,7 +369,7 @@ export default async function FacturaPage({
               </div>
               <div className="flex justify-between px-4 py-2.5">
                 <span>
-                  Gastos de servicio Diime
+                  Gastos de servicio Diime (IVA del {PLATFORM_CONFIG.ivaDiimePorcentaje} % incluido)
                   {mostrarTarifaProveedorOferta && (
                     <> ({porcentajeProveedorOferta}%, mín. {formatearEuros(minimoProveedorOferta)})</>
                   )}
@@ -359,6 +378,7 @@ export default async function FacturaPage({
                   −{formatearEuros(comisionProveedorReal)}
                 </span>
               </div>
+              <DetalleIvaDiime importe={comisionProveedorReal} />
               <div className="flex justify-between px-4 py-3 bg-muted/40">
                 <span className="font-semibold">
                   {contratado ? "Neto a percibir por el profesional" : "Neto previsto para el profesional"}
@@ -381,6 +401,26 @@ export default async function FacturaPage({
             )}
           </div>
         )}
+
+        <section className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm space-y-2">
+          <h2 className="font-semibold text-base">Responsabilidades fiscales</h2>
+          <p className="text-muted-foreground">
+            <span className="font-medium text-foreground">Servicios de Diime: </span>
+            los gastos de servicio mostrados en este documento incluyen el IVA del{" "}
+            {PLATFORM_CONFIG.ivaDiimePorcentaje} %. Diime es responsable de declarar el IVA correspondiente a sus
+            propias comisiones.
+          </p>
+          <p className="text-muted-foreground">
+            <span className="font-medium text-foreground">Servicio profesional: </span>
+            el proveedor es quien presta el servicio y quien debe determinar su tratamiento fiscal, emitir la factura
+            al cliente y declarar e ingresar el IVA cuando corresponda. Diime no emite esa factura ni declara el IVA
+            del proveedor.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Este documento acredita la contratación, el pago y la liquidación, pero no sustituye las facturas fiscales
+            que deban emitir Diime y el proveedor por sus respectivos servicios.
+          </p>
+        </section>
 
         {/* Términos y condiciones del servicio (antes en un contrato aparte) */}
         <section className="text-sm space-y-2 border-t pt-6">
@@ -420,8 +460,8 @@ export default async function FacturaPage({
 
         <p className="text-xs text-muted-foreground border-t pt-4">
           {contratado
-            ? "Documento generado automáticamente por Diime (diime.es) como plataforma intermediaria del pago protegido. Recoge el detalle del servicio contratado, los términos acordados, el reembolso y la liquidación cuando corresponden. La transferencia al profesional se ejecuta tras la confirmación o resolución."
-            : "Documento informativo generado por Diime (diime.es). Recoge la propuesta aceptada y sus términos, pero la contratación y la emisión de la factura quedan pendientes hasta que el cliente complete el pago protegido."}
+            ? "Justificante generado automáticamente por Diime (diime.es) como plataforma intermediaria del pago protegido. Recoge el servicio contratado, los importes, los términos, el reembolso y la liquidación cuando corresponden. La transferencia al profesional se ejecuta tras la confirmación o resolución."
+            : "Documento informativo generado por Diime (diime.es). Recoge la propuesta aceptada, los importes previstos y sus términos, pero la contratación queda pendiente hasta que el cliente complete el pago protegido."}
         </p>
       </div>
     </div>

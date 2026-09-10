@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { after } from "next/server"
 import { buscarYEnviarInvitaciones } from "./invitaciones"
 import { evaluarContenidoSolicitud } from "@/lib/moderacion"
 import { CATEGORIAS_SERVICIO_NOMBRES } from "@/lib/categorias"
@@ -166,9 +167,15 @@ export async function crearSolicitud(formData: {
 
   console.log("[v0] Solicitud created successfully:", data)
 
-  // Trigger AI provider finder in the background (non-blocking)
-  buscarYEnviarInvitaciones(data.id).catch(() => {
-    // Silent fail for background task
+  // Se ejecuta después de responder, pero queda registrado en el ciclo de vida
+  // del servidor para que Vercel no corte la búsqueda ni los correos a mitad.
+  after(async () => {
+    try {
+      const resultado = await buscarYEnviarInvitaciones(data.id)
+      if (resultado?.error) console.error("[avisos] No se enviaron las invitaciones:", resultado.error)
+    } catch (error) {
+      console.error("[avisos] Falló el envío de invitaciones:", error)
+    }
   })
 
   revalidatePath("/")

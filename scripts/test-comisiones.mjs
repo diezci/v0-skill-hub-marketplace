@@ -3,10 +3,14 @@ import {
   calcularPagoProveedor,
   calcularPagoProveedorConTarifa,
   calcularTotalCliente,
+  desglosarIvaIncluido,
   PLATFORM_CONFIG,
 } from "../lib/comisiones.ts"
 
 assert.equal(PLATFORM_CONFIG.comisionProveedorPorcentaje, 10)
+assert.equal(PLATFORM_CONFIG.ivaDiimePorcentaje, 21)
+assert.deepEqual(desglosarIvaIncluido(10), { baseImponible: 8.26, cuotaIva: 1.74, total: 10 })
+assert.deepEqual(desglosarIvaIncluido(2), { baseImponible: 1.65, cuotaIva: 0.35, total: 2 })
 assert.deepEqual(calcularTotalCliente(100), { precioBase: 100, comisionCliente: 10, totalCliente: 110 })
 assert.deepEqual(calcularPagoProveedor(10), { precioBase: 10, comisionProveedor: 2, pagoNeto: 8 })
 assert.deepEqual(calcularPagoProveedor(20), { precioBase: 20, comisionProveedor: 2, pagoNeto: 18 })
@@ -24,6 +28,7 @@ for (let centimos = 1; centimos <= 100_000; centimos += 1) {
   const cliente = calcularTotalCliente(precio)
   const proveedor = calcularPagoProveedor(precio)
   const tarifaAnterior = calcularPagoProveedorConTarifa(precio, 5, 2)
+  const ivaDiime = desglosarIvaIncluido(cliente.comisionCliente)
 
   assert.equal(
     Math.round((cliente.precioBase + cliente.comisionCliente) * 100),
@@ -40,6 +45,11 @@ for (let centimos = 1; centimos <= 100_000; centimos += 1) {
     centimos,
     `La liquidación histórica al 5 % no cuadra para ${precio} EUR`,
   )
+  assert.equal(
+    Math.round((ivaDiime.baseImponible + ivaDiime.cuotaIva) * 100),
+    Math.round(ivaDiime.total * 100),
+    `El desglose de IVA de Diime no cuadra para ${precio} EUR`,
+  )
 }
 
-console.log("Comisiones correctas: tarifa, mínimo, histórico y conservación de céntimos.")
+console.log("Comisiones e IVA de Diime correctos: tarifa, mínimo, histórico y conservación de céntimos.")

@@ -46,6 +46,10 @@ assert.match(invitaciones, /presupuesto_min, presupuesto_max/)
 assert.match(invitaciones, /presupuesto_min_interes, presupuesto_max_interes/)
 assert.match(invitaciones, /encajaEnPresupuestoDeAvisos\(/)
 
+const solicitudes = readFileSync(new URL("../app/actions/solicitudes.ts", import.meta.url), "utf8")
+assert.match(solicitudes, /import \{ after \} from "next\/server"/)
+assert.match(solicitudes, /after\(async \(\) => \{[\s\S]*buscarYEnviarInvitaciones\(data\.id\)/)
+
 const migracion = readFileSync(
   new URL("../supabase/migrations/051_presupuesto_avisos_profesionales.sql", import.meta.url),
   "utf8",

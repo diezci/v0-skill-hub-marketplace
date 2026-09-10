@@ -67,8 +67,8 @@ export function plantillaEmail(params: {
           ${pie}
           <p style="margin:0;color:${SUAVE};font-size:12px;line-height:1.5;">
             Recibes este correo porque tienes una cuenta en Diime.
-            Puedes dejar de recibir avisos por correo desde
-            <a href="${BASE_URL}/mi-cuenta" style="color:${VERDE};">Mi cuenta</a>.
+            Puedes elegir qué avisos recibes o desactivarlos desde
+            <a href="${BASE_URL}/mi-cuenta#avisos-email" style="color:${VERDE};">Mi cuenta</a>.
           </p>
         </td></tr>
       </table>
@@ -96,7 +96,7 @@ export function plantillaTexto(params: {
     botonUrl ? `\n${botonUrl}` : "",
     "",
     "---",
-    `Recibes este correo porque tienes una cuenta en Diime. Puedes dejar de recibir avisos en ${BASE_URL}/mi-cuenta`,
+    `Recibes este correo porque tienes una cuenta en Diime. Puedes elegir qué avisos recibes en ${BASE_URL}/mi-cuenta#avisos-email`,
   ]
     .filter(Boolean)
     .join("\n")

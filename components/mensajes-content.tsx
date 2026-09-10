@@ -1226,7 +1226,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                             </div>
                             <div className="flex items-center gap-1 mt-1.5 text-[11px] text-primary opacity-80 group-hover:opacity-100">
                               <FileText className="h-3 w-3" />
-                              Ver factura y términos
+                              Ver justificante y términos
                             </div>
                           </a>
                         )

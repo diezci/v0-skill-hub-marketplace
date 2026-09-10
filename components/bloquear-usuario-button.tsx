@@ -35,9 +35,14 @@ export function BloquearUsuarioButton({
     let activo = true
     obtenerEstadoBloqueo(usuarioId).then((estado) => {
       if (!activo) return
-      setVisible(!!estado.autenticado && !estado.esMismoUsuario && !estado.pendienteMigracion)
+      setVisible(
+        !!estado.autenticado &&
+          !estado.esMismoUsuario &&
+          !estado.esEquipoDiime &&
+          !estado.pendienteMigracion,
+      )
       setBloqueado(!!estado.bloqueadoPorMi)
-      onEstado?.(!!estado.bloqueadoPorMi || !!estado.meHaBloqueado)
+      onEstado?.(!!estado.meHaBloqueado || (!estado.esEquipoDiime && !!estado.bloqueadoPorMi))
       setCargando(false)
     })
     return () => {

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Table,
@@ -13,7 +14,17 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { createClient } from "@/lib/supabase/client"
-import { CreditCard, Clock, CheckCircle2, AlertCircle, Loader2, ArrowUpRight, ArrowDownRight } from "lucide-react"
+import {
+  CreditCard,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  ArrowUpRight,
+  ArrowDownRight,
+  ExternalLink,
+  WalletCards,
+} from "lucide-react"
 import { formatearFecha } from "@/lib/utils"
 
 interface Transaccion {
@@ -207,14 +218,27 @@ export default function AdminPagosPage() {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <CreditCard className="h-8 w-8 text-primary" />
-          Gestion de Pagos
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Monitoriza todas las transacciones y pagos de la plataforma
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <CreditCard className="h-8 w-8 text-primary" />
+            Gestion de Pagos
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Monitoriza todas las transacciones y pagos de la plataforma
+          </p>
+        </div>
+        <Button asChild variant="outline" className="shrink-0">
+          <a
+            href="https://dashboard.stripe.com/balance/overview"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <WalletCards className="mr-2 h-4 w-4" />
+            Saldo y movimientos en Stripe
+            <ExternalLink className="ml-2 h-4 w-4" />
+          </a>
+        </Button>
       </div>
 
       {/* Stats */}

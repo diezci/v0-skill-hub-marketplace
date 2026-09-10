@@ -274,7 +274,7 @@ export default function AdminVerificacionesPage() {
                   <p className="text-xs text-muted-foreground">Solicitada: {formatearFecha(solicitud.solicitada_at)}</p>
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-2">
-                  <Button variant="outline" asChild size="sm"><Link href={`/profesional/${solicitud.profesional_id}`} target="_blank" rel="noopener noreferrer">Perfil<ExternalLink className="ml-1 h-3 w-3" /><span className="sr-only"> de {nombreProveedor(solicitud)} (nueva pestaña)</span></Link></Button>
+                  <Button variant="outline" asChild size="sm"><Link href={`/profesional/${solicitud.profesional_id}?vista_admin=1`} target="_blank" rel="noopener noreferrer">Perfil<ExternalLink className="ml-1 h-3 w-3" /><span className="sr-only"> de {nombreProveedor(solicitud)} (nueva pestaña)</span></Link></Button>
                   <AdminChatUsuarioButton usuarioId={solicitud.profesional_id} nombre={nombreProveedor(solicitud)} compacto />
                   <Button size="sm" disabled={cargando} onClick={() => abrirSolicitud(solicitud)} aria-label={`Revisar solicitud de ${nombreProveedor(solicitud)}`}>Revisar</Button>
                 </div>
@@ -333,7 +333,7 @@ export default function AdminVerificacionesPage() {
                     <div><dt className="text-muted-foreground">Actúa como</dt><dd className="break-words">{seleccionada.empresa_id ? `${seleccionada.empresa_nombre || "Empresa"} · ${seleccionada.cargo_empresa || "Cargo no indicado"}` : "Particular"}</dd></div>
                   </dl>
                   <div className="flex flex-wrap gap-2">
-                    <Button asChild variant="outline" size="sm"><Link href={`/profesional/${seleccionada.profesional_id}`} target="_blank" rel="noopener noreferrer">Ver perfil<ExternalLink className="ml-2 h-3 w-3" /><span className="sr-only"> (nueva pestaña)</span></Link></Button>
+                    <Button asChild variant="outline" size="sm"><Link href={`/profesional/${seleccionada.profesional_id}?vista_admin=1`} target="_blank" rel="noopener noreferrer">Ver perfil<ExternalLink className="ml-2 h-3 w-3" /><span className="sr-only"> (nueva pestaña)</span></Link></Button>
                     <AdminChatUsuarioButton usuarioId={seleccionada.profesional_id} nombre={nombreProveedor(seleccionada)} compacto />
                   </div>
                   <section className="space-y-2"><h3 className="text-sm font-semibold">Mensaje del proveedor</h3><p className="whitespace-pre-wrap break-words rounded-lg bg-muted p-3 text-sm">{seleccionada.mensaje || "Sin mensaje adjunto."}</p></section>

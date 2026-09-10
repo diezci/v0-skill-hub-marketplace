@@ -958,7 +958,7 @@ export default function MisSolicitudes() {
                             target="_blank"
                             className="inline-flex min-w-0 max-w-full items-center gap-1 break-words text-xs text-primary hover:underline"
                           >
-                            <FileText className="h-3 w-3 shrink-0" /> Ver factura y términos
+                            <FileText className="h-3 w-3 shrink-0" /> Ver justificante y términos
                           </a>
                         </div>
                       </div>
@@ -1168,7 +1168,7 @@ export default function MisSolicitudes() {
                               target="_blank"
                               className="mt-2 inline-flex max-w-full items-center gap-1 break-words text-xs text-primary hover:underline"
                             >
-                              <FileText className="h-3 w-3 shrink-0" /> Ver factura y términos
+                              <FileText className="h-3 w-3 shrink-0" /> Ver justificante y términos
                             </a>
                           )}
                         </div>
@@ -1429,18 +1429,21 @@ export default function MisSolicitudes() {
               Vas a aceptar la oferta de{" "}
               {formatearPrecioEuros(acceptOfertaTarget?.oferta?.precio)} para "
               {acceptOfertaTarget?.solicitud?.titulo}". Al pagar, Diime añadirá los gastos de servicio de la
-              plataforma ({PLATFORM_CONFIG.comisionClientePorcentaje}%, mín. 2€).
+              plataforma ({PLATFORM_CONFIG.comisionClientePorcentaje}%, mín. 2€; IVA del{" "}
+              {PLATFORM_CONFIG.ivaDiimePorcentaje}% incluido). El precio de la oferta es el precio final indicado por
+              el profesional.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {acceptOfertaTarget?.oferta?.precio != null && (
             <div className="rounded-lg border bg-muted/40 p-4 space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Precio del servicio</span>
+                <span className="text-muted-foreground">Precio final del servicio</span>
                 <span>{formatearPrecioEuros(acceptOfertaTarget.oferta.precio)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">
-                  Gastos de servicio Diime ({PLATFORM_CONFIG.comisionClientePorcentaje}%)
+                  Gastos de servicio Diime ({PLATFORM_CONFIG.comisionClientePorcentaje}%; IVA del{" "}
+                  {PLATFORM_CONFIG.ivaDiimePorcentaje}% incluido)
                 </span>
                 <span>
                   {formatearPrecioEuros(calcularTotalCliente(acceptOfertaTarget.oferta.precio).comisionCliente)}

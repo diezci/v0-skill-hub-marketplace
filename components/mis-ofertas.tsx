@@ -604,7 +604,9 @@ export default function MisOfertas() {
                 />
                 <span>
                   Acepto los gastos de servicio de Diime ({PLATFORM_CONFIG.comisionProveedorPorcentaje}% del precio,
-                  mín. {formatearPrecio(PLATFORM_CONFIG.comision_minima)}).
+                  mín. {formatearPrecio(PLATFORM_CONFIG.comision_minima)}; IVA del{" "}
+                  {PLATFORM_CONFIG.ivaDiimePorcentaje}% incluido). Mi oferta es un precio final y soy responsable de
+                  facturar y declarar los impuestos de mi servicio.
                   {liquidacionRepuja && (
                     <>
                       {" "}Si el cliente acepta esta oferta, recibiré {formatearPrecio(liquidacionRepuja.pagoNeto)} netos.

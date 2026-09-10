@@ -139,10 +139,21 @@ const Navbar = () => {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Los admins solo deben ver el panel de administración: si están autenticados
-  // como admin y navegan a una página de usuario, se les lleva a /admin.
+  // Los admins solo deben ver el panel de administración. La única excepción
+  // es la vista de un perfil abierta expresamente desde la bandeja de
+  // verificaciones; sin esta excepción el perfil aparecía un instante y esta
+  // redirección devolvía inmediatamente la pestaña a /admin.
   useEffect(() => {
-    if (isAdmin && pathname && !pathname.startsWith("/admin") && !pathname.startsWith("/auth")) {
+    const esVistaPerfilDesdeAdmin =
+      pathname?.startsWith("/profesional/") &&
+      new URLSearchParams(window.location.search).get("vista_admin") === "1"
+    if (
+      isAdmin &&
+      pathname &&
+      !pathname.startsWith("/admin") &&
+      !pathname.startsWith("/auth") &&
+      !esVistaPerfilDesdeAdmin
+    ) {
       router.replace("/admin")
     }
   }, [isAdmin, pathname, router])

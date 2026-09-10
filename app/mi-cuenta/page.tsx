@@ -21,6 +21,7 @@ import { PreferenciaEmails } from "@/components/preferencia-emails"
 import { PreferenciaPush } from "@/components/preferencia-push"
 import { redirect } from "next/navigation"
 import { formatearFecha } from "@/lib/utils"
+import { preferenciasEmailDesdeFila } from "@/lib/preferencias-notificaciones"
 
 export const metadata: Metadata = {
   title: "Configuración - Diime",
@@ -29,6 +30,8 @@ export const metadata: Metadata = {
 
 export default async function MiCuentaPage() {
   const supabase = await createClient()
+  if (!supabase) redirect("/auth/login")
+
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -37,19 +40,27 @@ export default async function MiCuentaPage() {
     redirect("/auth/login")
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("nombre, apellido, verificado, created_at, email_notificaciones")
-    .eq("id", user.id)
-    .maybeSingle()
-
-  const { data: profesional } = await supabase
-    .from("profesionales")
-    .select("id")
-    .eq("id", user.id)
-    .maybeSingle()
+  const [{ data: profile }, { data: profesional }, { data: preferenciasEmail }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("nombre, apellido, verificado, created_at, email_notificaciones")
+      .eq("id", user.id)
+      .maybeSingle(),
+    supabase.from("profesionales").select("id").eq("id", user.id).maybeSingle(),
+    supabase
+      .from("preferencias_notificaciones")
+      .select(
+        "email_activo, email_oportunidades, email_ofertas, email_proyectos, email_pagos, email_disputas, email_cuenta",
+      )
+      .eq("usuario_id", user.id)
+      .maybeSingle(),
+  ])
 
   const esProfesional = !!profesional
+  const preferenciasEmailIniciales = preferenciasEmailDesdeFila(
+    preferenciasEmail,
+    profile?.email_notificaciones !== false,
+  )
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
@@ -99,13 +110,13 @@ export default async function MiCuentaPage() {
         </Card>
 
         {/* Avisos */}
-        <Card>
+        <Card id="avisos-email" className="scroll-mt-20">
           <CardHeader>
             <CardTitle>Avisos</CardTitle>
             <CardDescription>Cómo te avisamos de lo que pasa en tus proyectos</CardDescription>
           </CardHeader>
           <CardContent>
-            <PreferenciaEmails inicial={profile?.email_notificaciones !== false} />
+            <PreferenciaEmails inicial={preferenciasEmailIniciales} esProfesional={esProfesional} />
           </CardContent>
         </Card>
 

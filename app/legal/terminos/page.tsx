@@ -8,7 +8,7 @@ export default function Terminos() {
   return (
     <div className="container mx-auto px-4 py-16 max-w-3xl">
       <h1 className="text-3xl font-bold mb-2">Términos y condiciones</h1>
-      <p className="text-sm text-muted-foreground mb-10">Última actualización: agosto 2026</p>
+      <p className="text-sm text-muted-foreground mb-10">Última actualización: septiembre 2026</p>
       <div className="prose prose-neutral dark:prose-invert max-w-none space-y-8 text-muted-foreground leading-relaxed">
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">1. Aceptación de los términos</h2>
@@ -34,7 +34,17 @@ export default function Terminos() {
         </section>
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">5. Comisiones</h2>
-          <p>Diime aplica una comisión sobre el valor de cada transacción completada. El porcentaje de comisión vigente se indica en la plataforma antes de confirmar cada operación. Las comisiones están sujetas a cambios con previo aviso de 30 días.</p>
+          <p>
+            Diime aplica gastos de servicio sobre cada transacción completada. El porcentaje vigente se indica en la
+            plataforma antes de confirmar cada operación y el importe mostrado incluye el IVA aplicable a los servicios
+            de Diime. Las tarifas están sujetas a cambios con previo aviso de 30 días.
+          </p>
+          <p className="mt-3">
+            El proveedor fija el precio final de su servicio, incluyendo los impuestos que correspondan, y es el único
+            responsable de determinar su tratamiento fiscal, emitir la factura al cliente y declarar e ingresar el IVA
+            cuando resulte aplicable. Diime no calcula, retiene ni declara el IVA correspondiente al servicio prestado
+            por el proveedor.
+          </p>
         </section>
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">6. Cancelaciones y reembolsos</h2>

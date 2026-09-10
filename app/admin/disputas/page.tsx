@@ -249,7 +249,7 @@ export default function AdminDisputesPage() {
             </Card>
           </div>
 
-          {/* La factura conserva la propuesta aceptada, los importes y los
+          {/* El justificante conserva la propuesta aceptada, los importes y los
               términos que el admin debe contrastar antes de resolver. Se abre
               aparte para no perder el contexto ni la resolución en curso. */}
           <Card className="border-primary/30 bg-primary/5">
@@ -259,15 +259,15 @@ export default function AdminDisputesPage() {
                   <FileText className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="font-semibold">Factura y servicios contratados</p>
+                  <p className="font-semibold">Justificante y servicio contratado</p>
                   <p className="text-sm text-muted-foreground mt-0.5">
-                    Consulta la propuesta aceptada, los conceptos facturados, los importes y los términos del encargo.
+                    Consulta la propuesta aceptada, los conceptos, los importes y los términos del encargo.
                   </p>
                 </div>
               </div>
               <Button asChild className="shrink-0 gap-2">
                 <a href={`/trabajos/${trabajo.id}/factura`} target="_blank" rel="noreferrer">
-                  Ver factura
+                  Ver justificante
                   <ExternalLink className="h-4 w-4" />
                 </a>
               </Button>

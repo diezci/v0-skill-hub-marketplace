@@ -16,7 +16,7 @@
     "lint": "eslint .",
     "ops:create-review-accounts": "node --no-warnings scripts/create-review-accounts.mjs",
     "test:comisiones": "node --no-warnings --experimental-strip-types scripts/test-comisiones.mjs",
-    "test:notificaciones": "node --no-warnings --experimental-strip-types scripts/test-filtros-notificaciones.mjs",
+    "test:notificaciones": "node --no-warnings --experimental-strip-types scripts/test-filtros-notificaciones.mjs && node --no-warnings --experimental-strip-types scripts/test-preferencia-emails.mjs",
     "test:moderacion": "node --no-warnings scripts/test-moderacion.mjs",
     "start": "next start"
   },
