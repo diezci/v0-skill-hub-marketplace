@@ -67,7 +67,7 @@ export function BannerCookies() {
         hidden
         suppressHydrationWarning
         role="dialog"
-        aria-label="Consentimiento de cookies"
+        aria-label={t("Consentimiento de cookies")}
         className="fixed inset-x-0 bottom-0 z-[100] border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
       >
         <div className="container mx-auto max-w-4xl px-4 py-4 flex flex-col sm:flex-row sm:items-center gap-3">

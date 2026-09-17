@@ -1,5 +1,7 @@
 "use server"
 
+import { textoServidor } from "@/lib/i18n-servidor"
+
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { errorContenidoProhibido } from "@/lib/moderacion"
@@ -19,14 +21,14 @@ function funcionVincularContextoNoDisponible(error: { code?: string } | null) {
 
 export async function obtenerConversaciones() {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible", data: [] }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible"), data: [] }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
   
   if (!user) {
-    return { error: "No autenticado", data: [] }
+    return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado"), data: [] }
   }
 
   const { data: incompatibles } = await supabase.rpc("usuarios_incompatibles")
@@ -49,7 +51,7 @@ export async function obtenerConversaciones() {
     .order("fecha_ultimo_mensaje", { ascending: false, nullsFirst: false })
 
   if (error) {
-    return { error: error.message, data: [] }
+    return { error: await textoServidor(error.message), data: [] }
   }
 
   // Enrich conversations with participant info and project details
@@ -166,14 +168,14 @@ export async function obtenerConversaciones() {
 
 export async function obtenerMensajes(conversacionId: string) {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible", data: [] }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible"), data: [] }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
   
   if (!user) {
-    return { error: "No autenticado", data: [] }
+    return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado"), data: [] }
   }
 
   // Verify user is part of this conversation
@@ -184,12 +186,12 @@ export async function obtenerMensajes(conversacionId: string) {
     .single()
 
   if (!conv || (conv.participante_1 !== user.id && conv.participante_2 !== user.id)) {
-    return { error: "No tienes acceso a esta conversación", data: [] }
+    return { error: await textoServidor("No tienes acceso a esta conversación"), data: [] }
   }
 
   const otroUsuarioId = conv.participante_1 === user.id ? conv.participante_2 : conv.participante_1
   const { data: bloqueada } = await supabase.rpc("interaccion_bloqueada_con", { p_otro: otroUsuarioId })
-  if (bloqueada) return { error: "La conversación está bloqueada.", data: [] }
+  if (bloqueada) return { error: await textoServidor("La conversación está bloqueada."), data: [] }
 
   const { data: mensajes, error } = await supabase
     .from("mensajes")
@@ -198,7 +200,7 @@ export async function obtenerMensajes(conversacionId: string) {
     .order("created_at", { ascending: true })
 
   if (error) {
-    return { error: error.message, data: [] }
+    return { error: await textoServidor(error.message), data: [] }
   }
 
   // Mark messages as read
@@ -218,18 +220,18 @@ export async function enviarMensaje(
 ) {
   console.info(`[push] message_action_started conversation=${conversacionId.slice(0, 8)}`)
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return { error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   }
 
   const errorModeracion = errorContenidoProhibido(contenido, adjunto?.nombre)
-  if (errorModeracion) return { error: errorModeracion }
+  if (errorModeracion) return { error: await textoServidor(errorModeracion) }
 
   // Verify user is part of this conversation
   const { data: conv } = await supabase
@@ -239,12 +241,12 @@ export async function enviarMensaje(
     .single()
 
   if (!conv || (conv.participante_1 !== user.id && conv.participante_2 !== user.id)) {
-    return { error: "No tienes acceso a esta conversación" }
+    return { error: await textoServidor("No tienes acceso a esta conversación") }
   }
 
   const otroUsuarioId = conv.participante_1 === user.id ? conv.participante_2 : conv.participante_1
   const { data: bloqueada } = await supabase.rpc("interaccion_bloqueada_con", { p_otro: otroUsuarioId })
-  if (bloqueada) return { error: "No puedes enviar mensajes a este usuario." }
+  if (bloqueada) return { error: await textoServidor("No puedes enviar mensajes a este usuario.") }
 
   const { data: mensaje, error } = await supabase
     .from("mensajes")
@@ -261,7 +263,7 @@ export async function enviarMensaje(
     .single()
 
   if (error) {
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   // Update conversation's last message
@@ -307,30 +309,30 @@ export async function crearConversacion(params: {
   trabajoId?: string
   mensajeInicial?: string
 }) {
-  if (!UUID_RE.test(params.otroUsuarioId)) return { error: "Usuario no válido" }
-  if (params.solicitudId && !UUID_RE.test(params.solicitudId)) return { error: "Demanda no válida" }
-  if (params.trabajoId && !UUID_RE.test(params.trabajoId)) return { error: "Trabajo no válido" }
+  if (!UUID_RE.test(params.otroUsuarioId)) return { error: await textoServidor("Usuario no válido") }
+  if (params.solicitudId && !UUID_RE.test(params.solicitudId)) return { error: await textoServidor("Demanda no válida") }
+  if (params.trabajoId && !UUID_RE.test(params.trabajoId)) return { error: await textoServidor("Trabajo no válido") }
 
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
   
   if (!user) {
-    return { error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   }
 
   const errorModeracion = errorContenidoProhibido(params.mensajeInicial)
-  if (errorModeracion) return { error: errorModeracion }
+  if (errorModeracion) return { error: await textoServidor(errorModeracion) }
 
   // Nadie puede abrir un chat consigo mismo. Se comprueba aquí, en el servidor,
   // y no solo en los botones: la constraint UNIQUE (participante_1,
   // participante_2) no lo impide, y una conversación con uno mismo deja la
   // bandeja en un estado sin sentido (no hay "otra parte" que mostrar).
   if (params.otroUsuarioId === user.id) {
-    return { error: "No puedes iniciar una conversación contigo mismo." }
+    return { error: await textoServidor("No puedes iniciar una conversación contigo mismo.") }
   }
 
   const [{ data: perfilActual }, { data: otroPerfil, error: otroPerfilError }] = await Promise.all([
@@ -338,7 +340,7 @@ export async function crearConversacion(params: {
     supabase.from("profiles").select("id, es_admin, cuenta_eliminada").eq("id", params.otroUsuarioId).maybeSingle(),
   ])
   if (otroPerfilError || !otroPerfil || otroPerfil.cuenta_eliminada) {
-    return { error: "El usuario ya no está disponible." }
+    return { error: await textoServidor("El usuario ya no está disponible.") }
   }
 
   // Sin demanda ni trabajo, el contacto libre solo va hacia un profesional o
@@ -351,7 +353,7 @@ export async function crearConversacion(params: {
       .eq("id", params.otroUsuarioId)
       .maybeSingle()
     if (!destinatarioProfesional) {
-      return { error: "Para escribir a un cliente, abre el chat desde una de sus demandas." }
+      return { error: await textoServidor("Para escribir a un cliente, abre el chat desde una de sus demandas.") }
     }
   }
 
@@ -366,14 +368,14 @@ export async function crearConversacion(params: {
       .eq("id", params.trabajoId)
       .maybeSingle()
 
-    if (trabajoError || !trabajo) return { error: "El trabajo ya no está disponible." }
+    if (trabajoError || !trabajo) return { error: await textoServidor("El trabajo ya no está disponible.") }
 
     const participantesValidos =
       (trabajo.cliente_id === user.id && trabajo.profesional_id === params.otroUsuarioId) ||
       (trabajo.cliente_id === params.otroUsuarioId && trabajo.profesional_id === user.id)
-    if (!participantesValidos) return { error: "Este trabajo no corresponde a la conversación." }
+    if (!participantesValidos) return { error: await textoServidor("Este trabajo no corresponde a la conversación.") }
     if (params.solicitudId && trabajo.solicitud_id !== params.solicitudId) {
-      return { error: "La demanda no corresponde a este trabajo." }
+      return { error: await textoServidor("La demanda no corresponde a este trabajo.") }
     }
     solicitudIdValidada = params.solicitudId ?? trabajo.solicitud_id ?? undefined
   } else if (params.solicitudId) {
@@ -383,10 +385,10 @@ export async function crearConversacion(params: {
       .eq("id", params.solicitudId)
       .maybeSingle()
 
-    if (solicitudError || !solicitud) return { error: "La demanda ya no está disponible." }
-    if (solicitud.estado !== "abierta") return { error: "Esta demanda ya no admite nuevos contactos." }
+    if (solicitudError || !solicitud) return { error: await textoServidor("La demanda ya no está disponible.") }
+    if (solicitud.estado !== "abierta") return { error: await textoServidor("Esta demanda ya no admite nuevos contactos.") }
     if (solicitud.cliente_id !== user.id && solicitud.cliente_id !== params.otroUsuarioId) {
-      return { error: "La demanda no corresponde a esta conversación." }
+      return { error: await textoServidor("La demanda no corresponde a esta conversación.") }
     }
 
     const proveedorId = solicitud.cliente_id === user.id ? params.otroUsuarioId : user.id
@@ -396,12 +398,12 @@ export async function crearConversacion(params: {
       .eq("id", proveedorId)
       .maybeSingle()
     if (!proveedor) {
-      return { error: "Para poder escribir desde una demanda, primero crea tu perfil profesional en Mi perfil." }
+      return { error: await textoServidor("Para poder escribir desde una demanda, primero crea tu perfil profesional en Mi perfil.") }
     }
   }
 
   const { data: bloqueada } = await supabase.rpc("interaccion_bloqueada_con", { p_otro: params.otroUsuarioId })
-  if (bloqueada) return { error: "No puedes iniciar una conversación con este usuario." }
+  if (bloqueada) return { error: await textoServidor("No puedes iniciar una conversación con este usuario.") }
 
   // Reutilizar cualquier conversación existente entre ambos usuarios (en
   // cualquier dirección). Existe una constraint UNIQUE (participante_1,
@@ -433,7 +435,7 @@ export async function crearConversacion(params: {
           )
           return { data: existingConv }
         }
-        return { error: "No se pudo vincular el chat con esta demanda." }
+        return { error: await textoServidor("No se pudo vincular el chat con esta demanda.") }
       }
       const conversacionVinculada = Array.isArray(vinculada) ? vinculada[0] : vinculada
       if (conversacionVinculada) return { data: conversacionVinculada }
@@ -486,7 +488,7 @@ export async function crearConversacion(params: {
               )
               return { data: creadaEnParalelo }
             }
-            return { error: "No se pudo vincular el chat con esta demanda." }
+            return { error: await textoServidor("No se pudo vincular el chat con esta demanda.") }
           }
           const conversacionVinculada = Array.isArray(vinculada) ? vinculada[0] : vinculada
           if (conversacionVinculada) return { data: conversacionVinculada }
@@ -494,7 +496,7 @@ export async function crearConversacion(params: {
         return { data: creadaEnParalelo }
       }
     }
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   // Send initial message if provided
@@ -531,26 +533,26 @@ export async function crearConversacion(params: {
 }
 
 export async function crearConversacionAdmin(otroUsuarioId: string) {
-  if (!UUID_RE.test(otroUsuarioId)) return { error: "Usuario no válido" }
+  if (!UUID_RE.test(otroUsuarioId)) return { error: await textoServidor("Usuario no válido") }
 
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) return { error: "No autenticado" }
-  if (otroUsuarioId === user.id) return { error: "No puedes iniciar una conversación contigo mismo." }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
+  if (otroUsuarioId === user.id) return { error: await textoServidor("No puedes iniciar una conversación contigo mismo.") }
 
   const [{ data: perfilAdmin }, { data: destinatario, error: errorDestinatario }] = await Promise.all([
     supabase.from("profiles").select("es_admin").eq("id", user.id).maybeSingle(),
     supabase.from("profiles").select("id, cuenta_eliminada").eq("id", otroUsuarioId).maybeSingle(),
   ])
 
-  if (!perfilAdmin?.es_admin) return { error: "No tienes permiso para iniciar conversaciones administrativas" }
-  if (errorDestinatario) return { error: errorDestinatario.message }
-  if (!destinatario || destinatario.cuenta_eliminada) return { error: "El usuario ya no está disponible" }
+  if (!perfilAdmin?.es_admin) return { error: await textoServidor("No tienes permiso para iniciar conversaciones administrativas") }
+  if (errorDestinatario) return { error: await textoServidor(errorDestinatario.message) }
+  if (!destinatario || destinatario.cuenta_eliminada) return { error: await textoServidor("El usuario ya no está disponible") }
 
   // El núcleo normal conserva la moderación, los bloqueos y la comprobación
   // de pertenencia. La diferencia es que aquí el rol admin ya está verificado
@@ -564,12 +566,12 @@ export async function crearConversacionAdmin(otroUsuarioId: string) {
 
 export async function crearConversacionSoporte() {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   // Reparto estable entre los administradores disponibles: una misma persona
   // vuelve siempre al mismo perfil de soporte y `crearConversacion` reutiliza
@@ -581,8 +583,8 @@ export async function crearConversacionSoporte() {
     .neq("id", user.id)
     .order("id")
 
-  if (error) return { error: "No se pudo localizar al equipo de soporte." }
-  if (!admins?.length) return { error: "No hay ningún perfil de soporte disponible." }
+  if (error) return { error: await textoServidor("No se pudo localizar al equipo de soporte.") }
+  if (!admins?.length) return { error: await textoServidor("No hay ningún perfil de soporte disponible.") }
 
   const semilla = user.id.replaceAll("-", "").split("").reduce((total, caracter) => total + caracter.charCodeAt(0), 0)
   const admin = admins[semilla % admins.length]
@@ -591,14 +593,14 @@ export async function crearConversacionSoporte() {
 
 export async function vincularConversacionATrabajo(conversacionId: string, trabajoId: string) {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
   
   if (!user) {
-    return { error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   }
 
   const { error } = await supabase.rpc("vincular_contexto_conversacion", {
@@ -608,7 +610,7 @@ export async function vincularConversacionATrabajo(conversacionId: string, traba
   })
 
   if (error) {
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   revalidatePath("/mensajes")

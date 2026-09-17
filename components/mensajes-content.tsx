@@ -1,5 +1,8 @@
 "use client"
 
+import { useT, useIdioma } from "@/components/idioma-provider"
+import { localeDe } from "@/lib/i18n"
+
 import { useState, useEffect, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -107,6 +110,8 @@ async function enviarMensaje(conversacionId: string, contenido: string, adjunto?
 }
 
 export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin?: boolean }) {
+  const t = useT()
+  const { idioma } = useIdioma()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   // Panel "Acerca de" en móvil: allí no hay sitio para la columna de la derecha,
@@ -244,7 +249,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
     if (!selectedConversation) return
     const result = await obtenerTrabajoValorable(getOtherUserId(selectedConversation))
     if (result.error || !result.data) {
-      toast({ title: "No se puede valorar todavía", description: result.error })
+      toast({ title: t("No se puede valorar todavía"), description: result.error ? t(result.error) : undefined })
       return
     }
     setReviewRating(5)
@@ -262,9 +267,9 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
       comentario: reviewComentario,
     })
     if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" })
+      toast({ title: t("Error"), description: result.error ? t(result.error) : undefined, variant: "destructive" })
     } else {
-      toast({ title: "Valoración enviada", description: "Gracias por valorar a este profesional." })
+      toast({ title: t("Valoración enviada"), description: t("Gracias por valorar a este profesional.") })
       setReviewTrabajo(null)
     }
     setReviewSubmitting(false)
@@ -290,7 +295,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
     const result = await enviarMensaje(selectedConversation.id, newMessage)
 
     if (result.error) {
-      toast({ title: "No se pudo enviar", description: result.error, variant: "destructive" })
+      toast({ title: t("No se pudo enviar"), description: result.error ? t(result.error) : undefined, variant: "destructive" })
     } else if (result.data) {
       setMessages([...messages, result.data as Message])
     }
@@ -317,14 +322,14 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
       const tipo: "imagen" | "archivo" = type?.startsWith("image/") ? "imagen" : "archivo"
       const result = await enviarMensaje(selectedConversation.id, "", { tipo, url, nombre: filename })
       if (result.error) {
-        toast({ title: "Error", description: result.error, variant: "destructive" })
+        toast({ title: t("Error"), description: result.error ? t(result.error) : undefined, variant: "destructive" })
       } else if (result.data) {
         setMessages((prev) => [...prev, result.data as Message])
       }
     } catch {
       toast({
-        title: "No se pudo subir el archivo",
-        description: "Inténtalo de nuevo en unos segundos.",
+        title: t("No se pudo subir el archivo"),
+        description: t("Inténtalo de nuevo en unos segundos."),
         variant: "destructive",
       })
     } finally {
@@ -341,19 +346,19 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
     const hours = Math.floor(diff / 3600000)
     const days = Math.floor(diff / 86400000)
 
-    if (minutes < 1) return "Ahora"
+    if (minutes < 1) return t("Ahora")
     if (minutes < 60) return `${minutes}m`
-    if (hours < 24) return date.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })
+    if (hours < 24) return date.toLocaleTimeString(localeDe(idioma), { hour: "2-digit", minute: "2-digit" })
     if (days < 7) {
-      const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
+      const dayNames = [t("Dom"), t("Lun"), t("Mar"), t("Mié"), t("Jue"), t("Vie"), t("Sáb")]
       return dayNames[date.getDay()]
     }
-    return date.toLocaleDateString("es-ES", { day: "numeric", month: "short" })
+    return date.toLocaleDateString(localeDe(idioma), { day: "numeric", month: "short" })
   }
 
   const formatMessageTime = (dateString: string) => {
     const date = new Date(dateString)
-    return date.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })
+    return date.toLocaleTimeString(localeDe(idioma), { hour: "2-digit", minute: "2-digit" })
   }
 
   const formatDateSeparator = (dateString: string) => {
@@ -362,14 +367,14 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
     const yesterday = new Date(today)
     yesterday.setDate(yesterday.getDate() - 1)
 
-    if (date.toDateString() === today.toDateString()) return "Hoy"
-    if (date.toDateString() === yesterday.toDateString()) return "Ayer"
-    return date.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })
+    if (date.toDateString() === today.toDateString()) return t("Hoy")
+    if (date.toDateString() === yesterday.toDateString()) return t("Ayer")
+    return date.toLocaleDateString(localeDe(idioma), { weekday: "long", day: "numeric", month: "long" })
   }
 
   const formatMessageDate = (dateString: string) => {
     const date = new Date(dateString)
-    return date.toLocaleDateString("es-ES", { day: "numeric", month: "short" })
+    return date.toLocaleDateString(localeDe(idioma), { day: "numeric", month: "short" })
   }
 
   const getOtherUser = (conv: Conversation) => {
@@ -392,29 +397,29 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
   const getStatusText = (estado?: string) => {
     switch (estado) {
       case "en_progreso":
-        return "En progreso"
+        return t("En progreso")
       case "completado":
-        return "Completado"
+        return t("Completado")
       case "pendiente":
-        return "Pendiente"
+        return t("Pendiente")
       case "pendiente_pago":
-        return "Pago pendiente"
+        return t("Pago pendiente")
       case "entregado":
-        return "Por confirmar"
+        return t("Por confirmar")
       case "en_disputa":
-        return "En disputa"
+        return t("En disputa")
       case "cancelado":
-        return "Cancelado"
+        return t("Cancelado")
       case "abierta":
-        return "Abierta"
+        return t("Abierta")
       case "adjudicada":
-        return "Adjudicada"
+        return t("Adjudicada")
       case "completada":
-        return "Completada"
+        return t("Completada")
       case "cerrada":
-        return "Cerrada"
+        return t("Cerrada")
       case "cancelada":
-        return "Cancelada"
+        return t("Cancelada")
       default:
         return ""
     }
@@ -457,7 +462,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
       <div className={cn(enPanelAdmin ? "h-screen" : "h-full", "bg-background flex items-center justify-center")}>
         <div className="text-center space-y-4">
           <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
-          <p className="text-muted-foreground">Cargando conversaciones...</p>
+          <p className="text-muted-foreground">{t("Cargando conversaciones...")}</p>
         </div>
       </div>
     )
@@ -475,13 +480,13 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
         >
           {/* Header del sidebar */}
           <div className="p-4 border-b border-border shrink-0">
-            <h1 className="text-xl font-semibold mb-4">{enPanelAdmin ? "Soporte" : "Mensajes"}</h1>
+            <h1 className="text-xl font-semibold mb-4">{enPanelAdmin ? t("Soporte") : t("Mensajes")}</h1>
 
             {/* Barra de búsqueda */}
             <div className="relative mb-3">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar conversaciones..."
+                placeholder={t("Buscar conversaciones...")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 bg-muted/50"
@@ -502,13 +507,13 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="w-full">
               <TabsList className="w-full grid grid-cols-3 h-9">
                 <TabsTrigger value="all" className="text-xs">
-                  Todos
+                  {t("Todos")}
                 </TabsTrigger>
                 <TabsTrigger value="unread" className="text-xs">
-                  No leídos {totalUnread > 0 && `(${totalUnread})`}
+                  {t("No leídos")} {totalUnread > 0 && `(${totalUnread})`}
                 </TabsTrigger>
                 <TabsTrigger value="archived" className="text-xs">
-                  Archivados
+                  {t("Archivados")}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -526,10 +531,10 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                   <MessageCircle className="h-12 w-12 text-muted-foreground/50 mb-3" />
                   <p className="text-muted-foreground">
                     {activeTab === "unread"
-                      ? "No hay mensajes sin leer"
+                      ? t("No hay mensajes sin leer")
                       : activeTab === "archived"
-                        ? "No hay chats archivados"
-                        : "No tienes conversaciones"}
+                        ? t("No hay chats archivados")
+                        : t("No tienes conversaciones")}
                   </p>
                 </div>
               ) : (
@@ -584,7 +589,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                                     : "bg-blue-500/10 text-blue-600 border-blue-500/30"
                                 )}
                               >
-                                {conv.rol_otro === "proveedor" ? "Proveedor" : "Cliente"}
+                                {conv.rol_otro === "proveedor" ? t("Proveedor") : t("Cliente")}
                               </Badge>
                             )}
                           </div>
@@ -671,7 +676,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                     className="flex min-w-0 flex-1 items-center gap-2 text-left sm:gap-3 lg:pointer-events-none"
                     onClick={() => setPanelMovil(true)}
                     aria-label={
-                      enPanelAdmin ? "Ver ficha administrativa del usuario" : "Ver perfil y proyectos con este usuario"
+                      enPanelAdmin ? t("Ver ficha administrativa del usuario") : t("Ver perfil y proyectos con este usuario")
                     }
                   >
                   <Avatar className="h-10 w-10 shrink-0">
@@ -697,7 +702,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                               : "bg-blue-500/10 text-blue-600 border-blue-500/30"
                           )}
                         >
-                          {selectedConversation.rol_otro === "proveedor" ? "Proveedor" : "Cliente"}
+                          {selectedConversation.rol_otro === "proveedor" ? t("Proveedor") : t("Cliente")}
                         </Badge>
                       )}
                     </div>
@@ -709,8 +714,8 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                       )}
                       {selectedConversation.mi_rol && (
                         <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
-                          · Tú: <span className={selectedConversation.mi_rol === "proveedor" ? "text-emerald-600" : "text-blue-600"}>
-                            {selectedConversation.mi_rol === "proveedor" ? "Proveedor" : "Cliente"}
+                          {t("· Tú:")} <span className={selectedConversation.mi_rol === "proveedor" ? "text-emerald-600" : "text-blue-600"}>
+                            {selectedConversation.mi_rol === "proveedor" ? t("Proveedor") : t("Cliente")}
                           </span>
                         </span>
                       )}
@@ -728,16 +733,16 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem>
                       <Pin className="h-4 w-4 mr-2" />
-                      Fijar conversación
+                      {t("Fijar conversación")}
                     </DropdownMenuItem>
                     <DropdownMenuItem>
                       <Archive className="h-4 w-4 mr-2" />
-                      Archivar
+                      {t("Archivar")}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem className="text-destructive">
                       <Trash2 className="h-4 w-4 mr-2" />
-                      Eliminar chat
+                      {t("Eliminar chat")}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -757,8 +762,8 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                   ) : messages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-center">
                       <MessageCircle className="h-12 w-12 text-muted-foreground/50 mb-3" />
-                      <p className="text-muted-foreground">No hay mensajes aún</p>
-                      <p className="text-sm text-muted-foreground/70">Envía el primer mensaje</p>
+                      <p className="text-muted-foreground">{t("No hay mensajes aún")}</p>
+                      <p className="text-sm text-muted-foreground/70">{t("Envía el primer mensaje")}</p>
                     </div>
                   ) : (
                     <>
@@ -844,8 +849,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                                           isOwn ? "text-primary-foreground/70" : "text-muted-foreground",
                                         )}
                                       >
-                                        {(msg.archivo_nombre.split(".").pop() || "archivo").toUpperCase()} • Haz clic
-                                        para abrir
+                                        {(msg.archivo_nombre.split(".").pop() || "archivo").toUpperCase()} {t("• Haz clic para abrir")}
                                       </p>
                                     </div>
                                   </a>
@@ -919,7 +923,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                     variant="ghost"
                     size="icon"
                     disabled={uploading}
-                    aria-label="Adjuntar archivo"
+                    aria-label={t("Adjuntar archivo")}
                     className="shrink-0 h-10 w-10 text-muted-foreground"
                     onClick={() => fileInputRef.current?.click()}
                   >
@@ -929,8 +933,8 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                   <div className="min-w-0 flex-1">
                     <Textarea
                       ref={messageComposerRef}
-                      aria-label="Escribe un mensaje"
-                      placeholder="Escribe un mensaje..."
+                      aria-label={t("Escribe un mensaje")}
+                      placeholder={t("Escribe un mensaje...")}
                       rows={1}
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
@@ -954,7 +958,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                   <Button
                     type="submit"
                     size="icon"
-                    aria-label="Enviar mensaje"
+                    aria-label={t("Enviar mensaje")}
                     disabled={!newMessage.trim() || sendingMessage}
                     className="bg-primary hover:bg-primary/90 shrink-0 h-10 w-10 rounded-full"
                   >
@@ -969,9 +973,9 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
               <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
                 <MessageCircle className="h-10 w-10 text-muted-foreground" />
               </div>
-              <h2 className="text-xl font-semibold mb-2">Tus mensajes</h2>
+              <h2 className="text-xl font-semibold mb-2">{t("Tus mensajes")}</h2>
               <p className="text-muted-foreground max-w-sm">
-                Selecciona una conversación de la lista para ver los mensajes
+                {t("Selecciona una conversación de la lista para ver los mensajes")}
               </p>
             </div>
           )}
@@ -991,8 +995,8 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
           >
             {panelMovil && (
               <div className="flex items-center justify-between border-b px-4 h-14 shrink-0 lg:hidden">
-                <span className="font-medium">Perfil</span>
-                <Button variant="ghost" size="icon" onClick={() => setPanelMovil(false)} aria-label="Cerrar">
+                <span className="font-medium">{t("Perfil")}</span>
+                <Button variant="ghost" size="icon" onClick={() => setPanelMovil(false)} aria-label={t("Cerrar")}>
                   <X className="h-5 w-5" />
                 </Button>
               </div>
@@ -1021,7 +1025,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                           : "bg-blue-500/10 text-blue-600 border-blue-500/30"
                       )}
                     >
-                      {selectedConversation.rol_otro === "proveedor" ? "Proveedor" : "Cliente"}
+                      {selectedConversation.rol_otro === "proveedor" ? t("Proveedor") : t("Cliente")}
                     </Badge>
                   )}
                   {selectedConversation.otro_profesional && (
@@ -1031,7 +1035,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                         {Number(selectedConversation.otro_profesional.rating_promedio || 0).toFixed(1)}
                       </span>
                       <span className="text-muted-foreground">
-                        ({selectedConversation.otro_profesional.total_reseñas || 0} reseñas)
+                        ({selectedConversation.otro_profesional.total_reseñas || 0} {t("reseñas)")}
                       </span>
                     </div>
                   )}
@@ -1053,22 +1057,22 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                       )
                     }
                   >
-                    {enPanelAdmin ? "Ver ficha del usuario" : "Ver perfil"}
+                    {enPanelAdmin ? t("Ver ficha del usuario") : t("Ver perfil")}
                   </Button>
                   {!enPanelAdmin && (
                     <>
                       <Button variant="outline" size="sm" className="text-xs" onClick={handleValorar}>
                         <Star className="h-3.5 w-3.5 mr-1" />
-                        Valorar
+                        {t("Valorar")}
                       </Button>
                       <ReportarIncidenciaDialog
                         trabajoId={selectedConversation.trabajo_id}
                         usuarioReportadoId={getOtherUserId(selectedConversation)}
-                        asuntoInicial={`Reporte sobre ${getOtherUser(selectedConversation)?.nombre || "un usuario"}`}
+                        asuntoInicial={t("Reporte sobre {nombre}", { nombre: getOtherUser(selectedConversation)?.nombre || t("un usuario") })}
                         categoriaInicial="abuso"
                         trigger={
                           <Button variant="outline" size="sm" className="bg-transparent text-xs">
-                            <ShieldAlert className="mr-1 h-3.5 w-3.5" /> Reportar
+                            <ShieldAlert className="mr-1 h-3.5 w-3.5" /> {t("Reportar")}
                           </Button>
                         }
                       />
@@ -1083,7 +1087,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                 {/* Información del usuario */}
                 <div className="space-y-3">
                   <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Acerca de
+                    {t("Acerca de")}
                   </h4>
                   {/* dt shrink-0 + dd min-w-0/truncate: sin esto, una ubicación
                       larga o varios idiomas empujan la fila más ancha que el
@@ -1092,7 +1096,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                   <dl className="space-y-2.5 text-sm">
                     {getOtherUser(selectedConversation)?.ubicacion && (
                       <div className="flex items-center justify-between gap-2">
-                        <dt className="text-muted-foreground shrink-0">Ubicación</dt>
+                        <dt className="text-muted-foreground shrink-0">{t("Ubicación")}</dt>
                         <dd className="font-medium min-w-0 truncate text-right">
                           {getOtherUser(selectedConversation)?.ubicacion}
                         </dd>
@@ -1100,9 +1104,9 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                     )}
                     {getOtherUser(selectedConversation)?.created_at && (
                       <div className="flex items-center justify-between gap-2">
-                        <dt className="text-muted-foreground shrink-0">Miembro desde</dt>
+                        <dt className="text-muted-foreground shrink-0">{t("Miembro desde")}</dt>
                         <dd className="font-medium min-w-0 truncate text-right">
-                          {new Date(getOtherUser(selectedConversation)!.created_at!).toLocaleDateString("es-ES", {
+                          {new Date(getOtherUser(selectedConversation)!.created_at!).toLocaleDateString(localeDe(idioma), {
                             month: "short",
                             year: "numeric",
                           })}
@@ -1111,7 +1115,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                     )}
                     {(selectedConversation.otro_profesional?.idiomas?.length ?? 0) > 0 && (
                       <div className="flex items-center justify-between gap-2">
-                        <dt className="text-muted-foreground shrink-0">Idiomas</dt>
+                        <dt className="text-muted-foreground shrink-0">{t("Idiomas")}</dt>
                         <dd className="font-medium min-w-0 truncate text-right">
                           {selectedConversation.otro_profesional!.idiomas!.join(", ")}
                         </dd>
@@ -1124,7 +1128,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                 {selectedConversation.proyecto && (
                   <div className="space-y-3">
                     <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Proyecto activo
+                      {t("Proyecto activo")}
                     </h4>
                     <div className="rounded-lg border border-border bg-background p-4 space-y-3">
                       <div className="flex items-start gap-2">
@@ -1155,7 +1159,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                       {typeof selectedConversation.proyecto.progreso === "number" && (
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between text-xs">
-                            <span className="text-muted-foreground">Progreso</span>
+                            <span className="text-muted-foreground">{t("Progreso")}</span>
                             <span className="font-medium">{selectedConversation.proyecto.progreso}%</span>
                           </div>
                           <div className="h-1.5 bg-muted rounded-full overflow-hidden">
@@ -1180,7 +1184,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                           )
                         }
                       >
-                        Ver detalles del proyecto
+                        {t("Ver detalles del proyecto")}
                       </Button>
                     </div>
                   </div>
@@ -1190,18 +1194,18 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                 {proyectosCompartidos.length > 0 && (
                   <div className="space-y-3">
                     <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Proyectos con este usuario ({proyectosCompartidos.length})
+                      {t("Proyectos con este usuario (")}{proyectosCompartidos.length})
                     </h4>
                     <div className="space-y-2">
                       {proyectosCompartidos.map((p) => {
                         const estados: Record<string, { label: string; cls: string }> = {
-                          pendiente_pago: { label: "Esperando pago", cls: "border-amber-500/50 text-amber-600" },
-                          en_progreso: { label: "En progreso", cls: "border-blue-500/50 text-blue-600" },
-                          entregado: { label: "Entregado", cls: "border-purple-500/50 text-purple-600" },
-                          completado: { label: "Completado", cls: "border-emerald-500/50 text-emerald-600" },
-                          cancelado: { label: "Cancelado", cls: "border-muted-foreground/50 text-muted-foreground" },
-                          rechazado: { label: "Rechazado", cls: "border-red-500/50 text-red-600" },
-                          en_disputa: { label: "En disputa", cls: "border-amber-500/50 text-amber-600" },
+                          pendiente_pago: { label: t("Esperando pago"), cls: "border-amber-500/50 text-amber-600" },
+                          en_progreso: { label: t("En progreso"), cls: "border-blue-500/50 text-blue-600" },
+                          entregado: { label: t("Entregado"), cls: "border-purple-500/50 text-purple-600" },
+                          completado: { label: t("Completado"), cls: "border-emerald-500/50 text-emerald-600" },
+                          cancelado: { label: t("Cancelado"), cls: "border-muted-foreground/50 text-muted-foreground" },
+                          rechazado: { label: t("Rechazado"), cls: "border-red-500/50 text-red-600" },
+                          en_disputa: { label: t("En disputa"), cls: "border-amber-500/50 text-amber-600" },
                         }
                         const e = estados[p.estado] || { label: p.estado, cls: "" }
                         return (
@@ -1219,14 +1223,14 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                               </Badge>
                             </div>
                             <div className="flex items-center justify-between mt-1 text-[11px] text-muted-foreground">
-                              <span>{new Date(p.created_at).toLocaleDateString("es-ES", { month: "short", year: "numeric" })}</span>
+                              <span>{new Date(p.created_at).toLocaleDateString(localeDe(idioma), { month: "short", year: "numeric" })}</span>
                               <span className="font-medium text-foreground">
-                                {Number(p.precio_acordado || 0).toLocaleString("es-ES")}€
+                                {Number(p.precio_acordado || 0).toLocaleString(localeDe(idioma))}€
                               </span>
                             </div>
                             <div className="flex items-center gap-1 mt-1.5 text-[11px] text-primary opacity-80 group-hover:opacity-100">
                               <FileText className="h-3 w-3" />
-                              Ver justificante y términos
+                              {t("Ver justificante y términos")}
                             </div>
                           </a>
                         )
@@ -1239,7 +1243,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Archivos compartidos
+                      {t("Archivos compartidos")}
                     </h4>
                     <span className="text-xs text-muted-foreground">
                       {messages.filter((m) => m.tipo === "archivo" || m.tipo === "imagen").length}
@@ -1265,7 +1269,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-medium truncate">
-                              {m.archivo_nombre || "Archivo"}
+                              {m.archivo_nombre || t("Archivo")}
                             </p>
                             <p className="text-[10px] text-muted-foreground">
                               {formatMessageTime(m.created_at)}
@@ -1275,7 +1279,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                       ))}
                     {messages.filter((m) => m.tipo === "archivo" || m.tipo === "imagen").length === 0 && (
                       <p className="text-xs text-muted-foreground text-center py-3">
-                        Aún no hay archivos compartidos
+                        {t("Aún no hay archivos compartidos")}
                       </p>
                     )}
                   </div>
@@ -1290,14 +1294,14 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
       <Dialog open={!!reviewTrabajo} onOpenChange={(o) => !o && setReviewTrabajo(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Valorar al profesional</DialogTitle>
+            <DialogTitle>{t("Valorar al profesional")}</DialogTitle>
             <DialogDescription>
-              Valora el trabajo "{reviewTrabajo?.titulo || "completado"}". Tu opinión ayuda a otros clientes.
+              {t("Valora el trabajo \"")}{reviewTrabajo?.titulo || "completado"}{t("\". Tu opinión ayuda a otros clientes.")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Puntuación</label>
+              <label className="text-sm font-medium">{t("Puntuación")}</label>
               <div className="flex items-center justify-center gap-2">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
@@ -1321,9 +1325,9 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Comentario</label>
+              <label className="text-sm font-medium">{t("Comentario")}</label>
               <Textarea
-                placeholder="Describe tu experiencia con este profesional..."
+                placeholder={t("Describe tu experiencia con este profesional...")}
                 value={reviewComentario}
                 onChange={(e) => setReviewComentario(e.target.value)}
                 rows={4}
@@ -1332,11 +1336,11 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" className="bg-transparent" onClick={() => setReviewTrabajo(null)}>
-              Cancelar
+              {t("Cancelar")}
             </Button>
             <Button onClick={handleEnviarValoracion} disabled={reviewSubmitting || !reviewComentario.trim()}>
               {reviewSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-              Enviar valoración
+              {t("Enviar valoración")}
             </Button>
           </DialogFooter>
         </DialogContent>

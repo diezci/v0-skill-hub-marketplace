@@ -1,3 +1,4 @@
+import { getT } from "@/lib/i18n-servidor"
 import Link from "next/link"
 import { BellOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -18,6 +19,7 @@ import { createClient } from "@/lib/supabase/server"
  * No renderiza nada si no es profesional o si ya lo tiene puesto.
  */
 export async function AvisoSinCobertura() {
+  const { t } = await getT()
   const supabase = await createClient()
   if (!supabase) return null
 
@@ -39,23 +41,21 @@ export async function AvisoSinCobertura() {
   if (!sinServicios && !sinProvincias) return null
 
   const queFalta = sinServicios && sinProvincias
-    ? "a qué te dedicas ni dónde trabajas"
+    ? t("a qué te dedicas ni dónde trabajas")
     : sinServicios
-      ? "a qué te dedicas"
-      : "dónde trabajas"
+      ? t("a qué te dedicas")
+      : t("dónde trabajas")
 
   return (
     <div className="mb-6 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
       <BellOff className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-amber-700 dark:text-amber-400">No te estamos avisando de demandas nuevas</p>
+        <p className="font-medium text-amber-700 dark:text-amber-400">{t("No te estamos avisando de demandas nuevas")}</p>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Todavía no nos has dicho {queFalta}, y es lo que usamos para saber qué demandas mandarte. Hasta que lo
-          completes no recibirás ninguna.
-        </p>
+           {t("Todavía no nos has dicho")} {queFalta}{t(", y es lo que usamos para saber qué demandas mandarte. Hasta que lo completes no recibirás ninguna.")} </p>
       </div>
       <Button asChild size="sm" className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white">
-        <Link href="/mi-perfil">Completar mi perfil</Link>
+        <Link href="/mi-perfil">{t("Completar mi perfil")}</Link>
       </Button>
     </div>
   )

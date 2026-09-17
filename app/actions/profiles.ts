@@ -1,5 +1,7 @@
 "use server"
 
+import { idiomaActual, textoServidor } from "@/lib/i18n-servidor"
+
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { CATEGORIAS_SERVICIO_NOMBRES } from "@/lib/categorias"
@@ -16,7 +18,7 @@ export async function obtenerProfesionales(filtros?: {
   const supabase = await createClient()
 
   if (!supabase) {
-    return { error: "Base de datos no disponible", data: [] }
+    return { error: await textoServidor("Base de datos no disponible"), data: [] }
   }
 
   // Todos los que tienen ficha de profesional (perfil profesional creado).
@@ -39,17 +41,18 @@ export async function obtenerProfesionales(filtros?: {
   const { data, error } = await query
 
   if (error) {
-    return { error: error.message, data: [] }
+    return { error: await textoServidor(error.message), data: [] }
   }
 
   return { data: data || [] }
 }
 
 export async function obtenerProfesionalPorId(id: string) {
+  const idioma = await idiomaActual()
   const supabase = await createClient()
 
   if (!supabase) {
-    return { error: "Base de datos no disponible" }
+    return { error: await textoServidor("Base de datos no disponible") }
   }
 
   const { data: profesional, error: profError } = await supabase
@@ -62,7 +65,7 @@ export async function obtenerProfesionalPorId(id: string) {
     .single()
 
   if (profError) {
-    return { error: profError.message }
+    return { error: await textoServidor(profError.message) }
   }
 
   // La función devuelve solo columnas públicas y un identificador de tramo;
@@ -104,7 +107,7 @@ export async function obtenerProfesionalPorId(id: string) {
         duracion: item.duracion,
         fecha_proyecto: item.fecha_proyecto,
         contexto_proveedor: item.contexto_proveedor,
-        rango_precio: formatearTramoPortfolio(item.tramo_precio),
+        rango_precio: formatearTramoPortfolio(item.tramo_precio, idioma),
       })),
       reviews: reviews || [],
     },
@@ -135,7 +138,7 @@ export async function actualizarPerfil(formData: {
   const supabase = await createClient()
 
   if (!supabase) {
-    return { error: "Base de datos no disponible" }
+    return { error: await textoServidor("Base de datos no disponible") }
   }
 
   const {
@@ -143,7 +146,7 @@ export async function actualizarPerfil(formData: {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return { error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   }
 
   const errorModeracion = errorContenidoProhibido(
@@ -154,7 +157,7 @@ export async function actualizarPerfil(formData: {
     ...(formData.habilidades || []),
     ...(formData.certificaciones || []),
   )
-  if (errorModeracion) return { error: errorModeracion }
+  if (errorModeracion) return { error: await textoServidor(errorModeracion) }
 
   // Categorías y provincias solo pueden ser valores de la taxonomía y del
   // listado de provincias: son la base del emparejamiento con las demandas, y
@@ -162,26 +165,26 @@ export async function actualizarPerfil(formData: {
   if (formData.categorias_interes !== undefined) {
     const invalidas = formData.categorias_interes.filter((c) => !CATEGORIAS_SERVICIO_NOMBRES.includes(c))
     if (invalidas.length > 0) {
-      return { error: `Categorías no válidas: ${invalidas.join(", ")}` }
+      return { error: await textoServidor(`Categorías no válidas: ${invalidas.join(", ")}`) }
     }
     if (formData.categorias_interes.length === 0) {
-      return { error: "Elige al menos una categoría de servicio para recibir demandas." }
+      return { error: await textoServidor("Elige al menos una categoría de servicio para recibir demandas.") }
     }
   }
   if (formData.provincias_cobertura !== undefined) {
     const invalidas = formData.provincias_cobertura.filter((p) => !PROVINCIAS_ES.includes(p))
     if (invalidas.length > 0) {
-      return { error: `Provincias no válidas: ${invalidas.join(", ")}` }
+      return { error: await textoServidor(`Provincias no válidas: ${invalidas.join(", ")}`) }
     }
     if (formData.provincias_cobertura.length === 0) {
-      return { error: "Elige al menos una provincia en la que quieras cubrir demandas." }
+      return { error: await textoServidor("Elige al menos una provincia en la que quieras cubrir demandas.") }
     }
   }
 
   const incluyePresupuestoMin = formData.presupuesto_min_interes !== undefined
   const incluyePresupuestoMax = formData.presupuesto_max_interes !== undefined
   if (incluyePresupuestoMin !== incluyePresupuestoMax) {
-    return { error: "Guarda juntos el presupuesto mínimo y el máximo." }
+    return { error: await textoServidor("Guarda juntos el presupuesto mínimo y el máximo.") }
   }
   if (incluyePresupuestoMin && incluyePresupuestoMax) {
     const minimo = formData.presupuesto_min_interes
@@ -190,10 +193,10 @@ export async function actualizarPerfil(formData: {
       valor === null || (Number.isFinite(valor) && valor >= 0 && valor <= PRECIO_MAX)
 
     if (!limiteValido(minimo!) || !limiteValido(maximo!)) {
-      return { error: `El presupuesto de los avisos debe estar entre 0 y ${PRECIO_MAX.toLocaleString("es-ES")} €.` }
+      return { error: await textoServidor(`El presupuesto de los avisos debe estar entre 0 y ${PRECIO_MAX.toLocaleString("es-ES")} €.`) }
     }
     if (minimo !== null && maximo !== null && minimo! > maximo!) {
-      return { error: "El presupuesto mínimo de los avisos no puede superar el máximo." }
+      return { error: await textoServidor("El presupuesto mínimo de los avisos no puede superar el máximo.") }
     }
   }
 
@@ -213,7 +216,7 @@ export async function actualizarPerfil(formData: {
 
     if (profileError) {
       console.error("[v0] Profile update error:", profileError)
-      return { error: profileError.message }
+      return { error: await textoServidor(profileError.message) }
     }
     console.log("[v0] Profile updated successfully")
   }
@@ -252,7 +255,7 @@ export async function actualizarPerfil(formData: {
       const { error: profError } = await supabase.from("profesionales").update(profData).eq("id", profesional.id)
       if (profError) {
         console.error("[v0] Profesional update error:", profError)
-        return { error: profError.message }
+        return { error: await textoServidor(profError.message) }
       }
       console.log("[v0] Profesional updated successfully")
     } else {
@@ -272,7 +275,7 @@ export async function actualizarPerfil(formData: {
           total_reseñas: 0,
         })
         if (createError) {
-          return { error: createError.message }
+          return { error: await textoServidor(createError.message) }
         }
         // Al crear ficha profesional, marcar al usuario como profesional para
         // que aparezca en la sección "Profesionales".
@@ -291,7 +294,7 @@ export async function obtenerPerfilActual() {
   const supabase = await createClient()
 
   if (!supabase) {
-    return { error: "Base de datos no disponible" }
+    return { error: await textoServidor("Base de datos no disponible") }
   }
 
   const {
@@ -299,7 +302,7 @@ export async function obtenerPerfilActual() {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return { error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   }
 
   // Sin `select("*")`: email, teléfono y documento ya no son legibles
@@ -313,7 +316,7 @@ export async function obtenerPerfilActual() {
     .single()
 
   if (profileError) {
-    return { error: profileError.message }
+    return { error: await textoServidor(profileError.message) }
   }
 
   const { data: contacto } = await supabase.rpc("contacto_perfiles", { p_ids: [user.id] })

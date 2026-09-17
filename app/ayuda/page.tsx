@@ -1,12 +1,15 @@
-import type { Metadata } from "next"
+import { getT } from "@/lib/i18n-servidor"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Mail, HelpCircle } from "lucide-react"
 import { SupportChatButton } from "@/components/support-chat-button"
 
-export const metadata: Metadata = {
-  title: "Centro de ayuda | Diime",
-  description: "Resolvemos tus dudas sobre cómo funciona Diime.",
+export async function generateMetadata() {
+  const { t } = await getT()
+  return {
+    title: t("Centro de ayuda | Diime"),
+    description: t("Resolvemos tus dudas sobre cómo funciona Diime."),
+}
 }
 
 const faqs = [
@@ -36,31 +39,33 @@ const faqs = [
   },
 ]
 
-export default function Ayuda() {
+export default async function Ayuda() {
+  const { t } = await getT()
+
   return (
     <div className="container mx-auto px-4 py-16 max-w-4xl">
       <div className="text-center mb-12">
         <HelpCircle className="h-12 w-12 text-primary mx-auto mb-4" />
-        <h1 className="text-4xl font-bold mb-4">Centro de ayuda</h1>
-        <p className="text-lg text-muted-foreground">Respuestas a las preguntas más frecuentes sobre Diime.</p>
+        <h1 className="text-4xl font-bold mb-4">{t("Centro de ayuda")}</h1>
+        <p className="text-lg text-muted-foreground">{t("Respuestas a las preguntas más frecuentes sobre Diime.")}</p>
       </div>
 
       <div className="space-y-4 mb-14">
         {faqs.map((faq) => (
           <Card key={faq.q}>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">{faq.q}</CardTitle>
+              <CardTitle className="text-base font-semibold">{t(faq.q)}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground leading-relaxed">{faq.a}</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t(faq.a)}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
       <div className="rounded-2xl border border-border bg-muted/30 p-8 text-center">
-        <h2 className="text-xl font-bold mb-2">¿No encuentras lo que buscas?</h2>
-        <p className="text-muted-foreground mb-6">Nuestro equipo está disponible para ayudarte con cualquier duda.</p>
+        <h2 className="text-xl font-bold mb-2">{t("¿No encuentras lo que buscas?")}</h2>
+        <p className="text-muted-foreground mb-6">{t("Nuestro equipo está disponible para ayudarte con cualquier duda.")}</p>
         <div className="flex flex-col sm:flex-row justify-center gap-3">
           <Button asChild variant="outline">
             <a href="mailto:contacto@diime.es">

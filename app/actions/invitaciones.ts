@@ -1,5 +1,7 @@
 "use server"
 
+import { textoServidor } from "@/lib/i18n-servidor"
+
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { encajaEnPresupuestoDeAvisos } from "@/lib/filtros-notificaciones"
@@ -37,12 +39,12 @@ function cubreLaZona(ubicacionDemanda: string | null, provincias: string[] | nul
 // precio de que el aviso sea fiable, y la app se lo reclama de forma visible.
 export async function buscarYEnviarInvitaciones(solicitudId: string) {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   const { data: solicitud, error: solicitudError } = await supabase
     .from("solicitudes")
@@ -51,14 +53,14 @@ export async function buscarYEnviarInvitaciones(solicitudId: string) {
     .maybeSingle()
 
   if (solicitudError || !solicitud) {
-    return { error: "Solicitud no encontrada" }
+    return { error: await textoServidor("Solicitud no encontrada") }
   }
 
   if (solicitud.cliente_id !== user.id || solicitud.estado !== "abierta") {
-    return { error: "Solo el cliente puede avisar de su demanda abierta" }
+    return { error: await textoServidor("Solo el cliente puede avisar de su demanda abierta") }
   }
   const admin = createAdminClient()
-  if (!admin) return { error: "No se pudo preparar el envío de avisos" }
+  if (!admin) return { error: await textoServidor("No se pudo preparar el envío de avisos") }
 
   const categoriaNombre = (solicitud as any).categorias?.nombre as string | undefined
   if (!categoriaNombre) {
@@ -73,7 +75,7 @@ export async function buscarYEnviarInvitaciones(solicitudId: string) {
     .contains("categorias_interes", [categoriaNombre])
 
   if (profError) {
-    return { error: profError.message }
+    return { error: await textoServidor(profError.message) }
   }
   if (!profesionales || profesionales.length === 0) {
     return { message: "Ningún profesional ha declarado trabajar en esta categoría" }
@@ -112,7 +114,7 @@ export async function buscarYEnviarInvitaciones(solicitudId: string) {
   )
 
   if (insertError) {
-    return { error: insertError.message }
+    return { error: await textoServidor(insertError.message) }
   }
 
   // Este aviso no pasa por `crearNotificacion` (es un alta masiva), así que el
@@ -139,7 +141,7 @@ export async function buscarYEnviarInvitaciones(solicitudId: string) {
 // Get invitations for a professional
 export async function getInvitacionesProfesional(profesionalId: string) {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const { data, error } = await supabase
     .from("invitaciones")
@@ -149,7 +151,7 @@ export async function getInvitacionesProfesional(profesionalId: string) {
     .order("created_at", { ascending: false })
 
   if (error) {
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   return { data }
@@ -161,7 +163,7 @@ export async function responderInvitacion(
   respuesta: "aceptada" | "rechazada"
 ) {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const { error } = await supabase
     .from("invitaciones")
@@ -172,7 +174,7 @@ export async function responderInvitacion(
     .eq("id", invitacionId)
 
   if (error) {
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   return { success: true }

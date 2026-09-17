@@ -60,7 +60,7 @@ export function BienvenidaPrimeraVisita() {
         aria-describedby="diime-bienvenida-descripcion"
         className="m-auto fixed inset-0 w-[calc(100%-2rem)] max-w-3xl max-h-[90dvh] overflow-y-auto rounded-lg border bg-background p-6 text-foreground shadow-lg backdrop:bg-black/50 open:flex open:flex-col open:gap-4"
       >
-        <button type="button" data-cerrar-bienvenida autoFocus aria-label="Cerrar" className="absolute top-4 right-4 rounded-sm opacity-70 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-ring">
+        <button type="button" data-cerrar-bienvenida autoFocus aria-label={t("Cerrar")} className="absolute top-4 right-4 rounded-sm opacity-70 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-ring">
           <X className="h-4 w-4" />
         </button>
         <div className="flex flex-col gap-2 text-center sm:text-left">
@@ -73,7 +73,7 @@ export function BienvenidaPrimeraVisita() {
             <div key={lado.id} className="rounded-xl border overflow-hidden flex flex-col">
               <div className="relative h-32 sm:h-36">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={lado.imagen} alt={lado.alt} className="absolute inset-0 h-full w-full object-cover" />
+                <img src={lado.imagen} alt={t(lado.alt)} className="absolute inset-0 h-full w-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
                 <p className="absolute bottom-2 left-3 right-3 text-white font-semibold drop-shadow">
                   {t(lado.etiqueta)}

@@ -1,21 +1,23 @@
 "use server"
 
+import { textoServidor } from "@/lib/i18n-servidor"
+
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 export async function obtenerUsuarioParaAdmin(usuarioId: string) {
-  if (!UUID_RE.test(usuarioId)) return { error: "Usuario no válido" }
+  if (!UUID_RE.test(usuarioId)) return { error: await textoServidor("Usuario no válido") }
 
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   const { data: admin } = await supabase
     .from("profiles")
@@ -23,7 +25,7 @@ export async function obtenerUsuarioParaAdmin(usuarioId: string) {
     .eq("id", user.id)
     .maybeSingle()
 
-  if (!admin?.es_admin) return { error: "No tienes permiso para ver este perfil" }
+  if (!admin?.es_admin) return { error: await textoServidor("No tienes permiso para ver este perfil") }
 
   const { data: perfil, error: perfilError } = await supabase
     .from("profiles")
@@ -33,8 +35,8 @@ export async function obtenerUsuarioParaAdmin(usuarioId: string) {
     .eq("id", usuarioId)
     .maybeSingle()
 
-  if (perfilError) return { error: perfilError.message }
-  if (!perfil) return { error: "Usuario no encontrado" }
+  if (perfilError) return { error: await textoServidor(perfilError.message) }
+  if (!perfil) return { error: await textoServidor("Usuario no encontrado") }
 
   const [contactoRes, profesionalRes, solicitudesRes, ofertasRes, trabajosRes] = await Promise.all([
     supabase.rpc("contacto_perfiles", { p_ids: [usuarioId] }),
@@ -78,17 +80,17 @@ export async function obtenerUsuarioParaAdmin(usuarioId: string) {
 
 export async function actualizarVerificacionProfesional(profesionalId: string, verificado: boolean) {
   if (!profesionalId || typeof verificado !== "boolean") {
-    return { error: "Solicitud de verificación no válida" }
+    return { error: await textoServidor("Solicitud de verificación no válida") }
   }
 
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   const { data: admin } = await supabase
     .from("profiles")
@@ -97,7 +99,7 @@ export async function actualizarVerificacionProfesional(profesionalId: string, v
     .maybeSingle()
 
   if (!admin?.es_admin) {
-    return { error: "No tienes permiso para verificar profesionales" }
+    return { error: await textoServidor("No tienes permiso para verificar profesionales") }
   }
 
   const { data: profesional, error: profesionalError } = await supabase
@@ -106,19 +108,19 @@ export async function actualizarVerificacionProfesional(profesionalId: string, v
     .eq("id", profesionalId)
     .maybeSingle()
 
-  if (profesionalError) return { error: profesionalError.message }
-  if (!profesional) return { error: "El usuario seleccionado no es profesional" }
+  if (profesionalError) return { error: await textoServidor(profesionalError.message) }
+  if (!profesional) return { error: await textoServidor("El usuario seleccionado no es profesional") }
 
   const { data: actualizado, error } = await supabase.rpc("actualizar_verificacion_profesional", {
     p_profesional_id: profesionalId,
     p_verificado: verificado,
   })
 
-  if (error) return { error: error.message }
+  if (error) return { error: await textoServidor(error.message) }
   if (!actualizado) {
     return {
       error:
-        "No se pudo actualizar la verificación. Comprueba que la migración de permisos administrativos esté aplicada.",
+        await textoServidor("No se pudo actualizar la verificación. Comprueba que la migración de permisos administrativos esté aplicada."),
     }
   }
 

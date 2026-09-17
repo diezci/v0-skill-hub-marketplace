@@ -1,5 +1,7 @@
 "use client"
 
+import { useIdioma } from "@/components/idioma-provider"
+
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { createClient } from "@/lib/supabase/client"
@@ -34,6 +36,8 @@ interface Cobro {
 }
 
 export default function AdminDashboard() {
+  const { t, idioma } = useIdioma()
+
   const [stats, setStats] = useState<Stats>({
     totalUsuarios: 0,
     totalProfesionales: 0,
@@ -112,7 +116,7 @@ export default function AdminDashboard() {
       const { data: escrowData } = await supabase
         .from("transacciones_escrow")
         .select("monto")
-        .in("estado", ["fondos_retenidos", "disputa"])
+        .in("estado", ["fondos_retenidos", t("disputa")])
 
       const pagosEscrow = escrowData?.length || 0
       const montoTotal = escrowData?.reduce((sum, t) => sum + Number(t.monto || 0), 0) || 0
@@ -146,11 +150,11 @@ export default function AdminDashboard() {
         for (const t of trabajosCobrados || []) titulos[t.id] = t.titulo
       }
       setCobros(
-        ultimas.map((t) => ({
-          id: t.id,
-          fecha: t.fecha_liberacion,
-          importe: Number(t.comision_cliente || 0) + Number(t.comision_proveedor || 0),
-          trabajoTitulo: titulos[t.trabajo_id] || "Trabajo",
+        ultimas.map((transaccion) => ({
+          id: transaccion.id,
+          fecha: transaccion.fecha_liberacion,
+          importe: Number(transaccion.comision_cliente || 0) + Number(transaccion.comision_proveedor || 0),
+          trabajoTitulo: titulos[transaccion.trabajo_id] || t("Trabajo"),
         })),
       )
 
@@ -178,7 +182,7 @@ export default function AdminDashboard() {
 
   const statCards = [
     {
-      title: "Total Usuarios",
+      title: t("Total Usuarios"),
       value: stats.totalUsuarios,
       icon: Users,
       href: "/admin/usuarios",
@@ -186,7 +190,7 @@ export default function AdminDashboard() {
       bgColor: "bg-blue-500/10",
     },
     {
-      title: "Profesionales",
+      title: t("Profesionales"),
       value: stats.totalProfesionales,
       icon: Briefcase,
       href: "/admin/usuarios?tipo=profesional",
@@ -194,15 +198,15 @@ export default function AdminDashboard() {
       bgColor: "bg-emerald-500/10",
     },
     {
-      title: "Trabajos Activos",
+      title: t("Trabajos Activos"),
       value: stats.trabajosActivos,
-      subtitle: `de ${stats.totalTrabajos} totales`,
+      subtitle: t("de {total} totales", { total: stats.totalTrabajos }),
       icon: TrendingUp,
       color: "text-violet-500",
       bgColor: "bg-violet-500/10",
     },
     {
-      title: "Disputas Abiertas",
+      title: t("Disputas Abiertas"),
       value: stats.disputasAbiertas,
       icon: Scale,
       href: "/admin/disputas",
@@ -211,12 +215,12 @@ export default function AdminDashboard() {
       alert: stats.disputasAbiertas > 0,
     },
     {
-      title: "Incidencias",
+      title: t("Incidencias"),
       value: stats.incidenciasAbiertas,
       subtitle:
         stats.incidenciasCriticas > 0
-          ? `${stats.incidenciasCriticas} crítica${stats.incidenciasCriticas === 1 ? "" : "s"}`
-          : "abiertas o en revisión",
+          ? t(stats.incidenciasCriticas === 1 ? "{cantidad} crítica" : "{cantidad} críticas", { cantidad: stats.incidenciasCriticas })
+          : t("abiertas o en revisión"),
       icon: ShieldAlert,
       href: "/admin/incidencias",
       color: stats.incidenciasCriticas > 0 ? "text-red-500" : stats.incidenciasAbiertas > 0 ? "text-amber-500" : "text-emerald-500",
@@ -224,9 +228,9 @@ export default function AdminDashboard() {
       alert: stats.incidenciasCriticas > 0,
     },
     {
-      title: "Pagos en Escrow",
+      title: t("Pagos en Escrow"),
       value: stats.pagosEnEscrow,
-      subtitle: `${formatearPrecio(stats.montoEscrow)} retenidos en custodia`,
+      subtitle: t("{importe} retenidos en custodia", { importe: formatearPrecio(stats.montoEscrow, idioma) }),
       icon: CreditCard,
       href: "/admin/pagos",
       color: "text-cyan-500",
@@ -238,10 +242,9 @@ export default function AdminDashboard() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <h1 className="text-3xl font-bold">{t("Dashboard")}</h1>
         <p className="text-muted-foreground mt-1">
-          Bienvenido al panel de administración de Diime
-        </p>
+          {t("Bienvenido al panel de administración de Diime")}</p>
       </div>
 
       {/* Stats Grid */}
@@ -297,8 +300,8 @@ export default function AdminDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div>
-              <CardTitle className="text-sm font-medium text-muted-foreground">Ingresos de Diime</CardTitle>
-              <CardDescription className="text-xs">Comisiones cobradas por la plataforma</CardDescription>
+              <CardTitle className="text-sm font-medium text-muted-foreground">{t("Ingresos de Diime")}</CardTitle>
+              <CardDescription className="text-xs">{t("Comisiones cobradas por la plataforma")}</CardDescription>
             </div>
             <div className="p-2 rounded-lg bg-emerald-500/10">
               <Euro className="h-5 w-5 text-emerald-500" />
@@ -306,22 +309,22 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-emerald-500">
-              {loading ? "-" : formatearPrecio(stats.ingresosTotal)}
+              {loading ? "-" : formatearPrecio(stats.ingresosTotal, idioma)}
             </div>
             <div className="mt-3 space-y-1.5 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Gastos de servicio a clientes (10%)</span>
-                <span className="font-medium">{formatearPrecio(stats.ingresosComisionCliente)}</span>
+                <span className="text-muted-foreground">{t("Gastos de servicio a clientes (10%)")}</span>
+                <span className="font-medium">{formatearPrecio(stats.ingresosComisionCliente, idioma)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">
-                  Gastos de servicio a profesionales (tarifa actual {PLATFORM_CONFIG.comisionProveedorPorcentaje}%)
+                  {t("Gastos de servicio a profesionales (tarifa actual")}{" "}{PLATFORM_CONFIG.comisionProveedorPorcentaje}%)
                 </span>
-                <span className="font-medium">{formatearPrecio(stats.ingresosComisionProveedor)}</span>
+                <span className="font-medium">{formatearPrecio(stats.ingresosComisionProveedor, idioma)}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Retenciones en reembolsos</span>
-                <span className="font-medium">{formatearPrecio(stats.ingresosRetenciones)}</span>
+                <span className="text-muted-foreground">{t("Retenciones en reembolsos")}</span>
+                <span className="font-medium">{formatearPrecio(stats.ingresosRetenciones, idioma)}</span>
               </div>
             </div>
           </CardContent>
@@ -330,8 +333,8 @@ export default function AdminDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div>
-              <CardTitle className="text-sm font-medium text-muted-foreground">Últimos cobros</CardTitle>
-              <CardDescription className="text-xs">Comisión ingresada al liberar cada pago</CardDescription>
+              <CardTitle className="text-sm font-medium text-muted-foreground">{t("Últimos cobros")}</CardTitle>
+              <CardDescription className="text-xs">{t("Comisión ingresada al liberar cada pago")}</CardDescription>
             </div>
             <div className="p-2 rounded-lg bg-emerald-500/10">
               <Wallet className="h-5 w-5 text-emerald-500" />
@@ -341,7 +344,7 @@ export default function AdminDashboard() {
             {loading ? (
               <p className="text-sm text-muted-foreground">-</p>
             ) : cobros.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4">Todavía no se ha liberado ningún pago.</p>
+              <p className="text-sm text-muted-foreground py-4">{t("Todavía no se ha liberado ningún pago.")}</p>
             ) : (
               <ul className="divide-y divide-border">
                 {cobros.map((c) => (
@@ -349,11 +352,11 @@ export default function AdminDashboard() {
                     <div className="min-w-0">
                       <p className="font-medium truncate">{c.trabajoTitulo}</p>
                       <p className="text-xs text-muted-foreground">
-                        {c.fecha ? formatearFecha(c.fecha) : "Sin fecha"}
+                        {c.fecha ? formatearFecha(c.fecha, idioma) : t("Sin fecha")}
                       </p>
                     </div>
                     <span className="font-semibold text-emerald-500 shrink-0">
-                      +{formatearPrecio(c.importe)}
+                      +{formatearPrecio(c.importe, idioma)}
                     </span>
                   </li>
                 ))}
@@ -366,7 +369,7 @@ export default function AdminDashboard() {
       {/* Quick Actions */}
       <Card>
         <CardHeader>
-          <CardTitle>Acciones Rápidas</CardTitle>
+          <CardTitle>{t("Acciones Rápidas")}</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
           <Link
@@ -375,8 +378,8 @@ export default function AdminDashboard() {
           >
             <Users className="h-5 w-5 text-primary" />
             <div>
-              <p className="font-medium">Ver Usuarios</p>
-              <p className="text-sm text-muted-foreground">Gestionar usuarios registrados</p>
+              <p className="font-medium">{t("Ver Usuarios")}</p>
+              <p className="text-sm text-muted-foreground">{t("Gestionar usuarios registrados")}</p>
             </div>
           </Link>
           <Link
@@ -385,8 +388,8 @@ export default function AdminDashboard() {
           >
             <Briefcase className="h-5 w-5 text-primary" />
             <div>
-              <p className="font-medium">Trabajos y justificantes</p>
-              <p className="text-sm text-muted-foreground">Consultar todas las contrataciones</p>
+              <p className="font-medium">{t("Trabajos y justificantes")}</p>
+              <p className="text-sm text-muted-foreground">{t("Consultar todas las contrataciones")}</p>
             </div>
           </Link>
           <Link
@@ -395,8 +398,8 @@ export default function AdminDashboard() {
           >
             <Scale className="h-5 w-5 text-primary" />
             <div>
-              <p className="font-medium">Resolver Disputas</p>
-              <p className="text-sm text-muted-foreground">Mediar conflictos entre usuarios</p>
+              <p className="font-medium">{t("Resolver Disputas")}</p>
+              <p className="text-sm text-muted-foreground">{t("Mediar conflictos entre usuarios")}</p>
             </div>
           </Link>
           <Link
@@ -405,8 +408,8 @@ export default function AdminDashboard() {
           >
             <ShieldAlert className="h-5 w-5 text-primary" />
             <div>
-              <p className="font-medium">Gestionar Incidencias</p>
-              <p className="text-sm text-muted-foreground">Reportes de fraude, abuso y soporte</p>
+              <p className="font-medium">{t("Gestionar Incidencias")}</p>
+              <p className="text-sm text-muted-foreground">{t("Reportes de fraude, abuso y soporte")}</p>
             </div>
           </Link>
           <Link
@@ -415,8 +418,8 @@ export default function AdminDashboard() {
           >
             <CreditCard className="h-5 w-5 text-primary" />
             <div>
-              <p className="font-medium">Ver Pagos</p>
-              <p className="text-sm text-muted-foreground">Monitorizar transacciones</p>
+              <p className="font-medium">{t("Ver Pagos")}</p>
+              <p className="text-sm text-muted-foreground">{t("Monitorizar transacciones")}</p>
             </div>
           </Link>
         </CardContent>

@@ -1,5 +1,7 @@
 "use client"
 
+import { useT } from "@/components/idioma-provider"
+
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -48,6 +50,8 @@ export function ReportarIncidenciaDialog({
   categoriaInicial = "otro",
   descripcionPlaceholder = "Cuéntanos qué ha ocurrido, cuándo y con qué usuarios o trabajo está relacionado...",
 }: ReportarIncidenciaDialogProps) {
+  const t = useT()
+
   const [open, setOpen] = useState(false)
   const [asunto, setAsunto] = useState(asuntoInicial)
   const [descripcion, setDescripcion] = useState("")
@@ -69,7 +73,7 @@ export function ReportarIncidenciaDialog({
 
   const handleSubmit = async () => {
     if (!asunto.trim() || !descripcion.trim()) {
-      toast({ title: "Faltan datos", description: "Completa asunto y descripción", variant: "destructive" })
+      toast({ title: t("Faltan datos"), description: t("Completa asunto y descripción"), variant: "destructive" })
       return
     }
     const trabajoElegido = trabajoId || (trabajoSel === SIN_TRABAJO ? null : trabajoSel)
@@ -86,11 +90,11 @@ export function ReportarIncidenciaDialog({
       usuario_reportado: otraParte,
     })
     if (res.error) {
-      toast({ title: "Error", description: res.error, variant: "destructive" })
+      toast({ title: t("Error"), description: t(res.error), variant: "destructive" })
     } else {
       toast({
-        title: "Incidencia reportada",
-        description: "Nuestro equipo la revisará lo antes posible.",
+        title: t("Incidencia reportada"),
+        description: t("Nuestro equipo la revisará lo antes posible."),
       })
       setOpen(false)
       setAsunto(asuntoInicial)
@@ -108,19 +112,15 @@ export function ReportarIncidenciaDialog({
         {trigger || (
           <Button variant={triggerVariant} size={triggerSize} className="bg-transparent gap-2">
             <ShieldAlert className="h-4 w-4" />
-            {triggerLabel}
+            {t(triggerLabel)}
           </Button>
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ShieldAlert className="h-5 w-5 text-primary" />
-            Reportar una incidencia
-          </DialogTitle>
-          <DialogDescription>
-            Describe el problema. Nuestro equipo de soporte lo revisará y te contactará si es necesario.
-          </DialogDescription>
+            <ShieldAlert className="h-5 w-5 text-primary" />{t("Reportar una incidencia")}</DialogTitle>
+          <DialogDescription>{t("Describe el problema. Nuestro equipo de soporte lo revisará y te contactará si es necesario.")}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
@@ -128,18 +128,16 @@ export function ReportarIncidenciaDialog({
               uno. Los reportes generales se guardan con trabajo_id nulo. */}
           {!trabajoId && (
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Trabajo relacionado (opcional)</label>
+              <label className="text-sm font-medium">{t("Trabajo relacionado (opcional)")}</label>
               {trabajos.length === 0 ? (
-                <p className="text-sm text-muted-foreground rounded-md border border-dashed p-3">
-                  Puedes enviar un reporte general aunque todavía no tengas trabajos contratados.
-                </p>
+                <p className="text-sm text-muted-foreground rounded-md border border-dashed p-3">{t("Puedes enviar un reporte general aunque todavía no tengas trabajos contratados.")}</p>
               ) : (
                 <Select value={trabajoSel} onValueChange={setTrabajoSel}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Sin trabajo relacionado" />
+                    <SelectValue placeholder={t("Sin trabajo relacionado")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={SIN_TRABAJO}>Sin trabajo relacionado</SelectItem>
+                    <SelectItem value={SIN_TRABAJO}>{t("Sin trabajo relacionado")}</SelectItem>
                     {trabajos.map((t) => (
                       <SelectItem key={t.id} value={t.id}>
                         {t.titulo}
@@ -152,9 +150,9 @@ export function ReportarIncidenciaDialog({
           )}
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Asunto</label>
+            <label className="text-sm font-medium">{t("Asunto")}</label>
             <Input
-              placeholder="Resumen breve del problema"
+              placeholder={t("Resumen breve del problema")}
               value={asunto}
               onChange={(e) => setAsunto(e.target.value)}
               maxLength={120}
@@ -163,41 +161,41 @@ export function ReportarIncidenciaDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Categoría</label>
+              <label className="text-sm font-medium">{t("Categoría")}</label>
               <Select value={categoria} onValueChange={(v) => setCategoria(v as IncidenciaCategoria)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="fraude">Fraude o estafa</SelectItem>
-                  <SelectItem value="abuso">Abuso o conducta</SelectItem>
-                  <SelectItem value="pago">Problema de pago</SelectItem>
-                  <SelectItem value="tecnico">Problema técnico</SelectItem>
-                  <SelectItem value="perfil">Perfil / verificación</SelectItem>
-                  <SelectItem value="otro">Otro</SelectItem>
+                  <SelectItem value="fraude">{t("Fraude o estafa")}</SelectItem>
+                  <SelectItem value="abuso">{t("Abuso o conducta")}</SelectItem>
+                  <SelectItem value="pago">{t("Problema de pago")}</SelectItem>
+                  <SelectItem value="tecnico">{t("Problema técnico")}</SelectItem>
+                  <SelectItem value="perfil">{t("Perfil / verificación")}</SelectItem>
+                  <SelectItem value="otro">{t("Otro")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Prioridad</label>
+              <label className="text-sm font-medium">{t("Prioridad")}</label>
               <Select value={prioridad} onValueChange={(v) => setPrioridad(v as IncidenciaPrioridad)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="baja">Baja</SelectItem>
-                  <SelectItem value="media">Media</SelectItem>
-                  <SelectItem value="alta">Alta</SelectItem>
-                  <SelectItem value="critica">Crítica</SelectItem>
+                  <SelectItem value="baja">{t("Baja")}</SelectItem>
+                  <SelectItem value="media">{t("Media")}</SelectItem>
+                  <SelectItem value="alta">{t("Alta")}</SelectItem>
+                  <SelectItem value="critica">{t("Crítica")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Descripción</label>
+            <label className="text-sm font-medium">{t("Descripción")}</label>
             <Textarea
-              placeholder={descripcionPlaceholder}
+              placeholder={t(descripcionPlaceholder)}
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
               rows={5}
@@ -206,17 +204,13 @@ export function ReportarIncidenciaDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)} className="bg-transparent">
-            Cancelar
-          </Button>
+          <Button variant="outline" onClick={() => setOpen(false)} className="bg-transparent">{t("Cancelar")}</Button>
           <Button onClick={handleSubmit} disabled={submitting}>
             {submitting ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Enviando...
-              </>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />{t("Enviando...")}</>
             ) : (
-              "Enviar reporte"
+              t("Enviar reporte")
             )}
           </Button>
         </DialogFooter>

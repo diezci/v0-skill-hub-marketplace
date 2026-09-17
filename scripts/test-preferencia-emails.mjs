@@ -62,6 +62,8 @@ function preparar({
     "./plantilla": { BASE_URL: "https://test.diime.es", plantillaEmail: () => "HTML", plantillaTexto: () => "Texto" },
     "@/lib/operaciones": { registrarEventoOperativo: async (evento) => { eventos.push(evento) } },
     "@/lib/preferencias-notificaciones": moduloPreferencias,
+    "@/lib/idioma-destinatario": { idiomaDestinatario: async () => "es" },
+    "@/lib/i18n-notificaciones": { traducirTextoNotificacion: (_idioma, texto) => texto },
   }, configurado ? { RESEND_API_KEY: "re_unit_test" } : {})
   return { ...modulo, eventos, envios, clientesResend: () => clientesResend }
 }

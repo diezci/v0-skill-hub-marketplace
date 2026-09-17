@@ -1,3 +1,4 @@
+import { getT } from "@/lib/i18n-servidor"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { Mail, ShieldCheck, Trash2 } from "lucide-react"
@@ -8,12 +9,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 export const dynamic = "force-dynamic"
 
-export const metadata: Metadata = {
-  title: "Eliminar una cuenta | Diime",
-  description: "Solicita y completa la eliminación de tu cuenta de Diime y de los datos asociados.",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT()
+  return { title: t("Eliminar una cuenta | Diime"), description: t("Solicita y completa la eliminación de tu cuenta de Diime y de los datos asociados.") }
 }
 
 export default async function EliminarCuentaPage() {
+  const { t } = await getT()
   const supabase = await createClient()
   const user = supabase ? (await supabase.auth.getUser()).data.user : null
 
@@ -24,49 +26,47 @@ export default async function EliminarCuentaPage() {
           <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
             <Trash2 className="h-6 w-6 text-destructive" />
           </div>
-          <CardTitle className="text-2xl">Eliminar una cuenta de Diime</CardTitle>
+          <CardTitle className="text-2xl">{t("Eliminar una cuenta de Diime")}</CardTitle>
           <CardDescription>
-            Esta página permite solicitar y completar el borrado de la cuenta y de los datos que no debamos conservar
-            por obligaciones legales, contables o por reclamaciones abiertas.
+            {t("Esta página permite solicitar y completar el borrado de la cuenta y de los datos que no debamos conservar por obligaciones legales, contables o por reclamaciones abiertas.")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-3 text-sm text-muted-foreground">
             <p>
-              El perfil público, las publicaciones abiertas, el portfolio y el acceso a la cuenta se eliminan. Antes de
-              confirmar verás qué ocurre con trabajos, pagos o disputas pendientes.
+              {t("El perfil público, las publicaciones abiertas, el portfolio y el acceso a la cuenta se eliminan. Antes de confirmar verás qué ocurre con trabajos, pagos o disputas pendientes.")}
             </p>
             <p className="flex items-start gap-2">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-              El proceso requiere iniciar sesión para comprobar que la solicitud pertenece realmente al titular.
+              {t("El proceso requiere iniciar sesión para comprobar que la solicitud pertenece realmente al titular.")}
             </p>
           </div>
 
           {user ? (
             <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
               <p className="mb-3 text-sm">
-                Has iniciado sesión como <span className="font-medium">{user.email}</span>.
+                {t("Has iniciado sesión como")} <span className="font-medium">{user.email}</span>.
               </p>
               <EliminarCuentaDialog />
             </div>
           ) : (
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button asChild>
-                <Link href="/auth/login?next=/eliminar-cuenta">Iniciar sesión y eliminar mi cuenta</Link>
+                <Link href="/auth/login?next=/eliminar-cuenta">{t("Iniciar sesión y eliminar mi cuenta")}</Link>
               </Button>
               <Button asChild variant="outline" className="bg-transparent">
                 <a href="mailto:contacto@diime.es?subject=Solicitud%20de%20eliminaci%C3%B3n%20de%20cuenta%20Diime">
                   <Mail className="mr-2 h-4 w-4" />
-                  Pedir ayuda a soporte
+                  {t("Pedir ayuda a soporte")}
                 </a>
               </Button>
             </div>
           )}
 
           <p className="text-xs text-muted-foreground">
-            Consulta los detalles sobre conservación y tus derechos en la{" "}
+            {t("Consulta los detalles sobre conservación y tus derechos en la")}{" "}
             <Link href="/legal/privacidad" className="underline underline-offset-4 hover:text-foreground">
-              política de privacidad
+              {t("política de privacidad")}
             </Link>
             .
           </p>

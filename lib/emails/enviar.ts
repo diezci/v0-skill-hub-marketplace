@@ -1,5 +1,7 @@
 import "server-only"
 
+import { idiomaDestinatario } from "@/lib/idioma-destinatario"
+import { traducirTextoNotificacion } from "@/lib/i18n-notificaciones"
 import { Resend } from "resend"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { BASE_URL, plantillaEmail, plantillaTexto } from "./plantilla"
@@ -133,19 +135,22 @@ export async function enviarAvisoPorEmail(params: {
       return
     }
 
+    const idioma = await idiomaDestinatario(admin, params.usuarioId)
+    const traducirAviso = (texto: string) => traducirTextoNotificacion(idioma, texto, params.tipo)
     const url = params.link ? `${BASE_URL}${params.link}` : BASE_URL
     const contenido = {
-      titulo: params.titulo,
-      saludo: perfil.nombre ? `Hola, ${perfil.nombre}.` : "Hola.",
-      cuerpo: params.mensaje || "Entra en Diime para verlo con detalle.",
-      botonTexto: config.boton,
+      idioma,
+      titulo: traducirAviso(params.titulo),
+      saludo: perfil.nombre ? `${idioma === "en" ? "Hello" : "Hola"}, ${perfil.nombre}.` : traducirAviso("Hola."),
+      cuerpo: traducirAviso(params.mensaje || "Entra en Diime para verlo con detalle."),
+      botonTexto: traducirAviso(config.boton),
       botonUrl: url,
     }
 
     const { error } = await resend.emails.send({
       from: REMITENTE,
       to: perfil.email,
-      subject: params.titulo,
+      subject: contenido.titulo,
       html: plantillaEmail(contenido),
       text: plantillaTexto({ ...contenido, botonUrl: url }),
       headers: {

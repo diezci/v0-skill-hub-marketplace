@@ -1,5 +1,7 @@
 "use client"
 
+import { useT, useIdioma } from "@/components/idioma-provider"
+
 import { useState, useMemo } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -30,6 +32,9 @@ import {
 } from "@/lib/comisiones"
 
 export default function DemoPagoPage() {
+  const t = useT()
+  const { idioma } = useIdioma()
+
   const [precio, setPrecio] = useState<number>(1500)
   const [completado, setCompletado] = useState(false)
 
@@ -54,29 +59,21 @@ export default function DemoPagoPage() {
             <div className="mx-auto h-16 w-16 rounded-full bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center mb-4">
               <CheckCircle2 className="h-9 w-9 text-emerald-600" />
             </div>
-            <h2 className="text-2xl font-semibold mb-2">Pago completado</h2>
-            <p className="text-muted-foreground mb-1">
-              Los fondos quedan retenidos en escrow de forma segura.
-            </p>
-            <p className="text-sm text-muted-foreground mb-6">
-              Solo se liberaran al profesional cuando confirmes la finalizacion del trabajo.
-            </p>
+            <h2 className="text-2xl font-semibold mb-2">{t("Pago completado")}</h2>
+            <p className="text-muted-foreground mb-1">{t("Los fondos quedan retenidos en escrow de forma segura.")}</p>
+            <p className="text-sm text-muted-foreground mb-6">{t("Solo se liberaran al profesional cuando confirmes la finalizacion del trabajo.")}</p>
             <div className="grid grid-cols-2 gap-3 text-sm bg-muted/40 rounded-lg p-4 mb-6 text-left">
-              <span className="text-muted-foreground">Importe pagado</span>
-              <span className="text-right font-semibold">{formatearPrecio(desglose.totalCliente)}</span>
-              <span className="text-muted-foreground">Estado</span>
+              <span className="text-muted-foreground">{t("Importe pagado")}</span>
+              <span className="text-right font-semibold">{formatearPrecio(desglose.totalCliente, idioma)}</span>
+              <span className="text-muted-foreground">{t("Estado")}</span>
               <span className="text-right">
-                <Badge variant="secondary" className="bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
-                  En escrow
-                </Badge>
+                <Badge variant="secondary" className="bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">{t("En escrow")}</Badge>
               </span>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1 bg-transparent" onClick={() => setCompletado(false)}>
-                Reiniciar demo
-              </Button>
+              <Button variant="outline" className="flex-1 bg-transparent" onClick={() => setCompletado(false)}>{t("Reiniciar demo")}</Button>
               <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" asChild>
-                <Link href="/">Ir al inicio</Link>
+                <Link href="/">{t("Ir al inicio")}</Link>
               </Button>
             </div>
           </CardContent>
@@ -92,22 +89,15 @@ export default function DemoPagoPage() {
         <div className="mb-8">
           <Button variant="ghost" className="mb-4 -ml-3" asChild>
             <Link href="/">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Volver al inicio
-            </Link>
+              <ArrowLeft className="h-4 w-4 mr-2" />{t("Volver al inicio")}</Link>
           </Button>
           <div className="flex items-center gap-2 mb-2">
             <Badge className="bg-emerald-600 hover:bg-emerald-600 gap-1">
-              <Sparkles className="h-3 w-3" />
-              Demo interactiva
-            </Badge>
-            <span className="text-xs text-muted-foreground">No se cobrara nada real</span>
+              <Sparkles className="h-3 w-3" />{t("Demo interactiva")}</Badge>
+            <span className="text-xs text-muted-foreground">{t("No se cobrara nada real")}</span>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">Vista previa del pago con escrow</h1>
-          <p className="text-muted-foreground mt-1 max-w-2xl">
-            Asi es como un cliente ve el desglose de comisiones al pagar un trabajo. Modifica el precio
-            acordado para ver como cambian las cifras en tiempo real.
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight">{t("Vista previa del pago con escrow")}</h1>
+          <p className="text-muted-foreground mt-1 max-w-2xl">{t("Asi es como un cliente ve el desglose de comisiones al pagar un trabajo. Modifica el precio acordado para ver como cambian las cifras en tiempo real.")}</p>
         </div>
 
         {/* Price configurator */}
@@ -115,9 +105,7 @@ export default function DemoPagoPage() {
           <CardContent className="pt-6">
             <div className="flex flex-col md:flex-row md:items-center gap-6">
               <div className="flex-1">
-                <Label htmlFor="precio-demo" className="text-sm font-medium mb-2 block">
-                  Precio acordado con el profesional
-                </Label>
+                <Label htmlFor="precio-demo" className="text-sm font-medium mb-2 block">{t("Precio acordado con el profesional")}</Label>
                 <div className="flex items-center gap-3">
                   <Input
                     id="precio-demo"
@@ -140,8 +128,8 @@ export default function DemoPagoPage() {
                   className="mt-4"
                 />
                 <div className="flex justify-between text-xs text-muted-foreground mt-2">
-                  <span>50 €</span>
-                  <span>10.000 €</span>
+                  <span>{formatearPrecio(50, idioma)}</span>
+                  <span>{formatearPrecio(10000, idioma)}</span>
                 </div>
               </div>
               <div className="md:w-px md:h-20 md:bg-border" />
@@ -154,7 +142,7 @@ export default function DemoPagoPage() {
                     onClick={() => setPrecio(v)}
                     className={precio === v ? "bg-emerald-600 hover:bg-emerald-700" : "bg-transparent"}
                   >
-                    {formatearPrecio(v)}
+                    {formatearPrecio(v, idioma)}
                   </Button>
                 ))}
               </div>
@@ -169,30 +157,26 @@ export default function DemoPagoPage() {
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Briefcase className="h-4 w-4 text-emerald-600" />
-                  Resumen del trabajo
-                </CardTitle>
+                  <Briefcase className="h-4 w-4 text-emerald-600" />{t("Resumen del trabajo")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <div>
-                  <p className="font-medium leading-snug">Renovacion integral cocina 12 m2</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Demolicion, electricidad, fontaneria, alicatado y montaje de muebles
-                  </p>
+                  <p className="font-medium leading-snug">{t("Renovacion integral cocina 12 m2")}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{t("Demolicion, electricidad, fontaneria, alicatado y montaje de muebles")}</p>
                 </div>
                 <Separator />
                 <div className="space-y-2 text-xs">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <User className="h-3.5 w-3.5" />
-                    <span>Profesional: Reformas Garcia S.L.</span>
+                    <span>{t("Profesional: Reformas Garcia S.L.")}</span>
                   </div>
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <MapPin className="h-3.5 w-3.5" />
-                    <span>Madrid, Espana</span>
+                    <span>{t("Madrid, Espana")}</span>
                   </div>
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Calendar className="h-3.5 w-3.5" />
-                    <span>Inicio estimado: 12 jun 2026</span>
+                    <span>{t("Inicio estimado: 12 jun 2026")}</span>
                   </div>
                 </div>
               </CardContent>
@@ -202,21 +186,16 @@ export default function DemoPagoPage() {
             <Card className="border-emerald-200/60 dark:border-emerald-900/40">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                  Pago protegido con escrow
-                </CardTitle>
+                  <ShieldCheck className="h-4 w-4 text-emerald-600" />{t("Pago protegido con escrow")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Tu pago queda retenido de forma segura. Solo se libera al profesional cuando confirmas
-                  que el trabajo esta finalizado correctamente.
-                </p>
+                <p className="text-xs text-muted-foreground leading-relaxed">{t("Tu pago queda retenido de forma segura. Solo se libera al profesional cuando confirmas que el trabajo esta finalizado correctamente.")}</p>
                 <div className="space-y-2 pt-1">
                   {[
-                    "Pago 100% seguro con Stripe",
-                    "Fondos retenidos hasta confirmacion",
-                    "Reembolso si no estas satisfecho",
-                    "Mediacion gratuita en disputas",
+                    t("Pago 100% seguro con Stripe"),
+                    t("Fondos retenidos hasta confirmacion"),
+                    t("Reembolso si no estas satisfecho"),
+                    t("Mediacion gratuita en disputas"),
                   ].map((t) => (
                     <div key={t} className="flex items-start gap-2 text-xs text-muted-foreground">
                       <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 text-emerald-500 shrink-0" />
@@ -234,37 +213,31 @@ export default function DemoPagoPage() {
             <Card>
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5 text-emerald-600" />
-                  Desglose de tu pago
-                </CardTitle>
+                  <CreditCard className="h-5 w-5 text-emerald-600" />{t("Desglose de tu pago")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Precio acordado con el profesional</span>
-                    <span className="font-medium">{formatearPrecio(desglose.precioBase)}</span>
+                    <span className="text-sm text-muted-foreground">{t("Precio acordado con el profesional")}</span>
+                    <span className="font-medium">{formatearPrecio(desglose.precioBase, idioma)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-sm text-muted-foreground">
-                        Comision plataforma
-                      </span>
+                      <span className="text-sm text-muted-foreground">{t("Comision plataforma")}</span>
                       <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-normal">
                         +{PLATFORM_CONFIG.comisionClientePorcentaje}%
                       </Badge>
                     </div>
-                    <span className="font-medium">{formatearPrecio(desglose.comisionCliente)}</span>
+                    <span className="font-medium">{formatearPrecio(desglose.comisionCliente, idioma)}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between items-center pt-1">
                     <div>
-                      <span className="text-base font-semibold">Total a pagar hoy</span>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Cargado a tu metodo de pago
-                      </p>
+                      <span className="text-base font-semibold">{t("Total a pagar hoy")}</span>
+                      <p className="text-xs text-muted-foreground mt-0.5">{t("Cargado a tu metodo de pago")}</p>
                     </div>
                     <span className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
-                      {formatearPrecio(desglose.totalCliente)}
+                      {formatearPrecio(desglose.totalCliente, idioma)}
                     </span>
                   </div>
                 </div>
@@ -273,15 +246,9 @@ export default function DemoPagoPage() {
                 <div className="rounded-lg bg-muted/40 p-4 space-y-2 text-sm">
                   <div className="flex items-center gap-2 mb-1">
                     <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Que cubre tu pago
-                    </h4>
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("Que cubre tu pago")}</h4>
                   </div>
-                  <p className="text-muted-foreground text-xs leading-relaxed">
-                    El precio acordado con el profesional ({formatearPrecio(desglose.precioBase)}) y los servicios
-                    de la plataforma: pago protegido en escrow, mediacion en disputas, soporte 24/7 y garantia
-                    de satisfaccion.
-                  </p>
+                  <p className="text-muted-foreground text-xs leading-relaxed">{t("El precio acordado con el profesional (")}{formatearPrecio(desglose.precioBase, idioma)}{t(") y los servicios de la plataforma: pago protegido en escrow, mediacion en disputas, soporte 24/7 y garantia de satisfaccion.")}</p>
                 </div>
               </CardContent>
             </Card>
@@ -290,9 +257,7 @@ export default function DemoPagoPage() {
             <Card>
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2">
-                  <Lock className="h-5 w-5" />
-                  Metodo de pago
-                </CardTitle>
+                  <Lock className="h-5 w-5" />{t("Metodo de pago")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -301,7 +266,7 @@ export default function DemoPagoPage() {
                     className="flex items-center gap-3 p-3 rounded-lg border-2 border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20"
                   >
                     <CreditCard className="h-5 w-5 text-emerald-600" />
-                    <span className="font-medium text-sm">Tarjeta</span>
+                    <span className="font-medium text-sm">{t("Tarjeta")}</span>
                     <CheckCircle2 className="h-4 w-4 text-emerald-600 ml-auto" />
                   </button>
                   <button
@@ -309,15 +274,13 @@ export default function DemoPagoPage() {
                     className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card text-muted-foreground"
                   >
                     <span className="font-bold text-sm">SEPA</span>
-                    <span className="text-sm">Transferencia</span>
+                    <span className="text-sm">{t("Transferencia")}</span>
                   </button>
                 </div>
 
                 <div className="space-y-3">
                   <div>
-                    <Label htmlFor="card" className="text-xs">
-                      Numero de tarjeta
-                    </Label>
+                    <Label htmlFor="card" className="text-xs">{t("Numero de tarjeta")}</Label>
                     <Input
                       id="card"
                       placeholder="4242 4242 4242 4242"
@@ -327,10 +290,8 @@ export default function DemoPagoPage() {
                   </div>
                   <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <Label htmlFor="exp" className="text-xs">
-                        Caducidad
-                      </Label>
-                      <Input id="exp" placeholder="MM/AA" defaultValue="12/28" className="font-mono" />
+                      <Label htmlFor="exp" className="text-xs">{t("Caducidad")}</Label>
+                      <Input id="exp" placeholder={t("MM/AA")} defaultValue="12/28" className="font-mono" />
                     </div>
                     <div>
                       <Label htmlFor="cvc" className="text-xs">
@@ -339,9 +300,7 @@ export default function DemoPagoPage() {
                       <Input id="cvc" placeholder="123" defaultValue="123" className="font-mono" />
                     </div>
                     <div>
-                      <Label htmlFor="zip" className="text-xs">
-                        Codigo postal
-                      </Label>
+                      <Label htmlFor="zip" className="text-xs">{t("Codigo postal")}</Label>
                       <Input id="zip" placeholder="28001" defaultValue="28001" />
                     </div>
                   </div>
@@ -351,23 +310,18 @@ export default function DemoPagoPage() {
                   className="w-full bg-emerald-600 hover:bg-emerald-700 h-12 text-base shadow-md"
                   onClick={() => setCompletado(true)}
                 >
-                  <Lock className="h-4 w-4 mr-2" />
-                  Pagar {formatearPrecio(desglose.totalCliente)} de forma segura
-                </Button>
+                  <Lock className="h-4 w-4 mr-2" />{t("Pagar")}{" "}{formatearPrecio(desglose.totalCliente, idioma)}{" "}{t("de forma segura")}</Button>
 
                 <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-1">
                   <Lock className="h-3 w-3" />
-                  <span>Pago cifrado SSL. Procesado por Stripe.</span>
+                  <span>{t("Pago cifrado SSL. Procesado por Stripe.")}</span>
                 </div>
               </CardContent>
             </Card>
           </div>
         </div>
 
-        <p className="text-center text-xs text-muted-foreground mt-8">
-          Esta es una demostracion. No se realiza ningun cargo real ni se almacenan los datos
-          introducidos.
-        </p>
+        <p className="text-center text-xs text-muted-foreground mt-8">{t("Esta es una demostracion. No se realiza ningun cargo real ni se almacenan los datos introducidos.")}</p>
       </div>
     </div>
   )

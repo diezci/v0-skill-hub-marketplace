@@ -79,8 +79,8 @@ const Categories = () => {
                 >
                   <Icono className={`h-6 w-6 ${cat.color}`} />
                 </div>
-                <h3 className="font-semibold text-base mb-1 leading-tight">{cat.nombre}</h3>
-                <p className="text-xs text-muted-foreground leading-snug line-clamp-2">{cat.ejemplos}</p>
+                <h3 className="font-semibold text-base mb-1 leading-tight">{t(cat.nombre)}</h3>
+                <p className="text-xs text-muted-foreground leading-snug line-clamp-2">{cat.ejemplos.split(" · ").map((nombre) => t(nombre)).join(" · ")}</p>
                 <p className="text-[11px] text-muted-foreground/70 mt-2">
                   {cat.total} {cat.total !== 1 ? t("categorias.servicios") : t("categorias.servicio")}
                 </p>

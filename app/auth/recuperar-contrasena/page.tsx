@@ -1,5 +1,7 @@
 "use client"
 
+import { useT } from "@/components/idioma-provider"
+
 import type React from "react"
 
 import { createClient } from "@/lib/supabase/client"
@@ -12,6 +14,7 @@ import { useState } from "react"
 import { Mail, AlertCircle, CheckCircle2, ArrowLeft } from "lucide-react"
 
 export default function RecuperarContrasenaPage() {
+  const t = useT()
   const [email, setEmail] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -33,7 +36,7 @@ export default function RecuperarContrasenaPage() {
 
       setSuccess(true)
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "Error al enviar el email")
+      setError(error instanceof Error ? t(error.message) : "Error al enviar el email")
     } finally {
       setIsLoading(false)
     }
@@ -60,9 +63,9 @@ export default function RecuperarContrasenaPage() {
       <div className="relative z-10 w-full max-w-md">
         <Card className="border-white/10 bg-card/95 shadow-2xl backdrop-blur-xl">
           <CardHeader className="space-y-1 text-center pb-6">
-            <CardTitle className="text-3xl font-bold tracking-tight">Recuperar Contraseña</CardTitle>
+            <CardTitle className="text-3xl font-bold tracking-tight">{t("Recuperar Contraseña")}</CardTitle>
             <CardDescription className="text-base">
-              Ingresa tu email y te enviaremos un enlace para restablecer tu contraseña
+              {t("Ingresa tu email y te enviaremos un enlace para restablecer tu contraseña")}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -70,14 +73,14 @@ export default function RecuperarContrasenaPage() {
               <form onSubmit={handleResetPassword} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-sm font-medium">
-                    Email
+                    {t("Email")}
                   </Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="email"
                       type="email"
-                      placeholder="tu@email.com"
+                      placeholder={t("tu@email.com")}
                       className="pl-10"
                       required
                       value={email}
@@ -89,12 +92,12 @@ export default function RecuperarContrasenaPage() {
                 {error && (
                   <div className="text-sm text-red-500 bg-red-50 p-3 rounded-lg flex items-start gap-2">
                     <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <span>{error}</span>
+                    <span>{t(error)}</span>
                   </div>
                 )}
 
                 <Button type="submit" className="w-full h-11" disabled={isLoading}>
-                  {isLoading ? "Enviando..." : "Enviar enlace de recuperación"}
+                  {isLoading ? t("Enviando...") : t("Enviar enlace de recuperación")}
                 </Button>
 
                 <div className="text-center">
@@ -103,7 +106,7 @@ export default function RecuperarContrasenaPage() {
                     className="text-sm text-muted-foreground hover:text-primary inline-flex items-center gap-1"
                   >
                     <ArrowLeft className="h-3 w-3" />
-                    Volver al inicio de sesión
+                    {t("Volver al inicio de sesión")}
                   </Link>
                 </div>
               </form>
@@ -113,14 +116,13 @@ export default function RecuperarContrasenaPage() {
                   <CheckCircle2 className="h-6 w-6 text-green-600" />
                 </div>
                 <div className="space-y-2">
-                  <h3 className="font-semibold text-lg">¡Email enviado!</h3>
+                  <h3 className="font-semibold text-lg">{t("¡Email enviado!")}</h3>
                   <p className="text-sm text-muted-foreground">
-                    Hemos enviado un enlace de recuperación a <strong>{email}</strong>. Por favor revisa tu bandeja de
-                    entrada y sigue las instrucciones.
+                    {t("Hemos enviado un enlace de recuperación a")} <strong>{email}</strong>{t(". Por favor revisa tu bandeja de entrada y sigue las instrucciones.")}
                   </p>
                 </div>
                 <Button asChild variant="outline" className="w-full bg-transparent">
-                  <Link href="/auth/login">Volver al inicio de sesión</Link>
+                  <Link href="/auth/login">{t("Volver al inicio de sesión")}</Link>
                 </Button>
               </div>
             )}

@@ -1,5 +1,7 @@
 "use client"
 
+import { useT } from "@/components/idioma-provider"
+
 import { useState } from "react"
 import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -28,6 +30,7 @@ export function SelectCategoriaJerarquico({
   opcionTodas?: string
   className?: string
 }) {
+  const t = useT()
   const [abierto, setAbierto] = useState(false)
   const esTodas = opcionTodas !== undefined && (value === opcionTodas || value === "")
 
@@ -40,7 +43,7 @@ export function SelectCategoriaJerarquico({
         )}
       >
         <span className={cn("truncate", esTodas && "text-muted-foreground")}>
-          {esTodas ? opcionTodas : value || placeholder}
+          {t((esTodas ? opcionTodas : value || placeholder) || "")}
         </span>
         <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
       </PopoverTrigger>
@@ -57,7 +60,7 @@ export function SelectCategoriaJerarquico({
               esTodas ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-medium" : "hover:bg-muted",
             )}
           >
-            {opcionTodas}
+            {t(opcionTodas)}
           </button>
         )}
         <SelectorCategoriasAgrupado

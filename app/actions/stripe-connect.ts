@@ -1,5 +1,7 @@
 "use server"
 
+import { textoServidor } from "@/lib/i18n-servidor"
+
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
@@ -73,11 +75,11 @@ function estadoCuenta(account: Awaited<ReturnType<typeof stripe.accounts.retriev
 
 async function usuarioProfesional() {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" as const }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible" as const) }
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" as const }
+  if (!user) return { error: await textoServidor("No autenticado" as const) }
 
   // `profiles.email` no es legible directamente para usuarios autenticados:
   // las columnas personales se sirven mediante RPC (scripts/042-043). Para
@@ -97,17 +99,17 @@ async function usuarioProfesional() {
     .eq("id", user.id)
     .maybeSingle()
 
-  if (perfilError) return { error: `No se pudo leer el perfil: ${perfilError.message}` as const }
-  if (error) return { error: `No se pudo leer Stripe Connect: ${error.message}` as const }
-  if (!perfil || !profesional) return { error: "Necesitas un perfil profesional antes de configurar cobros." as const }
+  if (perfilError) return { error: await textoServidor(`No se pudo leer el perfil: ${perfilError.message}` as const) }
+  if (error) return { error: await textoServidor(`No se pudo leer Stripe Connect: ${error.message}` as const) }
+  if (!perfil || !profesional) return { error: await textoServidor("Necesitas un perfil profesional antes de configurar cobros." as const) }
   const admin = createAdminClient()
-  if (!admin) return { error: "No se pudo preparar la conexión segura de cobros." as const }
+  if (!admin) return { error: await textoServidor("No se pudo preparar la conexión segura de cobros." as const) }
   return { supabase, admin, user, perfil, profesional }
 }
 
 export async function obtenerEstadoStripeConnect() {
   const contexto = await usuarioProfesional()
-  if ("error" in contexto) return { error: contexto.error }
+  if ("error" in contexto) return { error: await textoServidor(contexto.error) }
   const { admin, perfil, profesional } = contexto
 
   if (!profesional.stripe_account_id) {
@@ -161,7 +163,7 @@ export async function obtenerEstadoStripeConnect() {
         stripe_payouts_habilitados: false,
         stripe_estado_actualizado_at: new Date().toISOString(),
       }).eq("id", profesional.id)
-      return { error: errorIdentidad }
+      return { error: await textoServidor(errorIdentidad) }
     }
     const { data: guardado, error: guardarError } = await admin.rpc("actualizar_estado_cuenta_stripe", {
       p_profesional_id: profesional.id,
@@ -173,7 +175,7 @@ export async function obtenerEstadoStripeConnect() {
       p_requisitos: estado.stripe_requisitos_pendientes,
     })
     if (guardarError) throw guardarError
-    if (!guardado) return { error: "Tu perfil de cobros ha cambiado. Actualiza el estado para volver a comprobarlo." }
+    if (!guardado) return { error: await textoServidor("Tu perfil de cobros ha cambiado. Actualiza el estado para volver a comprobarlo.") }
 
     const opcionesCuenta = { stripeAccount: profesional.stripe_account_id }
     const [resultadoSaldo, resultadoPayouts, resultadoMovimientos, resultadoCalendario] = await Promise.allSettled([
@@ -280,14 +282,14 @@ export async function obtenerEstadoStripeConnect() {
       } satisfies EstadoStripeConnect,
     }
   } catch (error: any) {
-    return { error: error.message || "No se pudo consultar la cuenta de cobros." }
+    return { error: await textoServidor(error.message || "No se pudo consultar la cuenta de cobros.") }
   }
 }
 
 /** Crea/reutiliza una cuenta Express y devuelve un enlace alojado por Stripe. */
 export async function crearEnlaceOnboardingStripe(opciones: OpcionesOnboarding = {}) {
   const contexto = await usuarioProfesional()
-  if ("error" in contexto) return { error: contexto.error }
+  if ("error" in contexto) return { error: await textoServidor(contexto.error) }
   const { admin, user, perfil, profesional } = contexto
 
   try {
@@ -297,7 +299,7 @@ export async function crearEnlaceOnboardingStripe(opciones: OpcionesOnboarding =
       if (perfil.empresa_id) {
         const { data: empresa, error: empresaError } = await admin.from("empresas")
           .select("nombre").eq("id", perfil.empresa_id).single()
-        if (empresaError || !empresa) return { error: "No se pudieron verificar los datos de tu empresa." }
+        if (empresaError || !empresa) return { error: await textoServidor("No se pudieron verificar los datos de tu empresa.") }
         nombreCobros = empresa.nombre
       }
       const account = await stripe.accounts.create(
@@ -325,7 +327,7 @@ export async function crearEnlaceOnboardingStripe(opciones: OpcionesOnboarding =
 
     const cuenta = await stripe.accounts.retrieve(accountId)
     const errorIdentidad = errorIdentidadCuentaStripe(cuenta, perfil)
-    if (errorIdentidad) return { error: errorIdentidad }
+    if (errorIdentidad) return { error: await textoServidor(errorIdentidad) }
 
     const base = siteUrl()
     const parametrosRetorno = new URLSearchParams({ volver: rutaRetornoSegura(opciones.volverA) })
@@ -341,25 +343,25 @@ export async function crearEnlaceOnboardingStripe(opciones: OpcionesOnboarding =
     })
     return { data: { url: link.url } }
   } catch (error: any) {
-    return { error: error.message || "No se pudo iniciar el alta de cobros con Stripe." }
+    return { error: await textoServidor(error.message || "No se pudo iniciar el alta de cobros con Stripe.") }
   }
 }
 
 /** Enlace de un solo uso al Express Dashboard; nunca se envía por email. */
 export async function crearEnlaceDashboardStripe() {
   const contexto = await usuarioProfesional()
-  if ("error" in contexto) return { error: contexto.error }
+  if ("error" in contexto) return { error: await textoServidor(contexto.error) }
   const { perfil, profesional } = contexto
-  if (!profesional.stripe_account_id) return { error: "Completa primero el alta de cobros." }
+  if (!profesional.stripe_account_id) return { error: await textoServidor("Completa primero el alta de cobros.") }
 
   try {
     const cuenta = await stripe.accounts.retrieve(profesional.stripe_account_id)
     const errorIdentidad = errorIdentidadCuentaStripe(cuenta, perfil)
-    if (errorIdentidad) return { error: errorIdentidad }
+    if (errorIdentidad) return { error: await textoServidor(errorIdentidad) }
     const link = await stripe.accounts.createLoginLink(profesional.stripe_account_id)
     return { data: { url: link.url } }
   } catch (error: any) {
-    return { error: error.message || "No se pudo abrir el panel de cobros." }
+    return { error: await textoServidor(error.message || "No se pudo abrir el panel de cobros.") }
   }
 }
 

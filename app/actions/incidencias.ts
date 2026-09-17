@@ -1,5 +1,7 @@
 "use server"
 
+import { textoServidor } from "@/lib/i18n-servidor"
+
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
@@ -15,7 +17,7 @@ export async function obtenerTrabajosParaIncidencia() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado", data: [] }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado"), data: [] }
 
   const { data, error } = await supabase
     .from("trabajos")
@@ -23,7 +25,7 @@ export async function obtenerTrabajosParaIncidencia() {
     .or(`cliente_id.eq.${user.id},profesional_id.eq.${user.id}`)
     .order("created_at", { ascending: false })
 
-  if (error) return { error: error.message, data: [] }
+  if (error) return { error: await textoServidor(error.message), data: [] }
 
   const trabajos = (data || []).map((t: any) => ({
     id: t.id,
@@ -48,7 +50,7 @@ export async function crearIncidencia(data: {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   const { data: incidencia, error } = await supabase
     .from("incidencias")
@@ -66,9 +68,9 @@ export async function crearIncidencia(data: {
 
   if (error) {
     if (error.code === "42P01") {
-      return { error: "La tabla de incidencias aún no está creada. Ejecuta el script 027." }
+      return { error: await textoServidor("La tabla de incidencias aún no está creada. Ejecuta el script 027.") }
     }
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   revalidatePath("/admin/incidencias")
@@ -84,7 +86,7 @@ export async function obtenerMisIncidencias() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado", data: [] }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado"), data: [] }
 
   const { data, error } = await supabase
     .from("incidencias")
@@ -96,7 +98,7 @@ export async function obtenerMisIncidencias() {
 
   if (error) {
     if (error.code === "42P01") return { data: [] }
-    return { error: error.message, data: [] }
+    return { error: await textoServidor(error.message), data: [] }
   }
 
   // Adjuntar el título del trabajo relacionado (si lo hay).
@@ -121,23 +123,23 @@ export async function obtenerMisIncidencias() {
 // actualizar un admin por RLS.
 export async function retirarIncidencia(incidenciaId: string) {
   const supabase = await createClient()
-  if (!supabase) return { error: "No se pudo conectar" }
+  if (!supabase) return { error: await textoServidor("No se pudo conectar") }
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   const { data: resultado, error } = await supabase.rpc("retirar_incidencia", {
     p_incidencia_id: incidenciaId,
   })
-  if (error) return { error: error.message }
+  if (error) return { error: await textoServidor(error.message) }
   if (resultado !== "ok") {
     const motivos: Record<string, string> = {
       no_encontrada: "La incidencia no existe.",
       no_autorizado: "Solo quien reportó la incidencia puede retirarla.",
       no_retirable: "Esta incidencia ya la ha gestionado el equipo: no se puede retirar.",
     }
-    return { error: motivos[resultado as string] || "No se ha podido retirar la incidencia." }
+    return { error: await textoServidor(motivos[resultado as string] || "No se ha podido retirar la incidencia.") }
   }
 
   revalidatePath("/incidencias")
@@ -157,10 +159,10 @@ export async function obtenerIncidencias() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   if (!(await esAdmin(supabase, user.id))) {
-    return { error: "No tienes permiso para ver incidencias" }
+    return { error: await textoServidor("No tienes permiso para ver incidencias") }
   }
 
   const { data, error } = await supabase
@@ -174,7 +176,7 @@ export async function obtenerIncidencias() {
 
   if (error) {
     if (error.code === "42P01") return { data: [] }
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   // La FK de incidencias apunta a auth.users, así que los perfiles se obtienen
@@ -222,10 +224,10 @@ export async function actualizarIncidencia(
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   if (!(await esAdmin(supabase, user.id))) {
-    return { error: "No tienes permiso" }
+    return { error: await textoServidor("No tienes permiso") }
   }
 
   const cierra = cambios.estado === "resuelta" || cambios.estado === "cerrada"
@@ -242,7 +244,7 @@ export async function actualizarIncidencia(
     .eq("id", id)
     .select("id, asunto, estado, reportado_por, notas_admin")
     .maybeSingle()
-  if (error) return { error: error.message }
+  if (error) return { error: await textoServidor(error.message) }
 
   // Solo se avisa a quien la reportó: el usuario reportado nunca supo de la
   // incidencia y `obtenerMisIncidencias` filtra por `reportado_por`, así que un

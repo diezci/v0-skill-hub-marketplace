@@ -67,7 +67,7 @@ const Testimonials = () => {
     <section className="container mx-auto px-4 py-16 md:py-24">
       <div className="text-center mb-12">
         <span className="inline-block px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-4 tracking-wide uppercase">
-          Testimonios
+          {traducir("Testimonios")}
         </span>
         <h2 className="text-3xl md:text-4xl font-bold mb-3 tracking-tight text-balance">
           {traducir("testimonios.titulo")}
@@ -94,7 +94,7 @@ const Testimonials = () => {
 
             {/* Quote */}
             <p className="text-lg md:text-xl text-center text-foreground/90 leading-relaxed mb-8 text-pretty">
-              {`"${t.content}"`}
+              {`"${traducir(t.content)}"`}
             </p>
 
             {/* Author */}
@@ -103,7 +103,7 @@ const Testimonials = () => {
                 <AvatarFallback className="bg-primary/10 text-primary font-semibold">{t.initial}</AvatarFallback>
               </Avatar>
               <h4 className="font-semibold">{t.name}</h4>
-              <p className="text-sm text-muted-foreground">{t.role}</p>
+              <p className="text-sm text-muted-foreground">{traducir(t.role)}</p>
             </div>
           </div>
         </Card>
@@ -115,7 +115,7 @@ const Testimonials = () => {
             size="icon"
             className="rounded-full h-10 w-10 bg-transparent hover:bg-primary/5"
             onClick={prev}
-            aria-label="Testimonio anterior"
+            aria-label={traducir("Testimonio anterior")}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -127,7 +127,7 @@ const Testimonials = () => {
                 className={`h-2 rounded-full transition-all duration-300 ${
                   index === current ? "w-8 bg-primary" : "w-2 bg-muted-foreground/30 hover:bg-muted-foreground/50"
                 }`}
-                aria-label={`Ir al testimonio ${index + 1}`}
+                aria-label={traducir("Ir al testimonio {count}", { count: index + 1 })}
               />
             ))}
           </div>
@@ -136,7 +136,7 @@ const Testimonials = () => {
             size="icon"
             className="rounded-full h-10 w-10 bg-transparent hover:bg-primary/5"
             onClick={next}
-            aria-label="Siguiente testimonio"
+            aria-label={traducir("Siguiente testimonio")}
           >
             <ChevronRight className="h-4 w-4" />
           </Button>

@@ -1,5 +1,8 @@
 "use client"
 
+import { useIdioma } from "@/components/idioma-provider"
+
+
 import { useMemo, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { obtenerProfesionales } from "@/app/actions/profiles"
@@ -44,6 +47,7 @@ const FALLBACK_IMG =
   "https://images.unsplash.com/photo-1504307651254-35680f356dfd?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80"
 
 const GigListing = ({ filtros }: GigListingProps) => {
+  const { t, idioma } = useIdioma()
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [sortBy, setSortBy] = useState("recommended")
   const [realGigs, setRealGigs] = useState<any[]>([])
@@ -62,17 +66,17 @@ const GigListing = ({ filtros }: GigListingProps) => {
         data: { user },
       } = await supabase.auth.getUser()
       if (!user) {
-        toast({ title: "Inicia sesión", description: "Necesitas una cuenta para escribir a un profesional." })
+        toast({ title: t("Inicia sesión"), description: t("Necesitas una cuenta para escribir a un profesional.") })
         router.push("/auth/login")
         return
       }
       if (user.id === profesionalId) {
-        toast({ title: "Eres tú", description: "No puedes escribirte a ti mismo." })
+        toast({ title: t("Eres tú"), description: t("No puedes escribirte a ti mismo.") })
         return
       }
       const res = await crearConversacion({ otroUsuarioId: profesionalId })
       if (res.error || !res.data?.id) {
-        toast({ title: "Error", description: res.error || "No se pudo abrir el chat.", variant: "destructive" })
+        toast({ title: "Error", description: t(res.error || "No se pudo abrir el chat."), variant: "destructive" })
         return
       }
       router.push(`/mensajes?c=${res.data.id}`)
@@ -92,7 +96,7 @@ const GigListing = ({ filtros }: GigListingProps) => {
         return {
           id: p.id,
           title: p.titulo || nombre,
-          description: p.perfil?.bio || p.titulo || "Profesional en Diime",
+          description: p.perfil?.bio || p.titulo || "",
           price: Number(p.tarifa_por_hora) || 0,
           // La etiqueta de la tarjeta representa un servicio seleccionado de la
           // taxonomía, no una habilidad de texto libre.
@@ -143,7 +147,7 @@ const GigListing = ({ filtros }: GigListingProps) => {
       // Búsqueda
       if (filtros.search) {
         const q = filtros.search.toLowerCase()
-        const haystack = `${g.title} ${g.description} ${g.category} ${g.provincia} ${g.freelancer.name}`.toLowerCase()
+        const haystack = `${g.title} ${g.description} ${g.category} ${t(g.category)} ${g.habilidades.map((habilidad: string) => t(habilidad)).join(" ")} ${g.provincia} ${g.freelancer.name}`.toLowerCase()
         if (!haystack.includes(q)) return false
       }
       return true
@@ -164,18 +168,17 @@ const GigListing = ({ filtros }: GigListingProps) => {
         break
     }
     return list
-  }, [filtros, sortBy, todos])
+  }, [filtros, sortBy, todos, t])
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <p className="text-muted-foreground">
-            Mostrando <span className="font-medium">{filtered.length}</span> resultados
-            {filtros?.provincia && (
+             {t("Mostrando")} <span className="font-medium">{filtered.length}</span>  {t("resultados")} {filtros?.provincia && (
               <>
                 {" "}
-                en{" "}
+                 {t("en")}{" "}
                 <span className="font-medium text-foreground inline-flex items-center gap-1">
                   <MapPin className="h-3.5 w-3.5 text-emerald-600" />
                   {filtros.provincia}
@@ -187,14 +190,14 @@ const GigListing = ({ filtros }: GigListingProps) => {
         <div className="flex items-center gap-4">
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Ordenar por" />
+              <SelectValue placeholder={t("Ordenar por")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="recommended">Recomendados</SelectItem>
-              <SelectItem value="price-low">Precio: Menor a Mayor</SelectItem>
-              <SelectItem value="price-high">Precio: Mayor a Menor</SelectItem>
-              <SelectItem value="rating">Mejor Valorados</SelectItem>
-              <SelectItem value="newest">Más Recientes</SelectItem>
+              <SelectItem value="recommended">{t("Recomendados")}</SelectItem>
+              <SelectItem value="price-low">{t("Precio: Menor a Mayor")}</SelectItem>
+              <SelectItem value="price-high">{t("Precio: Mayor a Menor")}</SelectItem>
+              <SelectItem value="rating">{t("Mejor Valorados")}</SelectItem>
+              <SelectItem value="newest">{t("Más Recientes")}</SelectItem>
             </SelectContent>
           </Select>
           <div className="flex items-center border rounded-md">
@@ -205,7 +208,7 @@ const GigListing = ({ filtros }: GigListingProps) => {
               onClick={() => setViewMode("grid")}
             >
               <Grid3X3 className="h-4 w-4" />
-              <span className="sr-only">Vista de cuadrícula</span>
+              <span className="sr-only">{t("Vista de cuadrícula")}</span>
             </Button>
             <Button
               variant="ghost"
@@ -214,7 +217,7 @@ const GigListing = ({ filtros }: GigListingProps) => {
               onClick={() => setViewMode("list")}
             >
               <List className="h-4 w-4" />
-              <span className="sr-only">Vista de lista</span>
+              <span className="sr-only">{t("Vista de lista")}</span>
             </Button>
           </div>
         </div>
@@ -224,8 +227,8 @@ const GigListing = ({ filtros }: GigListingProps) => {
         <Card>
           <CardContent className="py-16 text-center text-muted-foreground">
             <MapPin className="h-10 w-10 mx-auto mb-3 opacity-40" />
-            <p className="font-medium text-foreground mb-1">No se encontraron profesionales</p>
-            <p className="text-sm">Prueba a cambiar los filtros o seleccionar otra provincia.</p>
+            <p className="font-medium text-foreground mb-1">{t("No se encontraron profesionales")}</p>
+            <p className="text-sm">{t("Prueba a cambiar los filtros o seleccionar otra provincia.")}</p>
           </CardContent>
         </Card>
       ) : viewMode === "grid" ? (
@@ -239,7 +242,7 @@ const GigListing = ({ filtros }: GigListingProps) => {
                     alt={gig.title}
                     className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                   />
-                  {gig.category && <Badge className="absolute top-2 right-2">{gig.category}</Badge>}
+                  {gig.category && <Badge className="absolute top-2 right-2">{t(gig.category)}</Badge>}
                 </div>
                 <CardContent className="p-6">
                   <div className="flex items-center space-x-2 mb-4">
@@ -249,11 +252,11 @@ const GigListing = ({ filtros }: GigListingProps) => {
                     </Avatar>
                     <div>
                       <p className="text-sm font-medium">{gig.freelancer.name}</p>
-                      <p className="text-xs text-muted-foreground">{gig.freelancer.level}</p>
+                      <p className="text-xs text-muted-foreground">{t(gig.freelancer.level)}</p>
                     </div>
                   </div>
                   <h3 className="text-xl font-semibold mb-2">{gig.title}</h3>
-                  <p className="text-muted-foreground mb-3 line-clamp-2">{gig.description}</p>
+                  <p className="text-muted-foreground mb-3 line-clamp-2">{gig.description || t("Profesional en Diime")}</p>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-1 text-amber-500">
                       <Star className="h-4 w-4 fill-current" />
@@ -268,7 +271,7 @@ const GigListing = ({ filtros }: GigListingProps) => {
                 </CardContent>
                 <CardFooter className="p-6 pt-0 border-t flex justify-between items-center gap-2">
                   <div>
-                    <p className="text-sm text-muted-foreground">Desde</p>
+                    <p className="text-sm text-muted-foreground">{t("Desde")}</p>
                     <p className="text-xl font-bold">€{gig.price}</p>
                   </div>
                   {(gig as any).esReal && (
@@ -280,8 +283,7 @@ const GigListing = ({ filtros }: GigListingProps) => {
                       onClick={(e) => handleMensaje(e, String(gig.id))}
                     >
                       <MessageSquare className="h-4 w-4 mr-1.5" />
-                      Mensaje
-                    </Button>
+                       {t("Mensaje")} </Button>
                   )}
                 </CardFooter>
               </Card>
@@ -300,7 +302,7 @@ const GigListing = ({ filtros }: GigListingProps) => {
                       alt={gig.title}
                       className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                     />
-                    {gig.category && <Badge className="absolute top-2 right-2">{gig.category}</Badge>}
+                    {gig.category && <Badge className="absolute top-2 right-2">{t(gig.category)}</Badge>}
                   </div>
                   <div className="flex-1 p-6">
                     <div className="flex items-center space-x-2 mb-4">
@@ -310,7 +312,7 @@ const GigListing = ({ filtros }: GigListingProps) => {
                       </Avatar>
                       <div>
                         <p className="text-sm font-medium">{gig.freelancer.name}</p>
-                        <p className="text-xs text-muted-foreground">{gig.freelancer.level}</p>
+                        <p className="text-xs text-muted-foreground">{t(gig.freelancer.level)}</p>
                       </div>
                       <div className="ml-auto flex items-center gap-3">
                         <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
@@ -325,10 +327,10 @@ const GigListing = ({ filtros }: GigListingProps) => {
                       </div>
                     </div>
                     <h3 className="text-xl font-semibold mb-2">{gig.title}</h3>
-                    <p className="text-muted-foreground mb-4">{gig.description}</p>
+                    <p className="text-muted-foreground mb-4">{gig.description || t("Profesional en Diime")}</p>
                     <div className="flex justify-between items-center mt-4">
                       <div>
-                        <p className="text-sm text-muted-foreground">Desde</p>
+                        <p className="text-sm text-muted-foreground">{t("Desde")}</p>
                         <p className="text-xl font-bold">€{gig.price}</p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -340,10 +342,9 @@ const GigListing = ({ filtros }: GigListingProps) => {
                             onClick={(e) => handleMensaje(e, String(gig.id))}
                           >
                             <MessageSquare className="h-4 w-4 mr-1.5" />
-                            Mensaje
-                          </Button>
+                             {t("Mensaje")} </Button>
                         )}
-                        <Button>Ver Detalles</Button>
+                        <Button>{t("Ver Detalles")}</Button>
                       </div>
                     </div>
                   </div>

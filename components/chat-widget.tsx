@@ -1,5 +1,8 @@
 "use client"
 
+import { useT } from "@/components/idioma-provider"
+
+
 // Botón flotante de mensajes: acceso directo a /mensajes (la sección real de
 // chat). Antes había aquí un mini-chat duplicado que usaba un backend legacy
 // y no funcionaba; se sustituye por esta vía única.
@@ -19,6 +22,7 @@ export function useChatWidget() {
 }
 
 export function ChatWidget() {
+  const t = useT()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
@@ -44,7 +48,7 @@ export function ChatWidget() {
       onClick={() => router.push("/mensajes")}
       className="fixed bottom-4 right-4 z-50 h-12 w-12 rounded-full bg-emerald-500 shadow-lg hover:bg-emerald-600 sm:bottom-6 sm:right-6 sm:h-14 sm:w-14"
       size="icon"
-      aria-label="Abrir mensajes"
+      aria-label={t("Abrir mensajes")}
     >
       <MessageCircle className="h-6 w-6" />
     </Button>

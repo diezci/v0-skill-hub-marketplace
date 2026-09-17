@@ -1,5 +1,7 @@
 "use server"
 
+import { textoServidor } from "@/lib/i18n-servidor"
+
 import { createClient } from "@/lib/supabase/server"
 
 export interface TrabajoCalendario {
@@ -33,11 +35,11 @@ export interface TrabajoCalendario {
 
 export async function obtenerTrabajosCalendario(): Promise<{
   data: TrabajoCalendario[]
-  error?: string
+  error?: string; codigo?: "NO_AUTENTICADO"
 }> {
   const supabase = await createClient()
   if (!supabase) {
-    return { data: [], error: "No se pudo conectar a la base de datos" }
+    return { data: [], error: await textoServidor("No se pudo conectar a la base de datos") }
   }
 
   const {
@@ -45,7 +47,7 @@ export async function obtenerTrabajosCalendario(): Promise<{
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return { data: [], error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", data: [], error: await textoServidor("No autenticado") }
   }
 
   const { data, error } = await supabase
@@ -79,7 +81,7 @@ export async function obtenerTrabajosCalendario(): Promise<{
     .order("fecha_inicio", { ascending: true })
 
   if (error) {
-    return { data: [], error: error.message }
+    return { data: [], error: await textoServidor(error.message) }
   }
 
   // `as unknown as`: los embeds (cliente, solicitud) llegan tipados como array
@@ -97,10 +99,10 @@ export async function actualizarEstimacionTrabajo(
     fecha_inicio?: string
     fecha_estimada_fin?: string
   }
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; codigo?: "NO_AUTENTICADO" }> {
   const supabase = await createClient()
   if (!supabase) {
-    return { success: false, error: "No se pudo conectar a la base de datos" }
+    return { success: false, error: await textoServidor("No se pudo conectar a la base de datos") }
   }
 
   const {
@@ -108,7 +110,7 @@ export async function actualizarEstimacionTrabajo(
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return { success: false, error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", success: false, error: await textoServidor("No autenticado") }
   }
 
   // Verify ownership
@@ -119,7 +121,7 @@ export async function actualizarEstimacionTrabajo(
     .single()
 
   if (!trabajo || trabajo.profesional_id !== user.id) {
-    return { success: false, error: "No tienes permiso para editar este trabajo" }
+    return { success: false, error: await textoServidor("No tienes permiso para editar este trabajo") }
   }
 
   const { error } = await supabase
@@ -128,7 +130,7 @@ export async function actualizarEstimacionTrabajo(
     .eq("id", trabajoId)
 
   if (error) {
-    return { success: false, error: error.message }
+    return { success: false, error: await textoServidor(error.message) }
   }
 
   return { success: true }
@@ -158,11 +160,11 @@ export interface ServicioSolicitado {
 
 export async function obtenerServiciosSolicitados(): Promise<{
   data: ServicioSolicitado[]
-  error?: string
+  error?: string; codigo?: "NO_AUTENTICADO"
 }> {
   const supabase = await createClient()
   if (!supabase) {
-    return { data: [], error: "No se pudo conectar a la base de datos" }
+    return { data: [], error: await textoServidor("No se pudo conectar a la base de datos") }
   }
 
   const {
@@ -170,7 +172,7 @@ export async function obtenerServiciosSolicitados(): Promise<{
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return { data: [], error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", data: [], error: await textoServidor("No autenticado") }
   }
 
   const { data, error } = await supabase
@@ -199,7 +201,7 @@ export async function obtenerServiciosSolicitados(): Promise<{
     .order("fecha_inicio", { ascending: true })
 
   if (error) {
-    return { data: [], error: error.message }
+    return { data: [], error: await textoServidor(error.message) }
   }
 
   // Get professional titles
@@ -237,11 +239,11 @@ export interface EventoCalendario {
 
 export async function obtenerEventosCalendario(): Promise<{
   data: EventoCalendario[]
-  error?: string
+  error?: string; codigo?: "NO_AUTENTICADO"
 }> {
   const supabase = await createClient()
   if (!supabase) {
-    return { data: [], error: "No se pudo conectar a la base de datos" }
+    return { data: [], error: await textoServidor("No se pudo conectar a la base de datos") }
   }
 
   const {
@@ -249,7 +251,7 @@ export async function obtenerEventosCalendario(): Promise<{
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return { data: [], error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", data: [], error: await textoServidor("No autenticado") }
   }
 
   const { data, error } = await supabase
@@ -263,7 +265,7 @@ export async function obtenerEventosCalendario(): Promise<{
     if (error.code === "42P01" || error.message?.includes("eventos_calendario")) {
       return { data: [] }
     }
-    return { data: [], error: error.message }
+    return { data: [], error: await textoServidor(error.message) }
   }
 
   return { data: (data || []) as EventoCalendario[] }
@@ -278,10 +280,10 @@ export async function crearEventoCalendario(datos: {
   tipo?: string
   todo_el_dia?: boolean
   ubicacion?: string
-}): Promise<{ success: boolean; error?: string; id?: string }> {
+}): Promise<{ success: boolean; error?: string; codigo?: "NO_AUTENTICADO"; id?: string }> {
   const supabase = await createClient()
   if (!supabase) {
-    return { success: false, error: "No se pudo conectar a la base de datos" }
+    return { success: false, error: await textoServidor("No se pudo conectar a la base de datos") }
   }
 
   const {
@@ -289,7 +291,7 @@ export async function crearEventoCalendario(datos: {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return { success: false, error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", success: false, error: await textoServidor("No autenticado") }
   }
 
   const { data, error } = await supabase
@@ -309,7 +311,7 @@ export async function crearEventoCalendario(datos: {
     .single()
 
   if (error) {
-    return { success: false, error: error.message }
+    return { success: false, error: await textoServidor(error.message) }
   }
 
   return { success: true, id: data?.id }
@@ -327,10 +329,10 @@ export async function actualizarEventoCalendario(
     todo_el_dia: boolean
     ubicacion: string | null
   }>,
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; codigo?: "NO_AUTENTICADO" }> {
   const supabase = await createClient()
   if (!supabase) {
-    return { success: false, error: "No se pudo conectar a la base de datos" }
+    return { success: false, error: await textoServidor("No se pudo conectar a la base de datos") }
   }
 
   const {
@@ -338,7 +340,7 @@ export async function actualizarEventoCalendario(
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return { success: false, error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", success: false, error: await textoServidor("No autenticado") }
   }
 
   const { error } = await supabase
@@ -348,16 +350,16 @@ export async function actualizarEventoCalendario(
     .eq("usuario_id", user.id)
 
   if (error) {
-    return { success: false, error: error.message }
+    return { success: false, error: await textoServidor(error.message) }
   }
 
   return { success: true }
 }
 
-export async function eliminarEventoCalendario(id: string): Promise<{ success: boolean; error?: string }> {
+export async function eliminarEventoCalendario(id: string): Promise<{ success: boolean; error?: string; codigo?: "NO_AUTENTICADO" }> {
   const supabase = await createClient()
   if (!supabase) {
-    return { success: false, error: "No se pudo conectar a la base de datos" }
+    return { success: false, error: await textoServidor("No se pudo conectar a la base de datos") }
   }
 
   const {
@@ -365,7 +367,7 @@ export async function eliminarEventoCalendario(id: string): Promise<{ success: b
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return { success: false, error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", success: false, error: await textoServidor("No autenticado") }
   }
 
   const { error } = await supabase
@@ -375,7 +377,7 @@ export async function eliminarEventoCalendario(id: string): Promise<{ success: b
     .eq("usuario_id", user.id)
 
   if (error) {
-    return { success: false, error: error.message }
+    return { success: false, error: await textoServidor(error.message) }
   }
 
   return { success: true }

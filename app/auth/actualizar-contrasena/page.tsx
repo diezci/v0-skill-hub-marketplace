@@ -1,5 +1,7 @@
 "use client"
 
+import { useT } from "@/components/idioma-provider"
+
 import type React from "react"
 
 import { createClient } from "@/lib/supabase/client"
@@ -12,6 +14,7 @@ import { useState } from "react"
 import { Lock, AlertCircle, CheckCircle2 } from "lucide-react"
 
 export default function ActualizarContrasenaPage() {
+  const t = useT()
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -51,7 +54,7 @@ export default function ActualizarContrasenaPage() {
         router.push("/auth/login")
       }, 2000)
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "Error al actualizar la contraseña")
+      setError(error instanceof Error ? t(error.message) : "Error al actualizar la contraseña")
     } finally {
       setIsLoading(false)
     }
@@ -62,15 +65,15 @@ export default function ActualizarContrasenaPage() {
       <div className="w-full max-w-md">
         <Card className="shadow-xl border-0">
           <CardHeader className="space-y-1 text-center pb-6">
-            <CardTitle className="text-3xl font-bold tracking-tight">Nueva Contraseña</CardTitle>
-            <CardDescription className="text-base">Ingresa tu nueva contraseña</CardDescription>
+            <CardTitle className="text-3xl font-bold tracking-tight">{t("Nueva Contraseña")}</CardTitle>
+            <CardDescription className="text-base">{t("Ingresa tu nueva contraseña")}</CardDescription>
           </CardHeader>
           <CardContent>
             {!success ? (
               <form onSubmit={handleUpdatePassword} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="password" className="text-sm font-medium">
-                    Nueva Contraseña
+                    {t("Nueva Contraseña")}
                   </Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -81,14 +84,14 @@ export default function ActualizarContrasenaPage() {
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Mínimo 6 caracteres"
+                      placeholder={t("Mínimo 6 caracteres")}
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword" className="text-sm font-medium">
-                    Confirmar Contraseña
+                    {t("Confirmar Contraseña")}
                   </Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -99,7 +102,7 @@ export default function ActualizarContrasenaPage() {
                       required
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Repite tu contraseña"
+                      placeholder={t("Repite tu contraseña")}
                     />
                   </div>
                 </div>
@@ -107,12 +110,12 @@ export default function ActualizarContrasenaPage() {
                 {error && (
                   <div className="text-sm text-red-500 bg-red-50 p-3 rounded-lg flex items-start gap-2">
                     <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <span>{error}</span>
+                    <span>{t(error)}</span>
                   </div>
                 )}
 
                 <Button type="submit" className="w-full h-11" disabled={isLoading}>
-                  {isLoading ? "Actualizando..." : "Actualizar Contraseña"}
+                  {isLoading ? t("Actualizando...") : t("Actualizar Contraseña")}
                 </Button>
               </form>
             ) : (
@@ -121,9 +124,9 @@ export default function ActualizarContrasenaPage() {
                   <CheckCircle2 className="h-6 w-6 text-green-600" />
                 </div>
                 <div className="space-y-2">
-                  <h3 className="font-semibold text-lg">¡Contraseña actualizada!</h3>
+                  <h3 className="font-semibold text-lg">{t("¡Contraseña actualizada!")}</h3>
                   <p className="text-sm text-muted-foreground">
-                    Tu contraseña ha sido actualizada exitosamente. Serás redirigido al inicio de sesión...
+                    {t("Tu contraseña ha sido actualizada exitosamente. Serás redirigido al inicio de sesión...")}
                   </p>
                 </div>
               </div>

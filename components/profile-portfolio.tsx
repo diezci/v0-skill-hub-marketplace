@@ -1,3 +1,6 @@
+"use client"
+
+import { useT } from "@/components/idioma-provider"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Calendar, MapPin, Euro } from "lucide-react"
@@ -16,12 +19,13 @@ interface PortfolioItem {
 }
 
 export default function ProfilePortfolio({ portfolio }: { portfolio: PortfolioItem[] }) {
+  const t = useT()
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>Portfolio de Trabajos Completados</CardTitle>
-          <Badge variant="secondary">{portfolio.length} proyectos</Badge>
+          <CardTitle>{t("Portfolio de Trabajos Completados")}</CardTitle>
+          <Badge variant="secondary">{portfolio.length} {t("proyectos")}</Badge>
         </div>
       </CardHeader>
       <CardContent>
@@ -42,7 +46,7 @@ export default function ProfilePortfolio({ portfolio }: { portfolio: PortfolioIt
               <div className="space-y-1.5 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1.5">
                   <Calendar className="h-3.5 w-3.5" />
-                  <span>Completado: {item.completedDate}</span>
+                  <span>{t("Completado:")} {item.completedDate}</span>
                 </div>
                 {item.location && (
                   <div className="flex items-center gap-1.5">
@@ -53,13 +57,13 @@ export default function ProfilePortfolio({ portfolio }: { portfolio: PortfolioIt
                 {item.duration && (
                   <div className="flex items-center gap-1.5">
                     <Calendar className="h-3.5 w-3.5" />
-                    <span>Duración: {item.duration}</span>
+                    <span>{t("Duración:")} {item.duration}</span>
                   </div>
                 )}
                 {item.budget && (
                   <div className="flex items-center gap-1.5">
                     <Euro className="h-3.5 w-3.5" />
-                    <span>Presupuesto: {item.budget}</span>
+                    <span>{t("Presupuesto:")} {item.budget}</span>
                   </div>
                 )}
               </div>

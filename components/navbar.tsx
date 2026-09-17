@@ -1,5 +1,9 @@
 "use client"
 
+import { SelectorIdioma } from "@/components/selector-idioma"
+import { useT } from "@/components/idioma-provider"
+
+
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -57,6 +61,7 @@ const TIPOS_CELEBRABLES = [
 const CELEBRADAS_KEY = "diime_notifs_celebradas"
 
 const Navbar = () => {
+  const t = useT()
   const [isOpen, setIsOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -190,9 +195,8 @@ const Navbar = () => {
               title: `💬 ${um.remitente}`,
               description: um.preview,
               action: (
-                <ToastAction altText="Abrir chat" onClick={() => router.push(`/mensajes?c=${um.conversacion_id}`)}>
-                  Abrir
-                </ToastAction>
+                <ToastAction altText={t("Abrir chat")} onClick={() => router.push(`/mensajes?c=${um.conversacion_id}`)}>
+                   {t("Abrir")} </ToastAction>
               ),
             })
           }
@@ -234,7 +238,7 @@ const Navbar = () => {
       window.removeEventListener("diime:notification", alRecibirPush)
       clearInterval(id)
     }
-  }, [isAuthenticated, isAdmin, pathname])
+  }, [isAuthenticated, isAdmin, pathname, t])
 
   // Al entrar en una sección, sus notificaciones se dan por vistas y el badge se apaga.
   useEffect(() => {
@@ -327,14 +331,14 @@ const Navbar = () => {
             <span className="font-bold text-xl hidden sm:block">Diime</span>
           </Link>
 
-          <nav className="hidden xl:flex items-center gap-1">
+          <nav className="hidden 2xl:flex items-center gap-1">
             {navLinks.map((link) => {
               const Icon = link.icon
               return (
                 <Link
                   key={link.path}
                   href={link.path}
-                  title={link.name}
+                  title={t(link.name)}
                   className={cn(
                     "px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap",
                     pathname === link.path
@@ -343,7 +347,7 @@ const Navbar = () => {
                   )}
                 >
                   <Icon className="h-4 w-4 shrink-0" />
-                  <span>{link.shortName}</span>
+                  <span>{t(link.shortName)}</span>
                   {badgeDe(link.path) > 0 && (
                     <span className="ml-0.5 h-4 min-w-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
                       {badgeDe(link.path) > 9 ? "9+" : badgeDe(link.path)}
@@ -354,18 +358,19 @@ const Navbar = () => {
             })}
           </nav>
 
-          <div className="hidden xl:flex items-center gap-2">
+          <div className="hidden 2xl:flex items-center gap-2">
+            <SelectorIdioma compacto />
             <ThemeToggle />
             {isAuthenticated ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    aria-label="Cuenta"
+                    aria-label={t("Cuenta")}
                     className="rounded-full outline-none ring-offset-2 ring-offset-background focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                   >
                     <Avatar className="h-9 w-9 border border-border transition-opacity hover:opacity-90">
-                      <AvatarImage src={userPhoto || undefined} alt={userName || "Perfil"} />
+                      <AvatarImage src={userPhoto || undefined} alt={userName || t("Perfil")} />
                       <AvatarFallback className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-sm font-semibold">
                         {iniciales}
                       </AvatarFallback>
@@ -375,13 +380,13 @@ const Navbar = () => {
                 <DropdownMenuContent align="end" className="w-[22rem]">
                   <DropdownMenuLabel className="flex items-center gap-3 py-2 font-normal">
                     <Avatar className="h-9 w-9">
-                      <AvatarImage src={userPhoto || undefined} alt={userName || "Perfil"} />
+                      <AvatarImage src={userPhoto || undefined} alt={userName || t("Perfil")} />
                       <AvatarFallback className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-sm font-semibold">
                         {iniciales}
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{userName || "Mi cuenta"}</p>
+                      <p className="text-sm font-medium truncate">{userName || t("Mi cuenta")}</p>
                       {userEmail && <p className="text-xs text-muted-foreground truncate">{userEmail}</p>}
                     </div>
                   </DropdownMenuLabel>
@@ -392,8 +397,7 @@ const Navbar = () => {
                       <DropdownMenuItem asChild>
                         <Link href="/cobros" className="cursor-pointer">
                           <WalletCards className="mr-2 h-4 w-4" />
-                          Gestionar cobros
-                        </Link>
+                           {t("Gestionar cobros")} </Link>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                     </>
@@ -401,26 +405,22 @@ const Navbar = () => {
                   <DropdownMenuItem asChild>
                     <Link href="/mi-perfil" className="cursor-pointer">
                       <UserCircle className="mr-2 h-4 w-4" />
-                      Mi Perfil
-                    </Link>
+                       {t("Mi Perfil")} </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="/incidencias" className="cursor-pointer">
                       <ShieldAlert className="mr-2 h-4 w-4" />
-                      Incidencias
-                    </Link>
+                       {t("Incidencias")} </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="/mi-empresa" className="cursor-pointer">
                       <Building2 className="h-4 w-4 mr-2" />
-                      Mi empresa
-                    </Link>
+                       {t("Mi empresa")} </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="/mi-cuenta" className="cursor-pointer">
                       <Settings className="mr-2 h-4 w-4" />
-                      Configuración
-                    </Link>
+                       {t("Configuración")} </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -428,37 +428,35 @@ const Navbar = () => {
                     className="cursor-pointer text-red-600 focus:text-red-600"
                   >
                     <LogOut className="mr-2 h-4 w-4" />
-                    Cerrar sesión
-                  </DropdownMenuItem>
+                     {t("Cerrar sesión")} </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
               <>
                 <Link href="/auth/login">
                   <Button variant="ghost" size="sm" className="rounded-lg">
-                    Entrar
-                  </Button>
+                     {t("Entrar")} </Button>
                 </Link>
                 <Link href="/auth/registro">
                   <Button size="sm" className="rounded-lg bg-emerald-600 hover:bg-emerald-700">
-                    Registrarse
-                  </Button>
+                     {t("Registrarse")} </Button>
                 </Link>
               </>
             )}
           </div>
 
-          <div className="flex xl:hidden items-center gap-2">
+          <div className="flex 2xl:hidden items-center gap-2">
+            <SelectorIdioma compacto />
             <ThemeToggle />
             {isAuthenticated ? (
               <Link
                 href="/mi-perfil"
-                aria-label="Mi perfil"
-                title="Mi perfil"
+                aria-label={t("Mi perfil")}
+                title={t("Mi perfil")}
                 className="native-account-link rounded-full outline-none ring-offset-2 ring-offset-background focus-visible:ring-2 focus-visible:ring-emerald-500/60"
               >
                 <Avatar className="h-9 w-9 border border-border">
-                  <AvatarImage src={userPhoto || undefined} alt={userName || "Mi perfil"} />
+                  <AvatarImage src={userPhoto || undefined} alt={userName || t("Mi perfil")} />
                   <AvatarFallback className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-sm font-semibold">
                     {iniciales}
                   </AvatarFallback>
@@ -467,8 +465,8 @@ const Navbar = () => {
             ) : (
               <Link
                 href="/auth/login"
-                aria-label="Entrar o acceder a mi perfil"
-                title="Mi perfil"
+                aria-label={t("Entrar o acceder a mi perfil")}
+                title={t("Mi perfil")}
                 className="native-account-link h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground"
               >
                 <UserCircle className="h-5 w-5" />
@@ -480,10 +478,10 @@ const Navbar = () => {
               size="icon"
               aria-label={
                 isOpen
-                  ? "Cerrar menú"
+                  ? t("Cerrar menú")
                   : totalPendiente > 0
-                    ? `Abrir menú, ${totalPendiente} avisos pendientes`
-                    : "Abrir menú"
+                    ? t("Abrir menú, {count} avisos pendientes", { count: totalPendiente })
+                    : t("Abrir menú")
               }
               aria-expanded={isOpen}
               aria-controls="mobile-navigation"
@@ -500,7 +498,7 @@ const Navbar = () => {
         </div>
 
         {isOpen && (
-          <div id="mobile-navigation" className="xl:hidden py-4 border-t animate-in slide-in-from-top-2">
+          <div id="mobile-navigation" className="2xl:hidden py-4 border-t animate-in slide-in-from-top-2">
             <nav className="flex flex-col gap-1">
               {navLinks.map((link) => {
                 const Icon = link.icon
@@ -517,7 +515,7 @@ const Navbar = () => {
                     )}
                   >
                     <Icon className="h-5 w-5 shrink-0" />
-                    <span>{link.name}</span>
+                    <span>{t(link.name)}</span>
                     {badgeDe(link.path) > 0 && (
                       <span className="ml-auto h-5 min-w-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
                         {badgeDe(link.path) > 9 ? "9+" : badgeDe(link.path)}
@@ -530,11 +528,10 @@ const Navbar = () => {
                 <div className="flex gap-2 mt-4 pt-4 border-t">
                   <Link href="/auth/login" className="flex-1" onClick={() => setIsOpen(false)}>
                     <Button variant="outline" className="w-full rounded-lg bg-transparent">
-                      Entrar
-                    </Button>
+                       {t("Entrar")} </Button>
                   </Link>
                   <Link href="/auth/registro" className="flex-1" onClick={() => setIsOpen(false)}>
-                    <Button className="w-full rounded-lg bg-emerald-600 hover:bg-emerald-700">Registrarse</Button>
+                    <Button className="w-full rounded-lg bg-emerald-600 hover:bg-emerald-700">{t("Registrarse")}</Button>
                   </Link>
                 </div>
               ) : (
@@ -550,8 +547,7 @@ const Navbar = () => {
                     className="px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted flex items-center gap-3"
                   >
                     <UserCircle className="h-5 w-5 shrink-0" />
-                    Mi Perfil
-                  </Link>
+                     {t("Mi Perfil")} </Link>
                   {isProfessional && (
                     <Link
                       href="/cobros"
@@ -559,8 +555,7 @@ const Navbar = () => {
                       className="px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted flex items-center gap-3"
                     >
                       <WalletCards className="h-5 w-5 shrink-0" />
-                      Cobros profesionales
-                    </Link>
+                       {t("Cobros profesionales")} </Link>
                   )}
                   <Link
                     href="/incidencias"
@@ -568,32 +563,28 @@ const Navbar = () => {
                     className="px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted flex items-center gap-3"
                   >
                     <ShieldAlert className="h-5 w-5 shrink-0" />
-                    Incidencias
-                  </Link>
+                     {t("Incidencias")} </Link>
                   <Link
                     href="/mi-empresa"
                     onClick={() => setIsOpen(false)}
                     className="px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted flex items-center gap-3"
                   >
                     <Building2 className="h-5 w-5 shrink-0" />
-                    Mi empresa
-                  </Link>
+                     {t("Mi empresa")} </Link>
                   <Link
                     href="/mi-cuenta"
                     onClick={() => setIsOpen(false)}
                     className="px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted flex items-center gap-3"
                   >
                     <Settings className="h-5 w-5 shrink-0" />
-                    Configuracion
-                  </Link>
+                     {t("Configuracion")} </Link>
                   <button
                     type="button"
                     onClick={handleLogout}
                     className="px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-500/10 flex items-center gap-3 text-left"
                   >
                     <LogOut className="h-5 w-5 shrink-0" />
-                    Cerrar Sesion
-                  </button>
+                     {t("Cerrar Sesion")} </button>
                 </div>
               )}
             </nav>

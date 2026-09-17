@@ -1,5 +1,7 @@
 "use server"
 
+import { idiomaActual, textoServidor } from "@/lib/i18n-servidor"
+
 import { createClient } from "@/lib/supabase/server"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
@@ -25,12 +27,12 @@ export async function registrarUsuario(formData: {
   confirmaMayoriaEdad: boolean
 }) {
   const supabase = await createClient()
-  if (!supabase) return { error: "No se pudo conectar con la base de datos" }
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos") }
   if (!formData.aceptaTerminos) {
-    return { error: "Debes aceptar los Términos y las Normas de la comunidad." }
+    return { error: await textoServidor("Debes aceptar los Términos y las Normas de la comunidad.") }
   }
   if (!formData.confirmaMayoriaEdad) {
-    return { error: "Para crear una cuenta debes confirmar que tienes 18 años o más." }
+    return { error: await textoServidor("Para crear una cuenta debes confirmar que tienes 18 años o más.") }
   }
 
   const registroEmpresa = formData.tipoEntidad === "empresa" ? {
@@ -43,17 +45,17 @@ export async function registrarUsuario(formData: {
     ubicacion: formData.ubicacion,
   } : null
   if (registroEmpresa && !registroEmpresa.documentoPersonal) {
-    return { error: "Indica tu DNI/NIE como persona que representa a la empresa" }
+    return { error: await textoServidor("Indica tu DNI/NIE como persona que representa a la empresa") }
   }
   if (registroEmpresa && !registroEmpresa.tokenInvitacion && (!registroEmpresa.nombreEmpresa || !registroEmpresa.cif)) {
-    return { error: "Indica el nombre y CIF de tu empresa o utiliza una invitación" }
+    return { error: await textoServidor("Indica el nombre y CIF de tu empresa o utiliza una invitación") }
   }
   const documentoDeLaPersona = registroEmpresa?.documentoPersonal || formData.documento || null
 
   const aceptacionLegal = new Date().toISOString()
 
   // Use NEXT_PUBLIC_SITE_URL for production, fallback to VERCEL_URL, then localhost
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
     || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
     || "http://localhost:3000"
 
@@ -63,6 +65,7 @@ export async function registrarUsuario(formData: {
     options: {
       emailRedirectTo: registroEmpresa ? `${siteUrl}/auth/callback?next=/mi-empresa` : `${siteUrl}/auth/callback`,
       data: {
+        idioma: await idiomaActual(),
         nombre: formData.nombre,
         apellido: formData.apellido,
         tipo_entidad: formData.tipoEntidad,
@@ -81,18 +84,18 @@ export async function registrarUsuario(formData: {
   if (authError) {
     // Handle specific error cases
     if (authError.message.includes("over_email_send_rate_limit")) {
-      return { 
-        error: "Has excedido el límite de registros por hora. Por favor espera 1 hora o contacta con soporte para aumentar el límite." 
+      return {
+        error: await textoServidor("Has excedido el límite de registros por hora. Por favor espera 1 hora o contacta con soporte para aumentar el límite.")
       }
     }
     if (authError.message.includes("User already registered")) {
-      return { error: "Este email ya está registrado. Intenta iniciar sesión." }
+      return { error: await textoServidor("Este email ya está registrado. Intenta iniciar sesión.") }
     }
-    return { error: authError.message }
+    return { error: await textoServidor(authError.message) }
   }
 
   if (!authData.user) {
-    return { error: "Error al crear usuario" }
+    return { error: await textoServidor("Error al crear usuario") }
   }
 
   // Con confirmación por correo todavía no hay sesión: el trigger crea el
@@ -137,7 +140,7 @@ export async function registrarUsuario(formData: {
     profileError.code !== "23505" &&
     !faltanColumnasEdad
   ) {
-    return { error: profileError.message }
+    return { error: await textoServidor(profileError.message) }
   }
 
   if (registroEmpresa) {
@@ -155,9 +158,9 @@ export async function registrarUsuario(formData: {
 
 export async function resetPassword(email: string) {
   const supabase = await createClient()
-  
+
   // Use NEXT_PUBLIC_SITE_URL for production, fallback to VERCEL_URL, then localhost
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
     || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
     || "http://localhost:3000"
 
@@ -166,7 +169,7 @@ export async function resetPassword(email: string) {
   })
 
   if (error) {
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   return { data: { success: true } }
@@ -180,7 +183,7 @@ export async function updatePassword(newPassword: string) {
   })
 
   if (error) {
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   return { data: { success: true } }
@@ -188,13 +191,13 @@ export async function updatePassword(newPassword: string) {
 
 export async function confirmarMayoriaEdad() {
   const supabase = await createClient()
-  if (!supabase) return { error: "No se pudo conectar con la base de datos" }
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) return { error: "Debes iniciar sesión" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("Debes iniciar sesión") }
 
   const confirmadoAt = new Date().toISOString()
   const version = "18-plus-2026-08"
@@ -204,22 +207,22 @@ export async function confirmarMayoriaEdad() {
     .update({ mayor_edad_confirmada_at: confirmadoAt, mayor_edad_version: version })
     .eq("id", user.id)
 
-  if (profileError) return { error: "No se ha podido guardar la confirmación. Inténtalo de nuevo." }
+  if (profileError) return { error: await textoServidor("No se ha podido guardar la confirmación. Inténtalo de nuevo.") }
 
   const { error: authError } = await supabase.auth.updateUser({
     data: { mayor_edad_confirmada_at: confirmadoAt, mayor_edad_version: version },
   })
 
-  if (authError) return { error: "La confirmación se guardó, pero no se pudo actualizar la sesión." }
+  if (authError) return { error: await textoServidor("La confirmación se guardó, pero no se pudo actualizar la sesión.") }
 
   return { data: { confirmadoAt } }
 }
 
 export async function signInWithGoogle() {
   const supabase = await createClient()
-  
+
   // Use NEXT_PUBLIC_SITE_URL for production, fallback to VERCEL_URL, then localhost
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
     || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
     || "http://localhost:3000"
 
@@ -235,7 +238,7 @@ export async function signInWithGoogle() {
   })
 
   if (error) {
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   return { data: { url: data.url } }
@@ -261,10 +264,10 @@ export type ConsecuenciasBaja = {
 // juego es dinero de otro.
 export async function consecuenciasDeEliminarMiCuenta() {
   const supabase = await createClient()
-  if (!supabase) return { error: "No se pudo conectar con la base de datos" }
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos") }
 
   const { data, error } = await supabase.rpc("consecuencias_de_eliminar_mi_cuenta")
-  if (error) return { error: error.message }
+  if (error) return { error: await textoServidor(error.message) }
 
   const c = data as any
   return {
@@ -289,20 +292,20 @@ export async function consecuenciasDeEliminarMiCuenta() {
 // una negativa conserva la sesión para que la persona pueda resolverlos.
 export async function eliminarMiCuenta() {
   const supabase = await createClient()
-  if (!supabase) return { error: "No se pudo conectar con la base de datos" }
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) return { error: "Debes iniciar sesión" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("Debes iniciar sesión") }
 
   const { error } = await supabase.rpc("eliminar_mi_cuenta")
 
   if (error) {
     // Los mensajes de las comprobaciones ya vienen redactados en castellano y
     // dicen qué hay que hacer antes, así que se enseñan tal cual.
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   // La sesión en curso seguiría siendo válida hasta que caducara el token, así
@@ -335,19 +338,19 @@ export async function obtenerEmpresa() {
   } = await supabase.auth.getUser()
 
   if (userError || !user) {
-    return { error: "Debes iniciar sesión" }
+    return { codigo: "NO_AUTENTICADO", error: await textoServidor("Debes iniciar sesión") }
   }
 
   const { data: profile } = await supabase.from("profiles").select("empresa_id").eq("id", user.id).single()
 
   if (!profile?.empresa_id) {
-    return { error: "No perteneces a ninguna empresa" }
+    return { error: await textoServidor("No perteneces a ninguna empresa") }
   }
 
   const { data, error } = await supabase.from("empresas").select("*").eq("id", profile.empresa_id).single()
 
   if (error) {
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   return { data }
@@ -355,12 +358,12 @@ export async function obtenerEmpresa() {
 
 export async function loginConGoogle() {
   const supabase = await createClient()
-  
+
   // Use NEXT_PUBLIC_SITE_URL for production, fallback to VERCEL_URL, then localhost
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
     || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
     || "http://localhost:3000"
-  
+
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
@@ -373,7 +376,7 @@ export async function loginConGoogle() {
   })
 
   if (error) {
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   if (data.url) {
@@ -392,13 +395,13 @@ export async function obtenerMiembrosEmpresa() {
   } = await supabase.auth.getUser()
 
   if (userError || !user) {
-    return { error: "Debes iniciar sesión" }
+    return { codigo: "NO_AUTENTICADO", error: await textoServidor("Debes iniciar sesión") }
   }
 
   const { data: profile } = await supabase.from("profiles").select("empresa_id").eq("id", user.id).single()
 
   if (!profile?.empresa_id) {
-    return { error: "No perteneces a ninguna empresa" }
+    return { error: await textoServidor("No perteneces a ninguna empresa") }
   }
 
   const { data, error } = await supabase
@@ -407,7 +410,7 @@ export async function obtenerMiembrosEmpresa() {
     .eq("empresa_id", profile.empresa_id)
 
   if (error) {
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   // El correo de los compañeros de empresa ya no se lee de `profiles`; la RPC lo

@@ -14,7 +14,7 @@ import { CapacitorBridge } from "@/components/capacitor-bridge"
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-space" })
 
-export const metadata: Metadata = {
+const metadataBase: Metadata = {
   title: "Diime - Conecta con Profesionales",
   description:
     "Diime es la plataforma que conecta profesionales cualificados con clientes. Encuentra expertos en construccion, reformas y mas.",
@@ -43,6 +43,16 @@ export const metadata: Metadata = {
     // antiguas de iOS solo entienden el prefijado, así que van los dos.
     "apple-mobile-web-app-capable": "yes",
   },
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const idioma = await idiomaActual()
+  return { ...metadataBase,
+    title: idioma === "en" ? "Diime - Connect with Professionals" : metadataBase.title,
+    description: idioma === "en"
+      ? "Diime connects qualified professionals with clients. Find experts in construction, renovation and more."
+      : metadataBase.description,
+  }
 }
 
 export const viewport: Viewport = {

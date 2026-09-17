@@ -1,5 +1,7 @@
 "use server"
 
+import { textoServidor } from "@/lib/i18n-servidor"
+
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -11,13 +13,13 @@ export async function crearTrabajo(data: {
   fecha_estimada_fin?: string
 }) {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) {
-    return { error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   }
 
   // Una transacción bloquea la demanda, verifica los participantes y devuelve
@@ -29,8 +31,8 @@ export async function crearTrabajo(data: {
     p_profesional_id: data.profesional_id,
     p_fecha_estimada_fin: data.fecha_estimada_fin ?? null,
   })
-  if (error) return { error: error.message }
-  if (!resultado?.trabajo?.id) return { error: "No se pudo confirmar la contratación. Inténtalo de nuevo." }
+  if (error) return { error: await textoServidor(error.message) }
+  if (!resultado?.trabajo?.id) return { error: await textoServidor("No se pudo confirmar la contratación. Inténtalo de nuevo.") }
 
   revalidatePath("/mis-solicitudes")
   revalidatePath("/mis-trabajos")
@@ -45,7 +47,7 @@ export async function obtenerMisTrabajos() {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) {
-    return { error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   }
 
   const { data, error } = await supabase
@@ -59,7 +61,7 @@ export async function obtenerMisTrabajos() {
     .order("created_at", { ascending: false })
 
   if (error) {
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   // Get client and professional profiles separately
@@ -154,7 +156,7 @@ function recortarEscrowSegunRol(escrow: any, esElCliente: boolean) {
 export async function actualizarEstadoTrabajo(trabajoId: string, estado: string) {
   if (estado === "entregado") return marcarTrabajoEntregado(trabajoId)
   if (estado === "completado") return confirmarTrabajoCompletado(trabajoId)
-  return { error: "Usa la acción de entrega, confirmación, cancelación o disputa correspondiente al trabajo." }
+  return { error: await textoServidor("Usa la acción de entrega, confirmación, cancelación o disputa correspondiente al trabajo.") }
 }
 
 export async function cancelarTrabajo(trabajoId: string, razon: string) {
@@ -236,7 +238,7 @@ export async function solicitarCancelacion(trabajoId: string, razon: string, arc
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   const { data: trabajo } = await supabase
     .from("trabajos")
@@ -245,22 +247,22 @@ export async function solicitarCancelacion(trabajoId: string, razon: string, arc
     .maybeSingle()
 
   if (!trabajo || (trabajo.cliente_id !== user.id && trabajo.profesional_id !== user.id)) {
-    return { error: "No tienes permiso sobre este trabajo" }
+    return { error: await textoServidor("No tienes permiso sobre este trabajo") }
   }
   // Cancelación de mutuo acuerdo: antes del pago o con el trabajo en curso.
   // Si ya está pagado y se acepta, el cliente recibe el reembolso íntegro.
   if (!["pendiente_pago", "en_progreso"].includes(trabajo.estado)) {
-    return { error: "Este trabajo ya no admite cancelación de mutuo acuerdo (usa la disputa si hay un problema)." }
+    return { error: await textoServidor("Este trabajo ya no admite cancelación de mutuo acuerdo (usa la disputa si hay un problema).") }
   }
   if (trabajo.cancelacion_estado === "pendiente") {
-    return { error: "Ya hay una solicitud de cancelación pendiente para este trabajo." }
+    return { error: await textoServidor("Ya hay una solicitud de cancelación pendiente para este trabajo.") }
   }
 
   const motivo = razon?.trim()
-  if (!motivo) return { error: "Explica por qué quieres cancelar el servicio." }
+  if (!motivo) return { error: await textoServidor("Explica por qué quieres cancelar el servicio.") }
 
   const adjuntos = validarAdjuntosCancelacion(archivosAdjuntos)
-  if (adjuntos.error) return { error: adjuntos.error }
+  if (adjuntos.error) return { error: await textoServidor(adjuntos.error) }
 
   const { error } = await supabase
     .from("trabajos")
@@ -276,7 +278,7 @@ export async function solicitarCancelacion(trabajoId: string, razon: string, arc
       updated_at: new Date().toISOString(),
     })
     .eq("id", trabajoId)
-  if (error) return { error: error.message }
+  if (error) return { error: await textoServidor(error.message) }
 
   await postMensajeTrabajo(
     supabase,
@@ -324,7 +326,7 @@ export async function editarSolicitudCancelacion(
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   const { data: trabajo } = await supabase
     .from("trabajos")
@@ -333,19 +335,19 @@ export async function editarSolicitudCancelacion(
     .maybeSingle()
 
   if (!trabajo || (trabajo.cliente_id !== user.id && trabajo.profesional_id !== user.id)) {
-    return { error: "No tienes permiso sobre este trabajo" }
+    return { error: await textoServidor("No tienes permiso sobre este trabajo") }
   }
   if (trabajo.cancelacion_estado !== "pendiente") {
-    return { error: "Esta solicitud ya no está pendiente y no se puede editar." }
+    return { error: await textoServidor("Esta solicitud ya no está pendiente y no se puede editar.") }
   }
   if (trabajo.cancelacion_solicitada_por !== user.id) {
-    return { error: "Solo quien solicitó la cancelación puede editarla." }
+    return { error: await textoServidor("Solo quien solicitó la cancelación puede editarla.") }
   }
 
   const motivo = razon?.trim()
-  if (!motivo) return { error: "Explica por qué quieres cancelar el servicio." }
+  if (!motivo) return { error: await textoServidor("Explica por qué quieres cancelar el servicio.") }
   const adjuntos = validarAdjuntosCancelacion(archivosAdjuntos)
-  if (adjuntos.error) return { error: adjuntos.error }
+  if (adjuntos.error) return { error: await textoServidor(adjuntos.error) }
 
   const { data: actualizado, error } = await supabase
     .from("trabajos")
@@ -359,8 +361,8 @@ export async function editarSolicitudCancelacion(
     .eq("cancelacion_solicitada_por", user.id)
     .select("id")
     .maybeSingle()
-  if (error) return { error: error.message }
-  if (!actualizado) return { error: "La solicitud ya ha sido respondida y no se puede editar." }
+  if (error) return { error: await textoServidor(error.message) }
+  if (!actualizado) return { error: await textoServidor("La solicitud ya ha sido respondida y no se puede editar.") }
 
   await postMensajeTrabajo(
     supabase,
@@ -393,7 +395,7 @@ export async function retirarSolicitudCancelacion(trabajoId: string) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   const { data: trabajo } = await supabase
     .from("trabajos")
@@ -402,13 +404,13 @@ export async function retirarSolicitudCancelacion(trabajoId: string) {
     .maybeSingle()
 
   if (!trabajo || (trabajo.cliente_id !== user.id && trabajo.profesional_id !== user.id)) {
-    return { error: "No tienes permiso sobre este trabajo" }
+    return { error: await textoServidor("No tienes permiso sobre este trabajo") }
   }
   if (trabajo.cancelacion_estado !== "pendiente") {
-    return { error: "Esta solicitud ya no está pendiente y no se puede retirar." }
+    return { error: await textoServidor("Esta solicitud ya no está pendiente y no se puede retirar.") }
   }
   if (trabajo.cancelacion_solicitada_por !== user.id) {
-    return { error: "Solo quien solicitó la cancelación puede retirarla." }
+    return { error: await textoServidor("Solo quien solicitó la cancelación puede retirarla.") }
   }
 
   const { data: retirado, error } = await supabase
@@ -427,8 +429,8 @@ export async function retirarSolicitudCancelacion(trabajoId: string) {
     .eq("cancelacion_solicitada_por", user.id)
     .select("id")
     .maybeSingle()
-  if (error) return { error: error.message }
-  if (!retirado) return { error: "La solicitud ya ha sido respondida y no se puede retirar." }
+  if (error) return { error: await textoServidor(error.message) }
+  if (!retirado) return { error: await textoServidor("La solicitud ya ha sido respondida y no se puede retirar.") }
 
   await postMensajeTrabajo(
     supabase,
@@ -466,7 +468,7 @@ export async function responderCancelacion(
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   const { data: trabajo } = await supabase
     .from("trabajos")
@@ -480,20 +482,20 @@ export async function responderCancelacion(
     .maybeSingle()
 
   if (!trabajo || (trabajo.cliente_id !== user.id && trabajo.profesional_id !== user.id)) {
-    return { error: "No tienes permiso sobre este trabajo" }
+    return { error: await textoServidor("No tienes permiso sobre este trabajo") }
   }
   if (trabajo.cancelacion_estado !== "pendiente") {
-    return { error: "No hay ninguna solicitud de cancelación pendiente." }
+    return { error: await textoServidor("No hay ninguna solicitud de cancelación pendiente.") }
   }
   if (trabajo.cancelacion_solicitada_por === user.id) {
-    return { error: "Tú solicitaste la cancelación; debe responder la otra parte." }
+    return { error: await textoServidor("Tú solicitaste la cancelación; debe responder la otra parte.") }
   }
 
   const razonOposicion = razonRespuesta?.trim()
   const adjuntos = validarAdjuntosCancelacion(archivosAdjuntos)
-  if (adjuntos.error) return { error: adjuntos.error }
+  if (adjuntos.error) return { error: await textoServidor(adjuntos.error) }
   if (!aceptar && !razonOposicion) {
-    return { error: "Explica por qué te opones a la cancelación para que el equipo de Diime pueda decidir." }
+    return { error: await textoServidor("Explica por qué te opones a la cancelación para que el equipo de Diime pueda decidir.") }
   }
 
   if (aceptar) {
@@ -502,7 +504,7 @@ export async function responderCancelacion(
     const { reembolsarPorCancelacion } = await import("./escrow")
     const reembolsoResult = await reembolsarPorCancelacion(trabajoId)
     if (reembolsoResult.error) {
-      return { error: `No se pudo emitir el reembolso al cliente: ${reembolsoResult.error}` }
+      return { error: await textoServidor(`No se pudo emitir el reembolso al cliente: ${reembolsoResult.error}`) }
     }
 
     if (reembolsoResult.reutilizado) return { data: { ok: true } }
@@ -514,7 +516,7 @@ export async function responderCancelacion(
     )
   } else {
     const admin = createAdminClient()
-    if (!admin) return { error: "La configuración segura del servidor no está disponible." }
+    if (!admin) return { error: await textoServidor("La configuración segura del servidor no está disponible.") }
     try {
       const { cerrarCheckoutsPendientes } = await import("@/lib/flujo-pagos")
       const { error: bloqueoError } = await admin.rpc("diime_bloquear_checkout", {
@@ -528,7 +530,7 @@ export async function responderCancelacion(
       })
       if (disputaError) throw disputaError
     } catch (error: any) {
-      return { error: error.message || "No se pudo conciliar el pago y abrir la disputa. Puedes reintentar." }
+      return { error: await textoServidor(error.message || "No se pudo conciliar el pago y abrir la disputa. Puedes reintentar.") }
     }
 
     await postMensajeTrabajo(
@@ -564,17 +566,17 @@ export async function responderCancelacion(
 // Provider updates progress percentage
 export async function actualizarProgresoTrabajo(trabajoId: string, progreso: number, mensaje?: string) {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) {
-    return { error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   }
 
   if (!Number.isFinite(progreso) || !Number.isInteger(progreso) || progreso < 0 || progreso > 100) {
-    return { error: "El progreso debe ser un número entero entre 0 y 100." }
+    return { error: await textoServidor("El progreso debe ser un número entero entre 0 y 100.") }
   }
 
   // Verify user is the professional
@@ -585,11 +587,11 @@ export async function actualizarProgresoTrabajo(trabajoId: string, progreso: num
     .single()
 
   if (!trabajo || trabajo.profesional_id !== user.id) {
-    return { error: "No tienes permiso para actualizar este trabajo" }
+    return { error: await textoServidor("No tienes permiso para actualizar este trabajo") }
   }
 
   if (trabajo.estado !== "en_progreso" || trabajo.cancelacion_estado === "pendiente") {
-    return { error: "Solo puedes actualizar el progreso de un trabajo pagado y en curso, sin cancelación pendiente." }
+    return { error: await textoServidor("Solo puedes actualizar el progreso de un trabajo pagado y en curso, sin cancelación pendiente.") }
   }
 
   const updates: any = {
@@ -607,7 +609,7 @@ export async function actualizarProgresoTrabajo(trabajoId: string, progreso: num
     .single()
 
   if (error) {
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   // Create progress update record if message provided
@@ -640,13 +642,13 @@ export async function actualizarProgresoTrabajo(trabajoId: string, progreso: num
 // Provider marks work as completed/delivered
 export async function marcarTrabajoEntregado(trabajoId: string, mensaje?: string) {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) {
-    return { error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   }
 
   // Verify user is the professional
@@ -657,13 +659,13 @@ export async function marcarTrabajoEntregado(trabajoId: string, mensaje?: string
     .single()
 
   if (!trabajo || trabajo.profesional_id !== user.id) {
-    return { error: "No tienes permiso para actualizar este trabajo" }
+    return { error: await textoServidor("No tienes permiso para actualizar este trabajo") }
   }
   if (trabajo.estado !== "en_progreso") {
-    return { error: "Solo se puede entregar un trabajo que esté en progreso." }
+    return { error: await textoServidor("Solo se puede entregar un trabajo que esté en progreso.") }
   }
   if (trabajo.cancelacion_estado === "pendiente") {
-    return { error: "Hay una cancelación pendiente. Debe resolverse antes de entregar el trabajo." }
+    return { error: await textoServidor("Hay una cancelación pendiente. Debe resolverse antes de entregar el trabajo.") }
   }
 
   const { data, error } = await supabase
@@ -681,10 +683,10 @@ export async function marcarTrabajoEntregado(trabajoId: string, mensaje?: string
     .maybeSingle()
 
   if (error) {
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
   if (!data) {
-    return { error: "El estado del trabajo ha cambiado. Actualiza la página antes de continuar." }
+    return { error: await textoServidor("El estado del trabajo ha cambiado. Actualiza la página antes de continuar.") }
   }
 
   // Create delivery update record
@@ -725,7 +727,7 @@ export async function confirmarTrabajoCompletado(trabajoId: string) {
   // marca el trabajo como completado hasta que Stripe acepta la transferencia.
   const { liberarFondosEscrow } = await import("./escrow")
   const resultado = await liberarFondosEscrow(trabajoId)
-  if (resultado.error) return { error: resultado.error }
+  if (resultado.error) return { error: await textoServidor(resultado.error) }
   return { data: { id: trabajoId, estado: "completado" } }
 }
 
@@ -737,7 +739,7 @@ export async function obtenerActualizacionesTrabajo(trabajoId: string) {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) {
-    return { error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   }
 
   const { data, error } = await supabase
@@ -747,7 +749,7 @@ export async function obtenerActualizacionesTrabajo(trabajoId: string) {
     .order("created_at", { ascending: false })
 
   if (error) {
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   return { data }
@@ -761,7 +763,7 @@ export async function obtenerTrabajosConUsuario(otroUsuarioId: string) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado", data: [] }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado"), data: [] }
 
   const { data, error } = await supabase
     .from("trabajos")
@@ -771,6 +773,6 @@ export async function obtenerTrabajosConUsuario(otroUsuarioId: string) {
     )
     .order("created_at", { ascending: false })
 
-  if (error) return { error: error.message, data: [] }
+  if (error) return { error: await textoServidor(error.message), data: [] }
   return { data: data || [] }
 }

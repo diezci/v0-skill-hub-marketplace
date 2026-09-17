@@ -1,5 +1,7 @@
 "use server"
 
+import { textoServidor } from "@/lib/i18n-servidor"
+
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -10,7 +12,7 @@ async function requireAdmin(supabase: any) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" as const }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado" as const) }
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -18,7 +20,7 @@ async function requireAdmin(supabase: any) {
     .eq("id", user.id)
     .maybeSingle()
 
-  if (!profile?.es_admin) return { error: "No tienes permiso para acceder al panel de disputas" as const }
+  if (!profile?.es_admin) return { codigo: "SIN_PERMISO", error: await textoServidor("No tienes permiso para acceder al panel de disputas" as const) }
   return { user }
 }
 
@@ -28,13 +30,13 @@ export async function crearDisputa(data: {
   avisoOtraParte?: { titulo: string; mensaje: string }
 }) {
   const supabase = await createClient()
-  if (!supabase) return { error: "No se pudo conectar con la base de datos." }
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos.") }
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   const admin = createAdminClient()
-  if (!admin) return { error: "La configuración segura del servidor no está disponible" }
+  if (!admin) return { error: await textoServidor("La configuración segura del servidor no está disponible") }
   const motivo = data.motivo?.trim()
-  if (!motivo) return { error: "Describe el motivo de la disputa." }
+  if (!motivo) return { error: await textoServidor("Describe el motivo de la disputa.") }
   try {
     const { error: bloqueoError } = await admin.rpc("diime_bloquear_checkout", {
       p_trabajo: data.trabajo_id, p_actor: user.id,
@@ -61,7 +63,7 @@ export async function crearDisputa(data: {
     revalidatePath("/mis-solicitudes")
     return { data: disputa }
   } catch (error: any) {
-    return { error: error.message || "No se pudo abrir la disputa." }
+    return { error: await textoServidor(error.message || "No se pudo abrir la disputa.") }
   }
 }
 
@@ -71,14 +73,14 @@ export async function crearDisputa(data: {
 // queda retenido en custodia mientras tanto.
 export async function rechazarEntrega(trabajoId: string, motivo: string) {
   const supabase = await createClient()
-  if (!supabase) return { error: "No se pudo conectar con la base de datos." }
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos.") }
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   const razon = motivo?.trim()
-  if (!razon) return { error: "Explica por qué la entrega no cumple lo acordado." }
+  if (!razon) return { error: await textoServidor("Explica por qué la entrega no cumple lo acordado.") }
 
   const { data: trabajo } = await supabase
     .from("trabajos")
@@ -87,10 +89,10 @@ export async function rechazarEntrega(trabajoId: string, motivo: string) {
     .maybeSingle()
 
   if (!trabajo || trabajo.cliente_id !== user.id) {
-    return { error: "No tienes permiso para rechazar la entrega de este trabajo." }
+    return { error: await textoServidor("No tienes permiso para rechazar la entrega de este trabajo.") }
   }
   if (trabajo.estado !== "entregado") {
-    return { error: "Solo puedes rechazar una entrega que el profesional haya marcado como entregada." }
+    return { error: await textoServidor("Solo puedes rechazar una entrega que el profesional haya marcado como entregada.") }
   }
 
   // Abrir la disputa reutiliza toda la lógica: congela los fondos (escrow a
@@ -104,7 +106,7 @@ export async function rechazarEntrega(trabajoId: string, motivo: string) {
       mensaje: `El cliente considera que "${trabajo.titulo ?? "el trabajo"}" no cumple lo acordado. La transferencia sigue bloqueada y el equipo de Diime decidirá según las pruebas y los términos. Motivo: ${razon}`,
     },
   })
-  if (res.error) return { error: res.error }
+  if (res.error) return { error: await textoServidor(res.error) }
 
   // Deja constancia en el historial del trabajo (el aviso al profesional ya lo
   // ha enviado crearDisputa mediante avisoOtraParte).
@@ -123,11 +125,11 @@ export async function rechazarEntrega(trabajoId: string, motivo: string) {
 // las que ha abierto él y las que la otra parte ha abierto contra él.
 export async function obtenerMisDisputas() {
   const supabase = await createClient()
-  if (!supabase) return { error: "No se pudo conectar con la base de datos." }
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos.") }
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado", data: [] }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado"), data: [] }
 
   const { data, error } = await supabase
     .from("disputas")
@@ -137,7 +139,7 @@ export async function obtenerMisDisputas() {
 
   if (error) {
     if (error.code === "42P01") return { data: [] }
-    return { error: error.message, data: [] }
+    return { error: await textoServidor(error.message), data: [] }
   }
 
   // Enriquecer con el título del trabajo y el nombre de la otra parte.
@@ -194,11 +196,11 @@ export async function obtenerMisDisputas() {
 // y a los admins de que ya no hay nada que revisar.
 export async function retirarDisputa(disputaId: string) {
   const supabase = await createClient()
-  if (!supabase) return { error: "No se pudo conectar" }
+  if (!supabase) return { error: await textoServidor("No se pudo conectar") }
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   // Datos para las notificaciones antes de retirarla.
   const { data: disputa } = await supabase
@@ -208,9 +210,9 @@ export async function retirarDisputa(disputaId: string) {
     .maybeSingle()
 
   const admin = createAdminClient()
-  if (!admin) return { error: "La configuración segura del servidor no está disponible" }
+  if (!admin) return { error: await textoServidor("La configuración segura del servidor no está disponible") }
   const { data: resultado, error } = await admin.rpc("diime_retirar_disputa", { p_disputa: disputaId, p_actor: user.id })
-  if (error) return { error: error.message }
+  if (error) return { error: await textoServidor(error.message) }
   if (resultado !== "ok") {
     const motivos: Record<string, string> = {
       no_encontrada: "La disputa no existe.",
@@ -220,7 +222,7 @@ export async function retirarDisputa(disputaId: string) {
       liquidacion_iniciada: "Diime ya ha iniciado la resolución económica. No se puede retirar la disputa.",
       requiere_conciliacion: "Este expediente necesita conciliar su pago antes de poder retirarse.",
     }
-    return { error: motivos[resultado as string] || "No se ha podido retirar la disputa." }
+    return { error: await textoServidor(motivos[resultado as string] || "No se ha podido retirar la disputa.") }
   }
 
   if (disputa) {
@@ -265,16 +267,16 @@ export async function retirarDisputa(disputaId: string) {
 // Lista de disputas para el panel admin (con datos básicos del trabajo y partes).
 export async function obtenerDisputas() {
   const supabase = await createClient()
-  if (!supabase) return { error: "No se pudo conectar con la base de datos." }
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos.") }
   const auth = await requireAdmin(supabase)
-  if ("error" in auth) return { error: auth.error }
+  if ("error" in auth) return { codigo: auth.codigo, error: await textoServidor(auth.error) }
 
   const { data: disputas, error } = await supabase
     .from("disputas")
     .select("*")
     .order("created_at", { ascending: false })
 
-  if (error) return { error: error.message }
+  if (error) return { error: await textoServidor(error.message) }
 
   // Enriquecer con trabajo y nombres de las partes.
   const enriquecidas = await Promise.all(
@@ -305,17 +307,17 @@ export async function obtenerDisputas() {
 // conversación, pruebas/archivos, historial del trabajo y estado del escrow.
 export async function obtenerDetalleDisputa(disputaId: string) {
   const supabase = await createClient()
-  if (!supabase) return { error: "No se pudo conectar con la base de datos." }
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos.") }
   const auth = await requireAdmin(supabase)
-  if ("error" in auth) return { error: auth.error }
+  if ("error" in auth) return { codigo: auth.codigo, error: await textoServidor(auth.error) }
 
   const { data: disputa, error } = await supabase
     .from("disputas")
     .select("*")
     .eq("id", disputaId)
     .maybeSingle()
-  if (error) return { error: error.message }
-  if (!disputa) return { error: "Disputa no encontrada" }
+  if (error) return { error: await textoServidor(error.message) }
+  if (!disputa) return { error: await textoServidor("Disputa no encontrada") }
 
   const { data: trabajo } = await supabase
     .from("trabajos")
@@ -422,20 +424,20 @@ export async function resolverDisputa(data: {
   monto_reembolso?: number
 }) {
   const supabase = await createClient()
-  if (!supabase) return { error: "No se pudo conectar con la base de datos." }
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos.") }
   const auth = await requireAdmin(supabase)
-  if ("error" in auth) return { error: auth.error }
+  if ("error" in auth) return { codigo: auth.codigo, error: await textoServidor(auth.error) }
   const admin = createAdminClient()
-  if (!admin) return { error: "La configuración segura del servidor no está disponible" }
-  if (!data.nota?.trim()) return { error: "Escribe la justificación de la resolución." }
+  if (!admin) return { error: await textoServidor("La configuración segura del servidor no está disponible") }
+  if (!data.nota?.trim()) return { error: await textoServidor("Escribe la justificación de la resolución.") }
   const { data: disputa, error: readError } = await admin.from("disputas").select("*")
     .eq("id", data.disputa_id).maybeSingle()
-  if (readError || !disputa) return { error: "Disputa no encontrada" }
+  if (readError || !disputa) return { error: await textoServidor("Disputa no encontrada") }
   if (disputa.origen !== "usuario" || disputa.stripe_disputa_id) {
-    return { error: "Este expediente contiene un contracargo bancario. Debe conciliarse primero en Stripe." }
+    return { error: await textoServidor("Este expediente contiene un contracargo bancario. Debe conciliarse primero en Stripe.") }
   }
-  if (disputa.estado === "retirada") return { error: "La disputa fue retirada." }
-  if (!["abierta", "en_revision", "resuelta"].includes(disputa.estado)) return { error: "La disputa no admite esta resolución." }
+  if (disputa.estado === "retirada") return { error: await textoServidor("La disputa fue retirada.") }
+  if (!["abierta", "en_revision", "resuelta"].includes(disputa.estado)) return { error: await textoServidor("La disputa no admite esta resolución.") }
   try {
     if (!disputa.escrow_id) {
       await cerrarCheckoutsPendientes(admin, disputa.trabajo_id)
@@ -451,7 +453,7 @@ export async function resolverDisputa(data: {
       const base = Number(escrow.monto_base)
       const montoReembolso = data.resolucion === "cliente" ? base
         : data.resolucion === "proveedor" ? 0 : Number(data.monto_reembolso)
-      if (!Number.isFinite(montoReembolso)) return { error: "Introduce un reembolso válido." }
+      if (!Number.isFinite(montoReembolso)) return { error: await textoServidor("Introduce un reembolso válido.") }
       const { data: reclamada, error: claimError } = await admin.rpc("diime_reclamar_liquidacion", {
         p_escrow: escrow.id, p_actor: auth.user.id, p_tipo: "disputa", p_reembolso: montoReembolso,
         p_disputa: disputa.id, p_resolucion: data.resolucion, p_nota: data.nota,
@@ -464,6 +466,6 @@ export async function resolverDisputa(data: {
     revalidatePath("/mis-solicitudes")
     return { data: { ok: true } }
   } catch (error: any) {
-    return { error: error.message || "No se pudo resolver la disputa. El reparto iniciado se conserva para reintentarlo." }
+    return { error: await textoServidor(error.message || "No se pudo resolver la disputa. El reparto iniciado se conserva para reintentarlo.") }
   }
 }

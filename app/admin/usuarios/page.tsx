@@ -1,5 +1,7 @@
 "use client"
 
+import { useIdioma } from "@/components/idioma-provider"
+
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -59,6 +61,8 @@ interface Usuario {
 }
 
 export default function AdminUsuariosPage() {
+  const { t, idioma } = useIdioma()
+
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [filteredUsuarios, setFilteredUsuarios] = useState<Usuario[]>([])
   const [loading, setLoading] = useState(true)
@@ -157,16 +161,15 @@ export default function AdminUsuariosPage() {
 
   const getTipoBadge = (usuario: Usuario) => {
     if (usuario.es_admin) {
-      return <Badge className="bg-purple-500/10 text-purple-600 border-purple-500/30">Admin</Badge>
+      return <Badge className="bg-purple-500/10 text-purple-600 border-purple-500/30">{t("Admin")}</Badge>
     }
     if (usuario.profesional) {
       return (
         <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
-          Profesional
-        </Badge>
+          {t("Profesional")}</Badge>
       )
     }
-    return <Badge variant="secondary">Cliente</Badge>
+    return <Badge variant="secondary">{t("Cliente")}</Badge>
   }
 
   const stats = {
@@ -187,7 +190,7 @@ export default function AdminUsuariosPage() {
       const result = await actualizarVerificacionProfesional(usuario.id, false)
 
       if (result.error) {
-        toast({ title: "No se pudo actualizar", description: result.error, variant: "destructive" })
+        toast({ title: t("No se pudo actualizar"), description: result.error, variant: "destructive" })
         return
       }
 
@@ -197,13 +200,13 @@ export default function AdminUsuariosPage() {
         ),
       )
       toast({
-        title: "Verificación retirada",
+        title: t("Verificación retirada"),
         description: `${usuario.nombre} ${usuario.apellido}`.trim(),
       })
     } catch {
       toast({
-        title: "No se pudo actualizar",
-        description: "Ha ocurrido un error inesperado. Inténtalo de nuevo.",
+        title: t("No se pudo actualizar"),
+        description: t("Ha ocurrido un error inesperado. Inténtalo de nuevo."),
         variant: "destructive",
       })
     } finally {
@@ -218,17 +221,14 @@ export default function AdminUsuariosPage() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <Users className="h-8 w-8 text-primary" />
-            Usuarios Registrados
-          </h1>
+            {t("Usuarios Registrados")}</h1>
           <p className="text-muted-foreground mt-1">
-            Gestiona todos los usuarios de la plataforma
-          </p>
+            {t("Gestiona todos los usuarios de la plataforma")}</p>
         </div>
         <Button asChild variant="outline" className="gap-2">
           <Link href="/admin/verificaciones">
             <BadgeCheck className="h-4 w-4" />
-            Revisar verificaciones
-          </Link>
+            {t("Revisar verificaciones")}</Link>
         </Button>
       </div>
 
@@ -236,7 +236,7 @@ export default function AdminUsuariosPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t("Total")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{stats.total}</p>
@@ -245,8 +245,7 @@ export default function AdminUsuariosPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <BadgeCheck className="h-4 w-4" /> Verificados
-            </CardTitle>
+              <BadgeCheck className="h-4 w-4" /> {" "}{t("Verificados")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-blue-600">{stats.verificados}</p>
@@ -255,8 +254,7 @@ export default function AdminUsuariosPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Briefcase className="h-4 w-4" /> Profesionales
-            </CardTitle>
+              <Briefcase className="h-4 w-4" /> {" "}{t("Profesionales")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-emerald-600">{stats.profesionales}</p>
@@ -265,8 +263,7 @@ export default function AdminUsuariosPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Users className="h-4 w-4" /> Clientes
-            </CardTitle>
+              <Users className="h-4 w-4" /> {" "}{t("Clientes")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{stats.clientes}</p>
@@ -281,7 +278,7 @@ export default function AdminUsuariosPage() {
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por nombre, email o ubicacion..."
+                placeholder={t("Buscar por nombre, email o ubicacion...")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -289,13 +286,13 @@ export default function AdminUsuariosPage() {
             </div>
             <Select value={tipoFilter} onValueChange={setTipoFilter}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filtrar por tipo" />
+                <SelectValue placeholder={t("Filtrar por tipo")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="todos">Todos los usuarios</SelectItem>
-                <SelectItem value="profesional">Profesionales</SelectItem>
-                <SelectItem value="cliente">Clientes</SelectItem>
-                <SelectItem value="admin">Administradores</SelectItem>
+                <SelectItem value="todos">{t("Todos los usuarios")}</SelectItem>
+                <SelectItem value="profesional">{t("Profesionales")}</SelectItem>
+                <SelectItem value="cliente">{t("Clientes")}</SelectItem>
+                <SelectItem value="admin">{t("Administradores")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -311,19 +308,18 @@ export default function AdminUsuariosPage() {
             </div>
           ) : filteredUsuarios.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              No se encontraron usuarios
-            </div>
+              {t("No se encontraron usuarios")}</div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Usuario</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Verificación</TableHead>
-                  <TableHead>Contacto</TableHead>
-                  <TableHead>Ubicacion</TableHead>
-                  <TableHead>Registro</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
+                  <TableHead>{t("Usuario")}</TableHead>
+                  <TableHead>{t("Tipo")}</TableHead>
+                  <TableHead>{t("Verificación")}</TableHead>
+                  <TableHead>{t("Contacto")}</TableHead>
+                  <TableHead>{t("Ubicacion")}</TableHead>
+                  <TableHead>{t("Registro")}</TableHead>
+                  <TableHead className="text-right">{t("Acciones")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -354,12 +350,10 @@ export default function AdminUsuariosPage() {
                       {usuario.profesional ? (
                         usuario.verificado ? (
                           <Badge className="gap-1 bg-blue-500/10 text-blue-700 border-blue-500/30">
-                            <BadgeCheck className="h-3.5 w-3.5" /> Verificado
-                          </Badge>
+                            <BadgeCheck className="h-3.5 w-3.5" /> {" "}{t("Verificado")}</Badge>
                         ) : (
                           <Badge variant="outline" className="gap-1 text-muted-foreground">
-                            <ShieldQuestion className="h-3.5 w-3.5" /> Pendiente
-                          </Badge>
+                            <ShieldQuestion className="h-3.5 w-3.5" /> {" "}{t("Pendiente")}</Badge>
                         )
                       ) : (
                         <span className="text-muted-foreground text-sm">-</span>
@@ -392,7 +386,7 @@ export default function AdminUsuariosPage() {
                     <TableCell>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Calendar className="h-3.5 w-3.5" />
-                        {formatearFecha(usuario.created_at)}
+                        {formatearFecha(usuario.created_at, idioma)}
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
@@ -406,8 +400,7 @@ export default function AdminUsuariosPage() {
                         )}
                         <Button asChild size="sm" variant="outline">
                           <Link href={`/admin/usuarios/${usuario.id}`}>
-                            <Eye className="h-4 w-4" /> Ver perfil
-                          </Link>
+                            <Eye className="h-4 w-4" /> {" "}{t("Ver perfil")}</Link>
                         </Button>
                         {usuario.profesional && !usuario.es_admin ? (
                           usuario.verificado ? <Button
@@ -418,9 +411,9 @@ export default function AdminUsuariosPage() {
                           >
                             {actualizandoId === usuario.id ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : "Retirar"}
+                            ) : t("Retirar")}
                           </Button>
-                          : <Button asChild size="sm"><Link href="/admin/verificaciones"><BadgeCheck className="h-4 w-4" /> Revisar verificación</Link></Button>
+                          : <Button asChild size="sm"><Link href="/admin/verificaciones"><BadgeCheck className="h-4 w-4" /> {" "}{t("Revisar verificación")}</Link></Button>
                         ) : null}
                       </div>
                     </TableCell>
@@ -436,17 +429,15 @@ export default function AdminUsuariosPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              ¿Retirar la verificación?
-            </AlertDialogTitle>
+              {t("¿Retirar la verificación?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {`La insignia dejará de mostrarse en el perfil de ${usuarioPendiente?.nombre || "este profesional"} ${usuarioPendiente?.apellido || ""}.`}
+              {t("La insignia dejará de mostrarse en el perfil de {nombre}.", { nombre: `${usuarioPendiente?.nombre || t("este profesional")} ${usuarioPendiente?.apellido || ""}`.trim() })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("Cancelar")}</AlertDialogCancel>
             <AlertDialogAction onClick={cambiarVerificacion}>
-              Retirar verificación
-            </AlertDialogAction>
+              {t("Retirar verificación")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

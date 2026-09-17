@@ -1,5 +1,7 @@
 "use server"
 
+import { textoServidor } from "@/lib/i18n-servidor"
+
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { errorContenidoProhibido } from "@/lib/moderacion"
@@ -27,13 +29,13 @@ export async function crearItemPortfolio(data: {
   contexto_proveedor?: string
 }) {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) {
-    return { error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   }
 
   let titulo = data.titulo.trim()
@@ -41,10 +43,10 @@ export async function crearItemPortfolio(data: {
   let categoria = data.categoria.trim() || null
   let ubicacion = data.ubicacion?.trim() || null
   if (!titulo || !descripcion) {
-    return { error: "Completa título y descripción." }
+    return { error: await textoServidor("Completa título y descripción.") }
   }
   const errorModeracion = errorContenidoProhibido(titulo, descripcion, data.contexto_proveedor)
-  if (errorModeracion) return { error: errorModeracion }
+  if (errorModeracion) return { error: await textoServidor(errorModeracion) }
 
   let trabajoId: string | null = null
   if (data.trabajo_id) {
@@ -57,7 +59,7 @@ export async function crearItemPortfolio(data: {
       .maybeSingle()
     const solicitud = trabajo?.solicitud as any
     if (!trabajo || !solicitud?.titulo || !solicitud?.descripcion) {
-      return { error: "Ese trabajo no está disponible para el portfolio." }
+      return { error: await textoServidor("Ese trabajo no está disponible para el portfolio.") }
     }
     trabajoId = trabajo.id
     // Un trabajo verificado siempre conserva la demanda que publicó el
@@ -87,7 +89,7 @@ export async function crearItemPortfolio(data: {
     .single()
 
   if (error) {
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   revalidatePath("/mi-perfil")
@@ -111,22 +113,22 @@ export async function actualizarItemPortfolio(
   },
 ) {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   let titulo = data.titulo.trim()
   let descripcion = data.descripcion.trim()
   let categoria = data.categoria.trim() || null
   let ubicacion = data.ubicacion?.trim() || null
   if (!titulo || !descripcion) {
-    return { error: "Completa título y descripción." }
+    return { error: await textoServidor("Completa título y descripción.") }
   }
   const errorModeracion = errorContenidoProhibido(titulo, descripcion, data.contexto_proveedor)
-  if (errorModeracion) return { error: errorModeracion }
+  if (errorModeracion) return { error: await textoServidor(errorModeracion) }
 
   let trabajoId: string | null = null
   if (data.trabajo_id) {
@@ -139,7 +141,7 @@ export async function actualizarItemPortfolio(
       .maybeSingle()
     const solicitud = trabajo?.solicitud as any
     if (!trabajo || !solicitud?.titulo || !solicitud?.descripcion) {
-      return { error: "Ese trabajo no está disponible para el portfolio." }
+      return { error: await textoServidor("Ese trabajo no está disponible para el portfolio.") }
     }
     trabajoId = trabajo.id
     titulo = solicitud.titulo
@@ -167,7 +169,7 @@ export async function actualizarItemPortfolio(
     .select("id")
     .single()
 
-  if (error) return { error: error.message }
+  if (error) return { error: await textoServidor(error.message) }
 
   revalidatePath("/mi-perfil")
   revalidatePath(`/profesional/${user.id}`)
@@ -176,11 +178,11 @@ export async function actualizarItemPortfolio(
 
 export async function obtenerTrabajosCompletadosParaPortfolio() {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible", data: [] }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible"), data: [] }
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado", data: [] }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado"), data: [] }
 
   const { data, error } = await supabase
     .from("trabajos")
@@ -189,25 +191,25 @@ export async function obtenerTrabajosCompletadosParaPortfolio() {
     .eq("estado", "completado")
     .order("fecha_fin", { ascending: false, nullsFirst: false })
 
-  if (error) return { error: error.message, data: [] }
+  if (error) return { error: await textoServidor(error.message), data: [] }
   return { data: data || [] }
 }
 
 export async function obtenerPortfolioPorProfesional(profesionalId: string) {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user || user.id !== profesionalId) return { error: "No autorizado" }
+  if (!user || user.id !== profesionalId) return { error: await textoServidor("No autorizado") }
 
   // El importe exacto solo lo recupera el propietario mediante esta función;
   // el rol autenticado no tiene permiso SELECT sobre esa columna.
   const { data, error } = await supabase.rpc("mi_portfolio")
 
   if (error) {
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   return { data }
@@ -215,19 +217,19 @@ export async function obtenerPortfolioPorProfesional(profesionalId: string) {
 
 export async function eliminarItemPortfolio(itemId: string) {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) {
-    return { error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   }
 
   const { error } = await supabase.from("portfolio").delete().eq("id", itemId).eq("profesional_id", user.id)
 
   if (error) {
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   revalidatePath("/mi-perfil")

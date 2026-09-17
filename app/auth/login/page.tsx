@@ -1,5 +1,7 @@
 "use client"
 
+import { useT } from "@/components/idioma-provider"
+
 import type React from "react"
 
 import { createClient } from "@/lib/supabase/client"
@@ -15,6 +17,7 @@ import { Mail, Lock, AlertCircle } from "lucide-react"
 import { BotonesOAuth } from "@/components/botones-oauth"
 
 export default function LoginPage() {
+  const t = useT()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -75,7 +78,7 @@ export default function LoginPage() {
       router.push(destination)
       router.refresh()
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "Error al iniciar sesión")
+      setError(error instanceof Error ? t(error.message) : "Error al iniciar sesión")
     } finally {
       setIsLoading(false)
     }
@@ -95,21 +98,21 @@ export default function LoginPage() {
       <div className="w-full max-w-md z-10">
         <Card className="shadow-2xl border-0 backdrop-blur-md bg-card/95">
           <CardHeader className="space-y-1 text-center pb-6">
-            <CardTitle className="text-3xl font-bold tracking-tight">Bienvenido</CardTitle>
-            <CardDescription className="text-base">Inicia sesión para acceder a tu cuenta</CardDescription>
+            <CardTitle className="text-3xl font-bold tracking-tight">{t("Bienvenido")}</CardTitle>
+            <CardDescription className="text-base">{t("Inicia sesión para acceder a tu cuenta")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm font-medium">
-                  Email
+                  {t("Email")}
                 </Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="email"
                     type="email"
-                    placeholder="tu@email.com"
+                    placeholder={t("tu@email.com")}
                     className={`pl-10 ${emailError ? "border-red-500" : ""}`}
                     value={email}
                     onChange={(e) => {
@@ -122,7 +125,7 @@ export default function LoginPage() {
                 {emailError && (
                   <p className="text-xs text-red-500 flex items-center gap-1">
                     <AlertCircle className="h-3 w-3" />
-                    {emailError}
+                    {t(emailError)}
                   </p>
                 )}
               </div>
@@ -130,10 +133,10 @@ export default function LoginPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password" className="text-sm font-medium">
-                    Contraseña
+                    {t("Contraseña")}
                   </Label>
                   <Link href="/auth/recuperar-contrasena" className="text-xs text-primary hover:underline">
-                    ¿Olvidaste tu contraseña?
+                    {t("¿Olvidaste tu contraseña?")}
                   </Link>
                 </div>
                 <div className="relative">
@@ -153,7 +156,7 @@ export default function LoginPage() {
                 {passwordError && (
                   <p className="text-xs text-red-500 flex items-center gap-1">
                     <AlertCircle className="h-3 w-3" />
-                    {passwordError}
+                    {t(passwordError)}
                   </p>
                 )}
               </div>
@@ -161,12 +164,12 @@ export default function LoginPage() {
               {error && (
                 <div className="text-sm text-red-500 bg-red-50 p-3 rounded-lg flex items-start gap-2">
                   <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                  <span>{error}</span>
+                  <span>{t(error)}</span>
                 </div>
               )}
 
               <Button type="submit" className="w-full h-11" disabled={isLoading}>
-                {isLoading ? "Iniciando sesión..." : "Iniciar Sesión"}
+                {isLoading ? t("Iniciando sesión...") : t("Iniciar Sesión")}
               </Button>
             </form>
 
@@ -175,16 +178,16 @@ export default function LoginPage() {
                 <Separator />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">O continúa con</span>
+                <span className="bg-background px-2 text-muted-foreground">{t("O continúa con")}</span>
               </div>
             </div>
 
             <BotonesOAuth cargando={isLoading} onCargando={setIsLoading} onError={(m) => setError(m || null)} />
 
             <div className="text-center text-sm">
-              <span className="text-muted-foreground">¿No tienes cuenta?</span>{" "}
+              <span className="text-muted-foreground">{t("¿No tienes cuenta?")}</span>{" "}
               <Link href="/auth/registro" className="font-medium text-primary hover:underline">
-                Regístrate gratis
+                {t("Regístrate gratis")}
               </Link>
             </div>
           </CardContent>

@@ -1,5 +1,7 @@
 "use server"
 
+import { textoServidor } from "@/lib/i18n-servidor"
+
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import {
@@ -11,15 +13,15 @@ import {
 // Guarda el interruptor general y cada categoría. La fila siempre se vincula al
 // usuario autenticado en el servidor; el navegador no decide su propietario.
 export async function actualizarPreferenciasEmails(preferencias: PreferenciasEmail) {
-  if (!sonPreferenciasEmailValidas(preferencias)) return { error: "Preferencias no válidas" }
+  if (!sonPreferenciasEmailValidas(preferencias)) return { error: await textoServidor("Preferencias no válidas") }
 
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   const { error } = await supabase.from("preferencias_notificaciones").upsert(
     {
@@ -29,7 +31,7 @@ export async function actualizarPreferenciasEmails(preferencias: PreferenciasEma
     },
     { onConflict: "usuario_id" },
   )
-  if (error) return { error: error.message }
+  if (error) return { error: await textoServidor(error.message) }
 
   revalidatePath("/mi-cuenta")
   return { success: true }
@@ -131,7 +133,7 @@ export async function marcarNotificacionesLeidasPorLink(link: string) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   const { error } = await supabase
     .from("notificaciones")
@@ -139,7 +141,7 @@ export async function marcarNotificacionesLeidasPorLink(link: string) {
     .eq("usuario_id", user.id)
     .eq("leida", false)
     .eq("link", link)
-  if (error) return { error: error.message }
+  if (error) return { error: await textoServidor(error.message) }
   return { success: true }
 }
 
@@ -149,13 +151,13 @@ export async function marcarNotificacionesLeidas() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   const { error } = await supabase
     .from("notificaciones")
     .update({ leida: true })
     .eq("usuario_id", user.id)
     .eq("leida", false)
-  if (error) return { error: error.message }
+  if (error) return { error: await textoServidor(error.message) }
   return { success: true }
 }

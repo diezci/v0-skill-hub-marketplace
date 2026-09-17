@@ -1,5 +1,7 @@
 "use client"
 
+import { useT } from "@/components/idioma-provider"
+
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -24,12 +26,12 @@ import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 
 // Confirmación del cierre irreversible, una vez resueltos los contratos y pagos.
-const CONFIRMACION = "ELIMINAR"
+// The confirmation word follows the selected interface language.
 
 // Cada consecuencia real de esta cuenta concreta, con sus números. Un aviso
 // genérico ("perderás el acceso") no basta cuando lo que se puede llevar por
 // delante es un trabajo que otra persona ya ha pagado.
-function avisos(c: ConsecuenciasBaja) {
+function avisos(c: ConsecuenciasBaja, t: ReturnType<typeof useT>) {
   const lista: { texto: string; grave?: boolean }[] = []
 
   if (c.demandas_a_borrar > 0) {
@@ -37,8 +39,8 @@ function avisos(c: ConsecuenciasBaja) {
     lista.push({
       texto:
         n === 1
-          ? "Se borrará tu demanda publicada, junto con las ofertas que hayas recibido en ella."
-          : `Se borrarán tus ${n} demandas publicadas, junto con las ofertas que hayas recibido en ellas.`,
+          ? t("Se borrará tu demanda publicada, junto con las ofertas que hayas recibido en ella.")
+          : t("Se borrarán tus {n} demandas publicadas, junto con las ofertas que hayas recibido en ellas.", { n }),
     })
   }
 
@@ -47,21 +49,23 @@ function avisos(c: ConsecuenciasBaja) {
     lista.push({
       texto:
         n === 1
-          ? "Se retirará tu puja pendiente: nadie podrá aceptártela."
-          : `Se retirarán tus ${n} pujas pendientes: nadie podrá aceptártelas.`,
+          ? t("Se retirará tu puja pendiente: nadie podrá aceptártela.")
+          : t("Se retirarán tus {n} pujas pendientes: nadie podrá aceptártelas.", { n }),
     })
   }
 
   if (c.es_profesional) {
-    lista.push({ texto: "Desaparecerás de la sección de Profesionales y dejarás de recibir avisos de demandas." })
+    lista.push({ texto: t("Desaparecerás de la sección de Profesionales y dejarás de recibir avisos de demandas.") })
   }
 
-  lista.push({ texto: "Perderás el acceso: no podrás volver a entrar con esta cuenta ni recuperarla." })
+  lista.push({ texto: t("Perderás el acceso: no podrás volver a entrar con esta cuenta ni recuperarla.") })
 
   return lista
 }
 
 export function EliminarCuentaDialog() {
+  const t = useT()
+  const CONFIRMACION = t("ELIMINAR")
   const { toast } = useToast()
   const [open, setOpen] = useState(false)
   const [texto, setTexto] = useState("")
@@ -102,8 +106,8 @@ export function EliminarCuentaDialog() {
     }
 
     toast({
-      title: "Cuenta eliminada",
-      description: "Hemos cerrado tu cuenta y tu sesión.",
+      title: t("Cuenta eliminada"),
+      description: t("Hemos cerrado tu cuenta y tu sesión."),
     })
     setOpen(false)
     // Recarga completa: la sesión ya no existe y hay que soltar todo lo que
@@ -130,7 +134,7 @@ export function EliminarCuentaDialog() {
           className="bg-transparent text-destructive border-destructive/40 hover:bg-destructive/10 gap-2"
         >
           <Trash2 className="h-4 w-4" />
-          Eliminar mi cuenta
+          {t("Eliminar mi cuenta")}
         </Button>
       </DialogTrigger>
 
@@ -138,21 +142,21 @@ export function EliminarCuentaDialog() {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-destructive text-xl">
             <AlertTriangle className="h-6 w-6" />
-            Vas a eliminar tu cuenta
+            {t("Vas a eliminar tu cuenta")}
           </DialogTitle>
           <DialogDescription>
-            Léelo entero antes de confirmar. Esto no se puede deshacer y afecta a otras personas.
+            {t("Léelo entero antes de confirmar. Esto no se puede deshacer y afecta a otras personas.")}
           </DialogDescription>
         </DialogHeader>
 
         {cargando && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground py-6 justify-center">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Comprobando qué tienes pendiente...
+            {t("Comprobando qué tienes pendiente...")}
           </div>
         )}
 
-        {!cargando && error && !consecuencias && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        {!cargando && error && !consecuencias && <p role="alert" className="text-sm text-destructive">{t(error)}</p>}
 
         {!cargando && consecuencias && (
           <div className="space-y-4 text-sm">
@@ -160,13 +164,12 @@ export function EliminarCuentaDialog() {
               <div className="rounded-lg border-2 border-destructive bg-destructive/10 p-4 flex items-start gap-3">
                 <Ban className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
                 <div>
-                  <p className="font-semibold text-destructive">Ahora mismo no puedes darte de baja</p>
+                  <p className="font-semibold text-destructive">{t("Ahora mismo no puedes darte de baja")}</p>
                   <p className="text-muted-foreground mt-1">
-                    Primero finaliza o cancela de mutuo acuerdo tus contratos, resuelve las disputas y completa
-                    los cobros o reembolsos pendientes. Conservas el acceso para hacerlo desde {" "}
-                    <Link href="/mis-trabajos" className="underline">Mis trabajos</Link>, {" "}
-                    <Link href="/mis-solicitudes" className="underline">Mis solicitudes</Link> y {" "}
-                    <Link href="/cobros" className="underline">Cobros</Link>. Si un pago está bloqueado, contacta con soporte.
+                    {t("Primero finaliza o cancela de mutuo acuerdo tus contratos, resuelve las disputas y completa los cobros o reembolsos pendientes. Conservas el acceso para hacerlo desde")} {" "}
+                    <Link href="/mis-trabajos" className="underline">{t("Mis trabajos")}</Link>, {" "}
+                    <Link href="/mis-solicitudes" className="underline">{t("Mis solicitudes")}</Link> {t("y")} {" "}
+                    <Link href="/cobros" className="underline">{t("Cobros")}</Link>{t(". Si un pago está bloqueado, contacta con soporte.")}
                   </p>
                 </div>
               </div>
@@ -175,10 +178,10 @@ export function EliminarCuentaDialog() {
                 <div className="rounded-lg border border-destructive/40 p-4">
                   <p className="font-semibold text-destructive mb-2 flex items-center gap-2">
                     <AlertTriangle className="h-4 w-4" />
-                    Qué va a pasar
+                    {t("Qué va a pasar")}
                   </p>
                   <ul className="space-y-2">
-                    {avisos(consecuencias).map((a, i) => (
+                    {avisos(consecuencias, t).map((a, i) => (
                       <li key={i} className="flex gap-2">
                         <span className={a.grave ? "text-destructive font-bold" : "text-muted-foreground"}>•</span>
                         <span className={a.grave ? "text-destructive font-medium" : "text-muted-foreground"}>
@@ -195,14 +198,10 @@ export function EliminarCuentaDialog() {
                 <div className="rounded-lg border bg-muted/40 p-4">
                   <p className="font-semibold mb-2 flex items-center gap-2">
                     <FileText className="h-4 w-4" />
-                    Qué se conserva, y por qué
+                    {t("Qué se conserva, y por qué")}
                   </p>
                   <p className="text-muted-foreground">
-                    Tu nombre y tus datos de facturación seguirán apareciendo en los trabajos y facturas ya cerrados, y
-                    las personas con las que trabajaste podrán seguir viéndolos. Es obligatorio conservar los registros
-                    contables, y es lo que permite reclamar a cualquiera de las dos partes si algo acaba en los
-                    tribunales. Lo que desaparece de la web es tu perfil: foto, descripción, ficha profesional y
-                    publicaciones.
+                    {t("Tu nombre y tus datos de facturación seguirán apareciendo en los trabajos y facturas ya cerrados, y las personas con las que trabajaste podrán seguir viéndolos. Es obligatorio conservar los registros contables, y es lo que permite reclamar a cualquiera de las dos partes si algo acaba en los tribunales. Lo que desaparece de la web es tu perfil: foto, descripción, ficha profesional y publicaciones.")}
                   </p>
                 </div>
               </>
@@ -211,7 +210,7 @@ export function EliminarCuentaDialog() {
             {error && (
               <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-lg flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                <span>{error}</span>
+                <span>{t(error)}</span>
               </div>
             )}
 
@@ -224,14 +223,13 @@ export function EliminarCuentaDialog() {
                     className="mt-0.5"
                   />
                   <span className="text-muted-foreground">
-                    He leído lo de arriba, entiendo que no tiene vuelta atrás y que no podré recuperar la cuenta.
+                    {t("He leído lo de arriba, entiendo que no tiene vuelta atrás y que no podré recuperar la cuenta.")}
                   </span>
                 </label>
 
                 <div className="space-y-2">
                   <Label htmlFor="confirmar-borrado">
-                    Escribe <span className="font-mono font-semibold text-destructive">{CONFIRMACION}</span> para
-                    confirmar
+                    {t("Escribe")} <span className="font-mono font-semibold text-destructive">{CONFIRMACION}</span> {t("para confirmar")}
                   </Label>
                   <Input
                     id="confirmar-borrado"
@@ -248,7 +246,7 @@ export function EliminarCuentaDialog() {
 
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)} disabled={enviando}>
-            {bloqueado ? "Entendido" : "Cancelar"}
+            {bloqueado ? t("Entendido") : t("Cancelar")}
           </Button>
           {!bloqueado && (
             <Button
@@ -259,10 +257,10 @@ export function EliminarCuentaDialog() {
               {enviando ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Eliminando...
+                  {t("Eliminando...")}
                 </>
               ) : (
-                "Eliminar mi cuenta"
+                t("Eliminar mi cuenta")
               )}
             </Button>
           )}

@@ -1,10 +1,14 @@
+import { getT } from "@/lib/i18n-servidor"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import PerfilProfesional from "@/components/perfil-profesional"
 
-export const metadata = {
-  title: "Mi Perfil | Diime",
-  description: "Gestiona tu perfil profesional, habilidades, experiencia y trabajos pasados",
+export async function generateMetadata() {
+  const { t } = await getT()
+  return {
+    title: t("Mi Perfil | Diime"),
+    description: t("Gestiona tu perfil profesional, habilidades, experiencia y trabajos pasados"),
+  }
 }
 
 export default async function MiPerfilPage() {

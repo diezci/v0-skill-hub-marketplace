@@ -1,5 +1,8 @@
 "use client"
 
+import { useIdioma } from "@/components/idioma-provider"
+import { traducirTextoNotificacion } from "@/lib/i18n-notificaciones"
+
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
@@ -15,6 +18,7 @@ import { useToast } from "@/hooks/use-toast"
 // suelto en el repo porque aquel se suscribía a las notificaciones de TODOS los
 // usuarios, sin filtrar, y además duplicaba la campana.
 export function AvisosEnPantalla() {
+  const { idioma } = useIdioma()
   const { toast } = useToast()
   const router = useRouter()
 
@@ -41,13 +45,13 @@ export function AvisosEnPantalla() {
             filter: `usuario_id=eq.${user.id}`,
           },
           (payload) => {
-            const aviso = payload.new as { titulo?: string; mensaje?: string; link?: string }
+            const aviso = payload.new as { tipo?: string; titulo?: string; mensaje?: string; link?: string }
             // El aviso también se enseña dentro de la app nativa. El banner del
             // sistema puede estar desactivado por el usuario, pero este preview
             // dentro de Diime debe seguir apareciendo siempre.
             toast({
-              title: aviso.titulo || "Nuevo aviso",
-              description: aviso.mensaje || undefined,
+              title: traducirTextoNotificacion(idioma, aviso.titulo || "Nuevo aviso", aviso.tipo),
+              description: aviso.mensaje ? traducirTextoNotificacion(idioma, aviso.mensaje, aviso.tipo) : undefined,
             })
             window.dispatchEvent(new CustomEvent("diime:notification"))
             // Si el aviso afecta a la pantalla en la que ya estás, se refresca
@@ -62,7 +66,7 @@ export function AvisosEnPantalla() {
       activo = false
       if (canal) supabase.removeChannel(canal)
     }
-  }, [toast, router])
+  }, [toast, router, idioma])
 
   return null
 }

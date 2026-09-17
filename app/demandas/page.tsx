@@ -1,19 +1,23 @@
+import { getT } from "@/lib/i18n-servidor"
 import DemandasServicios from "@/components/demandas-servicios"
 
-export const metadata = {
-  title: "Demandas de Servicios | Diime",
-  description: "Explora las demandas de servicios publicadas y envía tus presupuestos",
+export async function generateMetadata() {
+  const { t } = await getT()
+  return {
+    title: t("Demandas de Servicios | Diime"),
+    description: t("Explora las demandas de servicios publicadas y envía tus presupuestos"),
+  }
 }
 
-export default function DemandasPage() {
+export default async function DemandasPage() {
+  const { t } = await getT()
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Demandas de Servicios</h1>
+        <h1 className="text-3xl font-bold mb-2">{t("Demandas de Servicios")}</h1>
         <p className="text-muted-foreground">
-          Explora las solicitudes de servicios publicadas por usuarios. Filtra por tu especialidad y ubicación para
-          encontrar proyectos y enviar tus presupuestos.
-        </p>
+          {t("Explora las solicitudes de servicios publicadas por usuarios. Filtra por tu especialidad y ubicación para encontrar proyectos y enviar tus presupuestos.")}</p>
       </div>
       <DemandasServicios />
     </div>

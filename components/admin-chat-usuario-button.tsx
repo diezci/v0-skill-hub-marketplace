@@ -1,5 +1,7 @@
 "use client"
 
+import { useT } from "@/components/idioma-provider"
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2, MessageSquare } from "lucide-react"
@@ -21,6 +23,7 @@ export function AdminChatUsuarioButton({
   compacto = false,
   className,
 }: AdminChatUsuarioButtonProps) {
+  const t = useT()
   const [abriendo, setAbriendo] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
@@ -29,10 +32,10 @@ export function AdminChatUsuarioButton({
     setAbriendo(true)
     try {
       const resultado = await crearConversacionAdmin(usuarioId)
-      if (resultado.error || !resultado.data?.id) {
+      if (!("data" in resultado) || !resultado.data?.id) {
         toast({
-          title: "No se pudo abrir el chat",
-          description: resultado.error || "Inténtalo de nuevo en unos segundos.",
+          title: t("No se pudo abrir el chat"),
+          description: resultado.error ? t(resultado.error) : t("Inténtalo de nuevo en unos segundos."),
           variant: "destructive",
         })
         return
@@ -41,8 +44,8 @@ export function AdminChatUsuarioButton({
       router.push(`/admin/mensajes?c=${resultado.data.id}`)
     } catch {
       toast({
-        title: "No se pudo abrir el chat",
-        description: "Ha ocurrido un error inesperado. Inténtalo de nuevo.",
+        title: t("No se pudo abrir el chat"),
+        description: t("Ha ocurrido un error inesperado. Inténtalo de nuevo."),
         variant: "destructive",
       })
     } finally {
@@ -58,10 +61,10 @@ export function AdminChatUsuarioButton({
       className={cn("gap-2", className)}
       disabled={abriendo}
       onClick={abrirChat}
-      aria-label={nombre ? `Chatear con ${nombre}` : "Chatear con el usuario"}
+      aria-label={nombre ? t("Chatear con {nombre}", { nombre }) : t("Chatear con el usuario")}
     >
       {abriendo ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
-      {compacto ? "Chat" : "Chatear con usuario"}
+      {compacto ? t("Chat") : t("Chatear con usuario")}
     </Button>
   )
 }

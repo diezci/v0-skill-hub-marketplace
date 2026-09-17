@@ -28,5 +28,13 @@
         <div class="pulse" aria-hidden="true"></div>
       </div>
     </main>
+    <script>
+      // The local Capacitor error origin cannot read the remote site's cookie.
+      // Use the device language for this pre-connection screen.
+      if ((navigator.language || "es").toLowerCase().startsWith("en")) {
+        document.documentElement.lang = "en";
+        document.querySelector("p").textContent = "Connecting talent and projects";
+      }
+    </script>
   </body>
 </html>

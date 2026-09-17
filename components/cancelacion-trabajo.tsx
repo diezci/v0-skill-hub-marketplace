@@ -1,5 +1,8 @@
 "use client"
 
+import { useT, useIdioma } from "@/components/idioma-provider"
+import { localeDe } from "@/lib/i18n"
+
 import { type ChangeEvent, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -57,6 +60,9 @@ interface CancelacionTrabajoProps {
 }
 
 export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionTrabajoProps) {
+  const t = useT()
+  const { idioma } = useIdioma()
+
   const [userId, setUserId] = useState<string | null>(null)
   const [openSolicitar, setOpenSolicitar] = useState(false)
   const [openRechazar, setOpenRechazar] = useState(false)
@@ -98,8 +104,8 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
     const demasiadoGrandes = seleccionados.filter((archivo) => archivo.size > MAX_BYTES_POR_ARCHIVO)
     if (demasiadoGrandes.length > 0) {
       toast({
-        title: "Archivo demasiado grande",
-        description: "Cada archivo puede ocupar como máximo 10 MB.",
+        title: t("Archivo demasiado grande"),
+        description: t("Cada archivo puede ocupar como máximo 10 MB."),
         variant: "destructive",
       })
     }
@@ -107,8 +113,8 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
     const limiteNuevos = Math.max(0, MAX_ADJUNTOS - ocupados)
     if (actuales.length + admitidos.length > limiteNuevos) {
       toast({
-        title: "Demasiados archivos",
-        description: `Puedes adjuntar un máximo de ${MAX_ADJUNTOS} archivos.`,
+        title: t("Demasiados archivos"),
+        description: t("Puedes adjuntar un máximo de {count} archivos.", { count: MAX_ADJUNTOS }),
         variant: "destructive",
       })
     }
@@ -118,7 +124,7 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
   const subirAdjuntos = async (archivos: File[]) => {
     const resultados = await Promise.all(archivos.map((archivo) => uploadFile(archivo)))
     if (resultados.some((resultado) => resultado === null)) {
-      throw new Error("No se pudieron subir todos los archivos. Inténtalo de nuevo o quita los adjuntos.")
+      throw new Error(t("No se pudieron subir todos los archivos. Inténtalo de nuevo o quita los adjuntos."))
     }
     return resultados.map((resultado) => resultado!.url)
   }
@@ -126,8 +132,8 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
   const handleSolicitar = async () => {
     if (!razon.trim()) {
       toast({
-        title: "Falta el motivo",
-        description: "Explica por qué quieres cancelar el servicio.",
+        title: t("Falta el motivo"),
+        description: t("Explica por qué quieres cancelar el servicio."),
         variant: "destructive",
       })
       return
@@ -137,11 +143,11 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
       const adjuntos = await subirAdjuntos(archivosSolicitud)
       const res = await solicitarCancelacion(trabajo.id, razon.trim(), adjuntos)
       if (res.error) {
-        toast({ title: "No se pudo solicitar", description: res.error, variant: "destructive" })
+        toast({ title: t("No se pudo solicitar"), description: t(res.error), variant: "destructive" })
       } else {
         toast({
-          title: "Cancelación solicitada",
-          description: "La otra parte recibirá tus argumentos y archivos para aceptarla o rechazarla.",
+          title: t("Cancelación solicitada"),
+          description: t("La otra parte recibirá tus argumentos y archivos para aceptarla o rechazarla."),
         })
         setOpenSolicitar(false)
         setRazon("")
@@ -150,8 +156,8 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
       }
     } catch (error) {
       toast({
-        title: "No se pudieron subir los archivos",
-        description: error instanceof Error ? error.message : "Inténtalo de nuevo.",
+        title: t("No se pudieron subir los archivos"),
+        description: error instanceof Error ? error.message : t("Inténtalo de nuevo."),
         variant: "destructive",
       })
     } finally {
@@ -162,8 +168,8 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
   const handleResponder = async (aceptar: boolean) => {
     if (!aceptar && !razonRespuesta.trim()) {
       toast({
-        title: "Faltan tus argumentos",
-        description: "Explica por qué rechazas la cancelación para que el equipo de Diime pueda decidir.",
+        title: t("Faltan tus argumentos"),
+        description: t("Explica por qué rechazas la cancelación para que el equipo de Diime pueda decidir."),
         variant: "destructive",
       })
       return
@@ -173,13 +179,13 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
       const adjuntos = aceptar ? [] : await subirAdjuntos(archivosRespuesta)
       const res = await responderCancelacion(trabajo.id, aceptar, aceptar ? "" : razonRespuesta.trim(), adjuntos)
       if (res.error) {
-        toast({ title: "Error", description: res.error, variant: "destructive" })
+        toast({ title: t("Error"), description: t(res.error), variant: "destructive" })
       } else {
         toast({
-          title: aceptar ? "Cancelación aceptada" : "Cancelación rechazada: disputa abierta",
+          title: aceptar ? t("Cancelación aceptada") : t("Cancelación rechazada: disputa abierta"),
           description: aceptar
-            ? "El trabajo ha quedado cancelado. Si el cliente había pagado, se le reembolsa íntegramente."
-            : "Tus argumentos y archivos se han enviado al equipo de Diime para que resuelva.",
+            ? t("El trabajo ha quedado cancelado. Si el cliente había pagado, se le reembolsa íntegramente.")
+            : t("Tus argumentos y archivos se han enviado al equipo de Diime para que resuelva."),
         })
         setOpenRechazar(false)
         setRazonRespuesta("")
@@ -188,8 +194,8 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
       }
     } catch (error) {
       toast({
-        title: "No se pudieron subir los archivos",
-        description: error instanceof Error ? error.message : "Inténtalo de nuevo.",
+        title: t("No se pudieron subir los archivos"),
+        description: error instanceof Error ? error.message : t("Inténtalo de nuevo."),
         variant: "destructive",
       })
     } finally {
@@ -211,8 +217,8 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
   const handleEditar = async () => {
     if (!razonEdicion.trim()) {
       toast({
-        title: "Falta el motivo",
-        description: "Explica por qué quieres cancelar el servicio.",
+        title: t("Falta el motivo"),
+        description: t("Explica por qué quieres cancelar el servicio."),
         variant: "destructive",
       })
       return
@@ -225,11 +231,11 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
         ...nuevosAdjuntos,
       ])
       if (res.error) {
-        toast({ title: "No se pudo actualizar", description: res.error, variant: "destructive" })
+        toast({ title: t("No se pudo actualizar"), description: t(res.error), variant: "destructive" })
       } else {
         toast({
-          title: "Solicitud actualizada",
-          description: "La otra parte podrá ver tus nuevos argumentos y archivos.",
+          title: t("Solicitud actualizada"),
+          description: t("La otra parte podrá ver tus nuevos argumentos y archivos."),
         })
         setOpenEditar(false)
         setArchivosEdicion([])
@@ -237,8 +243,8 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
       }
     } catch (error) {
       toast({
-        title: "No se pudieron subir los archivos",
-        description: error instanceof Error ? error.message : "Inténtalo de nuevo.",
+        title: t("No se pudieron subir los archivos"),
+        description: error instanceof Error ? error.message : t("Inténtalo de nuevo."),
         variant: "destructive",
       })
     } finally {
@@ -251,11 +257,11 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
     try {
       const res = await retirarSolicitudCancelacion(trabajo.id)
       if (res.error) {
-        toast({ title: "No se pudo retirar", description: res.error, variant: "destructive" })
+        toast({ title: t("No se pudo retirar"), description: t(res.error), variant: "destructive" })
       } else {
         toast({
-          title: "Solicitud retirada",
-          description: "El servicio continúa activo y la otra parte ha sido avisada.",
+          title: t("Solicitud retirada"),
+          description: t("El servicio continúa activo y la otra parte ha sido avisada."),
         })
         setOpenRetirar(false)
         refrescar()
@@ -273,7 +279,7 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
   ) => (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-3">
-        <label className="text-sm font-medium">Pruebas o documentos (opcional)</label>
+        <label className="text-sm font-medium">{t("Pruebas o documentos (opcional)")}</label>
         <span className="text-xs text-muted-foreground">{ocupados + archivos.length}/{MAX_ADJUNTOS}</span>
       </div>
       <input
@@ -295,11 +301,9 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
               : "cursor-pointer"
           }
         >
-          <Paperclip className="mr-2 h-4 w-4" />
-          Adjuntar archivos
-        </label>
+          <Paperclip className="mr-2 h-4 w-4" />{t("Adjuntar archivos")}</label>
       </Button>
-      <p className="text-xs text-muted-foreground">Imágenes, PDF u otros documentos · máximo 10 MB por archivo.</p>
+      <p className="text-xs text-muted-foreground">{t("Imágenes, PDF u otros documentos · máximo 10 MB por archivo.")}</p>
       {archivos.length > 0 && (
         <div className="space-y-1.5">
           {archivos.map((archivo, indice) => (
@@ -310,13 +314,13 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
               <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
               <span className="min-w-0 flex-1 truncate text-xs">{archivo.name}</span>
               <span className="shrink-0 text-[11px] text-muted-foreground">
-                {(archivo.size / 1024 / 1024).toFixed(1)} MB
+                {(archivo.size / 1024 / 1024).toLocaleString(localeDe(idioma), { minimumFractionDigits: 1, maximumFractionDigits: 1 })} MB
               </span>
               <button
                 type="button"
                 className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                 onClick={() => actualizar(archivos.filter((_, i) => i !== indice))}
-                aria-label={`Quitar ${archivo.name}`}
+                aria-label={t("Quitar {name}", { name: archivo.name })}
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -357,12 +361,9 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
           <div className="flex items-start gap-3 min-w-0">
             <Ban className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
             <div className="min-w-0">
-              <p className="break-words font-semibold text-amber-700 dark:text-amber-400">
-                La otra parte quiere cancelar este trabajo
-              </p>
+              <p className="break-words font-semibold text-amber-700 dark:text-amber-400">{t("La otra parte quiere cancelar este trabajo")}</p>
               {trabajo.cancelacion_razon && (
-                <p className="mt-0.5 break-words text-sm text-muted-foreground">
-                  Motivo: {trabajo.cancelacion_razon}
+                <p className="mt-0.5 break-words text-sm text-muted-foreground">{t("Motivo:")}{" "}{trabajo.cancelacion_razon}
                 </p>
               )}
               {Array.isArray(trabajo.cancelacion_adjuntos_solicitante) &&
@@ -373,11 +374,7 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
                 )}
               {/* max-w-prose: a lo ancho de una tarjeta grande, una línea de texto
                   de borde a borde se lee mal. */}
-              <p className="mt-1.5 max-w-prose break-words text-sm text-muted-foreground">
-                Si aceptas, el trabajo se cancela (y si el cliente ya pagó, se le reembolsa íntegramente). Si
-                rechazas, podrás aportar tus argumentos y archivos; se abrirá una disputa automáticamente y la
-                resolverá el equipo de Diime.
-              </p>
+              <p className="mt-1.5 max-w-prose break-words text-sm text-muted-foreground">{t("Si aceptas, el trabajo se cancela (y si el cliente ya pagó, se le reembolsa íntegramente). Si rechazas, podrás aportar tus argumentos y archivos; se abrirá una disputa automáticamente y la resolverá el equipo de Diime.")}</p>
             </div>
           </div>
           {/* En móvil las dos acciones no caben de forma fiable en una sola fila
@@ -394,9 +391,7 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
                 <Loader2 className="mr-1 h-4 w-4 shrink-0 animate-spin" />
               ) : (
                 <Check className="mr-1 h-4 w-4 shrink-0" />
-              )}
-              Aceptar cancelación
-            </Button>
+              )}{t("Aceptar cancelación")}</Button>
             <Button
               size="sm"
               variant="outline"
@@ -404,25 +399,20 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
               disabled={submitting}
               onClick={() => setOpenRechazar(true)}
             >
-              <XCircle className="mr-1 h-4 w-4 shrink-0" />
-              Rechazar
-            </Button>
+              <XCircle className="mr-1 h-4 w-4 shrink-0" />{t("Rechazar")}</Button>
           </div>
         </div>
         <Dialog open={openRechazar} onOpenChange={(abierto) => !submitting && setOpenRechazar(abierto)}>
           <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>Rechazar la cancelación</DialogTitle>
-              <DialogDescription>
-                Explica por qué debe continuar el servicio o cómo debería resolverse. Al rechazarla se abrirá una
-                disputa y el equipo de Diime contrastará los argumentos y archivos de ambas partes.
-              </DialogDescription>
+              <DialogTitle>{t("Rechazar la cancelación")}</DialogTitle>
+              <DialogDescription>{t("Explica por qué debe continuar el servicio o cómo debería resolverse. Al rechazarla se abrirá una disputa y el equipo de Diime contrastará los argumentos y archivos de ambas partes.")}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-1">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Tus argumentos *</label>
+                <label className="text-sm font-medium">{t("Tus argumentos *")}</label>
                 <Textarea
-                  placeholder="Explica por qué no estás de acuerdo con la cancelación..."
+                  placeholder={t("Explica por qué no estás de acuerdo con la cancelación...")}
                   value={razonRespuesta}
                   onChange={(event) => setRazonRespuesta(event.target.value)}
                   rows={4}
@@ -436,17 +426,13 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
               )}
             </div>
             <DialogFooter>
-              <Button variant="outline" className="bg-transparent" disabled={submitting} onClick={() => setOpenRechazar(false)}>
-                Volver
-              </Button>
+              <Button variant="outline" className="bg-transparent" disabled={submitting} onClick={() => setOpenRechazar(false)}>{t("Volver")}</Button>
               <Button
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 disabled={submitting || !razonRespuesta.trim()}
                 onClick={() => handleResponder(false)}
               >
-                {submitting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
-                Rechazar y enviar a revisión
-              </Button>
+                {submitting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}{t("Rechazar y enviar a revisión")}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -460,11 +446,9 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
       <>
         <div className={`${marco} flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between`}>
           <div className="min-w-0 space-y-2 text-sm">
-            <p className="font-medium text-amber-700 dark:text-amber-400">
-              Has solicitado cancelar este trabajo. Esperando la respuesta de la otra parte.
-            </p>
+            <p className="font-medium text-amber-700 dark:text-amber-400">{t("Has solicitado cancelar este trabajo. Esperando la respuesta de la otra parte.")}</p>
             {trabajo.cancelacion_razon && (
-              <p className="break-words text-muted-foreground">Motivo: {trabajo.cancelacion_razon}</p>
+              <p className="break-words text-muted-foreground">{t("Motivo:")}{" "}{trabajo.cancelacion_razon}</p>
             )}
             {Array.isArray(trabajo.cancelacion_adjuntos_solicitante) &&
               trabajo.cancelacion_adjuntos_solicitante.length > 0 && (
@@ -480,8 +464,7 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
               disabled={submitting}
               onClick={abrirEdicion}
             >
-              <Pencil className="mr-1 h-3.5 w-3.5" /> Editar solicitud
-            </Button>
+              <Pencil className="mr-1 h-3.5 w-3.5" />{" "}{t("Editar solicitud")}</Button>
             <Button
               type="button"
               size="sm"
@@ -490,25 +473,21 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
               disabled={submitting}
               onClick={() => setOpenRetirar(true)}
             >
-              <Undo2 className="mr-1 h-3.5 w-3.5" /> Retirar solicitud
-            </Button>
+              <Undo2 className="mr-1 h-3.5 w-3.5" />{" "}{t("Retirar solicitud")}</Button>
           </div>
         </div>
 
         <Dialog open={openEditar} onOpenChange={(abierto) => !submitting && setOpenEditar(abierto)}>
           <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>Editar solicitud de cancelación</DialogTitle>
-              <DialogDescription>
-                Puedes modificar el motivo, quitar pruebas anteriores o añadir otras mientras la solicitud siga
-                pendiente.
-              </DialogDescription>
+              <DialogTitle>{t("Editar solicitud de cancelación")}</DialogTitle>
+              <DialogDescription>{t("Puedes modificar el motivo, quitar pruebas anteriores o añadir otras mientras la solicitud siga pendiente.")}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-1">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Motivo *</label>
+                <label className="text-sm font-medium">{t("Motivo *")}</label>
                 <Textarea
-                  placeholder="Explica por qué quieres cancelar..."
+                  placeholder={t("Explica por qué quieres cancelar...")}
                   value={razonEdicion}
                   onChange={(event) => setRazonEdicion(event.target.value)}
                   rows={4}
@@ -518,7 +497,7 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
 
               {adjuntosConservados.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-sm font-medium">Archivos actuales</p>
+                  <p className="text-sm font-medium">{t("Archivos actuales")}</p>
                   <div className="space-y-1.5">
                     {adjuntosConservados.map((url, indice) => (
                       <div key={url} className="flex items-center gap-2 rounded-md border px-2.5 py-2">
@@ -535,7 +514,7 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
                           type="button"
                           className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-destructive"
                           onClick={() => setAdjuntosConservados((actuales) => actuales.filter((_, i) => i !== indice))}
-                          aria-label={`Quitar ${nombreDeAdjunto(url, indice)}`}
+                          aria-label={t("Quitar {name}", { name: nombreDeAdjunto(url, indice) })}
                           disabled={submitting}
                         >
                           <X className="h-3.5 w-3.5" />
@@ -559,13 +538,9 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
                 className="bg-transparent"
                 disabled={submitting}
                 onClick={() => setOpenEditar(false)}
-              >
-                Cancelar
-              </Button>
+              >{t("Cancelar")}</Button>
               <Button disabled={submitting || !razonEdicion.trim()} onClick={handleEditar}>
-                {submitting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
-                Guardar cambios
-              </Button>
+                {submitting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}{t("Guardar cambios")}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -573,11 +548,8 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
         <Dialog open={openRetirar} onOpenChange={(abierto) => !submitting && setOpenRetirar(abierto)}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>¿Retirar la solicitud?</DialogTitle>
-              <DialogDescription>
-                La petición de cancelación desaparecerá, la otra parte ya no tendrá que responder y el servicio
-                continuará en su estado actual.
-              </DialogDescription>
+              <DialogTitle>{t("¿Retirar la solicitud?")}</DialogTitle>
+              <DialogDescription>{t("La petición de cancelación desaparecerá, la otra parte ya no tendrá que responder y el servicio continuará en su estado actual.")}</DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <Button
@@ -585,17 +557,13 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
                 className="bg-transparent"
                 disabled={submitting}
                 onClick={() => setOpenRetirar(false)}
-              >
-                Mantener solicitud
-              </Button>
+              >{t("Mantener solicitud")}</Button>
               <Button
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 disabled={submitting}
                 onClick={handleRetirar}
               >
-                {submitting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Undo2 className="mr-1 h-4 w-4" />}
-                Retirar solicitud
-              </Button>
+                {submitting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Undo2 className="mr-1 h-4 w-4" />}{t("Retirar solicitud")}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -608,10 +576,7 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
   //    quedara algún trabajo con el estado antiguo, se informa igualmente.
   if (estadoCanc === "rechazada") {
     return (
-      <div className={`${marcoCompacto} text-sm text-muted-foreground`}>
-        La solicitud de cancelación fue rechazada y el caso pasa a disputa: lo resolverá el equipo de Diime
-        según los términos de la contratación.
-      </div>
+      <div className={`${marcoCompacto} text-sm text-muted-foreground`}>{t("La solicitud de cancelación fue rechazada y el caso pasa a disputa: lo resolverá el equipo de Diime según los términos de la contratación.")}</div>
     )
   }
 
@@ -624,23 +589,17 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
           size="sm"
           className="bg-transparent text-destructive border-destructive/40 hover:bg-destructive/10"
         >
-          <XCircle className="h-4 w-4 mr-1" />
-          Solicitar cancelación
-        </Button>
+          <XCircle className="h-4 w-4 mr-1" />{t("Solicitar cancelación")}</Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Solicitar cancelación</DialogTitle>
-          <DialogDescription>
-            La cancelación debe ser de mutuo acuerdo: la otra parte recibirá un aviso y deberá aceptarla o
-            rechazarla. Si la acepta y el trabajo ya estaba pagado, el cliente recibe el reembolso íntegro
-            automáticamente. Si la rechaza, se abrirá una disputa que resolverá el equipo de Diime.
-          </DialogDescription>
+          <DialogTitle>{t("Solicitar cancelación")}</DialogTitle>
+          <DialogDescription>{t("La cancelación debe ser de mutuo acuerdo: la otra parte recibirá un aviso y deberá aceptarla o rechazarla. Si la acepta y el trabajo ya estaba pagado, el cliente recibe el reembolso íntegro automáticamente. Si la rechaza, se abrirá una disputa que resolverá el equipo de Diime.")}</DialogDescription>
         </DialogHeader>
         <div className="space-y-1.5 py-1">
-          <label className="text-sm font-medium">Motivo *</label>
+          <label className="text-sm font-medium">{t("Motivo *")}</label>
           <Textarea
-            placeholder="Explica brevemente por qué quieres cancelar..."
+            placeholder={t("Explica brevemente por qué quieres cancelar...")}
             value={razon}
             onChange={(e) => setRazon(e.target.value)}
             rows={4}
@@ -649,17 +608,13 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
         </div>
         {selectorAdjuntos(`adjuntos-solicitud-${trabajo.id}`, archivosSolicitud, setArchivosSolicitud)}
         <DialogFooter>
-          <Button variant="outline" className="bg-transparent" disabled={submitting} onClick={() => setOpenSolicitar(false)}>
-            Cancelar
-          </Button>
+          <Button variant="outline" className="bg-transparent" disabled={submitting} onClick={() => setOpenSolicitar(false)}>{t("Cancelar")}</Button>
           <Button
             className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
             disabled={submitting || !razon.trim()}
             onClick={handleSolicitar}
           >
-            {submitting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
-            Enviar solicitud
-          </Button>
+            {submitting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}{t("Enviar solicitud")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

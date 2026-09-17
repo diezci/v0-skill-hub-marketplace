@@ -1,5 +1,8 @@
 "use client"
 
+import { useT } from "@/components/idioma-provider"
+
+
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,6 +31,7 @@ interface GigFiltersProps {
 }
 
 const GigFilters = ({ filtros, onChange, onReset }: GigFiltersProps) => {
+  const t = useT()
   const handleCategoryChange = (categoryId: string) => {
     onChange({
       categorias: filtros.categorias.includes(categoryId)
@@ -40,20 +44,19 @@ const GigFilters = ({ filtros, onChange, onReset }: GigFiltersProps) => {
     <Card className="sticky top-24 max-h-[calc(100dvh-7.5rem)] overflow-y-auto overscroll-y-contain [scrollbar-gutter:stable]">
       <CardContent className="p-6">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg font-semibold">Filtros</h2>
+          <h2 className="text-lg font-semibold">{t("Filtros")}</h2>
           <Button variant="ghost" size="sm" onClick={onReset}>
-            Restablecer
-          </Button>
+             {t("Restablecer")} </Button>
         </div>
 
         <div className="space-y-6">
           <Accordion type="multiple" defaultValue={["category", "ubicacion", "price"]}>
             <AccordionItem value="search">
-              <AccordionTrigger>Buscar</AccordionTrigger>
+              <AccordionTrigger>{t("Buscar")}</AccordionTrigger>
               <AccordionContent>
                 <div className="space-y-4">
                   <Input
-                    placeholder="Buscar servicios..."
+                    placeholder={t("Buscar servicios...")}
                     value={filtros.search}
                     onChange={(e) => onChange({ search: e.target.value })}
                   />
@@ -65,22 +68,21 @@ const GigFilters = ({ filtros, onChange, onReset }: GigFiltersProps) => {
               <AccordionTrigger>
                 <span className="flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-emerald-600" />
-                  Provincia
-                </span>
+                   {t("Provincia")} </span>
               </AccordionTrigger>
               <AccordionContent>
                 <div className="space-y-3">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">Selecciona una provincia</label>
+                    <label className="text-xs font-medium text-muted-foreground">{t("Selecciona una provincia")}</label>
                     <Select
                       value={filtros.provincia || "todas"}
                       onValueChange={(v) => onChange({ provincia: v === "todas" ? "" : v })}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Todas las provincias" />
+                        <SelectValue placeholder={t("Todas las provincias")} />
                       </SelectTrigger>
                       <SelectContent className="max-h-72">
-                        <SelectItem value="todas">Todas las provincias</SelectItem>
+                        <SelectItem value="todas">{t("Todas las provincias")}</SelectItem>
                         {PROVINCIAS_ES.map((p) => (
                           <SelectItem key={p} value={p}>
                             {p}
@@ -112,7 +114,7 @@ const GigFilters = ({ filtros, onChange, onReset }: GigFiltersProps) => {
             </AccordionItem>
 
             <AccordionItem value="category">
-              <AccordionTrigger>Categoría</AccordionTrigger>
+              <AccordionTrigger>{t("Categoría")}</AccordionTrigger>
               <AccordionContent>
                 {/* El filtro trabaja con ids (slug), pero el selector devuelve
                     nombres: se traduce en ambos sentidos. */}
@@ -125,7 +127,7 @@ const GigFilters = ({ filtros, onChange, onReset }: GigFiltersProps) => {
             </AccordionItem>
 
             <AccordionItem value="price">
-              <AccordionTrigger>Rango de Precio (€/h)</AccordionTrigger>
+              <AccordionTrigger>{t("Rango de Precio (€/h)")}</AccordionTrigger>
               <AccordionContent>
                 {/* Aquí el precio es POR HORA, no el presupuesto de un
                     proyecto: su tope es PRECIO_HORA_MAX, no PRECIO_MAX. */}

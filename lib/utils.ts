@@ -9,11 +9,11 @@ export function cn(...inputs: ClassValue[]) {
  * Formatea una fecha a string en formato español (DD/MM/AAAA, HH:mm).
  * Acepta string, Date o null/undefined.
  */
-export function formatearFecha(fecha: string | Date | null | undefined): string {
+export function formatearFecha(fecha: string | Date | null | undefined, idioma: "es" | "en" = "es"): string {
   if (!fecha) return "-"
   const date = typeof fecha === "string" ? new Date(fecha) : fecha
   if (Number.isNaN(date.getTime())) return "-"
-  return date.toLocaleString("es-ES", {
+  return date.toLocaleString(idioma === "en" ? "en-GB" : "es-ES", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -25,9 +25,9 @@ export function formatearFecha(fecha: string | Date | null | undefined): string 
 /**
  * Formatea un número como moneda en euros (es-ES).
  */
-export function formatearMoneda(valor: number | null | undefined): string {
-  if (valor === null || valor === undefined || Number.isNaN(valor)) return "0,00 €"
-  return new Intl.NumberFormat("es-ES", {
+export function formatearMoneda(valor: number | null | undefined, idioma: "es" | "en" = "es"): string {
+  if (valor === null || valor === undefined || Number.isNaN(valor)) return idioma === "en" ? "€0.00" : "0,00 €"
+  return new Intl.NumberFormat(idioma === "en" ? "en-GB" : "es-ES", {
     style: "currency",
     currency: "EUR",
     minimumFractionDigits: 2,
@@ -40,17 +40,18 @@ export function formatearMoneda(valor: number | null | undefined): string {
  */
 export function formatearPrecioEuros(
   valor: number | string | null | undefined,
-  options?: { decimales?: boolean },
+  options?: { decimales?: boolean; idioma?: "es" | "en" } | "es" | "en",
 ): string {
-  if (valor === null || valor === undefined || valor === "") return "0€"
+  const idioma = typeof options === "string" ? options : options?.idioma || "es"
+  if (valor === null || valor === undefined || valor === "") return idioma === "en" ? "€0" : "0€"
   const num = typeof valor === "string" ? Number(valor) : valor
-  if (Number.isNaN(num)) return "0€"
-  const decimales = options?.decimales ?? !Number.isInteger(num)
-  const formatted = new Intl.NumberFormat("es-ES", {
+  if (Number.isNaN(num)) return idioma === "en" ? "€0" : "0€"
+  const decimales = (typeof options === "object" ? options.decimales : undefined) ?? !Number.isInteger(num)
+  const formatted = new Intl.NumberFormat(idioma === "en" ? "en-GB" : "es-ES", {
     minimumFractionDigits: decimales ? 2 : 0,
     maximumFractionDigits: decimales ? 2 : 0,
   }).format(num)
-  return `${formatted}€`
+  return idioma === "en" ? `€${formatted}` : `${formatted}€`
 }
 
 /**
@@ -72,6 +73,7 @@ export function formatearPrecioEuros(
 export function formatearRangoPresupuesto(
   min: number | string | null | undefined,
   max: number | string | null | undefined,
+  idioma: "es" | "en" = "es",
 ): string {
   const nMin = min === null || min === undefined || min === "" ? null : Number(min)
   const nMax = max === null || max === undefined || max === "" ? null : Number(max)
@@ -81,12 +83,12 @@ export function formatearRangoPresupuesto(
   if (hayMin && hayMax) {
     // Cuando el cliente deja los dos tiradores juntos ha publicado un importe
     // exacto: repetirlo ("1.500€ - 1.500€") sobra.
-    if (nMin === nMax) return formatearPrecioEuros(nMin)
-    return `${formatearPrecioEuros(nMin)} - ${formatearPrecioEuros(nMax)}`
+    if (nMin === nMax) return formatearPrecioEuros(nMin, idioma)
+    return `${formatearPrecioEuros(nMin, idioma)} - ${formatearPrecioEuros(nMax, idioma)}`
   }
-  if (!hayMin && hayMax) return `Hasta ${formatearPrecioEuros(nMax)}`
-  if (hayMin && !hayMax) return formatearPrecioEuros(nMin)
-  return "A convenir"
+  if (!hayMin && hayMax) return `${idioma === "en" ? "Up to" : "Hasta"} ${formatearPrecioEuros(nMax, idioma)}`
+  if (hayMin && !hayMax) return formatearPrecioEuros(nMin, idioma)
+  return idioma === "en" ? "To be agreed" : "A convenir"
 }
 
 /**
@@ -96,7 +98,7 @@ export function formatearRangoPresupuesto(
  * aplicable a otros encargos, el tramo impide reconstruir el precio acordado a
  * partir de unos límites demasiado precisos.
  */
-export function formatearRangoPortfolio(valor: number | string | null | undefined): string | null {
+export function formatearRangoPortfolio(valor: number | string | null | undefined, idioma: "es" | "en" = "es"): string | null {
   if (valor === null || valor === undefined || valor === "") return null
   const importe = typeof valor === "string" ? Number(valor) : valor
   if (!Number.isFinite(importe) || importe <= 0) return null
@@ -104,18 +106,18 @@ export function formatearRangoPortfolio(valor: number | string | null | undefine
   const tramos = [100, 250, 500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000, 100_000]
   const indiceSuperior = tramos.findIndex((limite) => importe < limite)
 
-  return formatearTramoPortfolio(indiceSuperior === -1 ? tramos.length : indiceSuperior)
+  return formatearTramoPortfolio(indiceSuperior === -1 ? tramos.length : indiceSuperior, idioma)
 }
 
 /** Formatea el identificador no sensible que devuelve `portfolio_publico`. */
-export function formatearTramoPortfolio(indice: number | string | null | undefined): string | null {
+export function formatearTramoPortfolio(indice: number | string | null | undefined, idioma: "es" | "en" = "es"): string | null {
   if (indice === null || indice === undefined || indice === "") return null
   const numeroIndice = typeof indice === "string" ? Number(indice) : indice
   const tramos = [100, 250, 500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000, 100_000]
 
   if (!Number.isInteger(numeroIndice) || numeroIndice < 0 || numeroIndice > tramos.length) return null
-  if (numeroIndice === 0) return `Hasta ${formatearPrecioEuros(tramos[0])}`
-  if (numeroIndice === tramos.length) return `Más de ${formatearPrecioEuros(tramos[tramos.length - 1])}`
+  if (numeroIndice === 0) return `${idioma === "en" ? "Up to" : "Hasta"} ${formatearPrecioEuros(tramos[0], idioma)}`
+  if (numeroIndice === tramos.length) return `${idioma === "en" ? "Over" : "Más de"} ${formatearPrecioEuros(tramos[tramos.length - 1], idioma)}`
 
-  return `${formatearPrecioEuros(tramos[numeroIndice - 1])} – ${formatearPrecioEuros(tramos[numeroIndice])}`
+  return `${formatearPrecioEuros(tramos[numeroIndice - 1], idioma)} – ${formatearPrecioEuros(tramos[numeroIndice], idioma)}`
 }

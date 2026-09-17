@@ -1,5 +1,7 @@
 import "server-only"
 
+import { idiomaDestinatario } from "@/lib/idioma-destinatario"
+import { traducirTextoNotificacion } from "@/lib/i18n-notificaciones"
 import { createSign } from "node:crypto"
 import { connect } from "node:http2"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -305,8 +307,16 @@ export async function enviarPushAUsuario(usuarioId: string, aviso: AvisoPush) {
     // APNs no incrementa el icono automáticamente. Cada push lleva el total
     // real de avisos y mensajes pendientes para que el badge nunca dependa de
     // cuántos intentos de entrega hubo ni quede atascado en un valor antiguo.
-    const badge = await contarPendientesUsuario(admin, usuarioId)
-    const avisoConBadge = { ...aviso, badge }
+    const [badge, idioma] = await Promise.all([
+      contarPendientesUsuario(admin, usuarioId),
+      idiomaDestinatario(admin, usuarioId),
+    ])
+    const avisoConBadge = {
+      ...aviso,
+      badge,
+      titulo: traducirTextoNotificacion(idioma, aviso.titulo, aviso.tipo),
+      cuerpo: traducirTextoNotificacion(idioma, aviso.cuerpo, aviso.tipo),
+    }
 
     const resultados = await Promise.all(
       dispositivos.map(async (dispositivo: { token: string; plataforma: PlataformaPush }) => {

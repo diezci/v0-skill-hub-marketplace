@@ -141,9 +141,9 @@ export function calcularReembolsoCliente(precioAcordado: number): {
  * Uses Spanish locale (dot as thousand separator). Hides decimals when the
  * value is a whole number, shows two decimals otherwise.
  */
-export function formatearPrecio(precio: number): string {
+export function formatearPrecio(precio: number, idioma: "es" | "en" = "es"): string {
   const isInteger = Number.isInteger(precio)
-  return new Intl.NumberFormat("es-ES", {
+  return new Intl.NumberFormat(idioma === "en" ? "en-GB" : "es-ES", {
     style: "currency",
     currency: "EUR",
     minimumFractionDigits: isInteger ? 0 : 2,

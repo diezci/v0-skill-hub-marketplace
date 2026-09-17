@@ -27,6 +27,9 @@ export async function crearNotificacion(params: {
     console.error("No se pudo crear la notificación: falta el cliente interno")
     return
   }
+  // Keep canonical system text in storage so historical and realtime notices
+  // follow the viewer's current language. Email and push independently read the
+  // recipient's saved language; they never use the actor's request language.
   const { error } = await admin.from("notificaciones").insert({
     usuario_id: params.usuarioId,
     tipo: params.tipo,

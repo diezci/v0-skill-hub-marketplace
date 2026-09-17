@@ -1,5 +1,7 @@
 "use client"
 
+import { useT } from "@/components/idioma-provider"
+
 import type React from "react"
 import { useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -28,26 +30,26 @@ import {
 } from "@/lib/urgencias"
 import { PROVINCIAS_ES } from "@/lib/provincias"
 
-const formSchema = z
+const crearFormSchema = (t: ReturnType<typeof useT>) => z
   .object({
-    category: z.string().min(1, { message: "Selecciona una categoría" }),
-    title: z.string().min(5, { message: "Mínimo 5 caracteres" }),
-    description: z.string().min(20, { message: "Mínimo 20 caracteres" }),
-    location: z.string().min(2, { message: "Ingresa tu ubicación" }),
+    category: z.string().min(1, { message: t("Selecciona una categoría") }),
+    title: z.string().min(5, { message: t("Mínimo 5 caracteres") }),
+    description: z.string().min(20, { message: t("Mínimo 20 caracteres") }),
+    location: z.string().min(2, { message: t("Ingresa tu ubicación") }),
     // Rango de presupuesto [min, max] entre 0 y 100k.
     budget: z.tuple([z.number(), z.number()]),
-    urgency: z.string().min(1, { message: "Indica la urgencia" }),
+    urgency: z.string().min(1, { message: t("Indica la urgencia") }),
     neededDate: z.string(),
   })
   .superRefine((values, ctx) => {
     if (values.urgency !== OPCION_FECHA_EXACTA) return
     if (!esFechaISOValida(values.neededDate)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["neededDate"], message: "Selecciona una fecha" })
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["neededDate"], message: t("Selecciona una fecha") })
     } else if (values.neededDate < fechaHoyEnEspana()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["neededDate"],
-        message: "La fecha no puede estar en el pasado",
+        message: t("La fecha no puede estar en el pasado"),
       })
     }
   })
@@ -59,10 +61,13 @@ interface Props {
 }
 
 const SolicitudServicioForm = ({ embedded = false }: Props) => {
+  const t = useT()
+
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
   const router = useRouter()
 
+  const formSchema = crearFormSchema(t)
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -94,8 +99,8 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
       // una demanda sin las fotos que creías haber adjuntado.
       if (uploadResults.some((r) => r === null)) {
         toast({
-          title: "No se pudieron subir los archivos",
-          description: "Tu demanda no se ha publicado. Inténtalo de nuevo o quita los adjuntos.",
+          title: t("No se pudieron subir los archivos"),
+          description: t("Tu demanda no se ha publicado. Inténtalo de nuevo o quita los adjuntos."),
           variant: "destructive",
         })
         setIsSubmitting(false)
@@ -128,16 +133,16 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
       if (result.error) throw new Error(result.error)
 
       toast({
-        title: "¡Proyecto publicado!",
-        description: "Los profesionales ya pueden ver tu solicitud y enviarte ofertas.",
+        title: t("¡Proyecto publicado!"),
+        description: t("Los profesionales ya pueden ver tu solicitud y enviarte ofertas."),
       })
       form.reset()
       setAttachedFiles([])
       router.push("/mis-solicitudes")
     } catch (error) {
       toast({
-        title: "No se pudo publicar",
-        description: error instanceof Error ? error.message : "Hubo un problema. Inténtalo de nuevo.",
+        title: t("No se pudo publicar"),
+        description: error instanceof Error ? t(error.message) : t("Hubo un problema. Inténtalo de nuevo."),
         variant: "destructive",
       })
     } finally {
@@ -155,14 +160,12 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="flex items-center gap-2">
-                  <Paperclip className="h-4 w-4 text-emerald-500" />
-                  Tipo de Servicio
-                </FormLabel>
+                  <Paperclip className="h-4 w-4 text-emerald-500" />{t("Tipo de Servicio")}</FormLabel>
                 <FormControl>
                   <SelectCategoriaJerarquico
                     value={field.value}
                     onChange={field.onChange}
-                    placeholder="¿Qué necesitas?"
+                    placeholder={t("¿Qué necesitas?")}
                   />
                 </FormControl>
                 <FormMessage />
@@ -176,13 +179,11 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-emerald-500" />
-                  Provincia donde se realizará el servicio
-                </FormLabel>
+                  <MapPin className="h-4 w-4 text-emerald-500" />{t("Provincia donde se realizará el servicio")}</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Provincia de realización del servicio" />
+                      <SelectValue placeholder={t("Provincia de realización del servicio")} />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -204,9 +205,9 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
           name="title"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Título del Proyecto</FormLabel>
+              <FormLabel>{t("Título del Proyecto")}</FormLabel>
               <FormControl>
-                <Input placeholder="Ej: Reforma completa de baño" {...field} />
+                <Input placeholder={t("Ej: Reforma completa de baño")} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -218,10 +219,10 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
           name="description"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Descripción</FormLabel>
+              <FormLabel>{t("Descripción")}</FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder="Describe el trabajo que necesitas..."
+                  placeholder={t("Describe el trabajo que necesitas...")}
                   className="min-h-[100px] resize-none"
                   {...field}
                 />
@@ -238,9 +239,7 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="flex items-center gap-2">
-                  <Euro className="h-4 w-4 text-emerald-500" />
-                  Presupuesto estimado
-                </FormLabel>
+                  <Euro className="h-4 w-4 text-emerald-500" />{t("Presupuesto estimado")}</FormLabel>
                 <FormControl>
                   <RangoPrecio value={field.value} onChange={field.onChange} progresivo />
                 </FormControl>
@@ -255,22 +254,20 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-emerald-500" />
-                  ¿Cuándo necesitas el trabajo?
-                </FormLabel>
+                  <Clock className="h-4 w-4 text-emerald-500" />{t("¿Cuándo necesitas el trabajo?")}</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="¿Cuándo lo necesitas?" />
+                      <SelectValue placeholder={t("¿Cuándo lo necesitas?")} />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
                     {URGENCIAS.map((u) => (
                       <SelectItem key={u.id} value={u.id}>
-                        {u.etiqueta}
+                        {t(u.etiqueta)}
                       </SelectItem>
                     ))}
-                    <SelectItem value={OPCION_FECHA_EXACTA}>En una fecha concreta</SelectItem>
+                    <SelectItem value={OPCION_FECHA_EXACTA}>{t("En una fecha concreta")}</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -280,7 +277,7 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
                     name="neededDate"
                     render={({ field: dateField }) => (
                       <FormItem className="pt-2">
-                        <FormLabel>Fecha exacta</FormLabel>
+                        <FormLabel>{t("Fecha exacta")}</FormLabel>
                         <FormControl>
                           <Input type="date" min={fechaHoyEnEspana()} {...dateField} />
                         </FormControl>
@@ -313,11 +310,9 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
               onClick={() => document.getElementById("files")?.click()}
               disabled={isSubmitting}
             >
-              <Paperclip className="w-4 h-4 mr-2" />
-              Adjuntar fotos
-            </Button>
+              <Paperclip className="w-4 h-4 mr-2" />{t("Adjuntar fotos")}</Button>
             {attachedFiles.length > 0 && (
-              <span className="text-sm text-muted-foreground">{attachedFiles.length} archivo(s)</span>
+              <span className="text-sm text-muted-foreground">{attachedFiles.length}{" "}{t("archivo(s)")}</span>
             )}
           </div>
 
@@ -337,12 +332,10 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
 
         <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700" size="lg" disabled={isSubmitting}>
           {isSubmitting ? (
-            "Publicando..."
+            t("Publicando...")
           ) : (
             <>
-              <Send className="w-4 h-4 mr-2" />
-              Publicar Proyecto
-            </>
+              <Send className="w-4 h-4 mr-2" />{t("Publicar Proyecto")}</>
           )}
         </Button>
       </form>

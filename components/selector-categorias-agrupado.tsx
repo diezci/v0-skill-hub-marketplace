@@ -1,5 +1,8 @@
 "use client"
 
+import { useT } from "@/components/idioma-provider"
+
+
 import { useState } from "react"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -45,6 +48,7 @@ export function SelectorCategoriasAgrupado({
   multiple?: boolean
   onPick?: () => void
 }) {
+  const t = useT()
   const [busqueda, setBusqueda] = useState("")
   const [abiertas, setAbiertas] = useState<string[]>([])
   const [bloquesAbiertos, setBloquesAbiertos] = useState<string[]>([])
@@ -60,7 +64,7 @@ export function SelectorCategoriasAgrupado({
 
   const q = normalizar(busqueda.trim())
   const coincide = (s: SubcategoriaServicio, ctx: string) =>
-    !q || normalizar(s.nombre).includes(q) || normalizar(ctx).includes(q)
+    !q || normalizar(s.nombre).includes(q) || normalizar(t(s.nombre)).includes(q) || normalizar(ctx).includes(q)
 
   // Filtrado conservando la jerarquía; se descartan bloques y categorías vacíos.
   const categorias = TAXONOMIA_SERVICIOS.map((cat) => ({
@@ -68,7 +72,7 @@ export function SelectorCategoriasAgrupado({
     bloques: cat.bloques
       .map((b) => ({
         nombre: b.nombre,
-        subcategorias: b.subcategorias.filter((s) => coincide(s, `${cat.nombre} ${b.nombre}`)),
+        subcategorias: b.subcategorias.filter((s) => coincide(s, `${cat.nombre} ${b.nombre} ${t(cat.nombre)} ${t(b.nombre)}`)),
       }))
       .filter((b) => b.subcategorias.length > 0),
   })).filter((c) => c.bloques.length > 0)
@@ -102,7 +106,7 @@ export function SelectorCategoriasAgrupado({
                 className="mt-0.5"
               />
               <label htmlFor={id} className="text-sm leading-tight cursor-pointer">
-                {s.nombre}
+                {t(s.nombre)}
               </label>
             </div>
           )
@@ -124,7 +128,7 @@ export function SelectorCategoriasAgrupado({
                   : "hover:bg-muted",
               )}
             >
-              {s.nombre}
+              {t(s.nombre)}
             </button>
           )
         })}
@@ -139,14 +143,14 @@ export function SelectorCategoriasAgrupado({
           <Input
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar servicio..."
+            placeholder={t("Buscar servicio...")}
             className="pl-8"
           />
         </div>
       )}
 
       {categorias.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-2">Ningún servicio coincide.</p>
+        <p className="text-sm text-muted-foreground py-2">{t("Ningún servicio coincide.")}</p>
       ) : (
         <Accordion
           type="multiple"
@@ -162,7 +166,7 @@ export function SelectorCategoriasAgrupado({
               <AccordionItem key={cat.nombre} value={cat.nombre} className="border-b-0 px-3">
                 <AccordionTrigger className="py-2.5 hover:no-underline">
                   <span className="flex items-center gap-2 text-left text-sm font-medium">
-                    {cat.nombre}
+                    {t(cat.nombre)}
                     <Contador n={nSeleccionadas(todasLasSubs)} />
                   </span>
                 </AccordionTrigger>
@@ -182,7 +186,7 @@ export function SelectorCategoriasAgrupado({
                         >
                           <AccordionTrigger className="py-2 hover:no-underline">
                             <span className="flex items-center gap-2 text-left text-[13px]">
-                              {b.nombre}
+                              {t(b.nombre)}
                               <Contador n={nSeleccionadas(b.subcategorias)} />
                             </span>
                           </AccordionTrigger>

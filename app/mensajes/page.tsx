@@ -1,10 +1,14 @@
+import { getT } from "@/lib/i18n-servidor"
 import { Suspense } from "react"
 import MensajesContent from "@/components/mensajes-content"
 import { Loader2 } from "lucide-react"
 
-export const metadata = {
-  title: "Mensajes | Diime",
-  description: "Gestiona tus conversaciones con clientes y profesionales",
+export async function generateMetadata() {
+  const { t } = await getT()
+  return {
+    title: t("Mensajes | Diime"),
+    description: t("Gestiona tus conversaciones con clientes y profesionales"),
+  }
 }
 
 export default function MensajesPage() {

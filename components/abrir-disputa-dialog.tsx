@@ -1,5 +1,7 @@
 "use client"
 
+import { useT } from "@/components/idioma-provider"
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -26,6 +28,8 @@ interface AbrirDisputaDialogProps {
 }
 
 export function AbrirDisputaDialog({ trabajoId, rol, trigger, onCreated }: AbrirDisputaDialogProps) {
+  const t = useT()
+
   const [open, setOpen] = useState(false)
   const [motivo, setMotivo] = useState("")
   const [submitting, setSubmitting] = useState(false)
@@ -34,22 +38,22 @@ export function AbrirDisputaDialog({ trabajoId, rol, trigger, onCreated }: Abrir
 
   const placeholder =
     rol === "proveedor"
-      ? "Ej.: entregué el trabajo acordado y el cliente no confirma la recepción para liberar el pago..."
-      : "Ej.: el servicio no se ha realizado / no cumple lo acordado. Explica qué falló y qué solución pides..."
+      ? t("Ej.: entregué el trabajo acordado y el cliente no confirma la recepción para liberar el pago...")
+      : t("Ej.: el servicio no se ha realizado / no cumple lo acordado. Explica qué falló y qué solución pides...")
 
   const handleSubmit = async () => {
     if (!motivo.trim()) {
-      toast({ title: "Falta el motivo", description: "Describe qué ha ocurrido.", variant: "destructive" })
+      toast({ title: t("Falta el motivo"), description: t("Describe qué ha ocurrido."), variant: "destructive" })
       return
     }
     setSubmitting(true)
     const res = await crearDisputa({ trabajo_id: trabajoId, motivo: motivo.trim() })
     if (res.error) {
-      toast({ title: "No se pudo abrir la disputa", description: res.error, variant: "destructive" })
+      toast({ title: t("No se pudo abrir la disputa"), description: t(res.error), variant: "destructive" })
     } else {
       toast({
-        title: "Disputa abierta",
-        description: "El pago queda retenido y el equipo de Diime la revisará para resolverla.",
+        title: t("Disputa abierta"),
+        description: t("El pago queda retenido y el equipo de Diime la revisará para resolverla."),
       })
       setOpen(false)
       setMotivo("")
@@ -64,46 +68,31 @@ export function AbrirDisputaDialog({ trabajoId, rol, trigger, onCreated }: Abrir
       <DialogTrigger asChild>
         {trigger || (
           <Button variant="outline" size="sm" className="gap-2 text-amber-600 hover:text-amber-700 bg-transparent">
-            <Scale className="h-4 w-4" />
-            Abrir disputa
-          </Button>
+            <Scale className="h-4 w-4" />{t("Abrir disputa")}</Button>
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Scale className="h-5 w-5 text-amber-600" />
-            Abrir una disputa
-          </DialogTitle>
-          <DialogDescription>
-            Úsala si hay un problema con este trabajo y no llegáis a un acuerdo. Al abrirla, la transferencia
-            queda <strong>congelada</strong> y el equipo de Diime revisará la conversación y las pruebas para decidir
-            si se reembolsa al cliente o se libera al proveedor.
-          </DialogDescription>
+            <Scale className="h-5 w-5 text-amber-600" />{t("Abrir una disputa")}</DialogTitle>
+          <DialogDescription>{t("Úsala si hay un problema con este trabajo y no llegáis a un acuerdo. Al abrirla, la transferencia queda")}{" "}<strong>{t("congelada")}</strong>{" "}{t("y el equipo de Diime revisará la conversación y las pruebas para decidir si se reembolsa al cliente o se libera al proveedor.")}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-1.5 py-2">
-          <label className="text-sm font-medium">Motivo de la disputa</label>
+          <label className="text-sm font-medium">{t("Motivo de la disputa")}</label>
           <Textarea
             placeholder={placeholder}
             value={motivo}
             onChange={(e) => setMotivo(e.target.value)}
             rows={5}
           />
-          <p className="text-xs text-muted-foreground">
-            Aporta el máximo detalle. Las fotos y mensajes del trabajo se incluyen automáticamente como pruebas.
-          </p>
-          <p className="text-[11px] text-muted-foreground/80 leading-snug border-t pt-2 mt-1">
-            La resolución de Diime es una mediación privada entre las partes y{" "}
-            <span className="font-medium">no impide ni sustituye</span> cualquier otra acción legal que puedas
-            emprender por tu cuenta fuera de la plataforma.
-          </p>
+          <p className="text-xs text-muted-foreground">{t("Aporta el máximo detalle. Las fotos y mensajes del trabajo se incluyen automáticamente como pruebas.")}</p>
+          <p className="text-[11px] text-muted-foreground/80 leading-snug border-t pt-2 mt-1">{t("La resolución de Diime es una mediación privada entre las partes y")}{" "}
+            <span className="font-medium">{t("no impide ni sustituye")}</span>{" "}{t("cualquier otra acción legal que puedas emprender por tu cuenta fuera de la plataforma.")}</p>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)} className="bg-transparent">
-            Cancelar
-          </Button>
+          <Button variant="outline" onClick={() => setOpen(false)} className="bg-transparent">{t("Cancelar")}</Button>
           <Button
             onClick={handleSubmit}
             disabled={submitting}
@@ -111,11 +100,9 @@ export function AbrirDisputaDialog({ trabajoId, rol, trigger, onCreated }: Abrir
           >
             {submitting ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Abriendo...
-              </>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />{t("Abriendo...")}</>
             ) : (
-              "Abrir disputa"
+              t("Abrir disputa")
             )}
           </Button>
         </DialogFooter>

@@ -1,3 +1,6 @@
+"use client"
+
+import { useIdioma } from "@/components/idioma-provider"
 import { FileText, ImageIcon } from "lucide-react"
 
 const ES_IMAGEN = /\.(png|jpe?g|gif|webp|avif)(\?|$)/i
@@ -7,13 +10,13 @@ const ES_IMAGEN = /\.(png|jpe?g|gif|webp|avif)(\?|$)/i
 // quitarlo, el nombre que ve el usuario es ilegible.
 const SUFIJO_BLOB = /-[A-Za-z0-9]{30}(?=\.[^.]+$)/
 
-export function nombreDeAdjunto(url: string, indice: number): string {
+export function nombreDeAdjunto(url: string, indice: number, idioma: "es" | "en" = "es"): string {
   try {
     const base = decodeURIComponent(url.split("/").pop()?.split("?")[0] || "")
     const limpio = base.replace(SUFIJO_BLOB, "").trim()
-    return limpio || `Archivo ${indice + 1}`
+    return limpio || `${idioma === "en" ? "File" : "Archivo"} ${indice + 1}`
   } catch {
-    return `Archivo ${indice + 1}`
+    return `${idioma === "en" ? "File" : "Archivo"} ${indice + 1}`
   }
 }
 
@@ -26,12 +29,13 @@ export function nombreDeAdjunto(url: string, indice: number): string {
  * que también se distingue sin abrirlo.
  */
 export function AdjuntosLista({ archivos }: { archivos: string[] }) {
+  const { t, idioma } = useIdioma()
   if (!Array.isArray(archivos) || archivos.length === 0) return null
 
   return (
     <div className="flex flex-wrap gap-2">
       {archivos.map((url, i) => {
-        const nombre = nombreDeAdjunto(url, i)
+        const nombre = nombreDeAdjunto(url, i, idioma)
         const esImagen = ES_IMAGEN.test(url)
 
         return (
@@ -64,7 +68,7 @@ export function AdjuntosLista({ archivos }: { archivos: string[] }) {
               <span className="block text-xs truncate group-hover:underline">{nombre}</span>
               <span className="block text-[11px] text-muted-foreground flex items-center gap-1">
                 {esImagen ? <ImageIcon className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
-                {esImagen ? "Imagen" : "Documento"}
+                {esImagen ? t("Imagen") : t("Documento")}
               </span>
             </span>
           </a>

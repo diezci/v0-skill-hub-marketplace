@@ -1,5 +1,8 @@
 "use client"
 
+import { useIdioma } from "@/components/idioma-provider"
+import { localeDe } from "@/lib/i18n"
+
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -115,6 +118,8 @@ const estadoTrabajoConfig: Record<
 }
 
 export default function MisTrabajosPage() {
+  const { t, idioma } = useIdioma()
+
   const [trabajos, setTrabajos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   // Pestaña activa controlada: las tarjetas-resumen también la seleccionan.
@@ -172,14 +177,14 @@ export default function MisTrabajosPage() {
 
     if (result.error) {
       toast({
-        title: "Error",
+        title: t("Error"),
         description: result.error,
         variant: "destructive",
       })
     } else {
       toast({
-        title: "Progreso actualizado",
-        description: `El progreso se ha actualizado al ${newProgress}%`,
+        title: t("Progreso actualizado"),
+        description: t("El progreso se ha actualizado al {progreso}%", { progreso: newProgress }),
       })
       loadTrabajos()
       setUpdateDialogOpen(false)
@@ -196,14 +201,14 @@ export default function MisTrabajosPage() {
 
     if (result.error) {
       toast({
-        title: "Error",
+        title: t("Error"),
         description: result.error,
         variant: "destructive",
       })
     } else {
       toast({
-        title: "Trabajo entregado",
-        description: "El cliente ha sido notificado para confirmar la entrega",
+        title: t("Trabajo entregado"),
+        description: t("El cliente ha sido notificado para confirmar la entrega"),
       })
       loadTrabajos()
       setDeliveryDialogOpen(false)
@@ -225,12 +230,12 @@ export default function MisTrabajosPage() {
 
   const handleContactarCliente = async (trabajo: any) => {
     if (!trabajo?.cliente_id) {
-      toast({ title: "No disponible", description: "No se pudo identificar al cliente.", variant: "destructive" })
+      toast({ title: t("No disponible"), description: t("No se pudo identificar al cliente."), variant: "destructive" })
       return
     }
     const result = await crearConversacion({ otroUsuarioId: trabajo.cliente_id, trabajoId: trabajo.id })
     if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" })
+      toast({ title: t("Error"), description: result.error, variant: "destructive" })
     } else {
       router.push(result.data?.id ? `/mensajes?c=${result.data.id}` : "/mensajes")
     }
@@ -240,10 +245,10 @@ export default function MisTrabajosPage() {
   // Sin fecha salía "1 ene 1970": new Date(null) es la época de Unix. Un trabajo
   // puede no tener fecha de inicio todavía (se pone al confirmarse el pago).
   const formatDate = (date: string | null | undefined) => {
-    if (!date) return "Sin fecha"
+    if (!date) return t("Sin fecha")
     const d = new Date(date)
-    if (Number.isNaN(d.getTime())) return "Sin fecha"
-    return d.toLocaleDateString("es-ES", {
+    if (Number.isNaN(d.getTime())) return t("Sin fecha")
+    return d.toLocaleDateString(localeDe(idioma), {
       day: "numeric",
       month: "short",
       year: "numeric",
@@ -252,7 +257,7 @@ export default function MisTrabajosPage() {
 
   const formatCurrency = (amount: number) => {
     const isInteger = Number.isInteger(amount)
-    return new Intl.NumberFormat("es-ES", {
+    return new Intl.NumberFormat(localeDe(idioma), {
       style: "currency",
       currency: "EUR",
       minimumFractionDigits: isInteger ? 0 : 2,
@@ -304,10 +309,9 @@ export default function MisTrabajosPage() {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2">Gestión de Proyectos</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t("Gestión de Proyectos")}</h1>
           <p className="text-muted-foreground">
-            Cronograma editable, lista de proyectos y eventos personalizados en un solo lugar
-          </p>
+            {t("Cronograma editable, lista de proyectos y eventos personalizados en un solo lugar")}</p>
         </div>
 
         {/* Estas tarjetas SON la navegación: cada una salta a su pestaña. Antes
@@ -326,11 +330,10 @@ export default function MisTrabajosPage() {
                     <Briefcase className="h-5 w-5 text-blue-500" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Activos</p>
+                    <p className="text-sm text-muted-foreground">{t("Activos")}</p>
                     <p className="text-2xl font-bold">{formatCurrency(totalActivosNeto)}</p>
                     <p className="text-xs text-muted-foreground">
-                      {trabajosEnProgreso.length} trabajo
-                      {trabajosEnProgreso.length !== 1 ? "s" : ""}
+                      {trabajosEnProgreso.length} {" "}{t("trabajo")}{trabajosEnProgreso.length !== 1 ? "s" : ""}
                     </p>
                   </div>
                 </div>
@@ -350,11 +353,10 @@ export default function MisTrabajosPage() {
                     <Banknote className="h-5 w-5 text-purple-500" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Entregados · pendiente de cobro</p>
+                    <p className="text-sm text-muted-foreground">{t("Entregados · pendiente de cobro")}</p>
                     <p className="text-2xl font-bold">{formatCurrency(totalPendienteCobro)}</p>
                     <p className="text-xs text-muted-foreground">
-                      {trabajosEntregados.length} esperando confirmación del cliente
-                    </p>
+                      {trabajosEntregados.length} {" "}{t("esperando confirmación del cliente")}</p>
                   </div>
                 </div>
               </CardContent>
@@ -373,11 +375,10 @@ export default function MisTrabajosPage() {
                     <DollarSign className="h-5 w-5 text-emerald-500" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Completados · total cobrado (neto)</p>
+                    <p className="text-sm text-muted-foreground">{t("Completados · total cobrado (neto)")}</p>
                     <p className="text-2xl font-bold">{formatCurrency(totalCobrado)}</p>
                     <p className="text-xs text-muted-foreground">
-                      {trabajosCompletados.length} trabajo{trabajosCompletados.length !== 1 ? "s" : ""} finalizado
-                      {trabajosCompletados.length !== 1 ? "s" : ""}
+                      {t(trabajosCompletados.length === 1 ? "{cantidad} trabajo finalizado" : "{cantidad} trabajos finalizados", { cantidad: trabajosCompletados.length })}
                     </p>
                   </div>
                 </div>
@@ -399,11 +400,10 @@ export default function MisTrabajosPage() {
                     <Scale className="h-5 w-5 text-rose-500" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">En disputa · retenido</p>
+                    <p className="text-sm text-muted-foreground">{t("En disputa · retenido")}</p>
                     <p className="text-2xl font-bold">{formatCurrency(totalEnDisputa)}</p>
                     <p className="text-xs text-muted-foreground">
-                      {trabajosEnDisputa.length} trabajo{trabajosEnDisputa.length !== 1 ? "s" : ""} en disputa
-                    </p>
+                      {trabajosEnDisputa.length} {" "}{t("trabajo")}{trabajosEnDisputa.length !== 1 ? "s" : ""} {" "}{t("en disputa")}</p>
                   </div>
                 </div>
               </CardContent>
@@ -420,13 +420,11 @@ export default function MisTrabajosPage() {
             {trabajosEnProgreso.length === 0 ? (
               <Card className="p-12 text-center">
                 <Briefcase className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-                <h3 className="text-lg font-medium mb-2">No tienes trabajos activos</h3>
+                <h3 className="text-lg font-medium mb-2">{t("No tienes trabajos activos")}</h3>
                 <p className="text-muted-foreground mb-4">
-                  Busca demandas de servicios y envía ofertas para conseguir nuevos proyectos
-                </p>
+                  {t("Busca demandas de servicios y envía ofertas para conseguir nuevos proyectos")}</p>
                 <Button onClick={() => router.push("/demandas")} className="bg-emerald-600 hover:bg-emerald-700">
-                  Ver demandas disponibles
-                </Button>
+                  {t("Ver demandas disponibles")}</Button>
               </Card>
             ) : (
               trabajosEnProgreso.map((trabajo) => (
@@ -450,10 +448,9 @@ export default function MisTrabajosPage() {
             {trabajosEntregados.length === 0 ? (
               <Card className="p-12 text-center">
                 <Package className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-                <h3 className="text-lg font-medium mb-2">No tienes trabajos pendientes de confirmación</h3>
+                <h3 className="text-lg font-medium mb-2">{t("No tienes trabajos pendientes de confirmación")}</h3>
                 <p className="text-muted-foreground">
-                  Los trabajos entregados aparecerán aquí hasta que el cliente confirme
-                </p>
+                  {t("Los trabajos entregados aparecerán aquí hasta que el cliente confirme")}</p>
               </Card>
             ) : (
               trabajosEntregados.map((trabajo) => (
@@ -475,10 +472,9 @@ export default function MisTrabajosPage() {
             {trabajosCompletados.length === 0 ? (
               <Card className="p-12 text-center">
                 <CheckCircle2 className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-                <h3 className="text-lg font-medium mb-2">No tienes trabajos completados</h3>
+                <h3 className="text-lg font-medium mb-2">{t("No tienes trabajos completados")}</h3>
                 <p className="text-muted-foreground">
-                  Los trabajos finalizados y confirmados aparecerán aquí
-                </p>
+                  {t("Los trabajos finalizados y confirmados aparecerán aquí")}</p>
               </Card>
             ) : (
               trabajosCompletados.map((trabajo) => (
@@ -511,16 +507,14 @@ export default function MisTrabajosPage() {
                     <Calendar className="h-5 w-5 text-emerald-600" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="font-semibold leading-tight">Calendario de proyectos</h3>
+                    <h3 className="font-semibold leading-tight">{t("Calendario de proyectos")}</h3>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Visualiza inicios, entregas, festivos y eventos personales
-                    </p>
+                      {t("Visualiza inicios, entregas, festivos y eventos personales")}</p>
                   </div>
                 </div>
                 <Button asChild className="w-full bg-emerald-600 hover:bg-emerald-700">
                   <a href="/mi-calendario">
-                    Abrir calendario
-                    <ArrowRight className="h-4 w-4 ml-2" />
+                    {t("Abrir calendario")}<ArrowRight className="h-4 w-4 ml-2" />
                   </a>
                 </Button>
               </CardContent>
@@ -530,26 +524,23 @@ export default function MisTrabajosPage() {
               <CardContent className="p-5 space-y-3">
                 <div className="flex items-center gap-2">
                   <Briefcase className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="font-medium text-sm">Acciones rapidas</h3>
+                  <h3 className="font-medium text-sm">{t("Acciones rapidas")}</h3>
                 </div>
                 <div className="grid gap-2">
                   <Button variant="outline" size="sm" className="justify-start bg-transparent" asChild>
                     <a href="/mensajes">
                       <MessageSquare className="h-4 w-4 mr-2" />
-                      Mensajes con clientes
-                    </a>
+                      {t("Mensajes con clientes")}</a>
                   </Button>
                   <Button variant="outline" size="sm" className="justify-start bg-transparent" asChild>
                     <a href="/mis-ofertas">
                       <FileText className="h-4 w-4 mr-2" />
-                      Pujas enviadas
-                    </a>
+                      {t("Pujas enviadas")}</a>
                   </Button>
                   <Button variant="outline" size="sm" className="justify-start bg-transparent" asChild>
                     <a href="/incidencias">
                       <AlertCircle className="h-4 w-4 mr-2" />
-                      Incidencias
-                    </a>
+                      {t("Incidencias")}</a>
                   </Button>
                 </div>
               </CardContent>
@@ -561,15 +552,15 @@ export default function MisTrabajosPage() {
         <Dialog open={updateDialogOpen} onOpenChange={setUpdateDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Actualizar Progreso</DialogTitle>
+              <DialogTitle>{t("Actualizar Progreso")}</DialogTitle>
               <DialogDescription>
-                Actualiza el estado de avance del proyecto "{selectedTrabajo?.titulo}"
+                {t('Actualiza el estado de avance del proyecto "{titulo}"', { titulo: selectedTrabajo?.titulo || "" })}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-6 py-4">
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-sm font-medium">Progreso actual</span>
+                  <span className="text-sm font-medium">{t("Progreso actual")}</span>
                   <span className="text-sm font-bold text-emerald-600">{newProgress}%</span>
                 </div>
                 <Slider
@@ -586,9 +577,9 @@ export default function MisTrabajosPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Mensaje para el cliente (opcional)</label>
+                <label className="text-sm font-medium">{t("Mensaje para el cliente (opcional)")}</label>
                 <Textarea
-                  placeholder="Describe los avances realizados..."
+                  placeholder={t("Describe los avances realizados...")}
                   value={updateMessage}
                   onChange={(e) => setUpdateMessage(e.target.value)}
                   rows={3}
@@ -597,16 +588,14 @@ export default function MisTrabajosPage() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setUpdateDialogOpen(false)} className="bg-transparent">
-                Cancelar
-              </Button>
+                {t("Cancelar")}</Button>
               <Button
                 onClick={handleUpdateProgress}
                 disabled={updating}
                 className="bg-emerald-600 hover:bg-emerald-700"
               >
                 {updating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Actualizar
-              </Button>
+                {t("Actualizar")}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -615,10 +604,9 @@ export default function MisTrabajosPage() {
         <Dialog open={deliveryDialogOpen} onOpenChange={setDeliveryDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Marcar como Entregado</DialogTitle>
+              <DialogTitle>{t("Marcar como Entregado")}</DialogTitle>
               <DialogDescription>
-                Notifica al cliente que el trabajo "{selectedTrabajo?.titulo}" está listo
-              </DialogDescription>
+                {t('Notifica al cliente que el trabajo "{titulo}" está listo', { titulo: selectedTrabajo?.titulo || "" })}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="p-4 bg-purple-500/10 rounded-lg border border-purple-500/20">
@@ -626,20 +614,19 @@ export default function MisTrabajosPage() {
                   <Package className="h-5 w-5 text-purple-500 mt-0.5" />
                   <div className="text-sm">
                     <p className="font-medium text-purple-700 dark:text-purple-300">
-                      Al marcar como entregado:
-                    </p>
+                      {t("Al marcar como entregado:")}</p>
                     <ul className="mt-1 text-muted-foreground space-y-1">
-                      <li>El cliente recibirá una notificación</li>
-                      <li>Tendrá que revisar y confirmar el trabajo</li>
-                      <li>Una vez confirmado, se liberará el pago</li>
+                      <li>{t("El cliente recibirá una notificación")}</li>
+                      <li>{t("Tendrá que revisar y confirmar el trabajo")}</li>
+                      <li>{t("Una vez confirmado, se liberará el pago")}</li>
                     </ul>
                   </div>
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Mensaje de entrega (opcional)</label>
+                <label className="text-sm font-medium">{t("Mensaje de entrega (opcional)")}</label>
                 <Textarea
-                  placeholder="Añade detalles sobre la entrega, instrucciones de uso, etc."
+                  placeholder={t("Añade detalles sobre la entrega, instrucciones de uso, etc.")}
                   value={deliveryMessage}
                   onChange={(e) => setDeliveryMessage(e.target.value)}
                   rows={3}
@@ -648,16 +635,14 @@ export default function MisTrabajosPage() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setDeliveryDialogOpen(false)} className="bg-transparent">
-                Cancelar
-              </Button>
+                {t("Cancelar")}</Button>
               <Button
                 onClick={handleMarkDelivered}
                 disabled={updating}
                 className="bg-purple-600 hover:bg-purple-700"
               >
                 {updating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Package className="h-4 w-4 mr-2" />}
-                Marcar como Entregado
-              </Button>
+                {t("Marcar como Entregado")}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -690,6 +675,8 @@ function TrabajoCard({
   showPendingConfirmation?: boolean
   showPaymentStatus?: boolean
 }) {
+  const { t } = useIdioma()
+
   const config = estadoTrabajoConfig[trabajo.estado as EstadoTrabajo]
   const Icon = config?.icon || Clock
   const daysRemaining = trabajo.fecha_estimada_fin ? getDaysRemaining(trabajo.fecha_estimada_fin) : null
@@ -720,8 +707,7 @@ function TrabajoCard({
         <div className="bg-emerald-500/10 border-b border-emerald-500/30 px-6 py-2.5 flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
           <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
-            Pago confirmado · transferencia pendiente: puedes empezar el trabajo
-          </p>
+            {t("Pago confirmado · transferencia pendiente: puedes empezar el trabajo")}</p>
         </div>
       )}
       {/* El aviso de cancelación va a lo ancho de la tarjeta, no en la columna
@@ -744,7 +730,7 @@ function TrabajoCard({
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="text-sm text-muted-foreground">Cliente</p>
+                  <p className="text-sm text-muted-foreground">{t("Cliente")}</p>
                   <p className="font-medium">
                     {trabajo.cliente?.nombre} {trabajo.cliente?.apellido}
                   </p>
@@ -752,7 +738,7 @@ function TrabajoCard({
               </EnlacePerfil>
               <Badge className={`${config?.color} text-white`}>
                 <Icon className="h-3 w-3 mr-1" />
-                {config?.label}
+                {t(config?.label || "")}
               </Badge>
             </div>
 
@@ -765,7 +751,7 @@ function TrabajoCard({
             {(trabajo.estado === "en_progreso" || trabajo.estado === "entregado") && (
               <div className="mb-4">
                 <div className="flex justify-between text-sm mb-2">
-                  <span className="text-muted-foreground">Progreso</span>
+                  <span className="text-muted-foreground">{t("Progreso")}</span>
                   <span className="font-medium">{trabajo.progreso || 0}%</span>
                 </div>
                 <Progress value={trabajo.progreso || 0} className="h-2" />
@@ -791,10 +777,10 @@ function TrabajoCard({
                   <Timer className="h-4 w-4 text-muted-foreground" />
                   <span className={daysRemaining && daysRemaining < 0 ? "text-red-500 font-medium" : ""}>
                     {daysRemaining && daysRemaining > 0
-                      ? `${daysRemaining} días restantes`
+                      ? t(daysRemaining === 1 ? "{cantidad} día restante" : "{cantidad} días restantes", { cantidad: daysRemaining })
                       : daysRemaining === 0
-                      ? "Vence hoy"
-                      : `${Math.abs(daysRemaining || 0)} días de retraso`}
+                      ? t("Vence hoy")
+                      : t(Math.abs(daysRemaining || 0) === 1 ? "{cantidad} día de retraso" : "{cantidad} días de retraso", { cantidad: Math.abs(daysRemaining || 0) })}
                   </span>
                 </div>
               )}
@@ -804,7 +790,7 @@ function TrabajoCard({
             {archivosOferta.length > 0 && (
               <div className="mt-4 pt-4 border-t">
                 <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
-                  <FileText className="h-3.5 w-3.5" /> Archivos de tu oferta ({archivosOferta.length})
+                  <FileText className="h-3.5 w-3.5" /> {" "}{t("Archivos de tu oferta (")}{archivosOferta.length})
                 </p>
                 <AdjuntosLista archivos={archivosOferta} />
               </div>
@@ -820,29 +806,28 @@ function TrabajoCard({
                       <span className="text-sm">
                         {isPaymentReleased ? (
                           <span className="text-emerald-600 font-medium">
-                            Pago recibido: {formatCurrency(pagoNeto)} netos
-                          </span>
+                            {t("Pago recibido:")}{" "}{formatCurrency(pagoNeto)} {" "}{t("netos")}</span>
                         ) : (
-                          <span className="text-blue-600">Transferencia pendiente: cobrarás {formatCurrency(pagoNeto)}</span>
+                          <span className="text-blue-600">{t("Transferencia pendiente: cobrarás")}{" "}{formatCurrency(pagoNeto)}</span>
                         )}
                       </span>
                     </>
                   ) : (
                     <>
                       <AlertCircle className="h-5 w-5 text-amber-500" />
-                      <span className="text-sm text-amber-600">Esperando pago del cliente</span>
+                      <span className="text-sm text-amber-600">{t("Esperando pago del cliente")}</span>
                     </>
                   )}
                 </div>
                 {showPaymentStatus && isPaymentReleased && trabajo.transaccion_escrow?.fecha_liberacion && (
                   <span className="text-xs text-muted-foreground">
-                    Liberado el {formatDate(trabajo.transaccion_escrow.fecha_liberacion)}
+                    {t("Liberado el")}{" "}{formatDate(trabajo.transaccion_escrow.fecha_liberacion)}
                   </span>
                 )}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Precio acordado {formatCurrency(trabajo.precio_acordado || 0)} − comisión Diime ({formatCurrency(comisionProveedor)}) ={" "}
-                <span className="font-medium text-foreground">{formatCurrency(pagoNeto)} netos</span>
+                {t("Precio acordado")}{" "}{formatCurrency(trabajo.precio_acordado || 0)} {" "}{t("− comisión Diime (")}{formatCurrency(comisionProveedor)}) ={" "}
+                <span className="font-medium text-foreground">{formatCurrency(pagoNeto)} {" "}{t("netos")}</span>
               </p>
               <div className="flex gap-3 mt-2">
                 <a
@@ -850,8 +835,7 @@ function TrabajoCard({
                   target="_blank"
                   className="text-xs text-primary hover:underline inline-flex items-center gap-1"
                 >
-                  <FileText className="h-3 w-3" /> Ver justificante y términos
-                </a>
+                  <FileText className="h-3 w-3" /> {" "}{t("Ver justificante y términos")}</a>
               </div>
             </div>
           </div>
@@ -867,14 +851,12 @@ function TrabajoCard({
                 <>
                   <Button onClick={onUpdateProgress} variant="outline" className="w-full bg-transparent">
                     <TrendingUp className="h-4 w-4 mr-2" />
-                    Actualizar Progreso
-                  </Button>
+                    {t("Actualizar Progreso")}</Button>
                   {/* Entregar en cualquier momento: no exige haber actualizado antes el progreso. */}
                   {onMarkDelivered && (
                     <Button onClick={onMarkDelivered} className="w-full bg-emerald-600 hover:bg-emerald-700">
                       <Package className="h-4 w-4 mr-2" />
-                      Entregar Trabajo
-                    </Button>
+                      {t("Entregar Trabajo")}</Button>
                   )}
                   {/* Cancelación de mutuo acuerdo también con el trabajo en curso:
                       si el cliente acepta, se le reembolsa íntegramente. */}
@@ -886,8 +868,7 @@ function TrabajoCard({
                   <div className="text-center">
                     <CreditCard className="h-8 w-8 mx-auto text-amber-500 mb-2" />
                     <p className="text-sm text-muted-foreground">
-                      El proyecto iniciará cuando el cliente realice el pago
-                    </p>
+                      {t("El proyecto iniciará cuando el cliente realice el pago")}</p>
                   </div>
                   <CancelacionTrabajo trabajo={trabajo} onChange={onRefresh} variante="boton" />
                 </div>
@@ -896,27 +877,22 @@ function TrabajoCard({
                 <div className="text-center py-4">
                   <Clock className="h-8 w-8 mx-auto text-purple-500 mb-2 animate-pulse" />
                   <p className="text-sm text-muted-foreground">
-                    Esperando confirmación del cliente
-                  </p>
+                    {t("Esperando confirmación del cliente")}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Cuando confirme la entrega, el pago se liberará a tu favor. Si no responde, puedes abrir una
-                    disputa y el equipo de Diime revisará la entrega para liberarte el pago.
-                  </p>
+                    {t("Cuando confirme la entrega, el pago se liberará a tu favor. Si no responde, puedes abrir una disputa y el equipo de Diime revisará la entrega para liberarte el pago.")}</p>
                 </div>
               )}
               {trabajo.estado === "en_disputa" && (
                 <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-center">
                   <Scale className="h-7 w-7 mx-auto text-amber-600 mb-1.5" />
-                  <p className="text-sm font-medium text-amber-700 dark:text-amber-400">Trabajo en disputa</p>
+                  <p className="text-sm font-medium text-amber-700 dark:text-amber-400">{t("Trabajo en disputa")}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    El equipo de Diime lo está revisando. El pago queda retenido hasta la resolución.
-                  </p>
+                    {t("El equipo de Diime lo está revisando. El pago queda retenido hasta la resolución.")}</p>
                 </div>
               )}
               <Button variant="ghost" size="sm" className="w-full" onClick={onContactar}>
                 <MessageSquare className="h-4 w-4 mr-2" />
-                Contactar Cliente
-              </Button>
+                {t("Contactar Cliente")}</Button>
               {/* El proveedor puede abrir disputa cuando ya entregó y el cliente no confirma. */}
               {trabajo.estado === "entregado" && (
                 <AbrirDisputaDialog
@@ -929,8 +905,7 @@ function TrabajoCard({
                       className="w-full bg-transparent text-amber-600 border-amber-500/40 hover:bg-amber-500/10"
                     >
                       <Scale className="h-4 w-4 mr-2" />
-                      Abrir disputa
-                    </Button>
+                      {t("Abrir disputa")}</Button>
                   }
                 />
               )}
@@ -945,7 +920,7 @@ function TrabajoCard({
                   <div className="p-3 rounded-full bg-emerald-500/10 mb-3">
                     <CheckCheck className="h-8 w-8 text-emerald-500" />
                   </div>
-                  <p className="font-medium text-emerald-600">Cobrado</p>
+                  <p className="font-medium text-emerald-600">{t("Cobrado")}</p>
                   <p className="text-2xl font-bold">{formatCurrency(pagoNeto)}</p>
                 </>
               ) : (
@@ -953,8 +928,8 @@ function TrabajoCard({
                   <div className="p-3 rounded-full bg-amber-500/10 mb-3">
                     <Clock className="h-8 w-8 text-amber-500" />
                   </div>
-                  <p className="font-medium text-amber-600">Pendiente</p>
-                  <p className="text-sm text-muted-foreground">de cobro</p>
+                  <p className="font-medium text-amber-600">{t("Pendiente")}</p>
+                  <p className="text-sm text-muted-foreground">{t("de cobro")}</p>
                 </>
               )}
             </div>

@@ -1,5 +1,7 @@
 "use server"
 
+import { textoServidor } from "@/lib/i18n-servidor"
+
 import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
@@ -55,7 +57,7 @@ export async function obtenerEstadoBloqueo(otroUsuarioId: string): Promise<Estad
       bloqueadoPorMi: false,
       meHaBloqueado: false,
       esEquipoDiime: false,
-      error: "Usuario no válido.",
+      error: await textoServidor("Usuario no válido."),
     }
   }
   if (user.id === otroUsuarioId) {
@@ -75,7 +77,7 @@ export async function obtenerEstadoBloqueo(otroUsuarioId: string): Promise<Estad
       bloqueadoPorMi: false,
       meHaBloqueado: false,
       esEquipoDiime: false,
-      error: "No se pudo comprobar el perfil.",
+      error: await textoServidor("No se pudo comprobar el perfil."),
     }
   }
   const { data, error } = await supabase
@@ -97,7 +99,7 @@ export async function obtenerEstadoBloqueo(otroUsuarioId: string): Promise<Estad
     }
     return {
       autenticado: true,
-      error: error.message,
+      error: await textoServidor(error.message),
       bloqueadoPorMi: false,
       meHaBloqueado: false,
       esEquipoDiime: equipo.esEquipoDiime,
@@ -121,27 +123,27 @@ export async function obtenerEstadoBloqueo(otroUsuarioId: string): Promise<Estad
 
 export async function bloquearUsuario(otroUsuarioId: string) {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible." }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible.") }
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) return { error: "Inicia sesión para bloquear a un usuario." }
-  if (!UUID_RE.test(otroUsuarioId)) return { error: "Usuario no válido." }
-  if (user.id === otroUsuarioId) return { error: "No puedes bloquearte a ti mismo." }
+  if (!user) return { error: await textoServidor("Inicia sesión para bloquear a un usuario.") }
+  if (!UUID_RE.test(otroUsuarioId)) return { error: await textoServidor("Usuario no válido.") }
+  if (user.id === otroUsuarioId) return { error: await textoServidor("No puedes bloquearte a ti mismo.") }
 
   const equipo = await comprobarEquipoDiime(otroUsuarioId, supabase)
-  if (equipo.error) return { error: "No se pudo comprobar el perfil. Inténtalo de nuevo." }
-  if (!equipo.existe) return { error: "El usuario ya no está disponible." }
-  if (equipo.esEquipoDiime) return { error: "No puedes bloquear al equipo de Diime." }
+  if (equipo.error) return { error: await textoServidor("No se pudo comprobar el perfil. Inténtalo de nuevo.") }
+  if (!equipo.existe) return { error: await textoServidor("El usuario ya no está disponible.") }
+  if (equipo.esEquipoDiime) return { error: await textoServidor("No puedes bloquear al equipo de Diime.") }
 
   const { error } = await supabase.from("usuarios_bloqueados").upsert(
     { bloqueador_id: user.id, bloqueado_id: otroUsuarioId },
     { onConflict: "bloqueador_id,bloqueado_id", ignoreDuplicates: true },
   )
   if (error) {
-    if (error.code === "42P01") return { error: "Falta aplicar la migración de bloqueo de usuarios." }
-    return { error: error.message }
+    if (error.code === "42P01") return { error: await textoServidor("Falta aplicar la migración de bloqueo de usuarios.") }
+    return { error: await textoServidor(error.message) }
   }
 
   revalidatePath("/mensajes")
@@ -152,19 +154,19 @@ export async function bloquearUsuario(otroUsuarioId: string) {
 
 export async function desbloquearUsuario(otroUsuarioId: string) {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible." }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible.") }
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) return { error: "No autenticado" }
-  if (!UUID_RE.test(otroUsuarioId)) return { error: "Usuario no válido." }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
+  if (!UUID_RE.test(otroUsuarioId)) return { error: await textoServidor("Usuario no válido.") }
   const { error } = await supabase
     .from("usuarios_bloqueados")
     .delete()
     .eq("bloqueador_id", user.id)
     .eq("bloqueado_id", otroUsuarioId)
-  if (error) return { error: error.message }
+  if (error) return { error: await textoServidor(error.message) }
 
   revalidatePath("/mensajes")
   revalidatePath(`/usuario/${otroUsuarioId}`)

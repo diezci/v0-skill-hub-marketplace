@@ -1,21 +1,23 @@
 "use server"
 
+import { textoServidor } from "@/lib/i18n-servidor"
+
 import { createClient } from "@/lib/supabase/server"
 import { enviarPushAUsuario } from "@/lib/push/enviar"
 
 export async function registrarDispositivoPush(token: string, plataforma: "ios" | "android") {
   const limpio = token.trim()
   if (limpio.length < 16 || !["ios", "android"].includes(plataforma)) {
-    return { error: "Token de notificaciones inválido" }
+    return { error: await textoServidor("Token de notificaciones inválido") }
   }
 
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   const { error } = await supabase.rpc("registrar_dispositivo_push", {
     p_token: limpio,
@@ -32,7 +34,7 @@ export async function eliminarDispositivoPush(token: string) {
   if (!limpio) return { success: true }
 
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
@@ -45,12 +47,12 @@ export async function eliminarDispositivoPush(token: string) {
 
 export async function probarNotificacionPush() {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   const resultado = await enviarPushAUsuario(user.id, {
     titulo: "Notificaciones de Diime activadas",
@@ -62,10 +64,10 @@ export async function probarNotificacionPush() {
     `[push] self_test devices=${resultado?.encontrados ?? 0} delivered=${resultado?.enviados ?? 0} result=${resultado?.error ? "failed" : "ok"}`,
   )
   if (!resultado || resultado.encontrados === 0) {
-    return { error: "Este dispositivo todavía no está registrado. Pulsa primero Activar." }
+    return { error: await textoServidor("Este dispositivo todavía no está registrado. Pulsa primero Activar.") }
   }
   if (resultado.enviados === 0) {
-    return { error: resultado.error || "Apple o Google no aceptaron la notificación de prueba." }
+    return { error: await textoServidor(resultado.error || "Apple o Google no aceptaron la notificación de prueba.") }
   }
   return { success: true }
 }

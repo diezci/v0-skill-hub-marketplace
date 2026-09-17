@@ -1,5 +1,7 @@
 "use server"
 
+import { textoServidor } from "@/lib/i18n-servidor"
+
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { errorContenidoProhibido } from "@/lib/moderacion"
@@ -15,11 +17,11 @@ export async function crearResena(data: {
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
-    return { error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   }
 
   const errorModeracion = errorContenidoProhibido(data.comentario, data.tipo_proyecto)
-  if (errorModeracion) return { error: errorModeracion }
+  if (errorModeracion) return { error: await textoServidor(errorModeracion) }
 
   // Verify user is the client of this trabajo
   const { data: trabajo } = await supabase
@@ -29,11 +31,11 @@ export async function crearResena(data: {
     .single()
 
   if (!trabajo || trabajo.cliente_id !== user.id) {
-    return { error: "No tienes permiso para dejar una resena en este trabajo" }
+    return { error: await textoServidor("No tienes permiso para dejar una resena en este trabajo") }
   }
 
   if (trabajo.estado !== "completado") {
-    return { error: "Solo puedes dejar resena en trabajos completados" }
+    return { error: await textoServidor("Solo puedes dejar resena en trabajos completados") }
   }
 
   // Check if review already exists
@@ -45,7 +47,7 @@ export async function crearResena(data: {
     .single()
 
   if (existing) {
-    return { error: "Ya has dejado una resena para este trabajo" }
+    return { error: await textoServidor("Ya has dejado una resena para este trabajo") }
   }
 
   const { data: resena, error } = await supabase
@@ -62,7 +64,7 @@ export async function crearResena(data: {
     .single()
 
   if (error) {
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   // Update trabajo with review id
@@ -100,7 +102,7 @@ export async function obtenerTrabajoValorable(profesionalId: string) {
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   const { data: trabajos } = await supabase
     .from("trabajos")
@@ -114,9 +116,9 @@ export async function obtenerTrabajoValorable(profesionalId: string) {
   if (sinResena) return { data: sinResena }
 
   if ((trabajos || []).length > 0) {
-    return { error: "Ya has valorado todos los trabajos completados con este profesional." }
+    return { error: await textoServidor("Ya has valorado todos los trabajos completados con este profesional.") }
   }
-  return { error: "Solo puedes valorar a un profesional cuando hayáis completado un trabajo juntos." }
+  return { error: await textoServidor("Solo puedes valorar a un profesional cuando hayáis completado un trabajo juntos.") }
 }
 
 export async function obtenerResenasProfesional(profesionalId: string) {
@@ -129,7 +131,7 @@ export async function obtenerResenasProfesional(profesionalId: string) {
     .order("created_at", { ascending: false })
 
   if (error) {
-    return { error: error.message, data: [] }
+    return { error: await textoServidor(error.message), data: [] }
   }
 
   if (resenas && resenas.length > 0) {

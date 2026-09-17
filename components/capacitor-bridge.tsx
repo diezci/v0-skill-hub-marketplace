@@ -1,5 +1,8 @@
 "use client"
 
+import { useT } from "@/components/idioma-provider"
+
+
 import { useEffect } from "react"
 import { Capacitor } from "@capacitor/core"
 import { App } from "@capacitor/app"
@@ -21,6 +24,7 @@ const STRIPE_DEEP_LINK = "es.diime.app://auth/callback/stripe/"
 const DURACION_SPLASH_MS = 3000
 
 export function CapacitorBridge() {
+  const t = useT()
   useEffect(() => {
     const esNativa = Capacitor.isNativePlatform()
     const parametros = new URLSearchParams(window.location.search)
@@ -105,8 +109,8 @@ export function CapacitorBridge() {
         if (Capacitor.getPlatform() === "android") {
           await PushNotifications.createChannel({
             id: "diime_messages",
-            name: "Mensajes y avisos",
-            description: "Mensajes, ofertas y novedades importantes de Diime",
+            name: t("Mensajes y avisos"),
+            description: t("Mensajes, ofertas y novedades importantes de Diime"),
             importance: 5,
             visibility: 1,
             vibration: true,
@@ -271,7 +275,7 @@ export function CapacitorBridge() {
   }, [])
 
   return (
-    <div className="native-launch" role="status" aria-label="Cargando Diime">
+    <div className="native-launch" role="status" aria-label={t("Cargando Diime")}>
       <div className="native-launch__aura" aria-hidden="true" />
       <div className="native-launch__visual" aria-hidden="true">
         <span className="native-launch__halo" />
@@ -296,7 +300,7 @@ export function CapacitorBridge() {
       </div>
       <div className="native-launch__copy">
         <span className="native-launch__wordmark">diime</span>
-        <span className="native-launch__tagline">Conectando talento y proyectos</span>
+        <span className="native-launch__tagline">{t("Conectando talento y proyectos")}</span>
         <span className="native-launch__progress" aria-hidden="true">
           <i />
           <i />

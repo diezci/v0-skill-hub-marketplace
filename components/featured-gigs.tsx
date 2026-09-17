@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Star, MapPin, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
 import { obtenerProfesionalesDestacados } from "@/app/actions/profiles"
-import { useT } from "@/components/idioma-provider"
+import { useIdioma } from "@/components/idioma-provider"
 
 interface FeaturedGig {
   id: string
@@ -28,7 +28,9 @@ interface FeaturedGig {
   }
 }
 
-const GigCard = ({ gig }: { gig: FeaturedGig }) => (
+const GigCard = ({ gig }: { gig: FeaturedGig }) => {
+ const { t, idioma } = useIdioma()
+ return (
   <Card className="overflow-hidden card-hover cursor-pointer group h-full">
     <div className="relative h-40 overflow-hidden">
       <img
@@ -38,10 +40,10 @@ const GigCard = ({ gig }: { gig: FeaturedGig }) => (
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
       <Badge className="absolute top-3 left-3 bg-background/90 text-foreground hover:bg-background/90">
-        {gig.category}
+        {t(gig.category)}
       </Badge>
       {gig.verified && (
-        <div className="absolute top-3 right-3 bg-primary/90 text-primary-foreground rounded-full p-1" title="Perfil revisado y verificado por el equipo de Diime" aria-label="Verificado por Diime">
+        <div className="absolute top-3 right-3 bg-primary/90 text-primary-foreground rounded-full p-1" title={t("Perfil revisado y verificado por el equipo de Diime")} aria-label={t("Verificado por Diime")}>
           <CheckCircle2 className="h-3 w-3" />
         </div>
       )}
@@ -53,7 +55,7 @@ const GigCard = ({ gig }: { gig: FeaturedGig }) => (
           </Avatar>
           <div className="text-white">
             <p className="text-sm font-medium leading-none">{gig.freelancer.name}</p>
-            <p className="text-xs opacity-80">{gig.freelancer.level}</p>
+            <p className="text-xs opacity-80">{t(gig.freelancer.level)}</p>
           </div>
         </div>
       </div>
@@ -61,7 +63,7 @@ const GigCard = ({ gig }: { gig: FeaturedGig }) => (
 
     <div className="p-4">
       <h3 className="font-semibold mb-1 line-clamp-1">{gig.title}</h3>
-      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{gig.description}</p>
+      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{t(gig.description || "Profesional cualificado")}</p>
 
       <div className="flex items-center justify-between text-sm">
         <div className="flex items-center gap-3">
@@ -69,22 +71,23 @@ const GigCard = ({ gig }: { gig: FeaturedGig }) => (
             <Star className="h-3.5 w-3.5 fill-current" />
             <span className="font-medium">{gig.rating.toFixed(1)}</span>
             <span className="text-muted-foreground">({gig.reviews})</span>
-          </span> : <span className="text-muted-foreground">Sin valoraciones</span>}
+          </span> : <span className="text-muted-foreground">{t("Sin valoraciones")}</span>}
           {gig.location && (
             <span className="flex items-center gap-1 text-muted-foreground">
               <MapPin className="h-3 w-3" />
-              {gig.location}
+              {gig.location === "España" || gig.location === "Ubicación no especificada" ? t(gig.location) : gig.location}
             </span>
           )}
         </div>
-        <span className="font-bold text-primary">{gig.price > 0 ? `${formatearPrecioEuros(gig.price)}/h` : "Consultar"}</span>
+        <span className="font-bold text-primary">{gig.price > 0 ? `${formatearPrecioEuros(gig.price, idioma)}/h` : t("Consultar")}</span>
       </div>
     </div>
   </Card>
 )
+}
 
 const FeaturedGigs = () => {
-  const t = useT()
+  const { t, idioma } = useIdioma()
   const [gigs, setGigs] = useState<FeaturedGig[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -99,7 +102,7 @@ const FeaturedGigs = () => {
         const formattedGigs = professionals.map((prof) => ({
           id: prof.id,
           title: prof.titulo_profesional,
-          description: prof.descripcion || "Profesional cualificado",
+          description: prof.descripcion || "",
           price: prof.tarifa_hora || 0,
           category: prof.categoria || "Servicios",
           image: prof.foto_portada || "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80",
@@ -135,8 +138,7 @@ const FeaturedGigs = () => {
           href="/profesionales"
           className="text-sm font-medium text-primary hover:gap-3 transition-all flex items-center gap-2"
         >
-          Ver todos
-        </Link>
+           {t("Ver todos")} </Link>
       </div>
 
       {loading ? (

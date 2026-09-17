@@ -1,5 +1,7 @@
 "use client"
 
+import { useT } from "@/components/idioma-provider"
+
 import type React from "react"
 
 import { Button } from "@/components/ui/button"
@@ -44,6 +46,7 @@ const prefijosPais = [
 ]
 
 export default function RegistroPage() {
+  const t = useT()
   const [nombre, setNombre] = useState("")
   const [apellido, setApellido] = useState("")
   const [email, setEmail] = useState("")
@@ -109,7 +112,7 @@ export default function RegistroPage() {
     }
 
     if (!documento.trim() && (tipoEntidad !== "empresa" || !tokenInvitacion.trim())) {
-      setError(`Por favor ingresa tu ${tipoEntidad === "empresa" ? "CIF" : "DNI"}`)
+      setError(t("Por favor ingresa tu {documento}", { documento: tipoEntidad === "empresa" ? "CIF" : "DNI" }))
       setIsLoading(false)
       return
     }
@@ -162,7 +165,7 @@ export default function RegistroPage() {
         router.push(quiereSerProfesional ? "/auth/registro-exitoso?siguiente=profesional" : "/auth/registro-exitoso")
       }
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "Error al crear la cuenta")
+      setError(error instanceof Error ? t(error.message) : "Error al crear la cuenta")
     } finally {
       setIsLoading(false)
     }
@@ -182,8 +185,8 @@ export default function RegistroPage() {
       <div className="w-full max-w-md z-10">
         <Card className="shadow-lg">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold">Crear Cuenta</CardTitle>
-            <CardDescription>Regístrate para contratar u ofrecer servicios profesionales</CardDescription>
+            <CardTitle className="text-2xl font-bold">{t("Crear Cuenta")}</CardTitle>
+            <CardDescription>{t("Regístrate para contratar u ofrecer servicios profesionales")}</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSignUp}>
@@ -195,8 +198,7 @@ export default function RegistroPage() {
                     className="mt-0.5"
                   />
                   <span className="text-muted-foreground">
-                    Confirmo que tengo <strong className="text-foreground">18 años o más</strong> y capacidad legal
-                    para contratar servicios.
+                    {t("Confirmo que tengo")} <strong className="text-foreground">{t("18 años o más")}</strong> {t("y capacidad legal para contratar servicios.")}
                   </span>
                 </label>
 
@@ -207,17 +209,17 @@ export default function RegistroPage() {
                     className="mt-0.5"
                   />
                   <span className="text-muted-foreground">
-                    Acepto los{" "}
+                    {t("Acepto los")}{" "}
                     <Link href="/legal/terminos" target="_blank" className="text-primary underline underline-offset-4">
-                      Términos
+                      {t("Términos")}
                     </Link>
-                    , la{" "}
+                    {t(", la")}{" "}
                     <Link href="/legal/privacidad" target="_blank" className="text-primary underline underline-offset-4">
-                      Política de privacidad
+                      {t("Política de privacidad")}
                     </Link>{" "}
-                    y las{" "}
+                    {t("y las")}{" "}
                     <Link href="/legal/normas-comunidad" target="_blank" className="text-primary underline underline-offset-4">
-                      Normas de la comunidad
+                      {t("Normas de la comunidad")}
                     </Link>
                     .
                   </span>
@@ -236,28 +238,28 @@ export default function RegistroPage() {
                     <Separator />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">O regístrate con email</span>
+                    <span className="bg-background px-2 text-muted-foreground">{t("O regístrate con email")}</span>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="nombre">Nombre</Label>
+                    <Label htmlFor="nombre">{t("Nombre")}</Label>
                     <Input
                       id="nombre"
                       type="text"
-                      placeholder="Juan"
+                      placeholder={t("Juan")}
                       required
                       value={nombre}
                       onChange={(e) => setNombre(e.target.value)}
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="apellido">Apellidos</Label>
+                    <Label htmlFor="apellido">{t("Apellidos")}</Label>
                     <Input
                       id="apellido"
                       type="text"
-                      placeholder="Pérez García"
+                      placeholder={t("Pérez García")}
                       required
                       value={apellido}
                       onChange={(e) => setApellido(e.target.value)}
@@ -266,11 +268,11 @@ export default function RegistroPage() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">{t("Email")}</Label>
                   <Input
                     id="email"
                     type="email"
-                    placeholder="tu@email.com"
+                    placeholder={t("tu@email.com")}
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -278,25 +280,25 @@ export default function RegistroPage() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="tipo-entidad">Tipo de Registro</Label>
+                  <Label htmlFor="tipo-entidad">{t("Tipo de Registro")}</Label>
                   <Select value={tipoEntidad} onValueChange={(val) => setTipoEntidad(val as "particular" | "empresa")}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="particular">Particular</SelectItem>
-                      <SelectItem value="empresa">Empresa</SelectItem>
+                      <SelectItem value="particular">{t("Particular")}</SelectItem>
+                      <SelectItem value="empresa">{t("Empresa")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 {tipoEntidad === "empresa" && !tokenInvitacion && (
                   <div className="grid gap-2">
-                    <Label htmlFor="nombre-empresa">Nombre de la Empresa</Label>
+                    <Label htmlFor="nombre-empresa">{t("Nombre de la Empresa")}</Label>
                     <Input
                       id="nombre-empresa"
                       type="text"
-                      placeholder="Mi Empresa S.L."
+                      placeholder={t("Mi Empresa S.L.")}
                       required
                       value={nombreEmpresa}
                       onChange={(e) => setNombreEmpresa(e.target.value)}
@@ -305,7 +307,7 @@ export default function RegistroPage() {
                 )}
 
                 <div className="grid gap-2">
-                  <Label htmlFor="documento">{tipoEntidad === "empresa" ? "CIF" : "DNI/NIE"}</Label>
+                  <Label htmlFor="documento">{tipoEntidad === "empresa" ? t("CIF") : "DNI/NIE"}</Label>
                   <Input
                     id="documento"
                     type="text"
@@ -316,8 +318,8 @@ export default function RegistroPage() {
                   />
                   <p className="text-xs text-muted-foreground">
                     {tipoEntidad === "empresa"
-                      ? "Código de Identificación Fiscal de tu empresa"
-                      : "Documento Nacional de Identidad o NIE"}
+                      ? t("Código de Identificación Fiscal de tu empresa")
+                      : t("Documento Nacional de Identidad o NIE")}
                   </p>
                 </div>
 
@@ -325,7 +327,7 @@ export default function RegistroPage() {
                     aquí, y es la que figurará como representante en las facturas. */}
                 {tipoEntidad === "empresa" && (
                   <div className="grid gap-2 rounded-lg border bg-muted/30 p-3">
-                    <Label htmlFor="documento-personal">Tu DNI/NIE (persona que actúa por la empresa)</Label>
+                    <Label htmlFor="documento-personal">{t("Tu DNI/NIE (persona que actúa por la empresa)")}</Label>
                     <Input
                       id="documento-personal"
                       type="text"
@@ -335,39 +337,39 @@ export default function RegistroPage() {
                       onChange={(e) => setDocumentoPersonal(e.target.value.toUpperCase())}
                     />
                     <Label htmlFor="cargo-empresa" className="mt-1">
-                      Tu cargo (opcional)
+                      {t("Tu cargo (opcional)")}
                     </Label>
                     <Input
                       id="cargo-empresa"
                       type="text"
-                      placeholder="Administrador, Gerente..."
+                      placeholder={t("Administrador, Gerente...")}
                       value={cargoEmpresa}
                       onChange={(e) => setCargoEmpresa(e.target.value)}
                     />
                     <p className="text-xs text-muted-foreground">
-                      La empresa factura y contrata, pero necesitamos saber quién actúa en su nombre.
+                      {t("La empresa factura y contrata, pero necesitamos saber quién actúa en su nombre.")}
                     </p>
                   </div>
                 )}
 
                 {tipoEntidad === "empresa" && (
                   <div className="grid gap-2">
-                    <Label htmlFor="token-invitacion">Token de Invitación (opcional)</Label>
+                    <Label htmlFor="token-invitacion">{t("Token de Invitación (opcional)")}</Label>
                     <Input
                       id="token-invitacion"
                       type="text"
-                      placeholder="Si te invitaron a una empresa..."
+                      placeholder={t("Si te invitaron a una empresa...")}
                       value={tokenInvitacion}
                       onChange={(e) => setTokenInvitacion(e.target.value)}
                     />
                     <p className="text-xs text-muted-foreground">
-                      El vínculo se completa desde Mi Empresa, después de confirmar tu correo.
+                      {t("El vínculo se completa desde Mi Empresa, después de confirmar tu correo.")}
                     </p>
                   </div>
                 )}
 
                 <div className="grid gap-2">
-                  <Label>Teléfono (opcional)</Label>
+                  <Label>{t("Teléfono (opcional)")}</Label>
                   <div className="flex gap-2">
                     <Select value={telefonoPrefijo} onValueChange={setTelefonoPrefijo}>
                       <SelectTrigger className="w-36">
@@ -376,7 +378,7 @@ export default function RegistroPage() {
                       <SelectContent>
                         {prefijosPais.map((p) => (
                           <SelectItem key={p.prefijo + p.pais} value={p.prefijo}>
-                            {p.prefijo} {p.pais}
+                            {p.prefijo} {t(p.pais)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -392,10 +394,10 @@ export default function RegistroPage() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="ubicacion">Provincia</Label>
+                  <Label htmlFor="ubicacion">{t("Provincia")}</Label>
                   <Select value={ubicacion} onValueChange={setUbicacion}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecciona tu provincia" />
+                      <SelectValue placeholder={t("Selecciona tu provincia")} />
                     </SelectTrigger>
                     <SelectContent>
                       {provincias.map((prov) => (
@@ -408,11 +410,11 @@ export default function RegistroPage() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="password">Contraseña</Label>
+                  <Label htmlFor="password">{t("Contraseña")}</Label>
                   <Input
                     id="password"
                     type="password"
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder={t("Mínimo 6 caracteres")}
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -420,11 +422,11 @@ export default function RegistroPage() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="repeat-password">Repetir Contraseña</Label>
+                  <Label htmlFor="repeat-password">{t("Repetir Contraseña")}</Label>
                   <Input
                     id="repeat-password"
                     type="password"
-                    placeholder="Repite tu contraseña"
+                    placeholder={t("Repite tu contraseña")}
                     required
                     value={repeatPassword}
                     onChange={(e) => setRepeatPassword(e.target.value)}
@@ -432,7 +434,7 @@ export default function RegistroPage() {
                 </div>
 
                 {error && (
-                  <div className="text-sm text-red-600 bg-red-50 border border-red-200 p-3 rounded-md">{error}</div>
+                  <div className="text-sm text-red-600 bg-red-50 border border-red-200 p-3 rounded-md">{t(error)}</div>
                 )}
 
                 <Button
@@ -440,20 +442,19 @@ export default function RegistroPage() {
                   className="w-full"
                   disabled={isLoading || !aceptaTerminos || !confirmaMayoriaEdad}
                 >
-                  {isLoading ? "Creando cuenta..." : "Crear Cuenta"}
+                  {isLoading ? t("Creando cuenta...") : t("Crear Cuenta")}
                 </Button>
               </div>
 
               <div className="mt-4 text-center text-sm">
-                ¿Ya tienes cuenta?{" "}
+                {t("¿Ya tienes cuenta?")}{" "}
                 <Link href={tokenInvitacion ? `/auth/login?next=${encodeURIComponent(`/mi-empresa?token=${encodeURIComponent(tokenInvitacion)}`)}` : "/auth/login"} className="underline underline-offset-4 hover:text-primary">
-                  Inicia sesión
+                  {t("Inicia sesión")}
                 </Link>
               </div>
 
               <div className="mt-2 text-center text-xs text-muted-foreground">
-                Al registrarte, podrás contratar servicios y más adelante crear tu perfil profesional para ofrecer
-                servicios.
+                {t("Al registrarte, podrás contratar servicios y más adelante crear tu perfil profesional para ofrecer servicios.")}
               </div>
             </form>
           </CardContent>

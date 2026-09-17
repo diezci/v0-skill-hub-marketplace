@@ -1,5 +1,7 @@
 "use server"
 
+import { textoServidor } from "@/lib/i18n-servidor"
+
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { errorContenidoProhibido } from "@/lib/moderacion"
@@ -36,13 +38,13 @@ export async function crearOferta(formData: {
   acepta_gastos?: boolean
 }) {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) {
-    return { error: "No autenticado. Por favor inicia sesión." }
+    return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado. Por favor inicia sesión.") }
   }
 
   const errorModeracion = errorContenidoProhibido(
@@ -51,12 +53,12 @@ export async function crearOferta(formData: {
     formData.condiciones_pago,
     formData.notas,
   )
-  if (errorModeracion) return { error: errorModeracion }
+  if (errorModeracion) return { error: await textoServidor(errorModeracion) }
 
   const { data: profesional } = await supabase.from("profesionales").select("id").eq("id", user.id).single()
 
   if (!profesional) {
-    return { error: "Debes crear un perfil profesional antes de enviar ofertas. Ve a 'Mi Perfil' para configurarlo." }
+    return { error: await textoServidor("Debes crear un perfil profesional antes de enviar ofertas. Ve a 'Mi Perfil' para configurarlo.") }
   }
 
   // No se puja por la propia demanda: acabarías siendo cliente y profesional
@@ -69,27 +71,27 @@ export async function crearOferta(formData: {
     .maybeSingle()
 
   if (solicitudError || !solicitudDeLaOferta) {
-    return { error: "La demanda ya no está disponible." }
+    return { error: await textoServidor("La demanda ya no está disponible.") }
   }
   if (solicitudDeLaOferta?.cliente_id === user.id) {
-    return { error: "No puedes enviar una oferta a tu propia demanda." }
+    return { error: await textoServidor("No puedes enviar una oferta a tu propia demanda.") }
   }
   if (solicitudDeLaOferta.estado !== "abierta") {
-    return { error: "Esta demanda ya no admite nuevas ofertas." }
+    return { error: await textoServidor("Esta demanda ya no admite nuevas ofertas.") }
   }
 
   // Importes y tiempos siempre positivos.
   if (!Number.isFinite(formData.precio) || formData.precio <= 0) {
-    return { error: "El precio propuesto debe ser mayor que 0." }
+    return { error: await textoServidor("El precio propuesto debe ser mayor que 0.") }
   }
   if (!["horas", "dias", "semanas", "meses"].includes(formData.unidad_tiempo)) {
-    return { error: "La unidad de tiempo de la oferta no es válida." }
+    return { error: await textoServidor("La unidad de tiempo de la oferta no es válida.") }
   }
   if (!Number.isInteger(formData.tiempo_estimado) || formData.tiempo_estimado <= 0) {
-    return { error: "El tiempo estimado debe ser mayor que 0." }
+    return { error: await textoServidor("El tiempo estimado debe ser mayor que 0.") }
   }
   if (!formData.acepta_gastos) {
-    return { error: "Debes aceptar los gastos de servicio de la plataforma para enviar la oferta." }
+    return { error: await textoServidor("Debes aceptar los gastos de servicio de la plataforma para enviar la oferta.") }
   }
 
   // Se guarda la tarifa aceptada junto a la oferta. De ese modo una subida
@@ -107,7 +109,7 @@ export async function crearOferta(formData: {
     .eq("profesional_id", user.id)
     .order("updated_at", { ascending: false })
 
-  if (existingOffersError) return { error: existingOffersError.message }
+  if (existingOffersError) return { error: await textoServidor(existingOffersError.message) }
 
   const ofertasCerradas = (existingOffers || []).filter((oferta: any) =>
     ["retirada", "rechazada"].includes(oferta.estado),
@@ -117,7 +119,7 @@ export async function crearOferta(formData: {
   )
 
   if (existingActiveOffer) {
-    return { error: "Ya has enviado una oferta para esta solicitud." }
+    return { error: await textoServidor("Ya has enviado una oferta para esta solicitud.") }
   }
 
   // Si la oferta llegó a generar un trabajo, incluso uno cancelado, se conserva
@@ -133,7 +135,7 @@ export async function crearOferta(formData: {
         ofertasCerradas.map((oferta: any) => oferta.id),
       )
 
-    if (trabajosError) return { error: trabajosError.message }
+    if (trabajosError) return { error: await textoServidor(trabajosError.message) }
 
     const ofertasConTrabajo = new Set((trabajosDeOfertas || []).map((trabajo: any) => trabajo.oferta_id))
     ofertaReutilizable = ofertasCerradas.find((oferta: any) => !ofertasConTrabajo.has(oferta.id))
@@ -172,7 +174,7 @@ export async function crearOferta(formData: {
   const { data, error } = resultado
 
   if (error) {
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
 
@@ -201,13 +203,13 @@ export async function crearOferta(formData: {
 
 export async function obtenerMisOfertas() {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) {
-    return { error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   }
 
   // La solicitud completa: Mis Pujas debe poder enseñar la publicación entera
@@ -235,7 +237,7 @@ export async function obtenerMisOfertas() {
     .order("created_at", { ascending: false })
 
   if (error) {
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   // Para las pujas aceptadas, el estado de su trabajo: mientras esté sin pagar
@@ -261,7 +263,7 @@ export async function obtenerMisOfertas() {
       .select("id, estado, oferta_id, cliente_id, profesional_id, cancelacion_estado, cancelacion_solicitada_por, cancelacion_razon, cancelacion_adjuntos_solicitante, cancelacion_respuesta_razon, cancelacion_adjuntos_respuesta")
       .in("oferta_id", idsAceptadas)
       .order("created_at", { ascending: false })
-    if (trabajosError) return { error: "No se pudo consultar el estado de tus contratos. Inténtalo de nuevo." }
+    if (trabajosError) return { error: await textoServidor("No se pudo consultar el estado de tus contratos. Inténtalo de nuevo.") }
     for (const t of (trabajosDeOfertas || []) as TrabajoOferta[]) {
       // Conserva el contrato vigente; un duplicado histórico cancelado nunca
       // debe esconder un trabajo ya pagado ni mostrar una cancelación antigua.
@@ -322,15 +324,15 @@ export async function actualizarOferta(
   },
 ) {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   const errorModeracion = errorContenidoProhibido(campos.descripcion)
-  if (errorModeracion) return { error: errorModeracion }
+  if (errorModeracion) return { error: await textoServidor(errorModeracion) }
 
   // Solo el profesional dueño y mientras la oferta no esté aceptada.
   const { data: oferta } = await supabase
@@ -340,19 +342,19 @@ export async function actualizarOferta(
     .maybeSingle()
 
   if (!oferta || oferta.profesional_id !== user.id) {
-    return { error: "No tienes permiso para editar esta oferta." }
+    return { error: await textoServidor("No tienes permiso para editar esta oferta.") }
   }
   if (oferta.estado === "aceptada") {
-    return { error: "No puedes editar una oferta que ya ha sido aceptada." }
+    return { error: await textoServidor("No puedes editar una oferta que ya ha sido aceptada.") }
   }
   if (campos.precio != null && (!Number.isFinite(campos.precio) || campos.precio <= 0)) {
-    return { error: "El precio propuesto debe ser mayor que 0." }
+    return { error: await textoServidor("El precio propuesto debe ser mayor que 0.") }
   }
   if (campos.unidad_tiempo != null && !["horas", "dias", "semanas", "meses"].includes(campos.unidad_tiempo)) {
-    return { error: "La unidad de tiempo de la oferta no es válida." }
+    return { error: await textoServidor("La unidad de tiempo de la oferta no es válida.") }
   }
   if (campos.tiempo_estimado != null && (!Number.isInteger(campos.tiempo_estimado) || campos.tiempo_estimado <= 0)) {
-    return { error: "El tiempo estimado debe ser mayor que 0." }
+    return { error: await textoServidor("El tiempo estimado debe ser mayor que 0.") }
   }
 
   const precioActualizado = campos.precio ?? Number(oferta.precio)
@@ -360,7 +362,7 @@ export async function actualizarOferta(
     oferta.comision_proveedor_minima == null || oferta.comision_proveedor_prevista == null ||
     oferta.pago_neto_proveedor_previsto == null
   if (requiereAceptarGastos && campos.acepta_gastos !== true) {
-    return { error: "Debes revisar y aceptar los gastos de servicio de esta oferta antes de guardarla." }
+    return { error: await textoServidor("Debes revisar y aceptar los gastos de servicio de esta oferta antes de guardarla.") }
   }
   const porcentajeAceptado = requiereAceptarGastos
     ? PLATFORM_CONFIG.comision_proveedor : Number(oferta.comision_proveedor_porcentaje)
@@ -374,7 +376,7 @@ export async function actualizarOferta(
     !Number.isFinite(minimoAceptado) ||
     minimoAceptado < 0
   ) {
-    return { error: "No se pudieron verificar los gastos de servicio aceptados en esta oferta." }
+    return { error: await textoServidor("No se pudieron verificar los gastos de servicio aceptados en esta oferta.") }
   }
   const liquidacionActualizada = calcularPagoProveedorConTarifa(
     precioActualizado,
@@ -408,7 +410,7 @@ export async function actualizarOferta(
     .select()
     .single()
 
-  if (error) return { error: error.message }
+  if (error) return { error: await textoServidor(error.message) }
 
   // Avisar al cliente dueño de la demanda de que la oferta ha cambiado.
   if (oferta.solicitud_id) {
@@ -438,12 +440,12 @@ export async function actualizarOferta(
 
 export async function eliminarOferta(ofertaId: string) {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   const { data: oferta } = await supabase
     .from("ofertas")
@@ -452,13 +454,13 @@ export async function eliminarOferta(ofertaId: string) {
     .maybeSingle()
 
   if (!oferta || oferta.profesional_id !== user.id) {
-    return { error: "No tienes permiso para eliminar esta oferta." }
+    return { error: await textoServidor("No tienes permiso para eliminar esta oferta.") }
   }
   if (oferta.estado === "aceptada") {
-    return { error: "No puedes eliminar una oferta que ya ha sido aceptada." }
+    return { error: await textoServidor("No puedes eliminar una oferta que ya ha sido aceptada.") }
   }
   if (["rechazada", "retirada"].includes(oferta.estado)) {
-    return { error: "Esta oferta ya está cerrada." }
+    return { error: await textoServidor("Esta oferta ya está cerrada.") }
   }
 
   // Repetir el estado leído en el DELETE evita borrar una oferta que haya
@@ -471,8 +473,8 @@ export async function eliminarOferta(ofertaId: string) {
     .eq("estado", oferta.estado)
     .select("id")
     .maybeSingle()
-  if (error) return { error: error.message }
-  if (!ofertaEliminada) return { error: "La oferta ha cambiado. Actualiza la página e inténtalo de nuevo." }
+  if (error) return { error: await textoServidor(error.message) }
+  if (!ofertaEliminada) return { error: await textoServidor("La oferta ha cambiado. Actualiza la página e inténtalo de nuevo.") }
 
   // El cliente puede estar comparando ofertas ahora mismo: si una desaparece de
   // su lista sin avisar, parece un fallo de la web.
@@ -510,12 +512,12 @@ export async function eliminarOferta(ofertaId: string) {
  */
 export async function eliminarOfertaPerdida(ofertaId: string) {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   // El filtro de estado forma parte de la escritura: aunque la oferta cambie
   // mientras se confirma el diálogo, solo una rechazada puede ocultarse.
@@ -528,9 +530,9 @@ export async function eliminarOfertaPerdida(ofertaId: string) {
     .select("id")
     .maybeSingle()
 
-  if (error) return { error: error.message }
+  if (error) return { error: await textoServidor(error.message) }
   if (!ofertaOcultada) {
-    return { error: "La puja ya no está marcada como perdida. Actualiza la página e inténtalo de nuevo." }
+    return { error: await textoServidor("La puja ya no está marcada como perdida. Actualiza la página e inténtalo de nuevo.") }
   }
 
   revalidatePath("/mis-ofertas")
@@ -539,13 +541,13 @@ export async function eliminarOfertaPerdida(ofertaId: string) {
 
 export async function aceptarOferta(ofertaId: string) {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) {
-    return { error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   }
 
   // Get oferta details
@@ -556,12 +558,12 @@ export async function aceptarOferta(ofertaId: string) {
     .single()
 
   if (ofertaError || !oferta) {
-    return { error: "Oferta no encontrada" }
+    return { error: await textoServidor("Oferta no encontrada") }
   }
 
   // Verify user is the client of this solicitud
   if (oferta.solicitud?.cliente_id !== user.id) {
-    return { error: "No tienes permiso para aceptar esta oferta" }
+    return { error: await textoServidor("No tienes permiso para aceptar esta oferta") }
   }
 
   // Import and call crearTrabajo
@@ -573,7 +575,7 @@ export async function aceptarOferta(ofertaId: string) {
   })
 
   if (trabajoResult.error) {
-    return { error: trabajoResult.error }
+    return { error: await textoServidor(trabajoResult.error) }
   }
 
   // Reintentar una aceptación no vuelve a enviar el aviso.
@@ -594,13 +596,13 @@ export async function aceptarOferta(ofertaId: string) {
 
 export async function rechazarOferta(ofertaId: string) {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) {
-    return { error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   }
 
   const { data: oferta } = await supabase
@@ -610,7 +612,7 @@ export async function rechazarOferta(ofertaId: string) {
     .maybeSingle()
 
   if (!oferta) {
-    return { error: "Oferta no encontrada." }
+    return { error: await textoServidor("Oferta no encontrada.") }
   }
 
   const { data: solicitud } = await supabase
@@ -621,10 +623,10 @@ export async function rechazarOferta(ofertaId: string) {
 
   // Solo el cliente dueño de la demanda puede rechazar la oferta.
   if (!solicitud || solicitud.cliente_id !== user.id) {
-    return { error: "No tienes permiso para rechazar esta oferta." }
+    return { error: await textoServidor("No tienes permiso para rechazar esta oferta.") }
   }
   if (["aceptada", "rechazada", "retirada"].includes(oferta.estado)) {
-    return { error: "Esta oferta ya no está pendiente de respuesta." }
+    return { error: await textoServidor("Esta oferta ya no está pendiente de respuesta.") }
   }
 
   const { error } = await supabase
@@ -633,7 +635,7 @@ export async function rechazarOferta(ofertaId: string) {
     .eq("id", ofertaId)
 
   if (error) {
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   const { crearNotificacion } = await import("@/lib/notificaciones")
@@ -653,18 +655,18 @@ export async function rechazarOferta(ofertaId: string) {
 export async function actualizarEstadoOferta(ofertaId: string, estado: string) {
   // Un profesional no puede aceptar su propia oferta ni cambiar el acuerdo
   // mediante una acción genérica expuesta por el servidor.
-  if (estado !== "retirada") return { error: "Solo puedes retirar una oferta pendiente desde esta acción." }
+  if (estado !== "retirada") return { error: await textoServidor("Solo puedes retirar una oferta pendiente desde esta acción.") }
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   const { data, error } = await supabase.from("ofertas")
     .update({ estado: "retirada", updated_at: new Date().toISOString() })
     .eq("id", ofertaId).eq("profesional_id", user.id)
     .in("estado", ["pendiente", "enviada", "en_negociacion", "rechazada"])
     .select().maybeSingle()
-  if (error) return { error: error.message }
-  if (!data) return { error: "La oferta ya no se puede retirar. Si está contratada, solicita la cancelación del trabajo." }
+  if (error) return { error: await textoServidor(error.message) }
+  if (!data) return { error: await textoServidor("La oferta ya no se puede retirar. Si está contratada, solicita la cancelación del trabajo.") }
   revalidatePath("/mis-solicitudes")
   revalidatePath("/mis-ofertas")
   return { data }
@@ -672,7 +674,7 @@ export async function actualizarEstadoOferta(ofertaId: string, estado: string) {
 
 export async function obtenerOfertasPorSolicitud(solicitudId: string) {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible" }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const { data, error } = await supabase
     .from("ofertas")
@@ -681,7 +683,7 @@ export async function obtenerOfertasPorSolicitud(solicitudId: string) {
     .order("created_at", { ascending: false })
 
   if (error) {
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   // Get professional info for each oferta

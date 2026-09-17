@@ -1,5 +1,7 @@
 "use client"
 
+import { useIdioma } from "@/components/idioma-provider"
+
 import { useMemo, useState } from "react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
@@ -46,26 +48,30 @@ const ESTADOS_PAGO: Record<string, { etiqueta: string; clase: string }> = {
   cancelado: { etiqueta: "Cancelado", clase: "bg-muted text-muted-foreground" },
 }
 
-function nombrePersona(persona: AdminPersonaTrabajo | null) {
-  if (!persona) return "Usuario no disponible"
-  return `${persona.nombre ?? ""} ${persona.apellido ?? ""}`.trim() || "Sin nombre"
+function nombrePersona(persona: AdminPersonaTrabajo | null, t: (clave: string) => string = (clave) => clave) {
+  if (!persona) return t("Usuario no disponible")
+  return `${persona.nombre ?? ""} ${persona.apellido ?? ""}`.trim() || t("Sin nombre")
 }
 
 function EstadoBadge({ estado, tipo }: { estado: string | null | undefined; tipo: "trabajo" | "pago" }) {
-  if (!estado && tipo === "pago") return <Badge variant="outline">Sin pago</Badge>
+  const { t } = useIdioma()
+
+  if (!estado && tipo === "pago") return <Badge variant="outline">{t("Sin pago")}</Badge>
   const mapa = tipo === "trabajo" ? ESTADOS_TRABAJO : ESTADOS_PAGO
   const config = mapa[estado || ""] ?? {
-    etiqueta: estado || "Sin estado",
+    etiqueta: estado || t("Sin estado"),
     clase: "bg-muted text-muted-foreground",
   }
-  return <Badge className={config.clase}>{config.etiqueta}</Badge>
+  return <Badge className={config.clase}>{t(config.etiqueta)}</Badge>
 }
 
 function EnlacePersona({ persona }: { persona: AdminPersonaTrabajo | null }) {
-  if (!persona) return <span className="text-muted-foreground">Usuario no disponible</span>
+  const { t } = useIdioma()
+
+  if (!persona) return <span className="text-muted-foreground">{t("Usuario no disponible")}</span>
   return (
     <Link href={`/admin/usuarios/${persona.id}`} className="font-medium hover:text-primary hover:underline">
-      {nombrePersona(persona)}
+      {nombrePersona(persona, t)}
     </Link>
   )
 }
@@ -81,6 +87,8 @@ export function AdminTrabajosTable({
   mostrarFiltros?: boolean
   mensajeVacio?: string
 }) {
+  const { t, idioma } = useIdioma()
+
   const [busqueda, setBusqueda] = useState("")
   const [estado, setEstado] = useState("todos")
 
@@ -114,19 +122,19 @@ export function AdminTrabajosTable({
             <Input
               value={busqueda}
               onChange={(event) => setBusqueda(event.target.value)}
-              placeholder="Buscar por trabajo, referencia o usuario..."
+              placeholder={t("Buscar por trabajo, referencia o usuario...")}
               className="pl-9"
             />
           </div>
           <Select value={estado} onValueChange={setEstado}>
             <SelectTrigger className="w-full sm:w-[210px]">
-              <SelectValue placeholder="Estado del trabajo" />
+              <SelectValue placeholder={t("Estado del trabajo")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Todos los estados</SelectItem>
+              <SelectItem value="todos">{t("Todos los estados")}</SelectItem>
               {estadosDisponibles.map((valor) => (
                 <SelectItem key={valor} value={valor}>
-                  {ESTADOS_TRABAJO[valor]?.etiqueta ?? valor}
+                  {t(ESTADOS_TRABAJO[valor]?.etiqueta ?? valor)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -138,21 +146,21 @@ export function AdminTrabajosTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Servicio</TableHead>
-              {usuarioId ? <TableHead>Papel</TableHead> : <TableHead>Cliente</TableHead>}
-              {usuarioId ? <TableHead>Contraparte</TableHead> : <TableHead>Proveedor</TableHead>}
-              <TableHead className="text-right">Precio acordado</TableHead>
-              <TableHead>Estado del trabajo</TableHead>
-              <TableHead>Pago</TableHead>
-              <TableHead>Contratación</TableHead>
-              <TableHead className="min-w-[245px] text-right">Justificante</TableHead>
+              <TableHead>{t("Servicio")}</TableHead>
+              {usuarioId ? <TableHead>{t("Papel")}</TableHead> : <TableHead>{t("Cliente")}</TableHead>}
+              {usuarioId ? <TableHead>{t("Contraparte")}</TableHead> : <TableHead>{t("Proveedor")}</TableHead>}
+              <TableHead className="text-right">{t("Precio acordado")}</TableHead>
+              <TableHead>{t("Estado del trabajo")}</TableHead>
+              <TableHead>{t("Pago")}</TableHead>
+              <TableHead>{t("Contratación")}</TableHead>
+              <TableHead className="min-w-[245px] text-right">{t("Justificante")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtrados.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
-                  {trabajos.length === 0 ? mensajeVacio : "No hay resultados con estos filtros."}
+                  {trabajos.length === 0 ? t(mensajeVacio) : t("No hay resultados con estos filtros.")}
                 </TableCell>
               </TableRow>
             ) : (
@@ -171,7 +179,7 @@ export function AdminTrabajosTable({
                     </TableCell>
                     {usuarioId ? (
                       <TableCell>
-                        <Badge variant="outline">{esCliente ? "Como cliente" : "Como proveedor"}</Badge>
+                        <Badge variant="outline">{esCliente ? t("Como cliente") : t("Como proveedor")}</Badge>
                       </TableCell>
                     ) : (
                       <TableCell className="min-w-[160px]">
@@ -188,7 +196,7 @@ export function AdminTrabajosTable({
                       </TableCell>
                     )}
                     <TableCell className="text-right font-medium">
-                      {formatearMoneda(trabajo.escrow?.monto_base ?? trabajo.precio_acordado)}
+                      {formatearMoneda(trabajo.escrow?.monto_base ?? trabajo.precio_acordado, idioma)}
                     </TableCell>
                     <TableCell>
                       <EstadoBadge estado={trabajo.estado} tipo="trabajo" />
@@ -197,7 +205,7 @@ export function AdminTrabajosTable({
                       <EstadoBadge estado={trabajo.escrow?.estado} tipo="pago" />
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                      {trabajo.contratado ? formatearFecha(fechaContratacion) : "No contratado"}
+                      {trabajo.contratado ? formatearFecha(fechaContratacion, idioma) : t("No contratado")}
                     </TableCell>
                     <TableCell>
                       {trabajo.contratado ? (
@@ -207,10 +215,9 @@ export function AdminTrabajosTable({
                               href={`/trabajos/${trabajo.id}/factura?vista=cliente`}
                               target="_blank"
                               rel="noreferrer"
-                              title="Ver el justificante desde la perspectiva del cliente"
+                              title={t("Ver el justificante desde la perspectiva del cliente")}
                             >
-                              <FileText className="h-3.5 w-3.5" /> Vista cliente
-                              <ExternalLink className="h-3 w-3" />
+                              <FileText className="h-3.5 w-3.5" /> {" "}{t("Vista cliente")}<ExternalLink className="h-3 w-3" />
                             </a>
                           </Button>
                           <Button asChild size="sm" variant="outline" className="gap-1.5">
@@ -218,15 +225,14 @@ export function AdminTrabajosTable({
                               href={`/trabajos/${trabajo.id}/factura?vista=proveedor`}
                               target="_blank"
                               rel="noreferrer"
-                              title="Ver el justificante y la liquidación del proveedor"
+                              title={t("Ver el justificante y la liquidación del proveedor")}
                             >
-                              <FileText className="h-3.5 w-3.5" /> Vista proveedor
-                              <ExternalLink className="h-3 w-3" />
+                              <FileText className="h-3.5 w-3.5" /> {" "}{t("Vista proveedor")}<ExternalLink className="h-3 w-3" />
                             </a>
                           </Button>
                         </div>
                       ) : (
-                        <p className="text-right text-xs text-muted-foreground">Aún no generada</p>
+                        <p className="text-right text-xs text-muted-foreground">{t("Aún no generada")}</p>
                       )}
                     </TableCell>
                   </TableRow>

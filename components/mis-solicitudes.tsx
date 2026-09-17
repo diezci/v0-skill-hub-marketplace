@@ -1,5 +1,8 @@
 "use client"
 
+import { useT, useIdioma } from "@/components/idioma-provider"
+import { localeDe } from "@/lib/i18n"
+
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -13,7 +16,7 @@ import { Slider } from "@/components/ui/slider"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
-import { 
+import {
   Clock, CheckCircle2, XCircle, Loader2, Calendar, MapPin, Euro, MessageSquare, FileText,
   CreditCard, AlertCircle, Send, Check, Star, ChevronRight, ArrowRight, Package,
   Banknote, ShieldCheck, Timer, TrendingUp, User, Building, Eye, Pencil, Trash2, Scale
@@ -60,6 +63,9 @@ const cnCard = (base: string, activa: boolean) =>
   `${base} w-full transition hover:shadow-md ${activa ? "ring-2 ring-primary/50" : ""}`
 
 export default function MisSolicitudes() {
+  const t = useT()
+  const { idioma } = useIdioma()
+
   const [activeTab, setActiveTab] = useState("solicitudes")
   // Lo reporta <MisDisputas onCount>. null = aún cargando, para no enseñar un 0
   // que luego cambie.
@@ -125,7 +131,7 @@ export default function MisSolicitudes() {
   const handleGuardarEdicion = async () => {
     if (!editSolicitud) return
     if (!editForm.categoria || !editForm.titulo.trim() || editForm.descripcion.trim().length < 10) {
-      toast({ title: "Faltan datos", description: "Selecciona una categoría y añade un título y una descripción (mín. 10 caracteres).", variant: "destructive" })
+      toast({ title: t("Faltan datos"), description: t("Selecciona una categoría y añade un título y una descripción (mín. 10 caracteres)."), variant: "destructive" })
       return
     }
     if (
@@ -133,8 +139,8 @@ export default function MisSolicitudes() {
       (!editForm.fecha_necesaria || editForm.fecha_necesaria < fechaHoyEnEspana())
     ) {
       toast({
-        title: "Fecha no válida",
-        description: "Selecciona una fecha que no esté en el pasado.",
+        title: t("Fecha no válida"),
+        description: t("Selecciona una fecha que no esté en el pasado."),
         variant: "destructive",
       })
       return
@@ -155,9 +161,9 @@ export default function MisSolicitudes() {
       fecha_necesaria: fechaNecesaria,
     })
     if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" })
+      toast({ title: t("Error"), description: t(result.error), variant: "destructive" })
     } else {
-      toast({ title: "Demanda actualizada", description: "Los cambios se han guardado." })
+      toast({ title: t("Demanda actualizada"), description: t("Los cambios se han guardado.") })
       setEditSolicitud(null)
       await refrescarSolicitudes()
     }
@@ -166,13 +172,13 @@ export default function MisSolicitudes() {
 
   const handleContactar = async (otroUsuarioId: string, solicitudId?: string, trabajoId?: string) => {
     if (!otroUsuarioId) {
-      toast({ title: "No disponible", description: "No se pudo identificar al destinatario.", variant: "destructive" })
+      toast({ title: t("No disponible"), description: t("No se pudo identificar al destinatario."), variant: "destructive" })
       return
     }
-    toast({ title: "Abriendo chat...", description: "Preparando la conversación." })
+    toast({ title: t("Abriendo chat..."), description: t("Preparando la conversación.") })
     const result = await crearConversacion({ otroUsuarioId, solicitudId, trabajoId })
     if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" })
+      toast({ title: t("Error"), description: t(result.error), variant: "destructive" })
     } else {
       router.push(result.data?.id ? `/mensajes?c=${result.data.id}` : "/mensajes")
     }
@@ -183,9 +189,9 @@ export default function MisSolicitudes() {
     setActionLoading(true)
     const result = await eliminarSolicitud(deleteSolicitud.id)
     if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" })
+      toast({ title: t("Error"), description: t(result.error), variant: "destructive" })
     } else {
-      toast({ title: "Demanda borrada", description: "La demanda se ha eliminado." })
+      toast({ title: t("Demanda borrada"), description: t("La demanda se ha eliminado.") })
       setDeleteSolicitud(null)
       await refrescarSolicitudes()
     }
@@ -233,8 +239,8 @@ export default function MisSolicitudes() {
 
   const handleAceptarOferta = async (oferta: any, solicitud: any) => {
     toast({
-      title: "Procesando...",
-      description: "Creando el trabajo y preparando el pago seguro",
+      title: t("Procesando..."),
+      description: t("Creando el trabajo y preparando el pago seguro"),
     })
 
     // Crear el trabajo a partir de la oferta y redirigir a la pasarela de pago escrow.
@@ -242,8 +248,8 @@ export default function MisSolicitudes() {
 
     if (result.error || !result.data?.id) {
       toast({
-        title: "No se pudo aceptar la oferta",
-        description: result.error || "Inténtalo de nuevo.",
+        title: t("No se pudo aceptar la oferta"),
+        description: t(result.error || "Inténtalo de nuevo."),
         variant: "destructive",
       })
       return
@@ -257,9 +263,9 @@ export default function MisSolicitudes() {
     setActionLoading(true)
     const result = await rechazarOferta(rejectOfertaTarget.id)
     if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" })
+      toast({ title: t("Error"), description: t(result.error), variant: "destructive" })
     } else {
-      toast({ title: "Oferta rechazada", description: "El profesional ha sido notificado." })
+      toast({ title: t("Oferta rechazada"), description: t("El profesional ha sido notificado.") })
       setRejectOfertaTarget(null)
       await refrescarSolicitudes()
     }
@@ -269,18 +275,18 @@ export default function MisSolicitudes() {
   const handleConfirmarTrabajo = async (trabajo: any) => {
     setActionLoading(true)
     const result = await confirmarTrabajoCompletado(trabajo.id)
-    
+
     if (result.error) {
       toast({
-        title: "Error",
-        description: result.error,
+        title: t("Error"),
+        description: t(result.error),
         variant: "destructive",
       })
       setActionLoading(false)
     } else {
       toast({
-        title: "Trabajo confirmado",
-        description: "El pago ha sido liberado al profesional.",
+        title: t("Trabajo confirmado"),
+        description: t("El pago ha sido liberado al profesional."),
       })
       setShowConfirmDialog(false)
       setActionLoading(false)
@@ -298,8 +304,8 @@ export default function MisSolicitudes() {
   const handleRechazarTrabajo = async (trabajo: any) => {
     if (!rejectReason.trim()) {
       toast({
-        title: "Error",
-        description: "Por favor, indica el motivo del rechazo.",
+        title: t("Error"),
+        description: t("Por favor, indica el motivo del rechazo."),
         variant: "destructive",
       })
       return
@@ -313,15 +319,15 @@ export default function MisSolicitudes() {
 
     if (result.error) {
       toast({
-        title: "Error",
-        description: result.error,
+        title: t("Error"),
+        description: t(result.error),
         variant: "destructive",
       })
     } else {
       toast({
-        title: "Entrega rechazada · disputa abierta",
+        title: t("Entrega rechazada · disputa abierta"),
         description:
-          "La transferencia queda bloqueada. El equipo de Diime revisará las pruebas y los términos acordados para decidir.",
+          t("La transferencia queda bloqueada. El equipo de Diime revisará las pruebas y los términos acordados para decidir."),
       })
       setShowRejectDialog(false)
       setSelectedTrabajo(null)
@@ -349,14 +355,14 @@ export default function MisSolicitudes() {
 
     if (result.error) {
       toast({
-        title: "Error",
-        description: result.error,
+        title: t("Error"),
+        description: t(result.error),
         variant: "destructive",
       })
     } else {
       toast({
-        title: "Valoración enviada",
-        description: "Gracias por tu valoración. Ayuda a otros clientes a elegir mejor.",
+        title: t("Valoración enviada"),
+        description: t("Gracias por tu valoración. Ayuda a otros clientes a elegir mejor."),
       })
     }
 
@@ -381,7 +387,7 @@ export default function MisSolicitudes() {
   }
 
   const formatearFecha = (fecha: string) => {
-    return new Date(fecha).toLocaleDateString("es-ES", {
+    return new Date(fecha).toLocaleDateString(localeDe(idioma), {
       day: "numeric",
       month: "short",
       year: "numeric"
@@ -430,9 +436,9 @@ export default function MisSolicitudes() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Abiertas</p>
+                <p className="text-sm text-muted-foreground">{t("Abiertas")}</p>
                 <p className="text-3xl font-bold">{solicitudesPendientes.length}</p>
-                <p className="text-xs text-muted-foreground">esperando ofertas</p>
+                <p className="text-xs text-muted-foreground">{t("esperando ofertas")}</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-amber-500/20 flex items-center justify-center">
                 <FileText className="h-6 w-6 text-amber-500" />
@@ -452,9 +458,9 @@ export default function MisSolicitudes() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">En Progreso</p>
+                <p className="text-sm text-muted-foreground">{t("En Progreso")}</p>
                 <p className="text-3xl font-bold">{solicitudesEnProgreso.length}</p>
-                <p className="text-xs text-muted-foreground">trabajos en curso</p>
+                <p className="text-xs text-muted-foreground">{t("trabajos en curso")}</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-blue-500/20 flex items-center justify-center">
                 <TrendingUp className="h-6 w-6 text-blue-500" />
@@ -474,10 +480,10 @@ export default function MisSolicitudes() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Por Confirmar</p>
+                <p className="text-sm text-muted-foreground">{t("Por Confirmar")}</p>
                 <p className="text-3xl font-bold">{solicitudesPorConfirmar.length}</p>
                 <p className="text-xs text-muted-foreground">
-                  {solicitudesPorConfirmar.length === 1 ? "entrega por revisar" : "entregas por revisar"}
+                  {solicitudesPorConfirmar.length === 1 ? t("entrega por revisar") : t("entregas por revisar")}
                 </p>
               </div>
               <div className="h-12 w-12 rounded-full bg-purple-500/20 flex items-center justify-center">
@@ -498,10 +504,10 @@ export default function MisSolicitudes() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Historial</p>
+                <p className="text-sm text-muted-foreground">{t("Historial")}</p>
                 <p className="text-3xl font-bold">{solicitudesCompletadas.length}</p>
                 <p className="text-xs text-muted-foreground">
-                  {solicitudesCompletadas.length === 1 ? "completado" : "completados"}
+                  {solicitudesCompletadas.length === 1 ? t("completado") : t("completados")}
                 </p>
               </div>
               <div className="h-12 w-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
@@ -525,9 +531,9 @@ export default function MisSolicitudes() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Disputas</p>
+                <p className="text-sm text-muted-foreground">{t("Disputas")}</p>
                 <p className="text-3xl font-bold">{disputasCount ?? "—"}</p>
-                <p className="text-xs text-muted-foreground">en curso</p>
+                <p className="text-xs text-muted-foreground">{t("en curso")}</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-rose-500/20 flex items-center justify-center">
                 <Scale className="h-6 w-6 text-rose-500" />
@@ -546,13 +552,9 @@ export default function MisSolicitudes() {
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-lg font-medium">No tienes solicitudes pendientes</p>
-                <p className="text-muted-foreground text-center mt-1">
-                  Publica una nueva solicitud de servicio desde la página principal
-                </p>
-                <Button className="mt-4" onClick={() => router.push("/")}>
-                  Crear Solicitud
-                </Button>
+                <p className="text-lg font-medium">{t("No tienes solicitudes pendientes")}</p>
+                <p className="text-muted-foreground text-center mt-1">{t("Publica una nueva solicitud de servicio desde la página principal")}</p>
+                <Button className="mt-4" onClick={() => router.push("/")}>{t("Crear Solicitud")}</Button>
               </CardContent>
             </Card>
           ) : (
@@ -573,8 +575,7 @@ export default function MisSolicitudes() {
                       <CardTitle className="text-xl">{solicitud.titulo}</CardTitle>
                       <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          Publicada el {formatearFecha(solicitud.created_at)}
+                          <Calendar className="h-4 w-4" />{t("Publicada el")}{" "}{formatearFecha(solicitud.created_at)}
                         </span>
                         <span className="flex items-center gap-1">
                           <MapPin className="h-4 w-4" />
@@ -585,10 +586,10 @@ export default function MisSolicitudes() {
                     </div>
                     <div className="text-left sm:text-right">
                       <Badge variant="secondary" className="mb-1">
-                        {solicitud.categoria?.nombre}
+                        {t(solicitud.categoria?.nombre || "")}
                       </Badge>
                       <p className="text-lg font-semibold text-primary">
-                        {formatearRangoPresupuesto(solicitud.presupuesto_min, solicitud.presupuesto_max)}
+                        {formatearRangoPresupuesto(solicitud.presupuesto_min, solicitud.presupuesto_max, idioma)}
                       </p>
                     </div>
                   </div>
@@ -602,23 +603,16 @@ export default function MisSolicitudes() {
                       <div className="flex items-start gap-3">
                         <CreditCard className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
                         <div>
-                          <p className="font-semibold text-amber-700 dark:text-amber-400">
-                            Has aceptado la oferta de {solicitud.trabajo?.profesional?.nombre || "un profesional"}
-                            {" — "}falta completar el pago
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            La contratación no se cierra hasta que completes el pago protegido. Mientras tanto,
-                            las demás ofertas siguen disponibles.
-                          </p>
+                          <p className="font-semibold text-amber-700 dark:text-amber-400">{t("Has aceptado la oferta de")}{" "}{solicitud.trabajo?.profesional?.nombre || t("un profesional")}
+                            {" — "}{t("falta completar el pago")}</p>
+                          <p className="text-sm text-muted-foreground">{t("La contratación no se cierra hasta que completes el pago protegido. Mientras tanto, las demás ofertas siguen disponibles.")}</p>
                         </div>
                       </div>
                       <Button
                         className="bg-emerald-600 hover:bg-emerald-700 shrink-0"
                         onClick={() => router.push(`/pago/${solicitud.trabajo.id}`)}
                       >
-                        <CreditCard className="h-4 w-4 mr-2" />
-                        Pagar ahora
-                      </Button>
+                        <CreditCard className="h-4 w-4 mr-2" />{t("Pagar ahora")}</Button>
                     </div>
                   )}
 
@@ -639,31 +633,25 @@ export default function MisSolicitudes() {
                   {Array.isArray(solicitud.archivos) && solicitud.archivos.length > 0 && (
                     <div className="mb-4">
                       <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
-                        <FileText className="h-3.5 w-3.5" /> Archivos adjuntos ({solicitud.archivos.length})
+                        <FileText className="h-3.5 w-3.5" />{" "}{t("Archivos adjuntos (")}{solicitud.archivos.length})
                       </p>
                       <AdjuntosLista archivos={solicitud.archivos} />
                     </div>
                   )}
 
                   {terminosBloqueados ? (
-                    <p className="mb-4 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-muted-foreground">
-                      Los datos de la demanda quedan bloqueados mientras haya una oferta aceptada o un trabajo activo.
-                    </p>
+                    <p className="mb-4 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-muted-foreground">{t("Los datos de la demanda quedan bloqueados mientras haya una oferta aceptada o un trabajo activo.")}</p>
                   ) : (
                     <div className="flex gap-2 mb-4">
                       <Button variant="outline" size="sm" className="bg-transparent" onClick={() => abrirEditar(solicitud)}>
-                        <Pencil className="h-4 w-4 mr-1.5" />
-                        Editar
-                      </Button>
+                        <Pencil className="h-4 w-4 mr-1.5" />{t("Editar")}</Button>
                       <Button
                         variant="outline"
                         size="sm"
                         className="bg-transparent text-destructive border-destructive/40 hover:bg-destructive/10"
                         onClick={() => setDeleteSolicitud(solicitud)}
                       >
-                        <Trash2 className="h-4 w-4 mr-1.5" />
-                        Borrar
-                      </Button>
+                        <Trash2 className="h-4 w-4 mr-1.5" />{t("Borrar")}</Button>
                     </div>
                   )}
 
@@ -673,7 +661,7 @@ export default function MisSolicitudes() {
                       <div className="flex items-center justify-between">
                         <h4 className="font-semibold flex items-center gap-2">
                           <MessageSquare className="h-4 w-4" />
-                          {ofertasPendientes.length} oferta{ofertasPendientes.length !== 1 ? "s" : ""} recibida{ofertasPendientes.length !== 1 ? "s" : ""}
+                          {t(ofertasPendientes.length === 1 ? "{count} oferta recibida" : "{count} ofertas recibidas", { count: ofertasPendientes.length })}
                         </h4>
                       </div>
 
@@ -700,36 +688,36 @@ export default function MisSolicitudes() {
                                         {oferta.profesional?.rating_promedio != null && (
                                           <span className="flex items-center gap-1">
                                             <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
-                                            {Number(oferta.profesional.rating_promedio).toFixed(1)}
+                                            {Number(oferta.profesional.rating_promedio).toLocaleString(localeDe(idioma), { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                                           </span>
                                         )}
                                         {oferta.profesional?.titulo && <span>{oferta.profesional.titulo}</span>}
                                       </div>
                                     </div>
                                     <div className="text-right">
-                                      <p className="text-xl font-bold text-primary">{formatearPrecioEuros(oferta.precio)}</p>
+                                      <p className="text-xl font-bold text-primary">{formatearPrecioEuros(oferta.precio, idioma)}</p>
                                       <p className="text-sm text-muted-foreground">
-                                        {oferta.tiempo_estimado} {oferta.unidad_tiempo}
+                                        {oferta.tiempo_estimado} {t(oferta.unidad_tiempo || "días")}
                                       </p>
                                     </div>
                                   </div>
                                   <p className="text-sm mt-2 text-muted-foreground">{oferta.descripcion}</p>
                                   {oferta.materiales_incluidos && (
                                     <p className="text-sm text-muted-foreground mt-1">
-                                      <span className="font-medium text-foreground">Materiales:</span>{" "}
+                                      <span className="font-medium text-foreground">{t("Materiales:")}</span>{" "}
                                       {oferta.materiales_incluidos === "si"
-                                        ? "incluidos"
+                                        ? t("incluidos")
                                         : oferta.materiales_incluidos === "no"
-                                          ? "no incluidos"
+                                          ? t("no incluidos")
                                           : oferta.materiales_incluidos === "parcial"
-                                            ? "parcialmente incluidos"
+                                            ? t("parcialmente incluidos")
                                             : oferta.materiales_incluidos}
                                     </p>
                                   )}
                                   {Array.isArray(oferta.archivos) && oferta.archivos.length > 0 && (
                                     <div className="mt-3">
                                       <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
-                                        <FileText className="h-3.5 w-3.5" /> Archivos adjuntos ({oferta.archivos.length})
+                                        <FileText className="h-3.5 w-3.5" />{" "}{t("Archivos adjuntos (")}{oferta.archivos.length})
                                       </p>
                                       <AdjuntosLista archivos={oferta.archivos} />
                                     </div>
@@ -739,31 +727,23 @@ export default function MisSolicitudes() {
                                       size="sm"
                                       onClick={() => setAcceptOfertaTarget({ oferta, solicitud })}
                                     >
-                                      <Check className="h-4 w-4 mr-1" />
-                                      Aceptar Oferta
-                                    </Button>
+                                      <Check className="h-4 w-4 mr-1" />{t("Aceptar Oferta")}</Button>
                                     <Button
                                       size="sm"
                                       variant="outline"
                                       className="bg-transparent text-destructive border-destructive/40 hover:bg-destructive/10"
                                       onClick={() => setRejectOfertaTarget(oferta)}
                                     >
-                                      <XCircle className="h-4 w-4 mr-1" />
-                                      Rechazar
-                                    </Button>
+                                      <XCircle className="h-4 w-4 mr-1" />{t("Rechazar")}</Button>
                                     <Button
                                       size="sm"
                                       variant="outline"
                                       className="bg-transparent"
                                       onClick={() => handleContactar(oferta.profesional_id, solicitud.id)}
                                     >
-                                      <MessageSquare className="h-4 w-4 mr-1" />
-                                      Contactar
-                                    </Button>
+                                      <MessageSquare className="h-4 w-4 mr-1" />{t("Contactar")}</Button>
                                     <Button size="sm" variant="ghost" onClick={() => router.push(`/profesional/${oferta.profesional_id}`)}>
-                                      <Eye className="h-4 w-4 mr-1" />
-                                      Ver Perfil
-                                    </Button>
+                                      <Eye className="h-4 w-4 mr-1" />{t("Ver Perfil")}</Button>
                                   </div>
                                 </div>
                               </div>
@@ -777,9 +757,7 @@ export default function MisSolicitudes() {
                     // ya lo cuenta todo: "no has recibido ofertas" sería contradictorio.
                     <div className="bg-muted/50 rounded-lg p-4 text-center">
                       <Clock className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                      <p className="text-sm text-muted-foreground">
-                        Aún no has recibido ofertas. Los profesionales están revisando tu solicitud.
-                      </p>
+                      <p className="text-sm text-muted-foreground">{t("Aún no has recibido ofertas. Los profesionales están revisando tu solicitud.")}</p>
                     </div>
                   )}
                 </CardContent>
@@ -805,25 +783,25 @@ export default function MisSolicitudes() {
                 )}
                 <p className="text-lg font-medium">
                   {tab === "en-progreso"
-                    ? "No tienes proyectos en progreso"
-                    : "No tienes entregas pendientes de confirmar"}
+                    ? t("No tienes proyectos en progreso")
+                    : t("No tienes entregas pendientes de confirmar")}
                 </p>
                 <p className="text-muted-foreground text-center mt-1">
                   {tab === "en-progreso"
-                    ? "Cuando aceptes una oferta, el proyecto aparecerá aquí"
-                    : "Cuando un profesional te entregue un trabajo, aquí podrás confirmarlo y liberar el pago"}
+                    ? t("Cuando aceptes una oferta, el proyecto aparecerá aquí")
+                    : t("Cuando un profesional te entregue un trabajo, aquí podrás confirmarlo y liberar el pago")}
                 </p>
               </CardContent>
             </Card>
           ) : (
             lista.map((solicitud) => {
               const trabajo = solicitud.trabajo
-              const diasRestantes = trabajo?.fecha_estimada_fin 
+              const diasRestantes = trabajo?.fecha_estimada_fin
                 ? calcularDiasRestantes(trabajo.fecha_estimada_fin)
                 : null
               const esEntregado = trabajo?.estado === "entregado"
               const pagado = trabajo?.escrow?.estado === "fondos_retenidos"
-              
+
               return (
                 <Card
                   key={solicitud.id}
@@ -836,40 +814,32 @@ export default function MisSolicitudes() {
                           <CardTitle className="max-w-full break-words text-xl">{solicitud.titulo}</CardTitle>
                           {esEntregado && (
                             <Badge className="max-w-full whitespace-normal bg-purple-500 text-left leading-tight sm:whitespace-nowrap sm:text-center sm:leading-normal">
-                              <Package className="mr-1 h-3 w-3 shrink-0" />
-                              Pendiente de Confirmación
-                            </Badge>
+                              <Package className="mr-1 h-3 w-3 shrink-0" />{t("Pendiente de Confirmación")}</Badge>
                           )}
                         </div>
-                        <CardDescription className="break-words">{solicitud.categoria?.nombre}</CardDescription>
+                        <CardDescription className="break-words">{t(solicitud.categoria?.nombre || "")}</CardDescription>
                       </div>
                       <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2 text-left sm:block sm:w-auto sm:shrink-0 sm:text-right">
                         <p className="min-w-0 break-words text-2xl font-bold">
-                          {formatearPrecioEuros(trabajo?.precio_acordado)}
+                          {formatearPrecioEuros(trabajo?.precio_acordado, idioma)}
                         </p>
                         {pagado ? (
                           <Badge
                             variant="outline"
                             className="max-w-full whitespace-normal bg-transparent text-left leading-tight text-emerald-500 border-emerald-500/50 sm:whitespace-nowrap sm:text-center sm:leading-normal"
                           >
-                            <ShieldCheck className="mr-1 h-3 w-3 shrink-0" />
-                            Pagado · Protegido
-                          </Badge>
+                            <ShieldCheck className="mr-1 h-3 w-3 shrink-0" />{t("Pagado · Protegido")}</Badge>
                         ) : trabajo?.estado === "pendiente_pago" ? (
                           <Badge
                             variant="outline"
                             className="max-w-full whitespace-normal bg-transparent text-left leading-tight text-amber-500 border-amber-500/50 sm:whitespace-nowrap sm:text-center sm:leading-normal"
                           >
-                            <CreditCard className="mr-1 h-3 w-3 shrink-0" />
-                            Pendiente de pago
-                          </Badge>
+                            <CreditCard className="mr-1 h-3 w-3 shrink-0" />{t("Pendiente de pago")}</Badge>
                         ) : trabajo?.escrow?.estado === "reembolsado" ? (
                           <Badge
                             variant="outline"
                             className="max-w-full whitespace-normal bg-transparent text-left leading-tight text-blue-500 border-blue-500/50 sm:whitespace-nowrap sm:text-center sm:leading-normal"
-                          >
-                            Reembolsado
-                          </Badge>
+                          >{t("Reembolsado")}</Badge>
                         ) : null}
                       </div>
                     </div>
@@ -902,9 +872,7 @@ export default function MisSolicitudes() {
                         className="w-full bg-transparent sm:ml-auto sm:w-auto sm:shrink-0"
                         onClick={() => handleContactar(trabajo?.profesional_id, solicitud.id, trabajo?.id)}
                       >
-                        <MessageSquare className="h-4 w-4 mr-1" />
-                        Mensaje
-                      </Button>
+                        <MessageSquare className="h-4 w-4 mr-1" />{t("Mensaje")}</Button>
                     </div>
 
                     {/* Trabajo sin pagar (p. ej. el cliente abandonó la pasarela):
@@ -914,19 +882,15 @@ export default function MisSolicitudes() {
                         <div className="flex items-start gap-3">
                           <CreditCard className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
                           <div>
-                            <p className="font-semibold text-amber-700 dark:text-amber-400">Pago pendiente</p>
-                            <p className="text-sm text-muted-foreground">
-                              El trabajo no empezará hasta que completes el pago protegido.
-                            </p>
+                            <p className="font-semibold text-amber-700 dark:text-amber-400">{t("Pago pendiente")}</p>
+                            <p className="text-sm text-muted-foreground">{t("El trabajo no empezará hasta que completes el pago protegido.")}</p>
                           </div>
                         </div>
                         <Button
                           className="bg-emerald-600 hover:bg-emerald-700 shrink-0"
                           onClick={() => router.push(`/pago/${trabajo.id}`)}
                         >
-                          <CreditCard className="h-4 w-4 mr-2" />
-                          Pagar ahora
-                        </Button>
+                          <CreditCard className="h-4 w-4 mr-2" />{t("Pagar ahora")}</Button>
                       </div>
                     )}
 
@@ -938,16 +902,15 @@ export default function MisSolicitudes() {
                     {/* Condiciones y adjuntos de la oferta aceptada + documentos */}
                     {trabajo && (
                       <div className="min-w-0 space-y-2 overflow-hidden rounded-lg border bg-muted/30 p-4">
-                        <p className="text-sm font-medium">Contratación</p>
+                        <p className="text-sm font-medium">{t("Contratación")}</p>
                         {trabajo.oferta?.materiales_incluidos && (
-                          <p className="break-words text-sm text-muted-foreground">
-                            Materiales:{" "}
+                          <p className="break-words text-sm text-muted-foreground">{t("Materiales:")}{" "}
                             {trabajo.oferta.materiales_incluidos === "si"
-                              ? "incluidos"
+                              ? t("incluidos")
                               : trabajo.oferta.materiales_incluidos === "no"
-                                ? "no incluidos"
+                                ? t("no incluidos")
                                 : trabajo.oferta.materiales_incluidos === "parcial"
-                                  ? "parcialmente incluidos"
+                                  ? t("parcialmente incluidos")
                                   : trabajo.oferta.materiales_incluidos}
                           </p>
                         )}
@@ -958,8 +921,7 @@ export default function MisSolicitudes() {
                             target="_blank"
                             className="inline-flex min-w-0 max-w-full items-center gap-1 break-words text-xs text-primary hover:underline"
                           >
-                            <FileText className="h-3 w-3 shrink-0" /> Ver justificante y términos
-                          </a>
+                            <FileText className="h-3 w-3 shrink-0" />{" "}{t("Ver justificante y términos")}</a>
                         </div>
                       </div>
                     )}
@@ -969,11 +931,8 @@ export default function MisSolicitudes() {
                       <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 flex items-start gap-3">
                         <Scale className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
                         <div>
-                          <p className="font-semibold text-amber-700 dark:text-amber-400">Trabajo en disputa</p>
-                          <p className="text-sm text-muted-foreground">
-                            El equipo de Diime está revisando el caso. El pago queda retenido hasta que se resuelva
-                            (reembolso al cliente o liberación al profesional).
-                          </p>
+                          <p className="font-semibold text-amber-700 dark:text-amber-400">{t("Trabajo en disputa")}</p>
+                          <p className="text-sm text-muted-foreground">{t("El equipo de Diime está revisando el caso. El pago queda retenido hasta que se resuelva (reembolso al cliente o liberación al profesional).")}</p>
                         </div>
                       </div>
                     )}
@@ -981,36 +940,36 @@ export default function MisSolicitudes() {
                     {/* Progress Section */}
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Progreso del trabajo</span>
+                        <span className="text-sm font-medium">{t("Progreso del trabajo")}</span>
                         <span className="text-sm font-bold text-primary">{trabajo?.progreso || 0}%</span>
                       </div>
                       <Progress value={trabajo?.progreso || 0} className="h-3" />
-                      
+
                       <div className="grid grid-cols-1 gap-3 pt-2 sm:grid-cols-2 sm:gap-4">
                         <div className="flex min-w-0 items-center gap-2 text-sm">
                           <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
-                          <span className="shrink-0 text-muted-foreground">Inicio:</span>
+                          <span className="shrink-0 text-muted-foreground">{t("Inicio:")}</span>
                           <span className="min-w-0 break-words font-medium">
                             {trabajo?.fecha_inicio ? formatearFecha(trabajo.fecha_inicio) : "—"}
                           </span>
                         </div>
                         <div className="flex min-w-0 items-center gap-2 text-sm">
                           <Timer className="h-4 w-4 shrink-0 text-muted-foreground" />
-                          <span className="shrink-0 text-muted-foreground">Entrega estimada:</span>
+                          <span className="shrink-0 text-muted-foreground">{t("Entrega estimada:")}</span>
                           <span className="min-w-0 break-words font-medium">
                             {trabajo?.fecha_estimada_fin ? formatearFecha(trabajo.fecha_estimada_fin) : "—"}
                           </span>
                         </div>
                       </div>
-                      
+
                       {diasRestantes !== null && !esEntregado && (
                         <div className={`p-3 rounded-lg ${diasRestantes <= 0 ? "bg-red-500/10" : diasRestantes <= 3 ? "bg-amber-500/10" : "bg-blue-500/10"}`}>
                           <p className={`text-sm font-medium ${diasRestantes <= 0 ? "text-red-500" : diasRestantes <= 3 ? "text-amber-500" : "text-blue-500"}`}>
-                            {diasRestantes <= 0 
-                              ? "Fecha de entrega vencida" 
-                              : diasRestantes === 1 
-                                ? "Entrega mañana" 
-                                : `${diasRestantes} días restantes`}
+                            {diasRestantes <= 0
+                              ? t("Fecha de entrega vencida")
+                              : diasRestantes === 1
+                                ? t("Entrega mañana")
+                                : t("{count} días restantes", { count: diasRestantes })}
                           </p>
                         </div>
                       )}
@@ -1019,7 +978,7 @@ export default function MisSolicitudes() {
                     {/* Updates Timeline */}
                     {trabajo?.actualizaciones && trabajo.actualizaciones.length > 0 && (
                       <div className="space-y-3">
-                        <h4 className="font-semibold text-sm">Actualizaciones del profesional</h4>
+                        <h4 className="font-semibold text-sm">{t("Actualizaciones del profesional")}</h4>
                         <div className="space-y-2 max-h-48 overflow-y-auto">
                           {trabajo.actualizaciones.map((update: any, idx: number) => (
                             <div key={idx} className="flex min-w-0 gap-3 text-sm">
@@ -1036,8 +995,7 @@ export default function MisSolicitudes() {
                                 <p className="break-words">{update.mensaje}</p>
                                 {update.progreso && (
                                   <Badge variant="secondary" className="mt-1">
-                                    {update.progreso}% completado
-                                  </Badge>
+                                    {update.progreso}{t("% completado")}</Badge>
                                 )}
                               </div>
                             </div>
@@ -1059,44 +1017,34 @@ export default function MisSolicitudes() {
                         <div className="flex min-w-0 items-start gap-3">
                           <Package className="mt-0.5 h-5 w-5 shrink-0 text-purple-500" />
                           <div className="min-w-0 flex-1">
-                            <p className="break-words font-semibold">El profesional ha marcado el trabajo como entregado</p>
-                            <p className="break-words text-sm text-muted-foreground">
-                              Revisa el trabajo realizado y confirma su finalización para liberar el pago.
-                            </p>
+                            <p className="break-words font-semibold">{t("El profesional ha marcado el trabajo como entregado")}</p>
+                            <p className="break-words text-sm text-muted-foreground">{t("Revisa el trabajo realizado y confirma su finalización para liberar el pago.")}</p>
                           </div>
                         </div>
                         <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
                           <AlertDialog open={showConfirmDialog && selectedTrabajo?.id === trabajo?.id} onOpenChange={setShowConfirmDialog}>
-                            <Button 
+                            <Button
                               className="h-auto min-h-9 w-full whitespace-normal py-2 sm:h-9 sm:flex-1 sm:whitespace-nowrap"
                               onClick={() => {
                                 setSelectedTrabajo(trabajo)
                                 setShowConfirmDialog(true)
                               }}
                             >
-                              <CheckCircle2 className="h-4 w-4 mr-1" />
-                              Confirmar y Liberar Pago
-                            </Button>
+                              <CheckCircle2 className="h-4 w-4 mr-1" />{t("Confirmar y Liberar Pago")}</Button>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Confirmar finalización del trabajo</AlertDialogTitle>
+                                <AlertDialogTitle>{t("Confirmar finalización del trabajo")}</AlertDialogTitle>
                                 {/* Se habla del importe que SALE DE LA CUSTODIA, no de
                                     lo que acaba cobrando el profesional: lo que Diime
                                     le descuenta a él es cosa entre Diime y él, y el
                                     cliente no tiene por qué saberlo. Por eso "se
                                     libera" y no "el profesional recibirá". */}
-                                <AlertDialogDescription>
-                                  Al confirmar se libera el pago de{" "}
-                                  {formatearPrecioEuros(trabajo?.precio_acordado)} pendiente de liquidación y el trabajo
-                                  queda cerrado. Esta acción no se puede deshacer. ¿Confirmas que el trabajo se ha
-                                  completado satisfactoriamente?
-                                </AlertDialogDescription>
+                                <AlertDialogDescription>{t("Al confirmar se libera el pago de")}{" "}
+                                  {formatearPrecioEuros(trabajo?.precio_acordado, idioma)}{" "}{t("pendiente de liquidación y el trabajo queda cerrado. Esta acción no se puede deshacer. ¿Confirmas que el trabajo se ha completado satisfactoriamente?")}</AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleConfirmarTrabajo(trabajo)}>
-                                  Sí, confirmar y pagar
-                                </AlertDialogAction>
+                                <AlertDialogCancel>{t("Cancelar")}</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleConfirmarTrabajo(trabajo)}>{t("Sí, confirmar y pagar")}</AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
@@ -1108,14 +1056,9 @@ export default function MisSolicitudes() {
                               setShowRejectDialog(true)
                             }}
                           >
-                            <XCircle className="h-4 w-4 mr-1" />
-                            Rechazar entrega
-                          </Button>
+                            <XCircle className="h-4 w-4 mr-1" />{t("Rechazar entrega")}</Button>
                         </div>
-                        <p className="break-words pt-1 text-center text-xs text-muted-foreground">
-                          Si rechazas la entrega, el pago sigue retenido y el equipo de Diime decidirá según las
-                          pruebas y los términos acordados.
-                        </p>
+                        <p className="break-words pt-1 text-center text-xs text-muted-foreground">{t("Si rechazas la entrega, el pago sigue retenido y el equipo de Diime decidirá según las pruebas y los términos acordados.")}</p>
                       </div>
                     )}
                   </CardContent>
@@ -1133,10 +1076,8 @@ export default function MisSolicitudes() {
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <CheckCircle2 className="h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-lg font-medium">No tienes proyectos completados</p>
-                <p className="text-muted-foreground text-center mt-1">
-                  Los proyectos finalizados aparecerán aquí
-                </p>
+                <p className="text-lg font-medium">{t("No tienes proyectos completados")}</p>
+                <p className="text-muted-foreground text-center mt-1">{t("Los proyectos finalizados aparecerán aquí")}</p>
               </CardContent>
             </Card>
           ) : (
@@ -1152,14 +1093,12 @@ export default function MisSolicitudes() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="break-words font-semibold leading-snug">{solicitud.titulo}</p>
-                          <p className="mt-1 break-words text-sm text-muted-foreground">
-                            Completado el {solicitud.trabajo?.fecha_fin
+                          <p className="mt-1 break-words text-sm text-muted-foreground">{t("Completado el")}{" "}{solicitud.trabajo?.fecha_fin
                               ? formatearFecha(solicitud.trabajo.fecha_fin)
                               : formatearFecha(solicitud.created_at)}
                           </p>
                           {solicitud.trabajo?.profesional && (
-                            <p className="break-words text-sm text-muted-foreground">
-                              Profesional: {solicitud.trabajo.profesional.nombre} {solicitud.trabajo.profesional.apellido}
+                            <p className="break-words text-sm text-muted-foreground">{t("Profesional:")}{" "}{solicitud.trabajo.profesional.nombre} {solicitud.trabajo.profesional.apellido}
                             </p>
                           )}
                           {solicitud.trabajo?.id && (
@@ -1168,33 +1107,28 @@ export default function MisSolicitudes() {
                               target="_blank"
                               className="mt-2 inline-flex max-w-full items-center gap-1 break-words text-xs text-primary hover:underline"
                             >
-                              <FileText className="h-3 w-3 shrink-0" /> Ver justificante y términos
-                            </a>
+                              <FileText className="h-3 w-3 shrink-0" />{" "}{t("Ver justificante y términos")}</a>
                           )}
                         </div>
                       </div>
                       <div className="flex w-full items-center justify-between gap-3 border-t border-emerald-500/20 pt-3 sm:w-auto sm:shrink-0 sm:flex-col sm:items-end sm:justify-center sm:border-0 sm:pt-0 sm:text-right">
                         <p className="shrink-0 text-lg font-bold">
-                          {formatearPrecioEuros(solicitud.trabajo?.precio_acordado || solicitud.presupuesto_max)}
+                          {formatearPrecioEuros(solicitud.trabajo?.precio_acordado || solicitud.presupuesto_max, idioma)}
                         </p>
                         {hasReview ? (
                           <Badge variant="outline" className="shrink-0 border-emerald-500/50 bg-transparent text-emerald-500 sm:mt-2">
-                            <Check className="mr-1 h-3 w-3" />
-                            Valorado
-                          </Badge>
+                            <Check className="mr-1 h-3 w-3" />{t("Valorado")}</Badge>
                         ) : (
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
+                          <Button
+                            size="sm"
+                            variant="outline"
                             className="h-auto min-h-9 max-w-full whitespace-normal bg-transparent text-left sm:mt-2 sm:whitespace-nowrap"
                             onClick={() => {
                               setSelectedTrabajo(solicitud.trabajo)
                               setShowReviewDialog(true)
                             }}
                           >
-                            <Star className="mr-1 h-4 w-4 shrink-0" />
-                            Dejar valoración
-                          </Button>
+                            <Star className="mr-1 h-4 w-4 shrink-0" />{t("Dejar valoración")}</Button>
                         )}
                       </div>
                     </div>
@@ -1216,15 +1150,13 @@ export default function MisSolicitudes() {
       <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Valorar al profesional</DialogTitle>
-            <DialogDescription>
-              Tu valoración ayuda a otros clientes y motiva a los profesionales a dar lo mejor de sí.
-            </DialogDescription>
+            <DialogTitle>{t("Valorar al profesional")}</DialogTitle>
+            <DialogDescription>{t("Tu valoración ayuda a otros clientes y motiva a los profesionales a dar lo mejor de sí.")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
             {/* Star Rating */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Puntuación</label>
+              <label className="text-sm font-medium">{t("Puntuación")}</label>
               <div className="flex items-center justify-center gap-2">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
@@ -1235,10 +1167,10 @@ export default function MisSolicitudes() {
                     onClick={() => setReviewRating(star)}
                     className="transition-transform hover:scale-110"
                   >
-                    <Star 
+                    <Star
                       className={`h-8 w-8 transition-colors ${
-                        star <= (reviewHover || reviewRating) 
-                          ? "fill-amber-500 text-amber-500" 
+                        star <= (reviewHover || reviewRating)
+                          ? "fill-amber-500 text-amber-500"
                           : "text-muted-foreground"
                       }`}
                     />
@@ -1246,19 +1178,19 @@ export default function MisSolicitudes() {
                 ))}
               </div>
               <p className="text-center text-sm text-muted-foreground">
-                {reviewRating === 1 && "Muy malo"}
-                {reviewRating === 2 && "Malo"}
-                {reviewRating === 3 && "Aceptable"}
-                {reviewRating === 4 && "Bueno"}
-                {reviewRating === 5 && "Excelente"}
+                {reviewRating === 1 && t("Muy malo")}
+                {reviewRating === 2 && t("Malo")}
+                {reviewRating === 3 && t("Aceptable")}
+                {reviewRating === 4 && t("Bueno")}
+                {reviewRating === 5 && t("Excelente")}
               </p>
             </div>
 
             {/* Comment */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Comentario</label>
+              <label className="text-sm font-medium">{t("Comentario")}</label>
               <Textarea
-                placeholder="Describe tu experiencia con este profesional..."
+                placeholder={t("Describe tu experiencia con este profesional...")}
                 value={reviewComentario}
                 onChange={(e) => setReviewComentario(e.target.value)}
                 rows={4}
@@ -1271,13 +1203,9 @@ export default function MisSolicitudes() {
               setSelectedTrabajo(null)
               setReviewRating(5)
               setReviewComentario("")
-            }}>
-              Omitir
-            </Button>
+            }}>{t("Omitir")}</Button>
             <Button onClick={handleSubmitReview} disabled={actionLoading || !reviewComentario.trim()}>
-              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-              Enviar valoración
-            </Button>
+              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}{t("Enviar valoración")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1286,26 +1214,20 @@ export default function MisSolicitudes() {
       <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-destructive">Rechazar la entrega</DialogTitle>
-            <DialogDescription>
-              Si la entrega no cumple lo acordado, puedes rechazarla. El pago{" "}
-              <span className="font-medium">no se reembolsa automáticamente</span>: la transferencia queda bloqueada y el
-              equipo de Diime decidirá según las pruebas y los términos acordados.
-            </DialogDescription>
+            <DialogTitle className="text-destructive">{t("Rechazar la entrega")}</DialogTitle>
+            <DialogDescription>{t("Si la entrega no cumple lo acordado, puedes rechazarla. El pago")}{" "}
+              <span className="font-medium">{t("no se reembolsa automáticamente")}</span>{t(": la transferencia queda bloqueada y el equipo de Diime decidirá según las pruebas y los términos acordados.")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-muted-foreground flex items-start gap-2">
               <Scale className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-              <span>
-                Se abrirá una disputa. Adjunta tus pruebas en el chat del trabajo (fotos, mensajes): Diime las
-                revisará junto con lo acordado antes de decidir si te reembolsa o libera el pago al profesional.
-              </span>
+              <span>{t("Se abrirá una disputa. Adjunta tus pruebas en el chat del trabajo (fotos, mensajes): Diime las revisará junto con lo acordado antes de decidir si te reembolsa o libera el pago al profesional.")}</span>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Motivo del rechazo *</label>
+              <label className="text-sm font-medium">{t("Motivo del rechazo *")}</label>
               <Textarea
-                placeholder="Explica por qué la entrega no cumple lo acordado..."
+                placeholder={t("Explica por qué la entrega no cumple lo acordado...")}
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 rows={4}
@@ -1316,17 +1238,13 @@ export default function MisSolicitudes() {
             <Button variant="outline" className="bg-transparent" onClick={() => {
               setShowRejectDialog(false)
               setRejectReason("")
-            }}>
-              Cancelar
-            </Button>
+            }}>{t("Cancelar")}</Button>
             <Button
               variant="destructive"
               onClick={() => handleRechazarTrabajo(selectedTrabajo)}
               disabled={actionLoading || !rejectReason.trim()}
             >
-              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
-              Rechazar y abrir disputa
-            </Button>
+              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}{t("Rechazar y abrir disputa")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1335,24 +1253,24 @@ export default function MisSolicitudes() {
       <Dialog open={!!editSolicitud} onOpenChange={(o) => !o && setEditSolicitud(null)}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Editar demanda</DialogTitle>
-            <DialogDescription>Modifica los datos de tu demanda. Solo es posible mientras siga abierta.</DialogDescription>
+            <DialogTitle>{t("Editar demanda")}</DialogTitle>
+            <DialogDescription>{t("Modifica los datos de tu demanda. Solo es posible mientras siga abierta.")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Tipo de servicio</label>
+              <label className="text-sm font-medium">{t("Tipo de servicio")}</label>
               <SelectCategoriaJerarquico
                 value={editForm.categoria}
                 onChange={(categoria) => setEditForm({ ...editForm, categoria })}
-                placeholder="Selecciona un servicio"
+                placeholder={t("Selecciona un servicio")}
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Título</label>
+              <label className="text-sm font-medium">{t("Título")}</label>
               <Input value={editForm.titulo} onChange={(e) => setEditForm({ ...editForm, titulo: e.target.value })} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Descripción</label>
+              <label className="text-sm font-medium">{t("Descripción")}</label>
               <Textarea
                 rows={4}
                 value={editForm.descripcion}
@@ -1360,12 +1278,12 @@ export default function MisSolicitudes() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Ubicación</label>
+              <label className="text-sm font-medium">{t("Ubicación")}</label>
               <Input value={editForm.ubicacion} onChange={(e) => setEditForm({ ...editForm, ubicacion: e.target.value })} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Presupuesto mín. (€)</label>
+                <label className="text-sm font-medium">{t("Presupuesto mín. (€)")}</label>
                 <Input
                   type="number"
                   value={editForm.presupuesto_min}
@@ -1373,7 +1291,7 @@ export default function MisSolicitudes() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Presupuesto máx. (€)</label>
+                <label className="text-sm font-medium">{t("Presupuesto máx. (€)")}</label>
                 <Input
                   type="number"
                   value={editForm.presupuesto_max}
@@ -1382,7 +1300,7 @@ export default function MisSolicitudes() {
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">¿Cuándo necesitas el trabajo?</label>
+              <label className="text-sm font-medium">{t("¿Cuándo necesitas el trabajo?")}</label>
               <select
                 className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
                 value={editForm.urgencia}
@@ -1393,10 +1311,10 @@ export default function MisSolicitudes() {
                     lo que había elegido ("Esta semana", "Este mes"…). */}
                 {URGENCIAS.map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.etiqueta}
+                    {t(u.etiqueta)}
                   </option>
                 ))}
-                <option value={OPCION_FECHA_EXACTA}>En una fecha concreta</option>
+                <option value={OPCION_FECHA_EXACTA}>{t("En una fecha concreta")}</option>
               </select>
               {editForm.urgencia === OPCION_FECHA_EXACTA && (
                 <Input
@@ -1409,13 +1327,9 @@ export default function MisSolicitudes() {
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" className="bg-transparent" onClick={() => setEditSolicitud(null)}>
-              Cancelar
-            </Button>
+            <Button variant="outline" className="bg-transparent" onClick={() => setEditSolicitud(null)}>{t("Cancelar")}</Button>
             <Button onClick={handleGuardarEdicion} disabled={actionLoading}>
-              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
-              Guardar cambios
-            </Button>
+              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}{t("Guardar cambios")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1424,42 +1338,35 @@ export default function MisSolicitudes() {
       <AlertDialog open={!!acceptOfertaTarget} onOpenChange={(o) => !o && setAcceptOfertaTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Aceptar oferta y continuar al pago</AlertDialogTitle>
-            <AlertDialogDescription>
-              Vas a aceptar la oferta de{" "}
-              {formatearPrecioEuros(acceptOfertaTarget?.oferta?.precio)} para "
-              {acceptOfertaTarget?.solicitud?.titulo}". Al pagar, Diime añadirá los gastos de servicio de la
-              plataforma ({PLATFORM_CONFIG.comisionClientePorcentaje}%, mín. 2€; IVA del{" "}
-              {PLATFORM_CONFIG.ivaDiimePorcentaje}% incluido). El precio de la oferta es el precio final indicado por
-              el profesional.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t("Aceptar oferta y continuar al pago")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("Vas a aceptar la oferta de")}{" "}
+              {formatearPrecioEuros(acceptOfertaTarget?.oferta?.precio, idioma)}{" "}{t("para \"")}{acceptOfertaTarget?.solicitud?.titulo}{t("\". Al pagar, Diime añadirá los gastos de servicio de la plataforma (")}{PLATFORM_CONFIG.comisionClientePorcentaje}{t("%, mín. 2€; IVA del")}{" "}
+              {PLATFORM_CONFIG.ivaDiimePorcentaje}{t("% incluido). El precio de la oferta es el precio final indicado por el profesional.")}</AlertDialogDescription>
           </AlertDialogHeader>
           {acceptOfertaTarget?.oferta?.precio != null && (
             <div className="rounded-lg border bg-muted/40 p-4 space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Precio final del servicio</span>
-                <span>{formatearPrecioEuros(acceptOfertaTarget.oferta.precio)}</span>
+                <span className="text-muted-foreground">{t("Precio final del servicio")}</span>
+                <span>{formatearPrecioEuros(acceptOfertaTarget.oferta.precio, idioma)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Gastos de servicio Diime ({PLATFORM_CONFIG.comisionClientePorcentaje}%; IVA del{" "}
-                  {PLATFORM_CONFIG.ivaDiimePorcentaje}% incluido)
-                </span>
+                <span className="text-muted-foreground">{t("Gastos de servicio Diime (")}{PLATFORM_CONFIG.comisionClientePorcentaje}{t("%; IVA del")}{" "}
+                  {PLATFORM_CONFIG.ivaDiimePorcentaje}{t("% incluido)")}</span>
                 <span>
-                  {formatearPrecioEuros(calcularTotalCliente(acceptOfertaTarget.oferta.precio).comisionCliente)}
+                  {formatearPrecioEuros(calcularTotalCliente(acceptOfertaTarget.oferta.precio).comisionCliente, idioma)}
                 </span>
               </div>
               <Separator />
               <div className="flex justify-between font-semibold">
-                <span>Total a pagar</span>
+                <span>{t("Total a pagar")}</span>
                 <span className="text-primary">
-                  {formatearPrecioEuros(calcularTotalCliente(acceptOfertaTarget.oferta.precio).totalCliente)}
+                  {formatearPrecioEuros(calcularTotalCliente(acceptOfertaTarget.oferta.precio).totalCliente, idioma)}
                 </span>
               </div>
             </div>
           )}
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("Cancelar")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (acceptOfertaTarget) {
@@ -1468,9 +1375,7 @@ export default function MisSolicitudes() {
                 }
               }}
             >
-              <Check className="h-4 w-4 mr-2" />
-              Aceptar y pagar
-            </AlertDialogAction>
+              <Check className="h-4 w-4 mr-2" />{t("Aceptar y pagar")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1479,14 +1384,11 @@ export default function MisSolicitudes() {
       <AlertDialog open={!!rejectOfertaTarget} onOpenChange={(o) => !o && setRejectOfertaTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Rechazar esta oferta?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Se rechazará la oferta de {formatearPrecioEuros(rejectOfertaTarget?.precio)}. El profesional será
-              notificado y no podrás deshacer esta acción.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t("¿Rechazar esta oferta?")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("Se rechazará la oferta de")}{" "}{formatearPrecioEuros(rejectOfertaTarget?.precio, idioma)}{t(". El profesional será notificado y no podrás deshacer esta acción.")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("Cancelar")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault()
@@ -1495,9 +1397,7 @@ export default function MisSolicitudes() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={actionLoading}
             >
-              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
-              Rechazar oferta
-            </AlertDialogAction>
+              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}{t("Rechazar oferta")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1506,10 +1406,8 @@ export default function MisSolicitudes() {
       <AlertDialog open={!!deleteSolicitud} onOpenChange={(o) => !o && setDeleteSolicitud(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Borrar esta demanda?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Se eliminará "{deleteSolicitud?.titulo}" de forma permanente. Esta acción no se puede deshacer.
-              {/* Las ofertas se borran en cascada con la demanda: hay que decirlo
+            <AlertDialogTitle>{t("¿Borrar esta demanda?")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("Se eliminará \"")}{deleteSolicitud?.titulo}{t("\" de forma permanente. Esta acción no se puede deshacer.")}{/* Las ofertas se borran en cascada con la demanda: hay que decirlo
                   antes, no después. */}
               {(() => {
                 const vivas = (deleteSolicitud?.ofertas || []).filter(
@@ -1519,15 +1417,15 @@ export default function MisSolicitudes() {
                 return (
                   <span className="block mt-2 text-destructive">
                     {vivas === 1
-                      ? "Perderás la oferta que has recibido, y avisaremos al profesional que la envió."
-                      : `Perderás las ${vivas} ofertas que has recibido, y avisaremos a los profesionales que las enviaron.`}
+                      ? t("Perderás la oferta que has recibido, y avisaremos al profesional que la envió.")
+                      : t("Perderás las {count} ofertas que has recibido, y avisaremos a los profesionales que las enviaron.", { count: vivas })}
                   </span>
                 )
               })()}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("Cancelar")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault()
@@ -1536,9 +1434,7 @@ export default function MisSolicitudes() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={actionLoading}
             >
-              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-              Borrar
-            </AlertDialogAction>
+              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}{t("Borrar")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

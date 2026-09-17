@@ -1,5 +1,8 @@
 "use client"
 
+import { useT } from "@/components/idioma-provider"
+
+
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -26,6 +29,7 @@ export function SelectorCategorias({
   onChange: (v: string[]) => void
   disabled?: boolean
 }) {
+  const t = useT()
   const alternar = (nombre: string) =>
     onChange(
       seleccionadas.includes(nombre) ? seleccionadas.filter((c) => c !== nombre) : [...seleccionadas, nombre],
@@ -37,7 +41,7 @@ export function SelectorCategorias({
         <div className="flex flex-wrap gap-1.5">
           {seleccionadas.map((c) => (
             <Badge key={c} variant="secondary" className="gap-1">
-              {c}
+              {t(c)}
               {!disabled && (
                 <button type="button" onClick={() => alternar(c)} className="hover:text-destructive">
                   <X className="h-3 w-3" />
@@ -67,6 +71,7 @@ export function SelectorProvincias({
   onChange: (v: string[]) => void
   disabled?: boolean
 }) {
+  const t = useT()
   const [busqueda, setBusqueda] = useState("")
 
   const alternar = (nombre: string) =>
@@ -84,8 +89,7 @@ export function SelectorProvincias({
         <div className="flex flex-wrap gap-1.5">
           {todasPuestas ? (
             <Badge variant="secondary" className="gap-1">
-              Toda España
-              {!disabled && (
+               {t("Toda España")} {!disabled && (
                 <button type="button" onClick={() => onChange([])} className="hover:text-destructive">
                   <X className="h-3 w-3" />
                 </button>
@@ -114,7 +118,7 @@ export function SelectorProvincias({
               <Input
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
-                placeholder="Buscar provincia..."
+                placeholder={t("Buscar provincia...")}
                 className="pl-8"
               />
             </div>
@@ -124,12 +128,12 @@ export function SelectorProvincias({
               size="sm"
               onClick={() => onChange(todasPuestas ? [] : [...PROVINCIAS_ES])}
             >
-              {todasPuestas ? "Ninguna" : "Toda España"}
+              {todasPuestas ? t("Ninguna") : t("Toda España")}
             </Button>
           </div>
           <div className="max-h-56 overflow-y-auto rounded-lg border p-3 grid grid-cols-2 gap-x-4 gap-y-1.5">
             {provincias.length === 0 && (
-              <p className="text-sm text-muted-foreground col-span-2">Ninguna provincia coincide.</p>
+              <p className="text-sm text-muted-foreground col-span-2">{t("Ninguna provincia coincide.")}</p>
             )}
             {provincias.map((p) => (
               <label key={p} className="flex items-center gap-2 cursor-pointer">

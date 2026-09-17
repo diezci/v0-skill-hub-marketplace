@@ -1,5 +1,8 @@
 "use client"
 
+import { useT, useIdioma } from "@/components/idioma-provider"
+import { localeDe } from "@/lib/i18n"
+
 import { useState, useEffect, useMemo } from "react"
 import Navbar from "@/components/navbar"
 import Footer from "@/components/footer"
@@ -59,29 +62,29 @@ function getColorForServicio(_index: number): string {
   return COLOR_SERVICIO
 }
 
-function getEstadoBadge(estado: string) {
+function getEstadoBadge(estado: string, t: ReturnType<typeof useT>) {
   switch (estado) {
     case "completado":
-      return <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">Completado</Badge>
+      return <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">{t("Completado")}</Badge>
     case "en_progreso":
-      return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">En progreso</Badge>
+      return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">{t("En progreso")}</Badge>
     case "pendiente_pago":
-      return <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">Pendiente pago</Badge>
+      return <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">{t("Pendiente pago")}</Badge>
     default:
-      return <Badge variant="outline">{estado}</Badge>
+      return <Badge variant="outline">{t(estado)}</Badge>
   }
 }
 
-function getPrioridadBadge(prioridad: string) {
+function getPrioridadBadge(prioridad: string, t: ReturnType<typeof useT>) {
   switch (prioridad) {
     case "alta":
-      return <Badge className="bg-red-500/20 text-red-400 border-red-500/30">Alta</Badge>
+      return <Badge className="bg-red-500/20 text-red-400 border-red-500/30">{t("Alta")}</Badge>
     case "media":
-      return <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">Media</Badge>
+      return <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">{t("Media")}</Badge>
     case "baja":
-      return <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Baja</Badge>
+      return <Badge className="bg-green-500/20 text-green-400 border-green-500/30">{t("Baja")}</Badge>
     default:
-      return <Badge variant="outline">Normal</Badge>
+      return <Badge variant="outline">{t("Normal")}</Badge>
   }
 }
 
@@ -107,6 +110,9 @@ type ItemCalendario = {
 }
 
 export default function MiCalendarioPage() {
+  const t = useT()
+  const { idioma } = useIdioma()
+
   const [trabajos, setTrabajos] = useState<TrabajoCalendario[]>([])
   const [servicios, setServicios] = useState<ServicioSolicitado[]>([])
   const [estadisticas, setEstadisticas] = useState({
@@ -161,21 +167,21 @@ export default function MiCalendarioPage() {
     const items: ItemCalendario[] = []
     
     if (tipoVista === "todos" || tipoVista === "trabajos") {
-      trabajos.forEach((t) => {
+      trabajos.forEach((trabajo) => {
         items.push({
-          id: t.id,
-          titulo: t.titulo || t.solicitud?.titulo || "Sin titulo",
+          id: trabajo.id,
+          titulo: trabajo.titulo || trabajo.solicitud?.titulo || t("Sin titulo"),
           tipo: "trabajo",
-          estado: t.estado,
-          fecha_inicio: t.fecha_inicio,
-          fecha_estimada_fin: t.fecha_estimada_fin,
-          monto: t.monto,
-          persona: t.cliente,
-          horas_estimadas: t.horas_estimadas,
-          horas_registradas: t.horas_registradas,
-          notas_privadas_proveedor: t.notas_privadas_proveedor,
-          prioridad: t.prioridad,
-          solicitud: t.solicitud,
+          estado: trabajo.estado,
+          fecha_inicio: trabajo.fecha_inicio,
+          fecha_estimada_fin: trabajo.fecha_estimada_fin,
+          monto: trabajo.monto,
+          persona: trabajo.cliente,
+          horas_estimadas: trabajo.horas_estimadas,
+          horas_registradas: trabajo.horas_registradas,
+          notas_privadas_proveedor: trabajo.notas_privadas_proveedor,
+          prioridad: trabajo.prioridad,
+          solicitud: trabajo.solicitud,
         })
       })
     }
@@ -184,7 +190,7 @@ export default function MiCalendarioPage() {
       servicios.forEach((s) => {
         items.push({
           id: s.id,
-          titulo: s.titulo || s.solicitud?.titulo || "Sin titulo",
+          titulo: s.titulo || s.solicitud?.titulo || t("Sin titulo"),
           tipo: "servicio",
           estado: s.estado,
           fecha_inicio: s.fecha_inicio,
@@ -197,7 +203,7 @@ export default function MiCalendarioPage() {
     }
     
     return items
-  }, [trabajos, servicios, tipoVista])
+  }, [trabajos, servicios, tipoVista, t])
 
   const diasDelMes = useMemo(() => {
     const year = currentDate.getFullYear()
@@ -321,15 +327,15 @@ export default function MiCalendarioPage() {
     
     if (result.success) {
       toast({
-        title: "Guardado",
-        description: "La estimacion se ha actualizado correctamente",
+        title: t("Guardado"),
+        description: t("La estimacion se ha actualizado correctamente"),
       })
       setEditDialogOpen(false)
       loadData()
     } else {
       toast({
-        title: "Error",
-        description: result.error || "No se pudo guardar",
+        title: t("Error"),
+        description: t(result.error || "No se pudo guardar"),
         variant: "destructive",
       })
     }
@@ -351,7 +357,7 @@ export default function MiCalendarioPage() {
         <Navbar />
         <main className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-center min-h-[60vh]">
-            <div className="animate-pulse text-muted-foreground">Cargando calendario...</div>
+            <div className="animate-pulse text-muted-foreground">{t("Cargando calendario...")}</div>
           </div>
         </main>
         <Footer />
@@ -368,22 +374,19 @@ export default function MiCalendarioPage() {
         <div className="mb-6 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between bg-gradient-to-r from-blue-500/5 via-transparent to-rose-500/5 border border-border rounded-xl p-4">
           <div>
             <h1 className="text-xl font-semibold flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-emerald-600" />
-              Mi calendario
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Aquí ves tanto los <span className="text-blue-600 dark:text-blue-400 font-medium">trabajos que tienes que realizar</span>
-              {" "}como los <span className="text-rose-600 dark:text-rose-400 font-medium">servicios que te van a realizar a ti</span>.
+              <Calendar className="h-5 w-5 text-emerald-600" />{t("Mi calendario")}</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">{t("Aquí ves tanto los")}{" "}<span className="text-blue-600 dark:text-blue-400 font-medium">{t("trabajos que tienes que realizar")}</span>
+              {" "}{t("como los")}{" "}<span className="text-rose-600 dark:text-rose-400 font-medium">{t("servicios que te van a realizar a ti")}</span>.
             </p>
           </div>
           <div className="flex items-center gap-4 text-xs">
             <div className="flex items-center gap-2">
               <span className="h-3 w-3 rounded-sm bg-blue-500" />
-              <span className="text-muted-foreground">{trabajos.length} trabajos</span>
+              <span className="text-muted-foreground">{trabajos.length}{" "}{t("trabajos")}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="h-3 w-3 rounded-sm bg-rose-500" />
-              <span className="text-muted-foreground">{servicios.length} servicios</span>
+              <span className="text-muted-foreground">{servicios.length}{" "}{t("servicios")}</span>
             </div>
           </div>
         </div>
@@ -396,9 +399,9 @@ export default function MiCalendarioPage() {
               <CardContent className="p-4">
                 <Tabs value={tipoVista} onValueChange={(v) => setTipoVista(v as typeof tipoVista)}>
                   <TabsList className="w-full">
-                    <TabsTrigger value="todos" className="flex-1">Todos</TabsTrigger>
-                    <TabsTrigger value="trabajos" className="flex-1">Trabajos</TabsTrigger>
-                    <TabsTrigger value="servicios" className="flex-1">Servicios</TabsTrigger>
+                    <TabsTrigger value="todos" className="flex-1">{t("Todos")}</TabsTrigger>
+                    <TabsTrigger value="trabajos" className="flex-1">{t("Trabajos")}</TabsTrigger>
+                    <TabsTrigger value="servicios" className="flex-1">{t("Servicios")}</TabsTrigger>
                   </TabsList>
                 </Tabs>
               </CardContent>
@@ -409,29 +412,27 @@ export default function MiCalendarioPage() {
               <Card className="bg-card border-border">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-primary" />
-                    Carga de Trabajo
-                  </CardTitle>
+                    <TrendingUp className="h-5 w-5 text-primary" />{t("Carga de Trabajo")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-muted/50 rounded-lg p-3 text-center">
                       <div className="text-2xl font-bold text-foreground">{estadisticas.trabajosEnProgreso}</div>
-                      <div className="text-xs text-muted-foreground">En progreso</div>
+                      <div className="text-xs text-muted-foreground">{t("En progreso")}</div>
                     </div>
                     <div className="bg-muted/50 rounded-lg p-3 text-center">
                       <div className="text-2xl font-bold text-foreground">{estadisticas.totalTrabajos}</div>
-                      <div className="text-xs text-muted-foreground">Total activos</div>
+                      <div className="text-xs text-muted-foreground">{t("Total activos")}</div>
                     </div>
                   </div>
                   
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Horas estimadas</span>
+                      <span className="text-muted-foreground">{t("Horas estimadas")}</span>
                       <span className="font-medium">{estadisticas.horasEstimadasSemana}h</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Horas registradas</span>
+                      <span className="text-muted-foreground">{t("Horas registradas")}</span>
                       <span className="font-medium">{estadisticas.horasRegistradasSemana}h</span>
                     </div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -450,8 +451,7 @@ export default function MiCalendarioPage() {
                     <div className="flex items-center gap-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg">
                       <AlertTriangle className="h-4 w-4 text-red-400" />
                       <span className="text-sm text-red-400">
-                        {estadisticas.trabajosAtrasados} trabajo(s) atrasado(s)
-                      </span>
+                        {estadisticas.trabajosAtrasados}{" "}{t("trabajo(s) atrasado(s)")}</span>
                     </div>
                   )}
                 </CardContent>
@@ -463,16 +463,12 @@ export default function MiCalendarioPage() {
               <Card className="bg-card border-border">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <Briefcase className="h-5 w-5 text-blue-500" />
-                    Mis Trabajos
-                    <Badge variant="outline" className="ml-auto">{trabajos.length}</Badge>
+                    <Briefcase className="h-5 w-5 text-blue-500" />{t("Mis Trabajos")}<Badge variant="outline" className="ml-auto">{trabajos.length}</Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 max-h-[300px] overflow-y-auto">
                   {trabajos.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                      No tienes trabajos activos
-                    </p>
+                    <p className="text-sm text-muted-foreground text-center py-4">{t("No tienes trabajos activos")}</p>
                   ) : (
                     trabajos.map((trabajo, index) => (
                       <div
@@ -480,7 +476,7 @@ export default function MiCalendarioPage() {
                         className="p-3 bg-muted/30 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
                         onClick={() => openItemDialog({
                           id: trabajo.id,
-                          titulo: trabajo.titulo || trabajo.solicitud?.titulo || "Sin titulo",
+                          titulo: trabajo.titulo || trabajo.solicitud?.titulo || t("Sin titulo"),
                           tipo: "trabajo",
                           estado: trabajo.estado,
                           fecha_inicio: trabajo.fecha_inicio,
@@ -498,13 +494,12 @@ export default function MiCalendarioPage() {
                           <div className={`w-3 h-3 rounded-full mt-1.5 ${getColorForTrabajo(index)}`} />
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-sm text-foreground truncate">
-                              {trabajo.titulo || trabajo.solicitud?.titulo || "Sin titulo"}
+                              {trabajo.titulo || trabajo.solicitud?.titulo || t("Sin titulo")}
                             </p>
-                            <p className="text-xs text-muted-foreground truncate">
-                              Cliente: {trabajo.cliente?.nombre} {trabajo.cliente?.apellido}
+                            <p className="text-xs text-muted-foreground truncate">{t("Cliente:")}{" "}{trabajo.cliente?.nombre} {trabajo.cliente?.apellido}
                             </p>
                             <div className="flex items-center gap-2 mt-1">
-                              {getEstadoBadge(trabajo.estado)}
+                              {getEstadoBadge(trabajo.estado, t)}
                             </div>
                           </div>
                         </div>
@@ -520,16 +515,12 @@ export default function MiCalendarioPage() {
               <Card className="bg-card border-border">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <ShoppingBag className="h-5 w-5 text-rose-500" />
-                    Servicios Solicitados
-                    <Badge variant="outline" className="ml-auto">{servicios.length}</Badge>
+                    <ShoppingBag className="h-5 w-5 text-rose-500" />{t("Servicios Solicitados")}<Badge variant="outline" className="ml-auto">{servicios.length}</Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 max-h-[300px] overflow-y-auto">
                   {servicios.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                      No has solicitado servicios
-                    </p>
+                    <p className="text-sm text-muted-foreground text-center py-4">{t("No has solicitado servicios")}</p>
                   ) : (
                     servicios.map((servicio, index) => (
                       <div
@@ -537,7 +528,7 @@ export default function MiCalendarioPage() {
                         className="p-3 bg-muted/30 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
                         onClick={() => openItemDialog({
                           id: servicio.id,
-                          titulo: servicio.titulo || servicio.solicitud?.titulo || "Sin titulo",
+                          titulo: servicio.titulo || servicio.solicitud?.titulo || t("Sin titulo"),
                           tipo: "servicio",
                           estado: servicio.estado,
                           fecha_inicio: servicio.fecha_inicio,
@@ -551,16 +542,14 @@ export default function MiCalendarioPage() {
                           <div className={`w-3 h-3 rounded-full mt-1.5 ${getColorForServicio(index)}`} />
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-sm text-foreground truncate">
-                              {servicio.titulo || servicio.solicitud?.titulo || "Sin titulo"}
+                              {servicio.titulo || servicio.solicitud?.titulo || t("Sin titulo")}
                             </p>
-                            <p className="text-xs text-muted-foreground truncate">
-                              Por: {servicio.profesional?.nombre} {servicio.profesional?.apellido}
+                            <p className="text-xs text-muted-foreground truncate">{t("Por:")}{" "}{servicio.profesional?.nombre} {servicio.profesional?.apellido}
                             </p>
                             <div className="flex items-center gap-2 mt-1">
-                              {getEstadoBadge(servicio.estado)}
+                              {getEstadoBadge(servicio.estado, t)}
                               {servicio.fecha_estimada_fin && (
-                                <span className="text-xs text-muted-foreground">
-                                  Entrega: {new Date(servicio.fecha_estimada_fin).toLocaleDateString("es-ES")}
+                                <span className="text-xs text-muted-foreground">{t("Entrega:")}{" "}{new Date(servicio.fecha_estimada_fin).toLocaleDateString(localeDe(idioma))}
                                 </span>
                               )}
                             </div>
@@ -589,8 +578,8 @@ export default function MiCalendarioPage() {
                     </Button>
                     <h2 className="text-xl font-semibold text-foreground">
                       {vista === "mensual" 
-                        ? `${MESES[currentDate.getMonth()]} ${currentDate.getFullYear()}`
-                        : `Semana del ${diasDeLaSemana[0].getDate()} ${MESES[diasDeLaSemana[0].getMonth()]}`
+                        ? `${t(MESES[currentDate.getMonth()])} ${currentDate.getFullYear()}`
+                        : t("Semana del {date}", { date: diasDeLaSemana[0].toLocaleDateString(localeDe(idioma), { day: "numeric", month: "long" }) })
                       }
                     </h2>
                     <Button
@@ -606,21 +595,17 @@ export default function MiCalendarioPage() {
                     <div className="hidden md:flex items-center gap-3 text-xs">
                       <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-500/10">
                         <Briefcase className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                        <span className="text-blue-700 dark:text-blue-300 font-medium">
-                          Trabajos que realizo
-                        </span>
+                        <span className="text-blue-700 dark:text-blue-300 font-medium">{t("Trabajos que realizo")}</span>
                       </div>
                       <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-rose-500/10">
                         <ShoppingBag className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
-                        <span className="text-rose-700 dark:text-rose-300 font-medium">
-                          Servicios que me realizan
-                        </span>
+                        <span className="text-rose-700 dark:text-rose-300 font-medium">{t("Servicios que me realizan")}</span>
                       </div>
                     </div>
                     <Tabs value={vista} onValueChange={(v) => setVista(v as "mensual" | "semanal")}>
                       <TabsList>
-                        <TabsTrigger value="mensual">Mes</TabsTrigger>
-                        <TabsTrigger value="semanal">Semana</TabsTrigger>
+                        <TabsTrigger value="mensual">{t("Mes")}</TabsTrigger>
+                        <TabsTrigger value="semanal">{t("Semana")}</TabsTrigger>
                       </TabsList>
                     </Tabs>
                   </div>
@@ -632,7 +617,7 @@ export default function MiCalendarioPage() {
                   <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
                     {DIAS_SEMANA.map((dia) => (
                       <div key={dia} className="bg-muted p-2 text-center text-sm font-medium text-muted-foreground">
-                        {dia}
+                        {t(dia)}
                       </div>
                     ))}
                     
@@ -663,7 +648,7 @@ export default function MiCalendarioPage() {
                                   !isStart && !isEnd && "rounded-none",
                                 )}
                                 onClick={() => openItemDialog(item)}
-                                title={`${item.tipo === "trabajo" ? "Trabajo que realizo" : "Servicio que me realizan"}: ${item.titulo}`}
+                                title={`${item.tipo === "trabajo" ? t("Trabajo que realizo") : t("Servicio que me realizan")}: ${item.titulo}`}
                               >
                                 {item.tipo === "trabajo" ? (
                                   <Briefcase className="h-3 w-3 shrink-0" />
@@ -679,8 +664,7 @@ export default function MiCalendarioPage() {
                             ))}
                             {itemsDelDia.length > 3 && (
                               <div className="text-xs text-muted-foreground">
-                                +{itemsDelDia.length - 3} mas
-                              </div>
+                                +{itemsDelDia.length - 3}{" "}{t("mas")}</div>
                             )}
                           </div>
                         </div>
@@ -700,7 +684,7 @@ export default function MiCalendarioPage() {
                         >
                           <div className="w-20 text-center">
                             <div className="text-sm font-medium text-foreground">
-                              {DIAS_SEMANA[date.getDay() === 0 ? 6 : date.getDay() - 1]}
+                              {t(DIAS_SEMANA[date.getDay() === 0 ? 6 : date.getDay() - 1])}
                             </div>
                             <div className={`text-2xl font-bold ${
                               isToday(date) ? "text-primary" : "text-foreground"
@@ -710,7 +694,7 @@ export default function MiCalendarioPage() {
                           </div>
                           <div className="flex-1 space-y-2">
                             {itemsDelDia.length === 0 ? (
-                              <p className="text-sm text-muted-foreground py-2">Sin actividad programada</p>
+                              <p className="text-sm text-muted-foreground py-2">{t("Sin actividad programada")}</p>
                             ) : (
                               itemsDelDia.map(({ item, color }) => (
                                 <div
@@ -728,11 +712,11 @@ export default function MiCalendarioPage() {
                                       <span className="font-medium">{item.titulo}</span>
                                     </div>
                                     <Badge className="bg-white/20 text-white border-white/30">
-                                      {item.tipo === "trabajo" ? "Trabajo" : "Servicio"}
+                                      {item.tipo === "trabajo" ? t("Trabajo") : t("Servicio")}
                                     </Badge>
                                   </div>
                                   <p className="text-sm opacity-90 mt-1">
-                                    {item.tipo === "trabajo" ? "Cliente" : "Profesional"}: {item.persona?.nombre} {item.persona?.apellido}
+                                    {item.tipo === "trabajo" ? t("Cliente") : t("Profesional")}: {item.persona?.nombre} {item.persona?.apellido}
                                   </p>
                                 </div>
                               ))
@@ -754,28 +738,25 @@ export default function MiCalendarioPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Briefcase className="h-5 w-5 text-primary" />
-              Gestionar Trabajo
-            </DialogTitle>
-            <DialogDescription>Edita las fechas y notas del trabajo seleccionado.</DialogDescription>
+              <Briefcase className="h-5 w-5 text-primary" />{t("Gestionar Trabajo")}</DialogTitle>
+            <DialogDescription>{t("Edita las fechas y notas del trabajo seleccionado.")}</DialogDescription>
           </DialogHeader>
           
           {selectedItem && (
             <div className="space-y-4">
               <div>
                 <h3 className="font-semibold text-foreground">{selectedItem.titulo}</h3>
-                <p className="text-sm text-muted-foreground">
-                  Cliente: {selectedItem.persona?.nombre} {selectedItem.persona?.apellido}
+                <p className="text-sm text-muted-foreground">{t("Cliente:")}{" "}{selectedItem.persona?.nombre} {selectedItem.persona?.apellido}
                 </p>
                 <div className="flex items-center gap-2 mt-2">
-                  {getEstadoBadge(selectedItem.estado)}
-                  {selectedItem.prioridad && getPrioridadBadge(selectedItem.prioridad)}
+                  {getEstadoBadge(selectedItem.estado, t)}
+                  {selectedItem.prioridad && getPrioridadBadge(selectedItem.prioridad, t)}
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Fecha inicio</Label>
+                  <Label>{t("Fecha inicio")}</Label>
                   <Input
                     type="date"
                     value={editForm.fecha_inicio}
@@ -783,7 +764,7 @@ export default function MiCalendarioPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Fecha estimada fin</Label>
+                  <Label>{t("Fecha estimada fin")}</Label>
                   <Input
                     type="date"
                     value={editForm.fecha_estimada_fin}
@@ -794,7 +775,7 @@ export default function MiCalendarioPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Horas estimadas</Label>
+                  <Label>{t("Horas estimadas")}</Label>
                   <Input
                     type="number"
                     min="0"
@@ -803,7 +784,7 @@ export default function MiCalendarioPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Horas registradas</Label>
+                  <Label>{t("Horas registradas")}</Label>
                   <Input
                     type="number"
                     min="0"
@@ -814,23 +795,23 @@ export default function MiCalendarioPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Prioridad</Label>
+                <Label>{t("Prioridad")}</Label>
                 <Select value={editForm.prioridad} onValueChange={(v) => setEditForm({ ...editForm, prioridad: v })}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="alta">Alta</SelectItem>
-                    <SelectItem value="media">Media</SelectItem>
-                    <SelectItem value="baja">Baja</SelectItem>
+                    <SelectItem value="alta">{t("Alta")}</SelectItem>
+                    <SelectItem value="media">{t("Media")}</SelectItem>
+                    <SelectItem value="baja">{t("Baja")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <Label>Notas privadas (solo tu las ves)</Label>
+                <Label>{t("Notas privadas (solo tu las ves)")}</Label>
                 <Textarea
-                  placeholder="Anade notas sobre este trabajo..."
+                  placeholder={t("Anade notas sobre este trabajo...")}
                   value={editForm.notas_privadas_proveedor}
                   onChange={(e) => setEditForm({ ...editForm, notas_privadas_proveedor: e.target.value })}
                   rows={3}
@@ -838,19 +819,16 @@ export default function MiCalendarioPage() {
               </div>
 
               <div className="flex items-center justify-between pt-2 border-t">
-                <div className="text-sm text-muted-foreground">
-                          Monto: <span className="font-semibold text-foreground">{formatearPrecioEuros(selectedItem.monto)}</span>
+                <div className="text-sm text-muted-foreground">{t("Monto:")}{" "}<span className="font-semibold text-foreground">{formatearPrecioEuros(selectedItem.monto, idioma)}</span>
                 </div>
               </div>
             </div>
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-              Cancelar
-            </Button>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>{t("Cancelar")}</Button>
             <Button onClick={handleSaveEstimacion} disabled={saving}>
-              {saving ? "Guardando..." : "Guardar cambios"}
+              {saving ? t("Guardando...") : t("Guardar cambios")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -861,10 +839,8 @@ export default function MiCalendarioPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <ShoppingBag className="h-5 w-5 text-rose-500" />
-              Servicio Solicitado
-            </DialogTitle>
-            <DialogDescription>Detalles del servicio que has contratado.</DialogDescription>
+              <ShoppingBag className="h-5 w-5 text-rose-500" />{t("Servicio Solicitado")}</DialogTitle>
+            <DialogDescription>{t("Detalles del servicio que has contratado.")}</DialogDescription>
           </DialogHeader>
           
           {selectedItem && selectedItem.tipo === "servicio" && (
@@ -872,7 +848,7 @@ export default function MiCalendarioPage() {
               <div>
                 <h3 className="font-semibold text-foreground text-lg">{selectedItem.titulo}</h3>
                 {selectedItem.solicitud?.categoria && (
-                  <Badge variant="outline" className="mt-1">{selectedItem.solicitud.categoria}</Badge>
+                  <Badge variant="outline" className="mt-1">{t(selectedItem.solicitud.categoria)}</Badge>
                 )}
               </div>
 
@@ -895,12 +871,12 @@ export default function MiCalendarioPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-3 bg-muted/30 rounded-lg">
-                  <p className="text-xs text-muted-foreground">Estado</p>
-                  <div className="mt-1">{getEstadoBadge(selectedItem.estado)}</div>
+                  <p className="text-xs text-muted-foreground">{t("Estado")}</p>
+                  <div className="mt-1">{getEstadoBadge(selectedItem.estado, t)}</div>
                 </div>
                 <div className="p-3 bg-muted/30 rounded-lg">
-                  <p className="text-xs text-muted-foreground">Monto</p>
-                          <p className="text-lg font-bold text-foreground">{formatearPrecioEuros(selectedItem.monto)}</p>
+                  <p className="text-xs text-muted-foreground">{t("Monto")}</p>
+                          <p className="text-lg font-bold text-foreground">{formatearPrecioEuros(selectedItem.monto, idioma)}</p>
                 </div>
               </div>
 
@@ -908,8 +884,7 @@ export default function MiCalendarioPage() {
                 <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-primary" />
-                    <span className="text-sm text-foreground">
-                      Fecha estimada de entrega: <strong>{new Date(selectedItem.fecha_estimada_fin).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}</strong>
+                    <span className="text-sm text-foreground">{t("Fecha estimada de entrega:")}{" "}<strong>{new Date(selectedItem.fecha_estimada_fin).toLocaleDateString(localeDe(idioma), { weekday: "long", day: "numeric", month: "long" })}</strong>
                     </span>
                   </div>
                 </div>
@@ -918,21 +893,15 @@ export default function MiCalendarioPage() {
               {isAtrasado(selectedItem) && (
                 <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
                   <AlertTriangle className="h-4 w-4 text-red-400" />
-                  <span className="text-sm text-red-400">
-                    Este servicio esta atrasado. Contacta con el profesional.
-                  </span>
+                  <span className="text-sm text-red-400">{t("Este servicio esta atrasado. Contacta con el profesional.")}</span>
                 </div>
               )}
             </div>
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setViewDialogOpen(false)}>
-              Cerrar
-            </Button>
-            <Button onClick={() => window.location.href = "/mensajes"}>
-              Contactar profesional
-            </Button>
+            <Button variant="outline" onClick={() => setViewDialogOpen(false)}>{t("Cerrar")}</Button>
+            <Button onClick={() => window.location.href = "/mensajes"}>{t("Contactar profesional")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -1,9 +1,13 @@
+"use client"
+
+import { useT } from "@/components/idioma-provider"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle2, Award, Languages } from "lucide-react"
 import type { ProfessionalProfile } from "@/lib/profiles-data"
 
 export default function ProfileSkills({ profile }: { profile: ProfessionalProfile }) {
+  const t = useT()
   return (
     <div className="space-y-6">
       {/* Skills */}
@@ -11,7 +15,7 @@ export default function ProfileSkills({ profile }: { profile: ProfessionalProfil
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5" />
-            Habilidades
+            {t("Habilidades")}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -30,7 +34,7 @@ export default function ProfileSkills({ profile }: { profile: ProfessionalProfil
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Award className="h-5 w-5" />
-            Certificaciones
+            {t("Certificaciones")}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -50,7 +54,7 @@ export default function ProfileSkills({ profile }: { profile: ProfessionalProfil
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Languages className="h-5 w-5" />
-            Idiomas
+            {t("Idiomas")}
           </CardTitle>
         </CardHeader>
         <CardContent>

@@ -1,12 +1,10 @@
-// Traducciones de Diime.
-//
-// El idioma se guarda en una COOKIE, no solo en localStorage: media web
-// (homepage, footer, /mi-cuenta…) son componentes de servidor, y para que el
-// HTML llegue ya traducido el servidor tiene que poder leer la preferencia.
-//
-// Cobertura actual: la parte pública (navegación, portada, cookies y la
-// bienvenida). El área privada sigue en español; las claves que falten caen al
-// castellano en vez de mostrar la clave en crudo.
+// Shared, deterministic translations. No browser globals or user-content rewriting.
+import { EN_NOTIFICACIONES } from "./traducciones/notificaciones"
+import { EN_COMMON } from "./traducciones/common"
+import { EN_ACCOUNTS } from "./traducciones/accounts"
+import { EN_WORKFLOWS } from "./traducciones/workflows"
+import { EN_PAGES } from "./traducciones/pages"
+import { EN_SERVER } from "./traducciones/server"
 
 export type Idioma = "es" | "en"
 
@@ -202,10 +200,27 @@ const EN: Diccionario = {
   "bienvenida.pie": "The provider transfer is made only after client confirmation or dispute resolution.",
 }
 
-const DICCIONARIOS: Record<Idioma, Diccionario> = { es: ES, en: EN }
+export const INGLES: Diccionario = { ...EN_NOTIFICACIONES, ...EN_COMMON, ...EN_ACCOUNTS, ...EN_WORKFLOWS, ...EN_PAGES, ...EN_SERVER, ...EN }
+const DICCIONARIOS: Record<Idioma, Diccionario> = { es: ES, en: INGLES }
+export type ParametrosTraduccion = Record<string, string | number>
+export type Traductor = (clave: string, parametros?: ParametrosTraduccion) => string
+export const localeDe = (idioma: Idioma) => idioma === "en" ? "en-GB" : "es-ES"
 
-// Devuelve la traducción, con el castellano como red de seguridad: si una clave
-// aún no está en inglés se ve en español, que es mucho mejor que ver la clave.
-export function traducir(idioma: Idioma, clave: string): string {
-  return DICCIONARIOS[idioma]?.[clave] ?? ES[clave] ?? clave
+export function detectarIdioma(acceptLanguage: string | null): Idioma {
+  const preferencias = (acceptLanguage || "").split(",").map((parte, orden) => {
+    const [tag, ...opciones] = parte.trim().toLowerCase().split(";")
+    const calidad = opciones.find((opcion) => opcion.trim().startsWith("q="))?.trim().slice(2)
+    return { idioma: tag.split("-")[0], q: calidad === undefined ? 1 : Number(calidad), orden }
+  }).filter(({ idioma, q }) => esIdiomaValido(idioma) && Number.isFinite(q) && q > 0 && q <= 1)
+    .sort((a, b) => b.q - a.q || a.orden - b.orden)
+  return (preferencias[0]?.idioma as Idioma) || IDIOMA_POR_DEFECTO
+}
+
+// Missing source-text keys remain readable in their original language.
+export function traducir(idioma: Idioma, clave: string, parametros?: ParametrosTraduccion): string {
+  const texto = DICCIONARIOS[idioma]?.[clave] ?? ES[clave] ?? clave
+  if (!parametros) return texto
+  return texto.replace(/\{([a-zA-Z0-9_]+)\}/g, (original, nombre: string) =>
+    Object.prototype.hasOwnProperty.call(parametros, nombre) ? String(parametros[nombre]) : original,
+  )
 }

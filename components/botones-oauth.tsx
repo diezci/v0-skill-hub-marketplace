@@ -1,5 +1,7 @@
 "use client"
 
+import { useT } from "@/components/idioma-provider"
+
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import { Capacitor } from "@capacitor/core"
@@ -61,13 +63,14 @@ export function BotonesOAuth({
   aceptaTerminos?: boolean
   confirmaMayoriaEdad?: boolean
 }) {
+  const t = useT()
   const entrarCon = async (proveedor: "google" | "apple") => {
     if (!aceptaTerminos) {
-      onError("Acepta los Términos y las Normas de la comunidad para crear una cuenta.")
+      onError(t("Acepta los Términos y las Normas de la comunidad para crear una cuenta."))
       return
     }
     if (!confirmaMayoriaEdad) {
-      onError("Confirma que tienes 18 años o más para crear una cuenta.")
+      onError(t("Confirma que tienes 18 años o más para crear una cuenta."))
       return
     }
     const supabase = createClient()
@@ -105,7 +108,7 @@ export function BotonesOAuth({
       // "cargando" a propósito, para que no se pueda pulsar dos veces.
     } catch (e: unknown) {
       const nombre = proveedor === "google" ? "Google" : "Apple"
-      onError(e instanceof Error ? e.message : `Error al continuar con ${nombre}`)
+      onError(e instanceof Error ? t(e.message) : t("Error al continuar con {proveedor}", { proveedor: nombre }))
       onCargando(false)
     }
   }
@@ -120,7 +123,7 @@ export function BotonesOAuth({
         disabled={cargando || !aceptaTerminos || !confirmaMayoriaEdad}
       >
         <IconoGoogle />
-        Continuar con Google
+        {t("Continuar con Google")}
       </Button>
 
       {/* Apple pide que su botón tenga al menos la misma presencia que los
@@ -134,7 +137,7 @@ export function BotonesOAuth({
           disabled={cargando || !aceptaTerminos || !confirmaMayoriaEdad}
         >
           <IconoApple />
-          Continuar con Apple
+          {t("Continuar con Apple")}
         </Button>
       )}
     </div>

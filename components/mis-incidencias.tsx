@@ -1,5 +1,8 @@
 "use client"
 
+import { useT, useIdioma } from "@/components/idioma-provider"
+import { localeDe } from "@/lib/i18n"
+
 import { useEffect, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -44,6 +47,9 @@ const PRIORIDAD_CLS: Record<string, string> = {
 }
 
 export default function MisIncidencias() {
+  const t = useT()
+  const { idioma } = useIdioma()
+
   const [incidencias, setIncidencias] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [aRetirar, setARetirar] = useState<any>(null)
@@ -68,15 +74,15 @@ export default function MisIncidencias() {
     setRetirando(false)
     setARetirar(null)
     if (res.error) {
-      toast({ title: "No se pudo retirar", description: res.error, variant: "destructive" })
+      toast({ title: t("No se pudo retirar"), description: t(res.error), variant: "destructive" })
     } else {
-      toast({ title: "Incidencia retirada", description: "Se ha retirado del equipo de Diime." })
+      toast({ title: t("Incidencia retirada"), description: t("Se ha retirado del equipo de Diime.") })
       await cargar()
     }
   }
 
   const formatFecha = (f: string) =>
-    new Date(f).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })
+    new Date(f).toLocaleDateString(localeDe(idioma), { day: "numeric", month: "short", year: "numeric" })
 
   if (loading) {
     return (
@@ -92,9 +98,7 @@ export default function MisIncidencias() {
         <ReportarIncidenciaDialog
           trigger={
             <Button>
-              <ShieldAlert className="h-4 w-4 mr-2" />
-              Reportar incidencia
-            </Button>
+              <ShieldAlert className="h-4 w-4 mr-2" />{t("Reportar incidencia")}</Button>
           }
         />
       </div>
@@ -103,11 +107,8 @@ export default function MisIncidencias() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <ShieldAlert className="h-12 w-12 text-muted-foreground/50 mb-4" />
-            <p className="text-lg font-medium">No tienes incidencias</p>
-            <p className="text-muted-foreground mt-1 max-w-md">
-              Si tienes un problema con un pago, un trabajo o con otro usuario, repórtalo y nuestro equipo lo
-              revisará. Aquí verás el estado de cada incidencia.
-            </p>
+            <p className="text-lg font-medium">{t("No tienes incidencias")}</p>
+            <p className="text-muted-foreground mt-1 max-w-md">{t("Si tienes un problema con un pago, un trabajo o con otro usuario, repórtalo y nuestro equipo lo revisará. Aquí verás el estado de cada incidencia.")}</p>
           </CardContent>
         </Card>
       ) : (
@@ -122,20 +123,20 @@ export default function MisIncidencias() {
                     <div className="min-w-0">
                       <h3 className="font-semibold">{inc.asunto}</h3>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {CATEGORIA_LABEL[inc.categoria] || inc.categoria} · Reportada el {formatFecha(inc.created_at)}
+                        {t(CATEGORIA_LABEL[inc.categoria] || inc.categoria)}{" "}{t("· Reportada el")}{" "}{formatFecha(inc.created_at)}
                         {" · "}
-                        <span className={PRIORIDAD_CLS[inc.prioridad] || ""}>Prioridad {inc.prioridad}</span>
+                        <span className={PRIORIDAD_CLS[inc.prioridad] || ""}>{t("Prioridad")}{" "}{t(inc.prioridad)}</span>
                       </p>
                     </div>
                     <Badge variant="outline" className={`gap-1 shrink-0 ${estado.cls}`}>
                       <EstadoIcon className="h-3.5 w-3.5" />
-                      {estado.label}
+                      {t(estado.label)}
                     </Badge>
                   </div>
 
                   {inc.trabajo_titulo && (
                     <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                      <Briefcase className="h-4 w-4" /> Trabajo relacionado: {inc.trabajo_titulo}
+                      <Briefcase className="h-4 w-4" />{" "}{t("Trabajo relacionado:")}{" "}{inc.trabajo_titulo}
                     </p>
                   )}
 
@@ -143,15 +144,13 @@ export default function MisIncidencias() {
 
                   {inc.notas_admin && (
                     <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-3">
-                      <p className="text-xs font-medium text-blue-700 dark:text-blue-400 mb-0.5">
-                        Respuesta del equipo de Diime
-                      </p>
+                      <p className="text-xs font-medium text-blue-700 dark:text-blue-400 mb-0.5">{t("Respuesta del equipo de Diime")}</p>
                       <p className="text-sm text-muted-foreground">{inc.notas_admin}</p>
                     </div>
                   )}
 
                   {inc.fecha_resolucion && (
-                    <p className="text-xs text-muted-foreground">Resuelta el {formatFecha(inc.fecha_resolucion)}</p>
+                    <p className="text-xs text-muted-foreground">{t("Resuelta el")}{" "}{formatFecha(inc.fecha_resolucion)}</p>
                   )}
 
                   {/* Se puede retirar mientras el equipo no la haya resuelto ni cerrado. */}
@@ -162,8 +161,7 @@ export default function MisIncidencias() {
                         onClick={() => setARetirar(inc)}
                         className="text-xs text-destructive hover:underline inline-flex items-center gap-1"
                       >
-                        <XCircle className="h-3.5 w-3.5" /> Retirar incidencia
-                      </button>
+                        <XCircle className="h-3.5 w-3.5" />{" "}{t("Retirar incidencia")}</button>
                     </div>
                   )}
                 </CardContent>
@@ -176,20 +174,16 @@ export default function MisIncidencias() {
       <AlertDialog open={!!aRetirar} onOpenChange={(o) => !o && setARetirar(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Retirar la incidencia?</AlertDialogTitle>
-            <AlertDialogDescription>
-              El equipo de Diime dejará de revisarla. Podrás reportarla de nuevo más adelante si lo necesitas.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t("¿Retirar la incidencia?")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("El equipo de Diime dejará de revisarla. Podrás reportarla de nuevo más adelante si lo necesitas.")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={retirando}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={retirando}>{t("Cancelar")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleRetirar}
               disabled={retirando}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Retirar incidencia
-            </AlertDialogAction>
+            >{t("Retirar incidencia")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

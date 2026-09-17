@@ -1,69 +1,124 @@
-// Service worker de Diime.
-//
-// Deliberadamente CONSERVADOR. Un service worker agresivo en una web con sesión
-// y dinero de por medio es peligroso: puede servir el saldo, una oferta o una
-// disputa desde una copia vieja, o dejar la sesión en un estado incoherente.
-// Por eso aquí:
-//
-//   * Solo se tocan peticiones GET de navegación (abrir una página).
-//   * Nunca se tocan API, autenticación, Supabase ni Stripe.
-//   * La red SIEMPRE manda; la caché solo entra si no hay conexión.
-//
-// Su único cometido es que la app instalada abra y muestre algo con sentido sin
-// cobertura, no acelerar la navegación.
+// Offline shell only: never store navigation HTML, sessions or financial data.
+const VERSION = "diime-offline-bilingual-4"
+const OFFLINE_URLS = { es: "/offline-es.html", en: "/offline-en.html" }
+const ICON_URL = "/icons/icon-192.png?v=logo-safe-3"
+const STATIC_URLS = [...Object.values(OFFLINE_URLS), ICON_URL]
+let idiomaSeleccionado
+let guardandoIdioma = Promise.resolve()
 
-const VERSION = "diime-logo-safe-3"
-const OFFLINE_URL = "/offline"
+function esIdiomaValido(idioma) {
+  return idioma === "es" || idioma === "en"
+}
+
+// Persist only the language preference. This database contains no user data.
+function basePreferencias() {
+  return new Promise((resolve, reject) => {
+    const apertura = indexedDB.open("diime-offline-preferences", 1)
+    apertura.onupgradeneeded = () => {
+      if (!apertura.result.objectStoreNames.contains("preferences")) {
+        apertura.result.createObjectStore("preferences")
+      }
+    }
+    apertura.onsuccess = () => resolve(apertura.result)
+    apertura.onerror = () => reject(apertura.error)
+    apertura.onblocked = () => reject(new Error("Offline preferences unavailable"))
+  })
+}
+
+async function guardarIdioma(idioma) {
+  const base = await basePreferencias()
+  try {
+    await new Promise((resolve, reject) => {
+      const transaccion = base.transaction("preferences", "readwrite")
+      transaccion.objectStore("preferences").put(idioma, "language")
+      transaccion.oncomplete = resolve
+      transaccion.onerror = () => reject(transaccion.error)
+      transaccion.onabort = () => reject(transaccion.error)
+    })
+  } finally {
+    base.close()
+  }
+}
+
+async function idiomaPara(request) {
+  if (esIdiomaValido(idiomaSeleccionado)) return idiomaSeleccionado
+  try {
+    const base = await basePreferencias()
+    try {
+      const guardado = await new Promise((resolve, reject) => {
+        const lectura = base.transaction("preferences", "readonly").objectStore("preferences").get("language")
+        lectura.onsuccess = () => resolve(lectura.result)
+        lectura.onerror = () => reject(lectura.error)
+      })
+      // A newer message takes precedence over a read already in progress.
+      if (!esIdiomaValido(idiomaSeleccionado) && esIdiomaValido(guardado)) idiomaSeleccionado = guardado
+    } finally {
+      base.close()
+    }
+  } catch { /* Private browsing can deny storage; the shell still works. */ }
+  if (esIdiomaValido(idiomaSeleccionado)) return idiomaSeleccionado
+  const preferencias = (request.headers.get("accept-language") || "").split(",").map((preferencia) => {
+    const [etiqueta, calidad] = preferencia.trim().split(";")
+    return { idioma: etiqueta.split("-")[0].toLowerCase(), peso: calidad ? Number(calidad.trim().replace(/^q=/, "")) : 1 }
+  }).filter(({ peso }) => Number.isFinite(peso) && peso > 0).sort((a, b) => b.peso - a.peso)
+  for (const { idioma } of preferencias) {
+    if (esIdiomaValido(idioma)) return idioma
+  }
+  return "es"
+}
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(VERSION).then((cache) => cache.addAll([OFFLINE_URL, "/icons/icon-192.png?v=logo-safe-3"])),
-  )
-  // Activar esta versión sin esperar a que se cierren las pestañas antiguas.
+  event.waitUntil(caches.open(VERSION).then((cache) => cache.addAll(STATIC_URLS)))
   self.skipWaiting()
 })
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((claves) => Promise.all(claves.filter((c) => c !== VERSION).map((c) => caches.delete(c))))
+    caches.keys()
+      // Remove old Diime caches, including previously stored private HTML.
+      .then((claves) => Promise.all(claves.filter((clave) => clave.startsWith("diime-") && clave !== VERSION).map((clave) => caches.delete(clave))))
       .then(() => self.clients.claim()),
   )
 })
 
-// Rutas que NUNCA deben pasar por caché: datos, sesión y pagos.
-function esSensible(url) {
-  return (
-    url.pathname.startsWith("/api/") ||
-    url.pathname.startsWith("/auth/") ||
-    url.hostname.includes("supabase") ||
-    url.hostname.includes("stripe")
-  )
-}
+self.addEventListener("message", (event) => {
+  if (event.data?.type !== "DIIME_IDIOMA" || !esIdiomaValido(event.data.idioma)) return
+  // Only a page controlled by this origin may set the local preference.
+  if (!event.source?.url || new URL(event.source.url).origin !== self.location.origin) return
+  idiomaSeleccionado = event.data.idioma
+  const idioma = idiomaSeleccionado
+  guardandoIdioma = guardandoIdioma.catch(() => {}).then(() => guardarIdioma(idioma))
+  event.waitUntil(guardandoIdioma.catch(() => {}))
+})
 
 self.addEventListener("fetch", (event) => {
   const { request } = event
-
   if (request.method !== "GET") return
-  // Solo navegaciones: el resto (datos, imágenes, JS) va directo a la red.
-  if (request.mode !== "navigate") return
-
   const url = new URL(request.url)
   if (url.origin !== self.location.origin) return
-  if (esSensible(url)) return
+
+  // This is the only subresource served from cache; no app scripts or data.
+  if (`${url.pathname}${url.search}` === ICON_URL) {
+    event.respondWith(caches.open(VERSION).then(async (cache) => (await cache.match(ICON_URL)) || fetch(request)))
+    return
+  }
+  if (request.mode !== "navigate") return
+  if (/^\/(api|auth|stripe)(\/|$)/.test(url.pathname)) return
 
   event.respondWith(
-    fetch(request)
-      .then((respuesta) => {
-        // Guardamos una copia solo para poder responder sin conexión.
-        const copia = respuesta.clone()
-        caches.open(VERSION).then((cache) => cache.put(request, copia)).catch(() => {})
-        return respuesta
+    fetch(request).catch(async () => {
+      const idioma = await idiomaPara(request)
+      const cache = await caches.open(VERSION)
+      const offline = await cache.match(OFFLINE_URLS[idioma])
+      if (offline) return new Response(offline.body, {
+        status: 503,
+        headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Content-Language": idioma },
       })
-      .catch(async () => {
-        const enCache = await caches.match(request)
-        return enCache || caches.match(OFFLINE_URL)
-      }),
+      // Also work if the browser has evicted the static shell cache.
+      return new Response(idioma === "en" ? "Diime is offline. Check your connection and reload." : "Diime está sin conexión. Comprueba tu conexión y recarga.", {
+        status: 503,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "Content-Language": idioma },
+      })
+    }),
   )
 })

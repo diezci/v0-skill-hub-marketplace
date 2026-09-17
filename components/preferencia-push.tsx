@@ -1,5 +1,7 @@
 "use client"
 
+import { useT } from "@/components/idioma-provider"
+
 import { useEffect, useState, useTransition } from "react"
 import { Capacitor } from "@capacitor/core"
 import { PushNotifications } from "@capacitor/push-notifications"
@@ -12,6 +14,7 @@ import { useToast } from "@/hooks/use-toast"
 type Estado = "cargando" | "web" | "prompt" | "denied" | "granted" | "registered" | "error"
 
 export function PreferenciaPush() {
+  const t = useT()
   const [estado, setEstado] = useState<Estado>("cargando")
   const [ocupado, startTransition] = useTransition()
   const { toast } = useToast()
@@ -66,7 +69,7 @@ export function PreferenciaPush() {
           rechazarToken(new Error(error.error)),
         )
         const timeout = window.setTimeout(
-          () => rechazarToken(new Error("El iPhone no devolvió el token de notificaciones")),
+          () => rechazarToken(new Error(t("El iPhone no devolvió el token de notificaciones"))),
           10000,
         )
         const token = await (async () => {
@@ -84,12 +87,12 @@ export function PreferenciaPush() {
         const resultado = await registrarDispositivoPush(token, Capacitor.getPlatform() as "ios" | "android")
         if (resultado?.error) throw new Error(resultado.error)
         setEstado("registered")
-        toast({ title: "Notificaciones activadas", description: "Este dispositivo ya puede recibir avisos de Diime." })
+        toast({ title: t("Notificaciones activadas"), description: t("Este dispositivo ya puede recibir avisos de Diime.") })
       } catch (error) {
         setEstado("error")
         toast({
-          title: "No se pudieron activar",
-          description: error instanceof Error ? error.message : "Vuelve a intentarlo.",
+          title: t("No se pudieron activar"),
+          description: error instanceof Error ? t(error.message) : t("Vuelve a intentarlo."),
           variant: "destructive",
         })
       }
@@ -100,15 +103,15 @@ export function PreferenciaPush() {
     startTransition(async () => {
       const resultado = await probarNotificacionPush()
       if (resultado?.error) {
-        toast({ title: "No se pudo enviar la prueba", description: resultado.error, variant: "destructive" })
+        toast({ title: t("No se pudo enviar la prueba"), description: resultado.error ? t(resultado.error) : undefined, variant: "destructive" })
         return
       }
-      toast({ title: "Prueba enviada", description: "Deberías recibir el aviso en unos segundos." })
+      toast({ title: t("Prueba enviada"), description: t("Deberías recibir el aviso en unos segundos.") })
     })
   }
 
   if (estado === "web") {
-    return <p className="mt-3 text-xs text-muted-foreground">Las notificaciones push se configuran desde la app de iPhone o Android.</p>
+    return <p className="mt-3 text-xs text-muted-foreground">{t("Las notificaciones push se configuran desde la app de iPhone o Android.")}</p>
   }
 
   return (
@@ -124,29 +127,29 @@ export function PreferenciaPush() {
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium">
             {estado === "registered"
-              ? "Notificaciones activadas"
+              ? t("Notificaciones activadas")
               : estado === "denied"
-              ? "Notificaciones bloqueadas en el sistema"
+              ? t("Notificaciones bloqueadas en el sistema")
                 : estado === "error"
-                  ? "No se pudo registrar este dispositivo"
-                  : "Avisos en este dispositivo"}
+                  ? t("No se pudo registrar este dispositivo")
+                  : t("Avisos en este dispositivo")}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {estado === "denied"
-              ? "Abre Ajustes → Diime → Notificaciones y activa Permitir notificaciones, Previsualizaciones y Sonidos."
-              : "Los mensajes muestran el remitente y parte del texto, también con la app cerrada."}
+              ? t("Abre Ajustes → Diime → Notificaciones y activa Permitir notificaciones, Previsualizaciones y Sonidos.")
+              : t("Los mensajes muestran el remitente y parte del texto, también con la app cerrada.")}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {estado !== "denied" && estado !== "registered" && (
               <Button size="sm" onClick={activar} disabled={ocupado}>
                 {ocupado ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Bell className="mr-1.5 h-4 w-4" />}
-                Activar
+                {t("Activar")}
               </Button>
             )}
             {(estado === "registered" || estado === "granted") && (
               <Button size="sm" variant="outline" onClick={probar} disabled={ocupado} className="bg-transparent">
                 {ocupado ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <BellRing className="mr-1.5 h-4 w-4" />}
-                Enviar prueba
+                {t("Enviar prueba")}
               </Button>
             )}
           </div>

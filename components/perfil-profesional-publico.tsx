@@ -1,5 +1,9 @@
 "use client"
 
+import { useT, useIdioma } from "@/components/idioma-provider"
+import { localeDe } from "@/lib/i18n"
+import { formatearPrecioEuros } from "@/lib/utils"
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
@@ -45,12 +49,14 @@ interface PerfilPublicoProps {
 }
 
 export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" }: PerfilPublicoProps) {
+  const t = useT()
+  const { idioma } = useIdioma()
   const router = useRouter()
   const { toast } = useToast()
   const [contactando, setContactando] = useState(false)
   const [interaccionBloqueada, setInteraccionBloqueada] = useState(false)
   const [proyectoSeleccionado, setProyectoSeleccionado] = useState<any | null>(null)
-  const nombreCompleto = `${perfil.nombre || ""} ${perfil.apellido || ""}`.trim() || "Profesional"
+  const nombreCompleto = `${perfil.nombre || ""} ${perfil.apellido || ""}`.trim() || t("Profesional")
 
   const handleEnviarMensaje = async () => {
     if (interaccionBloqueada) return
@@ -65,17 +71,17 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
         return
       }
       if (user.id === perfil.id) {
-        toast({ title: "Es tu propio perfil", description: "No puedes enviarte un mensaje a ti mismo." })
+        toast({ title: t("Es tu propio perfil"), description: t("No puedes enviarte un mensaje a ti mismo.") })
         return
       }
       const result = await crearConversacion({ otroUsuarioId: perfil.id })
       if (result.error) {
-        toast({ title: "Error", description: result.error, variant: "destructive" })
+        toast({ title: t("Error"), description: result.error ? t(result.error) : undefined, variant: "destructive" })
       } else {
         router.push(result.data?.id ? `/mensajes?c=${result.data.id}` : "/mensajes")
       }
     } catch (e) {
-      toast({ title: "Error", description: "No se pudo abrir el chat.", variant: "destructive" })
+      toast({ title: t("Error"), description: t("No se pudo abrir el chat."), variant: "destructive" })
     } finally {
       setContactando(false)
     }
@@ -84,7 +90,7 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
   const handleLlamar = () => {
     if (interaccionBloqueada) return
     if (!perfil.telefono) {
-      toast({ title: "Sin teléfono", description: "Este profesional no ha publicado un teléfono de contacto." })
+      toast({ title: t("Sin teléfono"), description: t("Este profesional no ha publicado un teléfono de contacto.") })
       return
     }
     window.location.href = `tel:${String(perfil.telefono).replace(/\s+/g, "")}`
@@ -99,7 +105,7 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
     if (!fecha) return null
     const [ano, mes, dia] = fecha.slice(0, 10).split("-")
     if (!ano || !mes || !dia) return null
-    return `${dia}/${mes}/${ano}`
+    return new Date(Number(ano), Number(mes) - 1, Number(dia)).toLocaleDateString(localeDe(idioma))
   }
 
   return (
@@ -126,17 +132,17 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
                     identificarla si necesita reclamar. */}
                 {perfil.cuenta_eliminada ? (
                   <Badge variant="outline" className="bg-muted text-muted-foreground border-border gap-1">
-                    <UserX className="h-3.5 w-3.5" /> Cuenta eliminada
+                    <UserX className="h-3.5 w-3.5" /> {t("Cuenta eliminada")}
                   </Badge>
                 ) : (
                   perfil.verificado && (
                     <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 gap-1">
-                      <BadgeCheck className="h-3.5 w-3.5" /> Verificado por Diime
+                      <BadgeCheck className="h-3.5 w-3.5" /> {t("Verificado por Diime")}
                     </Badge>
                   )
                 )}
               </div>
-              <p className="text-muted-foreground">{perfil.titulo || "Profesional"}</p>
+              <p className="text-muted-foreground">{perfil.titulo || t("Profesional")}</p>
               <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-muted-foreground">
                 {perfil.ubicacion && (
                   <span className="flex items-center gap-1">
@@ -146,13 +152,13 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
                 <span className="flex items-center gap-1">
                   <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
                   <span className="font-semibold text-foreground">{Number(perfil.rating || 0).toFixed(1)}</span>
-                  ({reviews.length} valoraciones)
+                  ({reviews.length} {t("valoraciones)")}
                 </span>
                 <span className="flex items-center gap-1">
-                  <Clock className="h-4 w-4" /> Responde en {perfil.tiempo_respuesta || "24 horas"}
+                  <Clock className="h-4 w-4" /> {t("Responde en")} {t(perfil.tiempo_respuesta || "24 horas")}
                 </span>
                 <Badge variant="outline" className={perfil.disponibilidad === "Disponible" ? "text-emerald-600 border-emerald-500/40" : ""}>
-                  {perfil.disponibilidad}
+                  {t(perfil.disponibilidad || "")}
                 </Badge>
               </div>
             </div>
@@ -162,32 +168,31 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
             <div className="mt-5 rounded-lg border bg-muted/40 p-4 flex items-start gap-3 text-sm">
               <UserX className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
               <p className="text-muted-foreground">
-                Esta persona ha cerrado su cuenta en Diime. No se la puede contactar ni contratar. Su perfil se
-                mantiene visible sin datos de contacto para quienes trabajaron con ella.
+                {t("Esta persona ha cerrado su cuenta en Diime. No se la puede contactar ni contratar. Su perfil se mantiene visible sin datos de contacto para quienes trabajaron con ella.")}
               </p>
             </div>
           ) : (
             <div className="mt-5 space-y-3">
               {interaccionBloqueada && (
                 <p className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
-                  La interacción con este usuario está bloqueada. No podéis iniciar ni continuar conversaciones.
+                  {t("La interacción con este usuario está bloqueada. No podéis iniciar ni continuar conversaciones.")}
                 </p>
               )}
               <div className="flex flex-wrap gap-3">
               <Button className="flex-1 sm:flex-none" onClick={handleEnviarMensaje} disabled={contactando || interaccionBloqueada}>
                 {contactando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MessageSquare className="h-4 w-4 mr-2" />}
-                Enviar mensaje
+                {t("Enviar mensaje")}
               </Button>
               <Button variant="outline" className="flex-1 sm:flex-none bg-transparent" onClick={handleLlamar} disabled={interaccionBloqueada}>
-                <Phone className="h-4 w-4 mr-2" /> Contactar
+                <Phone className="h-4 w-4 mr-2" /> {t("Contactar")}
               </Button>
               <ReportarIncidenciaDialog
                 usuarioReportadoId={perfil.id}
-                asuntoInicial={`Reporte sobre ${nombreCompleto}`}
+                asuntoInicial={t("Reporte sobre {nombre}", { nombre: nombreCompleto })}
                 categoriaInicial="perfil"
                 trigger={
                   <Button variant="outline" className="flex-1 bg-transparent sm:flex-none">
-                    <ShieldAlert className="mr-2 h-4 w-4" /> Reportar
+                    <ShieldAlert className="mr-2 h-4 w-4" /> {t("Reportar")}
                   </Button>
                 }
               />
@@ -207,31 +212,31 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
         <Card>
           <CardContent className="pt-5 text-center">
             <Euro className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
-            <p className="text-xl font-bold">{perfil.tarifa_hora || "—"}{perfil.tarifa_hora ? "€/h" : ""}</p>
-            <p className="text-xs text-muted-foreground">Tarifa</p>
+            <p className="text-xl font-bold">{perfil.tarifa_hora ? `${formatearPrecioEuros(perfil.tarifa_hora, idioma)}/h` : "—"}</p>
+            <p className="text-xs text-muted-foreground">{t("Tarifa")}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-5 text-center">
             <Briefcase className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
             <p className="text-xl font-bold">{perfil.anos_experiencia || perfil["años_experiencia"] || 0}</p>
-            <p className="text-xs text-muted-foreground">Años exp.</p>
+            <p className="text-xs text-muted-foreground">{t("Años exp.")}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-5 text-center">
             <Star className="h-5 w-5 mx-auto text-amber-500 mb-1" />
             <p className="text-xl font-bold">{Number(perfil.rating || 0).toFixed(1)}</p>
-            <p className="text-xs text-muted-foreground">Valoración</p>
+            <p className="text-xs text-muted-foreground">{t("Valoración")}</p>
           </CardContent>
         </Card>
       </div>
 
       <Tabs defaultValue={tabInicial} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="sobre">Sobre mí</TabsTrigger>
-          <TabsTrigger value="portfolio">Portfolio ({portfolio.length})</TabsTrigger>
-          <TabsTrigger value="valoraciones">Valoraciones ({reviews.length})</TabsTrigger>
+          <TabsTrigger value="sobre">{t("Sobre mí")}</TabsTrigger>
+          <TabsTrigger value="portfolio">{t("Portfolio (")}{portfolio.length})</TabsTrigger>
+          <TabsTrigger value="valoraciones">{t("Valoraciones (")}{reviews.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="sobre" className="space-y-4">
@@ -239,14 +244,14 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
             <CardContent className="pt-6 space-y-6">
               {perfil.bio && (
                 <div>
-                  <h3 className="font-semibold mb-2">Descripción</h3>
+                  <h3 className="font-semibold mb-2">{t("Descripción")}</h3>
                   <p className="text-muted-foreground text-sm leading-relaxed">{perfil.bio}</p>
                 </div>
               )}
 
               {habilidades.length > 0 && (
                 <div>
-                  <h3 className="font-semibold mb-2">Habilidades</h3>
+                  <h3 className="font-semibold mb-2">{t("Habilidades")}</h3>
                   <div className="flex flex-wrap gap-2">
                     {habilidades.map((h, i) => (
                       <Badge key={i} variant="secondary">{h}</Badge>
@@ -258,9 +263,9 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
               {certificaciones.length > 0 && (
                 <div>
                   <h3 className="font-semibold mb-2 flex items-center gap-2">
-                    <Award className="h-4 w-4" /> Certificaciones declaradas
+                    <Award className="h-4 w-4" /> {t("Certificaciones declaradas")}
                   </h3>
-                  <p className="text-xs text-muted-foreground mb-2">Información aportada por el proveedor. La insignia del perfil no acredita cada titulación.</p>
+                  <p className="text-xs text-muted-foreground mb-2">{t("Información aportada por el proveedor. La insignia del perfil no acredita cada titulación.")}</p>
                   <ul className="space-y-1">
                     {certificaciones.map((c, i) => (
                       <li key={i} className="text-sm text-muted-foreground flex items-center gap-2">
@@ -274,7 +279,7 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
               {idiomas.length > 0 && (
                 <div>
                   <h3 className="font-semibold mb-2 flex items-center gap-2">
-                    <Languages className="h-4 w-4" /> Idiomas
+                    <Languages className="h-4 w-4" /> {t("Idiomas")}
                   </h3>
                   <div className="flex flex-wrap gap-2">
                     {idiomas.map((l, i) => (
@@ -291,7 +296,7 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
           <Card>
             <CardContent className="pt-6">
               {portfolio.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">Este profesional aún no ha añadido trabajos a su portfolio.</p>
+                <p className="text-sm text-muted-foreground text-center py-8">{t("Este profesional aún no ha añadido trabajos a su portfolio.")}</p>
               ) : (
                 <div className="grid sm:grid-cols-2 gap-4">
                   {portfolio.map((p) => (
@@ -299,7 +304,7 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
                       key={p.id}
                       type="button"
                       onClick={() => setProyectoSeleccionado(p)}
-                      aria-label={`Ver detalles de ${p.titulo}`}
+                      aria-label={t("Ver detalles de {titulo}", { titulo: p.titulo })}
                       className="group overflow-hidden rounded-lg border bg-card text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     >
                       {p.imagen && (
@@ -318,7 +323,7 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
                         <div className="mt-2 flex flex-wrap gap-2">
                           {p.trabajo_id && (
                             <Badge className="gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                              <BadgeCheck className="h-3.5 w-3.5" /> Verificado por Diime
+                              <BadgeCheck className="h-3.5 w-3.5" /> {t("Verificado por Diime")}
                             </Badge>
                           )}
                           {p.categoria && <Badge variant="secondary">{p.categoria}</Badge>}
@@ -328,24 +333,24 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
                           <div className="mt-3 flex flex-wrap gap-2 border-t pt-3 text-xs">
                             {p.duracion && (
                               <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-muted-foreground">
-                                <Clock className="h-3.5 w-3.5" /> Tiempo: {p.duracion}
+                                <Clock className="h-3.5 w-3.5" /> {t("Tiempo:")} {p.duracion}
                               </span>
                             )}
                             {p.rango_precio && (
                               <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-muted-foreground">
-                                <Euro className="h-3.5 w-3.5" /> Coste aprox.: {p.rango_precio}
+                                <Euro className="h-3.5 w-3.5" /> {t("Coste aprox.:")} {p.rango_precio}
                               </span>
                             )}
                           </div>
                         )}
                         {p.contexto_proveedor && (
                           <div className="mt-3 border-t pt-3">
-                            <p className="text-xs font-medium">Aporte del profesional</p>
+                            <p className="text-xs font-medium">{t("Aporte del profesional")}</p>
                             <p className="mt-1 text-xs text-muted-foreground line-clamp-3">{p.contexto_proveedor}</p>
                           </div>
                         )}
                         <span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary">
-                          Ver detalles
+                          {t("Ver detalles")}
                         </span>
                       </div>
                     </button>
@@ -360,7 +365,7 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
           {reviews.length === 0 ? (
             <Card>
               <CardContent className="pt-6 text-center text-sm text-muted-foreground py-8">
-                Todavía no hay valoraciones.
+                {t("Todavía no hay valoraciones.")}
               </CardContent>
             </Card>
           ) : (
@@ -417,7 +422,7 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
                   <div className="flex flex-wrap gap-2">
                     {proyectoSeleccionado.trabajo_id && (
                       <Badge className="gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                        <BadgeCheck className="h-3.5 w-3.5" /> Trabajo verificado por Diime
+                        <BadgeCheck className="h-3.5 w-3.5" /> {t("Trabajo verificado por Diime")}
                       </Badge>
                     )}
                     {proyectoSeleccionado.categoria && (
@@ -428,7 +433,7 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
                     {proyectoSeleccionado.titulo}
                   </DialogTitle>
                   <DialogDescription>
-                    Detalles de un trabajo completado por {nombreCompleto}.
+                    {t("Detalles de un trabajo completado por")} {nombreCompleto}.
                   </DialogDescription>
                 </DialogHeader>
 
@@ -441,7 +446,7 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
                       <div className="flex items-start gap-2">
                         <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                         <div>
-                          <p className="text-xs text-muted-foreground">Ubicación</p>
+                          <p className="text-xs text-muted-foreground">{t("Ubicación")}</p>
                           <p className="font-medium">{proyectoSeleccionado.ubicacion}</p>
                         </div>
                       </div>
@@ -450,7 +455,7 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
                       <div className="flex items-start gap-2">
                         <Clock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                         <div>
-                          <p className="text-xs text-muted-foreground">Duración</p>
+                          <p className="text-xs text-muted-foreground">{t("Duración")}</p>
                           <p className="font-medium">{proyectoSeleccionado.duracion}</p>
                         </div>
                       </div>
@@ -459,7 +464,7 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
                       <div className="flex items-start gap-2">
                         <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                         <div>
-                          <p className="text-xs text-muted-foreground">Completado</p>
+                          <p className="text-xs text-muted-foreground">{t("Completado")}</p>
                           <p className="font-medium">{formatearFechaProyecto(proyectoSeleccionado.fecha_proyecto)}</p>
                         </div>
                       </div>
@@ -468,9 +473,9 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
                       <div className="flex items-start gap-2">
                         <Euro className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                         <div>
-                          <p className="text-xs text-muted-foreground">Coste orientativo</p>
+                          <p className="text-xs text-muted-foreground">{t("Coste orientativo")}</p>
                           <p className="font-medium">{proyectoSeleccionado.rango_precio}</p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">El precio exacto del encargo es privado.</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">{t("El precio exacto del encargo es privado.")}</p>
                         </div>
                       </div>
                     )}
@@ -479,7 +484,7 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
 
                 {proyectoSeleccionado.descripcion && (
                   <section>
-                    <h3 className="text-sm font-semibold">Descripción del trabajo</h3>
+                    <h3 className="text-sm font-semibold">{t("Descripción del trabajo")}</h3>
                     <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
                       {proyectoSeleccionado.descripcion}
                     </p>
@@ -488,7 +493,7 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
 
                 {proyectoSeleccionado.contexto_proveedor && (
                   <section className="border-t pt-5">
-                    <h3 className="text-sm font-semibold">Aporte del profesional</h3>
+                    <h3 className="text-sm font-semibold">{t("Aporte del profesional")}</h3>
                     <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
                       {proyectoSeleccionado.contexto_proveedor}
                     </p>
@@ -502,7 +507,7 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
 
       <Separator />
       <p className="text-center text-xs text-muted-foreground">
-        Contrata a {nombreCompleto} de forma segura con pagos protegidos por Diime.
+        {t("Contrata a")} {nombreCompleto} {t("de forma segura con pagos protegidos por Diime.")}
       </p>
     </div>
   )

@@ -1,3 +1,4 @@
+import { localeDe, type Idioma, traducir } from "@/lib/i18n"
 import { createClient } from "@/lib/supabase/server"
 
 // Datos completos de una contratación para su propuesta, justificante y desglose.
@@ -108,20 +109,21 @@ export async function obtenerDatosContratacion(trabajoId: string) {
   }
 }
 
-export function formatearEuros(n: number | null | undefined): string {
+export function formatearEuros(n: number | null | undefined, idioma: Idioma = "es"): string {
   const v = Number(n || 0)
-  return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(v)
+  return new Intl.NumberFormat(localeDe(idioma), { style: "currency", currency: "EUR" }).format(v)
 }
 
-export function formatearFechaLarga(fecha?: string | null): string {
+export function formatearFechaLarga(fecha?: string | null, idioma: Idioma = "es"): string {
   if (!fecha) return "—"
-  return new Date(fecha).toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" })
+  return new Date(fecha).toLocaleDateString(localeDe(idioma), { day: "numeric", month: "long", year: "numeric" })
 }
 
-export function etiquetaMateriales(valor?: string | null): string {
-  if (!valor) return "No especificado"
-  if (valor === "si") return "Incluidos en el precio"
-  if (valor === "no") return "No incluidos (a cargo del cliente)"
-  if (valor === "parcial") return "Parcialmente incluidos"
+export function etiquetaMateriales(valor?: string | null, idioma: Idioma = "es"): string {
+  const t = (clave: string) => traducir(idioma, clave)
+  if (!valor) return t("No especificado")
+  if (valor === "si") return t("Incluidos en el precio")
+  if (valor === "no") return t("No incluidos (a cargo del cliente)")
+  if (valor === "parcial") return t("Parcialmente incluidos")
   return valor
 }

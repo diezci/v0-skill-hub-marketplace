@@ -1,5 +1,7 @@
 "use client"
 
+import { useT } from "@/components/idioma-provider"
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Star, ThumbsUp, MessageSquare, Plus } from "lucide-react"
@@ -45,6 +47,7 @@ export default function ProfileReviews({
   profesionalId?: string
   canReview?: boolean
 }) {
+  const t = useT()
   const [helpfulCounts, setHelpfulCounts] = useState<Record<number, number>>(
     reviews.reduce(
       (acc, review) => {
@@ -85,8 +88,8 @@ export default function ProfileReviews({
   const handleSubmitReview = async () => {
     if (!profesionalId || !reviewComment.trim()) {
       toast({
-        title: "Error",
-        description: "Por favor completa todos los campos",
+        title: t("Error"),
+        description: t("Por favor completa todos los campos"),
         variant: "destructive",
       })
       return
@@ -104,14 +107,14 @@ export default function ProfileReviews({
 
     if (result.error) {
       toast({
-        title: "Error",
-        description: result.error,
+        title: t("Error"),
+        description: result.error ? t(result.error) : undefined,
         variant: "destructive",
       })
     } else {
       toast({
-        title: "Reseña enviada",
-        description: "Tu valoración ha sido publicada",
+        title: t("Reseña enviada"),
+        description: t("Tu valoración ha sido publicada"),
       })
       setShowReviewDialog(false)
       setReviewComment("")
@@ -143,28 +146,28 @@ export default function ProfileReviews({
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>Valoraciones y Opiniones de Clientes</CardTitle>
+          <CardTitle>{t("Valoraciones y Opiniones de Clientes")}</CardTitle>
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="text-sm">
               <MessageSquare className="h-3 w-3 mr-1" />
-              {totalReviews} reseñas
+              {totalReviews} {t("reseñas")}
             </Badge>
             {canReview && (
               <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
                 <DialogTrigger asChild>
                   <Button size="sm">
                     <Plus className="h-4 w-4 mr-1" />
-                    Dejar Reseña
+                    {t("Dejar Reseña")}
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Dejar una Valoración</DialogTitle>
-                    <DialogDescription>Comparte tu experiencia con este profesional</DialogDescription>
+                    <DialogTitle>{t("Dejar una Valoración")}</DialogTitle>
+                    <DialogDescription>{t("Comparte tu experiencia con este profesional")}</DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
                     <div>
-                      <Label>Valoración</Label>
+                      <Label>{t("Valoración")}</Label>
                       <div className="flex gap-1 mt-2">
                         {[1, 2, 3, 4, 5].map((star) => (
                           <button key={star} onClick={() => setReviewRating(star)} className="focus:outline-none">
@@ -178,22 +181,22 @@ export default function ProfileReviews({
                       </div>
                     </div>
                     <div>
-                      <Label htmlFor="project-type">Tipo de Proyecto</Label>
+                      <Label htmlFor="project-type">{t("Tipo de Proyecto")}</Label>
                       <input
                         id="project-type"
                         value={reviewProjectType}
                         onChange={(e) => setReviewProjectType(e.target.value)}
-                        placeholder="Ej: Instalación Eléctrica"
+                        placeholder={t("Ej: Instalación Eléctrica")}
                         className="w-full mt-1 px-3 py-2 border rounded-md"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="comment">Comentario</Label>
+                      <Label htmlFor="comment">{t("Comentario")}</Label>
                       <Textarea
                         id="comment"
                         value={reviewComment}
                         onChange={(e) => setReviewComment(e.target.value)}
-                        placeholder="Comparte los detalles de tu experiencia..."
+                        placeholder={t("Comparte los detalles de tu experiencia...")}
                         rows={4}
                         className="mt-1"
                       />
@@ -201,10 +204,10 @@ export default function ProfileReviews({
                   </div>
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setShowReviewDialog(false)}>
-                      Cancelar
+                      {t("Cancelar")}
                     </Button>
                     <Button onClick={handleSubmitReview} disabled={submitting}>
-                      {submitting ? "Enviando..." : "Publicar Reseña"}
+                      {submitting ? t("Enviando...") : t("Publicar Reseña")}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -225,12 +228,12 @@ export default function ProfileReviews({
                 />
               ))}
             </div>
-            <p className="text-sm font-medium">Valoración Media</p>
-            <p className="text-xs text-muted-foreground mt-1">Basado en {totalReviews} opiniones verificadas</p>
+            <p className="text-sm font-medium">{t("Valoración Media")}</p>
+            <p className="text-xs text-muted-foreground mt-1">{t("Basado en")} {totalReviews} {t("opiniones verificadas")}</p>
           </div>
 
           <div className="flex-1 space-y-3">
-            <h4 className="font-semibold mb-3">Distribución de Valoraciones</h4>
+            <h4 className="font-semibold mb-3">{t("Distribución de Valoraciones")}</h4>
             {ratingDistribution.map(({ stars, count, percentage }) => (
               <div key={stars} className="flex items-center gap-3">
                 <div className="flex items-center gap-1 w-24">
@@ -248,7 +251,7 @@ export default function ProfileReviews({
 
         {Object.keys(averageByCategory).length > 0 && (
           <div className="mb-8 pb-8 border-b">
-            <h4 className="font-semibold mb-4">Valoraciones por Tipo de Proyecto</h4>
+            <h4 className="font-semibold mb-4">{t("Valoraciones por Tipo de Proyecto")}</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {Object.entries(averageByCategory).map(([type, data]) => {
                 const avg = data.total / data.count
@@ -256,7 +259,7 @@ export default function ProfileReviews({
                   <Card key={type} className="p-4">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium">{type}</span>
-                      <Badge variant="outline">{data.count} reseñas</Badge>
+                      <Badge variant="outline">{data.count} {t("reseñas")}</Badge>
                     </div>
                     <div className="flex items-center gap-2">
                       <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
@@ -270,7 +273,7 @@ export default function ProfileReviews({
         )}
 
         <div>
-          <h4 className="font-semibold mb-4">Opiniones de Clientes ({reviews.length})</h4>
+          <h4 className="font-semibold mb-4">{t("Opiniones de Clientes (")}{reviews.length})</h4>
           <div className="space-y-6">
             {reviews.map((review) => (
               <div key={review.id} className="pb-6 border-b last:border-0 last:pb-0">
@@ -304,7 +307,7 @@ export default function ProfileReviews({
                     >
                       <ThumbsUp className={`h-3 w-3 ${markedHelpful.has(review.id) ? "fill-current" : ""}`} />
                       <span>
-                        {markedHelpful.has(review.id) ? "Marcado como útil" : "Útil"} ({helpfulCounts[review.id]})
+                        {markedHelpful.has(review.id) ? t("Marcado como útil") : t("Útil")} ({helpfulCounts[review.id]})
                       </span>
                     </button>
                   </div>

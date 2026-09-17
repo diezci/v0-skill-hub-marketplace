@@ -1,5 +1,8 @@
 "use client"
 
+import { useT, useIdioma } from "@/components/idioma-provider"
+import { localeDe } from "@/lib/i18n"
+
 import { useEffect, useMemo, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -9,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Switch } from "@/components/ui/switch"
+import { Checkbox } from "@/components/ui/checkbox"
 import { ChevronLeft, ChevronRight, Plus, Trash2, Briefcase, ShoppingBag, CalendarDays, MapPin } from "lucide-react"
 import {
   obtenerTrabajosCalendario,
@@ -119,6 +122,9 @@ type CalendarItem = {
 }
 
 export function ProjectCalendar() {
+  const t = useT()
+  const { idioma } = useIdioma()
+
   const [trabajos, setTrabajos] = useState<TrabajoCalendario[]>([])
   const [servicios, setServicios] = useState<ServicioSolicitado[]>([])
   const [eventos, setEventos] = useState<EventoCalendario[]>([])
@@ -162,38 +168,38 @@ export function ProjectCalendar() {
 
   const items = useMemo<CalendarItem[]>(() => {
     const list: CalendarItem[] = []
-    trabajos.forEach((t) => {
-      const titulo = t.titulo || t.solicitud?.titulo || "Trabajo"
-      if (t.fecha_inicio) {
+    trabajos.forEach((trabajo) => {
+      const titulo = trabajo.titulo || trabajo.solicitud?.titulo || t("Trabajo")
+      if (trabajo.fecha_inicio) {
         list.push({
-          id: `t-ini-${t.id}`,
+          id: `t-ini-${trabajo.id}`,
           titulo,
           tipo: "trabajo_inicio",
-          fecha: t.fecha_inicio.split("T")[0],
+          fecha: trabajo.fecha_inicio.split("T")[0],
           color: "blue",
-          meta: "Inicio del trabajo",
+          meta: t("Inicio del trabajo"),
         })
       }
       {
         // Si el trabajo ya está cerrado, manda su fecha real: terminarlo antes
         // de tiempo (o cancelarlo) movía la marca solo en teoría, porque el
         // calendario seguía pintando la fecha estimada.
-        const cerrado = t.estado === "completado" || t.estado === "cancelado"
-        const fechaCierre = cerrado ? (t as any).fecha_fin || t.fecha_estimada_fin : t.fecha_estimada_fin
+        const cerrado = trabajo.estado === "completado" || trabajo.estado === "cancelado"
+        const fechaCierre = cerrado ? (trabajo as any).fecha_fin || trabajo.fecha_estimada_fin : trabajo.fecha_estimada_fin
         if (fechaCierre) {
           list.push({
-            id: `t-fin-${t.id}`,
+            id: `t-fin-${trabajo.id}`,
             titulo,
             tipo: "trabajo_entrega",
             fecha: String(fechaCierre).split("T")[0],
-            color: cerrado ? (t.estado === "cancelado" ? "red" : "emerald") : "amber",
-            meta: cerrado ? (t.estado === "cancelado" ? "Cancelado" : "Completado") : "Entrega prevista",
+            color: cerrado ? (trabajo.estado === "cancelado" ? "red" : "emerald") : "amber",
+            meta: cerrado ? (trabajo.estado === "cancelado" ? t("Cancelado") : t("Completado")) : t("Entrega prevista"),
           })
         }
       }
     })
     servicios.forEach((s) => {
-      const titulo = s.titulo || s.solicitud?.titulo || "Servicio"
+      const titulo = s.titulo || s.solicitud?.titulo || t("Servicio")
       if (s.fecha_inicio) {
         list.push({
           id: `s-ini-${s.id}`,
@@ -201,7 +207,7 @@ export function ProjectCalendar() {
           tipo: "servicio_inicio",
           fecha: s.fecha_inicio.split("T")[0],
           color: "cyan",
-          meta: "Inicio del servicio",
+          meta: t("Inicio del servicio"),
         })
       }
       if (s.fecha_estimada_fin) {
@@ -211,7 +217,7 @@ export function ProjectCalendar() {
           tipo: "servicio_entrega",
           fecha: s.fecha_estimada_fin.split("T")[0],
           color: "rose",
-          meta: "Recepción prevista",
+          meta: t("Recepción prevista"),
         })
       }
     })
@@ -226,7 +232,7 @@ export function ProjectCalendar() {
       })
     })
     return list
-  }, [trabajos, servicios, eventos])
+  }, [trabajos, servicios, eventos, t])
 
   const dias = useMemo(() => {
     const y = currentDate.getFullYear()
@@ -283,7 +289,7 @@ export function ProjectCalendar() {
 
   async function handleSave() {
     if (!form.titulo.trim()) {
-      toast({ title: "Falta el título", description: "Pon un nombre al evento", variant: "destructive" })
+      toast({ title: t("Falta el título"), description: t("Pon un nombre al evento"), variant: "destructive" })
       return
     }
     setSaving(true)
@@ -301,11 +307,11 @@ export function ProjectCalendar() {
       : await crearEventoCalendario(payload)
     setSaving(false)
     if (result.success) {
-      toast({ title: editingId ? "Evento actualizado" : "Evento creado" })
+      toast({ title: editingId ? t("Evento actualizado") : t("Evento creado") })
       setDialogOpen(false)
       loadAll()
     } else {
-      toast({ title: "Error", description: result.error || "No se pudo guardar", variant: "destructive" })
+      toast({ title: t("Error"), description: t(result.error || "No se pudo guardar"), variant: "destructive" })
     }
   }
 
@@ -315,11 +321,11 @@ export function ProjectCalendar() {
     const result = await eliminarEventoCalendario(editingId)
     setSaving(false)
     if (result.success) {
-      toast({ title: "Evento eliminado" })
+      toast({ title: t("Evento eliminado") })
       setDialogOpen(false)
       loadAll()
     } else {
-      toast({ title: "Error", description: result.error || "No se pudo eliminar", variant: "destructive" })
+      toast({ title: t("Error"), description: t(result.error || "No se pudo eliminar"), variant: "destructive" })
     }
   }
 
@@ -331,7 +337,7 @@ export function ProjectCalendar() {
   if (loading) {
     return (
       <Card>
-        <CardContent className="p-12 text-center text-muted-foreground">Cargando calendario...</CardContent>
+        <CardContent className="p-12 text-center text-muted-foreground">{t("Cargando calendario...")}</CardContent>
       </Card>
     )
   }
@@ -346,12 +352,12 @@ export function ProjectCalendar() {
               size="icon"
               className="h-9 w-9 bg-transparent"
               onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}
-              aria-label="Mes anterior"
+              aria-label={t("Mes anterior")}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <CardTitle className="text-xl min-w-[200px] text-center capitalize tracking-tight">
-              {MESES[currentDate.getMonth()]}{" "}
+              {t(MESES[currentDate.getMonth()])}{" "}
               <span className="text-muted-foreground font-normal">{currentDate.getFullYear()}</span>
             </CardTitle>
             <Button
@@ -359,7 +365,7 @@ export function ProjectCalendar() {
               size="icon"
               className="h-9 w-9 bg-transparent"
               onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}
-              aria-label="Mes siguiente"
+              aria-label={t("Mes siguiente")}
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -368,14 +374,10 @@ export function ProjectCalendar() {
               size="sm"
               onClick={() => setCurrentDate(new Date())}
               className="ml-1 h-9"
-            >
-              Hoy
-            </Button>
+            >{t("Hoy")}</Button>
           </div>
           <Button onClick={() => openNewEvent()} className="bg-emerald-600 hover:bg-emerald-700 gap-2 shadow-sm">
-            <Plus className="h-4 w-4" />
-            Añadir evento
-          </Button>
+            <Plus className="h-4 w-4" />{t("Añadir evento")}</Button>
         </CardHeader>
         <CardContent className="p-3 sm:p-4">
           {/* Day headers */}
@@ -388,7 +390,7 @@ export function ProjectCalendar() {
                   i >= 5 ? "text-rose-600/90 dark:text-rose-400/90" : "text-muted-foreground",
                 )}
               >
-                {d}
+                {t(d)}
               </div>
             ))}
           </div>
@@ -407,7 +409,7 @@ export function ProjectCalendar() {
                   type="button"
                   key={idx}
                   onClick={() => openNewEvent(date)}
-                  title={festivoNombre || undefined}
+                  title={festivoNombre ? t(festivoNombre) : undefined}
                   className={cn(
                     "group relative min-h-[96px] p-2 rounded-lg border text-left transition-all flex flex-col gap-1.5",
                     "hover:border-emerald-400/60 hover:shadow-sm",
@@ -433,13 +435,13 @@ export function ProjectCalendar() {
                     {isCurrentMonth && isHoliday && (
                       <span
                         className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0"
-                        aria-label={`Festivo: ${festivoNombre}`}
+                        aria-label={t("Festivo: {name}", { name: t(festivoNombre || "") })}
                       />
                     )}
                   </div>
                   {isCurrentMonth && isHoliday && (
                     <span className="text-[9px] font-medium text-rose-700/80 dark:text-rose-300/80 leading-tight truncate uppercase tracking-wide">
-                      {festivoNombre}
+                      {festivoNombre && t(festivoNombre)}
                     </span>
                   )}
                   <div className="flex flex-col gap-1 overflow-hidden">
@@ -457,8 +459,7 @@ export function ProjectCalendar() {
                     ))}
                     {dayItems.length > 3 && (
                       <div className="text-[10px] text-muted-foreground font-medium px-1">
-                        +{dayItems.length - 3} más
-                      </div>
+                        +{dayItems.length - 3}{" "}{t("más")}</div>
                     )}
                   </div>
                 </button>
@@ -469,23 +470,17 @@ export function ProjectCalendar() {
           {/* Leyenda */}
           <div className="flex flex-wrap gap-x-4 gap-y-2 mt-5 pt-4 border-t text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-blue-500" /> Inicio trabajo
-            </span>
+              <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />{" "}{t("Inicio trabajo")}</span>
             <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-amber-500" /> Entrega trabajo
-            </span>
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />{" "}{t("Entrega trabajo")}</span>
             <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-cyan-500" /> Inicio servicio
-            </span>
+              <span className="h-2.5 w-2.5 rounded-full bg-cyan-500" />{" "}{t("Inicio servicio")}</span>
             <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-rose-500" /> Recepción servicio
-            </span>
+              <span className="h-2.5 w-2.5 rounded-full bg-rose-500" />{" "}{t("Recepción servicio")}</span>
             <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Evento personal
-            </span>
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />{" "}{t("Evento personal")}</span>
             <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-rose-500" /> Festivo nacional
-            </span>
+              <span className="h-2 w-2 rounded-full bg-rose-500" />{" "}{t("Festivo nacional")}</span>
           </div>
         </CardContent>
       </Card>
@@ -495,13 +490,11 @@ export function ProjectCalendar() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
-              <CalendarDays className="h-4 w-4 text-emerald-500" />
-              Próximos eventos
-            </CardTitle>
+              <CalendarDays className="h-4 w-4 text-emerald-500" />{t("Próximos eventos")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {proximos.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-2">No hay próximos eventos</p>
+              <p className="text-sm text-muted-foreground py-2">{t("No hay próximos eventos")}</p>
             ) : (
               proximos.map((it) => {
                 const isEvento = it.tipo === "evento"
@@ -517,7 +510,7 @@ export function ProjectCalendar() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{it.titulo}</p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(it.fecha).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}
+                        {new Date(it.fecha).toLocaleDateString(localeDe(idioma), { day: "numeric", month: "short" })}
                         {it.meta ? ` · ${it.meta}` : ""}
                       </p>
                     </div>
@@ -530,25 +523,22 @@ export function ProjectCalendar() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Resumen</CardTitle>
+            <CardTitle className="text-base">{t("Resumen")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2 text-muted-foreground">
-                <Briefcase className="h-4 w-4" /> Trabajos
-              </span>
+                <Briefcase className="h-4 w-4" />{" "}{t("Trabajos")}</span>
               <Badge variant="outline">{trabajos.length}</Badge>
             </div>
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2 text-muted-foreground">
-                <ShoppingBag className="h-4 w-4" /> Servicios
-              </span>
+                <ShoppingBag className="h-4 w-4" />{" "}{t("Servicios")}</span>
               <Badge variant="outline">{servicios.length}</Badge>
             </div>
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2 text-muted-foreground">
-                <CalendarDays className="h-4 w-4" /> Eventos personales
-              </span>
+                <CalendarDays className="h-4 w-4" />{" "}{t("Eventos personales")}</span>
               <Badge variant="outline">{eventos.length}</Badge>
             </div>
           </CardContent>
@@ -559,24 +549,22 @@ export function ProjectCalendar() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingId ? "Editar evento" : "Nuevo evento"}</DialogTitle>
-            <DialogDescription>
-              Añade reuniones, recordatorios u otros eventos personales a tu calendario.
-            </DialogDescription>
+            <DialogTitle>{editingId ? t("Editar evento") : t("Nuevo evento")}</DialogTitle>
+            <DialogDescription>{t("Añade reuniones, recordatorios u otros eventos personales a tu calendario.")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="titulo">Título *</Label>
+              <Label htmlFor="titulo">{t("Título *")}</Label>
               <Input
                 id="titulo"
                 value={form.titulo}
                 onChange={(e) => setForm({ ...form, titulo: e.target.value })}
-                placeholder="Reunión con cliente"
+                placeholder={t("Reunión con cliente")}
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="fecha_inicio">Fecha inicio *</Label>
+                <Label htmlFor="fecha_inicio">{t("Fecha inicio *")}</Label>
                 <Input
                   id="fecha_inicio"
                   type="date"
@@ -585,7 +573,7 @@ export function ProjectCalendar() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="fecha_fin">Fecha fin (opcional)</Label>
+                <Label htmlFor="fecha_fin">{t("Fecha fin (opcional)")}</Label>
                 <Input
                   id="fecha_fin"
                   type="date"
@@ -595,38 +583,35 @@ export function ProjectCalendar() {
               </div>
             </div>
             <div className="flex items-center justify-between rounded-lg border p-3">
-              <Label htmlFor="todo_dia" className="cursor-pointer">
-                Todo el día
-              </Label>
-              <Switch
+              <Label htmlFor="todo_dia" className="cursor-pointer">{t("Todo el día")}</Label>
+              <Checkbox
                 id="todo_dia"
                 checked={form.todo_el_dia}
-                onCheckedChange={(v) => setForm({ ...form, todo_el_dia: v })}
+                onCheckedChange={(v) => setForm({ ...form, todo_el_dia: v === true })}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="ubicacion" className="flex items-center gap-1.5">
-                <MapPin className="h-3.5 w-3.5" /> Ubicación
-              </Label>
+                <MapPin className="h-3.5 w-3.5" />{" "}{t("Ubicación")}</Label>
               <Input
                 id="ubicacion"
                 value={form.ubicacion}
                 onChange={(e) => setForm({ ...form, ubicacion: e.target.value })}
-                placeholder="Opcional"
+                placeholder={t("Opcional")}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="descripcion">Notas</Label>
+              <Label htmlFor="descripcion">{t("Notas")}</Label>
               <Textarea
                 id="descripcion"
                 value={form.descripcion}
                 onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
                 rows={3}
-                placeholder="Detalles del evento..."
+                placeholder={t("Detalles del evento...")}
               />
             </div>
             <div className="space-y-2">
-              <Label>Color</Label>
+              <Label>{t("Color")}</Label>
               <Select value={form.color} onValueChange={(v) => setForm({ ...form, color: v })}>
                 <SelectTrigger>
                   <SelectValue />
@@ -636,7 +621,7 @@ export function ProjectCalendar() {
                     <SelectItem key={c.value} value={c.value}>
                       <span className="flex items-center gap-2">
                         <span className={cn("h-3 w-3 rounded-full", c.class)} />
-                        {c.label}
+                        {t(c.label)}
                       </span>
                     </SelectItem>
                   ))}
@@ -647,18 +632,14 @@ export function ProjectCalendar() {
           <DialogFooter className="gap-2 sm:gap-2 flex-row justify-between sm:justify-between">
             {editingId ? (
               <Button variant="outline" onClick={handleDelete} disabled={saving} className="text-red-600 gap-2">
-                <Trash2 className="h-4 w-4" />
-                Eliminar
-              </Button>
+                <Trash2 className="h-4 w-4" />{t("Eliminar")}</Button>
             ) : (
               <span />
             )}
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
-                Cancelar
-              </Button>
+              <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>{t("Cancelar")}</Button>
               <Button onClick={handleSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">
-                {saving ? "Guardando..." : editingId ? "Guardar" : "Crear"}
+                {saving ? t("Guardando...") : editingId ? t("Guardar") : t("Crear")}
               </Button>
             </div>
           </DialogFooter>

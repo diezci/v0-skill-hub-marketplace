@@ -1,5 +1,8 @@
 "use client"
 
+import { useIdioma } from "@/components/idioma-provider"
+
+
 import { useEffect, useMemo, useState } from "react"
 import { Slider } from "@/components/ui/slider"
 import { formatearPrecioEuros } from "@/lib/utils"
@@ -71,6 +74,7 @@ export function RangoPrecio({
   progresivo?: boolean
   etiqueta?: string
 }) {
+  const { t, idioma } = useIdioma()
   const [minSel, maxSel] = value
   const escala = useMemo(() => (progresivo ? crearEscalaProgresiva(max) : null), [max, progresivo])
   const indicesEscala = escala
@@ -99,12 +103,12 @@ export function RangoPrecio({
       <input
         type="text"
         inputMode="numeric"
-        aria-label={cual === "min" ? `${etiqueta} mínimo` : `${etiqueta} máximo`}
+        aria-label={cual === "min" ? t("{etiqueta} mínimo", { etiqueta: t(etiqueta) }) : t("{etiqueta} máximo", { etiqueta: t(etiqueta) })}
         className="w-full min-w-0 rounded-md border bg-transparent px-2 py-1 text-sm tabular-nums text-center outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
         value={
           enEdicion
             ? escribiendo!.texto
-            : `${formatearPrecioEuros(Math.min(valor, max))}${cual === "max" && valor >= max ? "+" : ""}`
+            : `${formatearPrecioEuros(Math.min(valor, max), idioma)}${cual === "max" && valor >= max ? "+" : ""}`
         }
         onFocus={(e) => {
           setEscribiendo({ cual, texto: String(Math.min(valor, max)) })
@@ -132,10 +136,10 @@ export function RangoPrecio({
         max={escala ? escala.length - 1 : max}
         step={escala ? 1 : paso}
         value={indicesEscala || [Math.min(minSel, max), Math.min(maxSel, max)]}
-        thumbLabels={[`${etiqueta} mínimo`, `${etiqueta} máximo`]}
+        thumbLabels={[t("{etiqueta} mínimo", { etiqueta: t(etiqueta) }), t("{etiqueta} máximo", { etiqueta: t(etiqueta) })]}
         thumbValueTexts={[
-          formatearPrecioEuros(minSel),
-          `${formatearPrecioEuros(Math.min(maxSel, max))}${maxSel >= max ? " o más" : ""}`,
+          formatearPrecioEuros(minSel, idioma),
+          `${formatearPrecioEuros(Math.min(maxSel, max), idioma)}${maxSel >= max ? t(" o más") : ""}`,
         ]}
         onValueChange={(v) => {
           if (!escala || !indicesEscala) {
@@ -154,7 +158,7 @@ export function RangoPrecio({
       />
       <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 text-sm">
         {caja("min", minSel)}
-        <span className="text-muted-foreground shrink-0">a</span>
+        <span className="text-muted-foreground shrink-0">{t("a")}</span>
         {caja("max", maxSel)}
       </div>
     </div>

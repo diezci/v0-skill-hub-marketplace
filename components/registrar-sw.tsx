@@ -1,13 +1,18 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { Capacitor } from "@capacitor/core"
+import { useIdioma } from "@/components/idioma-provider"
 
 // Registra el service worker que hace instalable la app.
 //
 // Solo en producción: en desarrollo, un service worker cacheando navegaciones
 // pelea con el recargado en caliente de Next y da fallos difíciles de rastrear.
 export function RegistrarSW() {
+  const { idioma } = useIdioma()
+  const idiomaActual = useRef(idioma)
+  useEffect(() => { idiomaActual.current = idioma }, [idioma])
+
   useEffect(() => {
     if (process.env.NODE_ENV !== "production") return
     if (!("serviceWorker" in navigator)) return
@@ -25,7 +30,13 @@ export function RegistrarSW() {
 
     // Tras la carga, para no competir por ancho de banda con la primera pintura.
     const registrar = () => {
-      navigator.serviceWorker.register("/sw.js").catch((e) => {
+      navigator.serviceWorker.register("/sw.js").then((registration) => {
+        // Registration may happen after a language change while the page loads.
+        const mensaje = { type: "DIIME_IDIOMA", idioma: idiomaActual.current }
+        registration.active?.postMessage(mensaje)
+        registration.waiting?.postMessage(mensaje)
+        registration.installing?.postMessage(mensaje)
+      }).catch((e) => {
         console.error("[pwa] no se pudo registrar el service worker:", e)
       })
     }

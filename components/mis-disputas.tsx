@@ -1,5 +1,8 @@
 "use client"
 
+import { useT, useIdioma } from "@/components/idioma-provider"
+import { localeDe } from "@/lib/i18n"
+
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
@@ -91,6 +94,9 @@ export default function MisDisputas({
   // las pintaba como "en curso".
   onCount?: (n: number) => void
 }) {
+  const t = useT()
+  const { idioma } = useIdioma()
+
   const [disputas, setDisputas] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [retirandoId, setRetirandoId] = useState<string | null>(null)
@@ -140,15 +146,15 @@ export default function MisDisputas({
     setRetirandoId(null)
     setARetirar(null)
     if (res.error) {
-      toast({ title: "No se pudo retirar", description: res.error, variant: "destructive" })
+      toast({ title: t("No se pudo retirar"), description: t(res.error), variant: "destructive" })
     } else {
-      toast({ title: "Disputa retirada", description: "El trabajo continúa con normalidad." })
+      toast({ title: t("Disputa retirada"), description: t("El trabajo continúa con normalidad.") })
       await cargar()
     }
   }
 
   const formatFecha = (f: string) =>
-    new Date(f).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })
+    new Date(f).toLocaleDateString(localeDe(idioma), { day: "numeric", month: "short", year: "numeric" })
 
   if (loading) {
     return (
@@ -163,11 +169,8 @@ export default function MisDisputas({
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-16 text-center">
           <Scale className="h-12 w-12 text-muted-foreground/50 mb-4" />
-          <p className="text-lg font-medium">No tienes disputas</p>
-          <p className="text-muted-foreground mt-1 max-w-md">
-            Si surge un desacuerdo sobre un trabajo, aquí verás las disputas que hayas abierto y las que la otra
-            parte haya abierto, con su estado y la decisión del equipo de Diime.
-          </p>
+          <p className="text-lg font-medium">{t("No tienes disputas")}</p>
+          <p className="text-muted-foreground mt-1 max-w-md">{t("Si surge un desacuerdo sobre un trabajo, aquí verás las disputas que hayas abierto y las que la otra parte haya abierto, con su estado y la decisión del equipo de Diime.")}</p>
         </CardContent>
       </Card>
     )
@@ -205,7 +208,7 @@ export default function MisDisputas({
                 <div className="min-w-0">
                   <h3 className="font-semibold truncate">{d.trabajo_titulo}</h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {d.la_abri_yo ? "La abriste tú" : "Abierta por la otra parte"}
+                    {d.la_abri_yo ? t("La abriste tú") : t("Abierta por la otra parte")}
                     {d.otra_parte && ` · ${d.otra_parte.nombre ?? ""} ${d.otra_parte.apellido ?? ""}`.trimEnd()}
                     {" · "}
                     {formatFecha(d.created_at)}
@@ -213,30 +216,28 @@ export default function MisDisputas({
                 </div>
                 <Badge variant="outline" className={`gap-1 shrink-0 ${estado.cls}`}>
                   <EstadoIcon className="h-3.5 w-3.5" />
-                  {estado.label}
+                  {t(estado.label)}
                 </Badge>
               </div>
 
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-0.5">Motivo</p>
+                <p className="text-xs font-medium text-muted-foreground mb-0.5">{t("Motivo")}</p>
                 <p className="text-sm text-muted-foreground">{d.motivo}</p>
               </div>
 
               {hayPruebasCancelacion && (
                 <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
-                  <p className="text-xs font-medium text-muted-foreground">Pruebas aportadas para la cancelación</p>
+                  <p className="text-xs font-medium text-muted-foreground">{t("Pruebas aportadas para la cancelación")}</p>
                   {adjuntosSolicitante.length > 0 && (
                     <div className="space-y-1.5">
-                      <p className="text-xs">
-                        Solicita cancelar · {d.tipo === "cliente" ? "cliente" : "proveedor"}
+                      <p className="text-xs">{t("Solicita cancelar ·")}{" "}{t(d.tipo === "cliente" ? "cliente" : "proveedor")}
                       </p>
                       <AdjuntosLista archivos={adjuntosSolicitante} />
                     </div>
                   )}
                   {adjuntosRespuesta.length > 0 && (
                     <div className="space-y-1.5">
-                      <p className="text-xs">
-                        Rechaza cancelar · {d.tipo === "cliente" ? "proveedor" : "cliente"}
+                      <p className="text-xs">{t("Rechaza cancelar ·")}{" "}{t(d.tipo === "cliente" ? "proveedor" : "cliente")}
                       </p>
                       <AdjuntosLista archivos={adjuntosRespuesta} />
                     </div>
@@ -246,25 +247,19 @@ export default function MisDisputas({
 
               {d.estado === "resuelta" && "caja" in estado && "tituloCaja" in estado && (
                 <div className={`rounded-lg border p-3 ${estado.caja}`}>
-                  <p className={`text-xs font-medium mb-0.5 ${estado.tituloCaja}`}>
-                    Decisión del equipo de Diime
-                  </p>
-                  <p className="text-sm text-muted-foreground">{textoResolucion(d.resolucion, soyCliente)}</p>
+                  <p className={`text-xs font-medium mb-0.5 ${estado.tituloCaja}`}>{t("Decisión del equipo de Diime")}</p>
+                  <p className="text-sm text-muted-foreground">{t(textoResolucion(d.resolucion, soyCliente))}</p>
                   {d.resultado && (
                     <p className="text-sm text-muted-foreground mt-1">
-                      <span className="font-medium text-foreground">Motivo: </span>
+                      <span className="font-medium text-foreground">{t("Motivo:")}{" "}</span>
                       {d.resultado}
                     </p>
                   )}
                   {d.fecha_resolucion && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Resuelta el {formatFecha(d.fecha_resolucion)}
+                    <p className="text-xs text-muted-foreground mt-1">{t("Resuelta el")}{" "}{formatFecha(d.fecha_resolucion)}
                     </p>
                   )}
-                  <p className="text-xs text-muted-foreground mt-2 border-t border-border/50 pt-2">
-                    La decisión de Diime es una mediación privada entre las partes y en ningún caso te impide
-                    emprender por tu cuenta las acciones legales o de otro tipo que consideres.
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-2 border-t border-border/50 pt-2">{t("La decisión de Diime es una mediación privada entre las partes y en ningún caso te impide emprender por tu cuenta las acciones legales o de otro tipo que consideres.")}</p>
                 </div>
               )}
 
@@ -274,14 +269,12 @@ export default function MisDisputas({
                   target="_blank"
                   className="text-xs text-primary hover:underline inline-flex items-center gap-1"
                 >
-                  <FileText className="h-3.5 w-3.5" /> Ver justificante y términos
-                </Link>
+                  <FileText className="h-3.5 w-3.5" />{" "}{t("Ver justificante y términos")}</Link>
                 <Link
                   href="/mensajes"
                   className="text-xs text-primary hover:underline inline-flex items-center gap-1"
                 >
-                  <Briefcase className="h-3.5 w-3.5" /> Aportar pruebas en el chat
-                  <ArrowRight className="h-3 w-3" />
+                  <Briefcase className="h-3.5 w-3.5" />{" "}{t("Aportar pruebas en el chat")}<ArrowRight className="h-3 w-3" />
                 </Link>
                 {/* Solo el que la abrió puede retirarla, y solo mientras esté abierta. */}
                 {d.la_abri_yo && d.estado === "abierta" && (
@@ -291,8 +284,7 @@ export default function MisDisputas({
                     disabled={retirandoId === d.id}
                     className="text-xs text-destructive hover:underline inline-flex items-center gap-1 disabled:opacity-50"
                   >
-                    <XCircle className="h-3.5 w-3.5" /> Retirar disputa
-                  </button>
+                    <XCircle className="h-3.5 w-3.5" />{" "}{t("Retirar disputa")}</button>
                 )}
               </div>
             </CardContent>
@@ -305,10 +297,7 @@ export default function MisDisputas({
       {abiertas > 0 && (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-muted-foreground flex items-start gap-2">
           <Scale className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-          <span>
-            Tienes {abiertas} disputa{abiertas !== 1 ? "s" : ""} en revisión. Mientras dure, el pago sigue confirmado
-            y la transferencia bloqueada. Puedes aportar pruebas en el chat del trabajo.
-          </span>
+          <span>{t(abiertas === 1 ? "Tienes {count} disputa en revisión. Mientras dure, el pago sigue confirmado y la transferencia bloqueada. Puedes aportar pruebas en el chat del trabajo." : "Tienes {count} disputas en revisión. Mientras duren, el pago sigue confirmado y la transferencia bloqueada. Puedes aportar pruebas en el chat del trabajo.", { count: abiertas })}</span>
         </div>
       )}
 
@@ -321,7 +310,7 @@ export default function MisDisputas({
               distinguir. */}
           {enRevision.length > 0 && (
             <div className="flex items-center gap-3 pt-2">
-              <h3 className="text-sm font-medium text-muted-foreground shrink-0">Historial</h3>
+              <h3 className="text-sm font-medium text-muted-foreground shrink-0">{t("Historial")}</h3>
               <div className="h-px flex-1 bg-border" />
             </div>
           )}
@@ -332,20 +321,15 @@ export default function MisDisputas({
       <AlertDialog open={!!aRetirar} onOpenChange={(o) => !o && setARetirar(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Retirar la disputa?</AlertDialogTitle>
-            <AlertDialogDescription>
-              El equipo de Diime dejará de revisarla y el trabajo continuará donde estaba, con la transferencia
-              pendiente. Si vuelve a hacer falta, podrás abrir una disputa nueva.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t("¿Retirar la disputa?")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("El equipo de Diime dejará de revisarla y el trabajo continuará donde estaba, con la transferencia pendiente. Si vuelve a hacer falta, podrás abrir una disputa nueva.")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("Cancelar")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleRetirar}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Retirar disputa
-            </AlertDialogAction>
+            >{t("Retirar disputa")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

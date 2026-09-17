@@ -1,5 +1,7 @@
 "use client"
 
+import { useT } from "@/components/idioma-provider"
+
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -19,6 +21,7 @@ export function PreferenciaEmails({
   inicial: PreferenciasEmail
   esProfesional: boolean
 }) {
+  const t = useT()
   const [preferencias, setPreferencias] = useState(inicial)
   const [guardando, setGuardando] = useState<keyof PreferenciasEmail | null>(null)
   const { toast } = useToast()
@@ -31,13 +34,13 @@ export function PreferenciaEmails({
       const res = await actualizarPreferenciasEmails(siguientes)
       if (!res?.error) return true
       setPreferencias(anteriores)
-      toast({ title: "No se pudo guardar", description: res.error, variant: "destructive" })
+      toast({ title: t("No se pudo guardar"), description: res.error ? t(res.error) : undefined, variant: "destructive" })
       return false
     } catch {
       setPreferencias(anteriores)
       toast({
-        title: "No se pudo guardar",
-        description: "Comprueba tu conexión y vuelve a intentarlo.",
+        title: t("No se pudo guardar"),
+        description: t("Comprueba tu conexión y vuelve a intentarlo."),
         variant: "destructive",
       })
       return false
@@ -50,10 +53,10 @@ export function PreferenciaEmails({
     const activo = !preferencias.emailActivo
     if (await guardar({ ...preferencias, emailActivo: activo }, "emailActivo")) {
       toast({
-        title: activo ? "Avisos por correo activados" : "Avisos por correo desactivados",
+        title: activo ? t("Avisos por correo activados") : t("Avisos por correo desactivados"),
         description: activo
-          ? "Recibirás las categorías que tienes seleccionadas."
-          : "Seguirás viendo todos los avisos dentro de Diime.",
+          ? t("Recibirás las categorías que tienes seleccionadas.")
+          : t("Seguirás viendo todos los avisos dentro de Diime."),
       })
     }
   }
@@ -62,8 +65,8 @@ export function PreferenciaEmails({
     const opcion = OPCIONES_EMAIL.find((item) => item.clave === clave)
     if (await guardar({ ...preferencias, [clave]: activo }, clave)) {
       toast({
-        title: activo ? "Categoría activada" : "Categoría desactivada",
-        description: opcion?.titulo,
+        title: activo ? t("Categoría activada") : t("Categoría desactivada"),
+        description: opcion?.titulo ? t(opcion.titulo) : undefined,
       })
     }
   }
@@ -72,11 +75,11 @@ export function PreferenciaEmails({
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 className="mb-1 text-sm font-medium">Avisos por correo</h3>
+          <h3 className="mb-1 text-sm font-medium">{t("Avisos por correo")}</h3>
           <p className="text-sm text-muted-foreground">
             {preferencias.emailActivo
-              ? "Elige qué novedades quieres recibir también en tu correo."
-              : "No recibes correos. Todos los avisos siguen apareciendo dentro de Diime."}
+              ? t("Elige qué novedades quieres recibir también en tu correo.")
+              : t("No recibes correos. Todos los avisos siguen apareciendo dentro de Diime.")}
           </p>
         </div>
         <Button
@@ -90,12 +93,12 @@ export function PreferenciaEmails({
           ) : preferencias.emailActivo ? (
             <>
               <MailX className="mr-1.5 h-4 w-4" />
-              Desactivar todo
+              {t("Desactivar todo")}
             </>
           ) : (
             <>
               <Mail className="mr-1.5 h-4 w-4" />
-              Activar
+              {t("Activar")}
             </>
           )}
         </Button>
@@ -115,12 +118,12 @@ export function PreferenciaEmails({
                 checked={preferencias[opcion.clave]}
                 disabled={!preferencias.emailActivo || guardando !== null}
                 onCheckedChange={(valor) => void alternarCategoria(opcion.clave, valor === true)}
-                aria-label={opcion.titulo}
+                aria-label={t(opcion.titulo)}
               />
               <span>
-                <span className="block text-sm font-medium">{opcion.titulo}</span>
+                <span className="block text-sm font-medium">{t(opcion.titulo)}</span>
                 <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
-                  {opcion.descripcion}
+                  {t(opcion.descripcion)}
                 </span>
               </span>
               {guardando === opcion.clave && <Loader2 className="ml-auto mt-0.5 h-4 w-4 animate-spin" />}
@@ -130,8 +133,7 @@ export function PreferenciaEmails({
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Los mensajes de chat no generan un correo por cada mensaje; siguen llegando dentro de Diime y mediante las
-        notificaciones del dispositivo.
+        {t("Los mensajes de chat no generan un correo por cada mensaje; siguen llegando dentro de Diime y mediante las notificaciones del dispositivo.")}
       </p>
     </div>
   )

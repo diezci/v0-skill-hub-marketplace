@@ -1,3 +1,4 @@
+import { textoServidor } from "@/lib/i18n-servidor"
 import { NextResponse } from "next/server"
 import { enviarMensaje } from "@/app/actions/messages"
 
@@ -19,11 +20,11 @@ export async function POST(request: Request) {
   try {
     solicitud = (await request.json()) as SolicitudMensaje
   } catch {
-    return NextResponse.json({ error: "Solicitud no válida" }, { status: 400 })
+    return NextResponse.json({ error: await textoServidor("Solicitud no válida") }, { status: 400 })
   }
 
   if (typeof solicitud.conversacionId !== "string" || typeof solicitud.contenido !== "string") {
-    return NextResponse.json({ error: "Faltan datos del mensaje" }, { status: 400 })
+    return NextResponse.json({ error: await textoServidor("Faltan datos del mensaje") }, { status: 400 })
   }
 
   let adjunto: { tipo: "imagen" | "archivo"; url: string; nombre: string } | undefined
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
       typeof url !== "string" ||
       typeof nombre !== "string"
     ) {
-      return NextResponse.json({ error: "Adjunto no válido" }, { status: 400 })
+      return NextResponse.json({ error: await textoServidor("Adjunto no válido") }, { status: 400 })
     }
     adjunto = { tipo, url, nombre }
   }
@@ -46,6 +47,6 @@ export async function POST(request: Request) {
   )
 
   return NextResponse.json(resultado, {
-    status: resultado.error === "No autenticado" ? 401 : resultado.error ? 400 : 200,
+    status: ("codigo" in resultado && resultado.codigo === "NO_AUTENTICADO") || resultado.error === "No autenticado" ? 401 : resultado.error ? 400 : 200,
   })
 }

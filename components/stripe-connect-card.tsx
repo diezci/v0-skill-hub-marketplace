@@ -1,5 +1,7 @@
 "use client"
 
+import { useT, useIdioma } from "@/components/idioma-provider"
+
 import { useCallback, useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -34,6 +36,9 @@ type StripeConnectCardProps = {
 }
 
 export function StripeConnectCard({ estadoInicial = null, errorInicial = null }: StripeConnectCardProps) {
+  const t = useT()
+  const { idioma } = useIdioma()
+
   const [estado, setEstado] = useState<EstadoStripeConnect | null>(estadoInicial)
   const [error, setError] = useState<string | null>(errorInicial)
   const [loading, setLoading] = useState(!estadoInicial && !errorInicial)
@@ -48,7 +53,7 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
         setEstado(null)
         setError(result.error)
         if (avisar) {
-          toast({ title: "No se pudo consultar Stripe", description: result.error, variant: "destructive" })
+          toast({ title: t("No se pudo consultar Stripe"), description: t(result.error), variant: "destructive" })
         }
       } else {
         setEstado(result.data || null)
@@ -57,7 +62,7 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
       setLoading(false)
       setAccion(null)
     },
-    [toast],
+    [toast, t],
   )
 
   useEffect(() => {
@@ -91,8 +96,8 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
         : await crearEnlaceDashboardStripe()
     if (result.error || !result.data?.url) {
       toast({
-        title: "No se pudo abrir Stripe",
-        description: result.error || "Inténtalo de nuevo.",
+        title: t("No se pudo abrir Stripe"),
+        description: t(result.error || "Inténtalo de nuevo."),
         variant: "destructive",
       })
       setAccion(null)
@@ -120,30 +125,22 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <WalletCards className="h-5 w-5" /> Cobros profesionales
-            </CardTitle>
-            <CardDescription className="mt-1.5">
-              Consulta lo que tienes en Stripe y cuándo llegará el próximo ingreso a tu banco.
-            </CardDescription>
+              <WalletCards className="h-5 w-5" />{" "}{t("Cobros profesionales")}</CardTitle>
+            <CardDescription className="mt-1.5">{t("Consulta lo que tienes en Stripe y cuándo llegará el próximo ingreso a tu banco.")}</CardDescription>
           </div>
           <div className="flex flex-wrap gap-2">
             {estado?.saldo && !estado.saldo.modoReal && (
-              <Badge variant="outline" className="border-amber-500 text-amber-700">
-                Modo de prueba
-              </Badge>
+              <Badge variant="outline" className="border-amber-500 text-amber-700">{t("Modo de prueba")}</Badge>
             )}
             {loading ? (
               <Badge variant="secondary">
-                <Loader2 className="mr-1 h-3 w-3 animate-spin" /> Comprobando
-              </Badge>
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />{" "}{t("Comprobando")}</Badge>
             ) : listo ? (
               <Badge className="bg-emerald-600">
-                <ShieldCheck className="mr-1 h-3 w-3" /> Cuenta de cobros activa
-              </Badge>
+                <ShieldCheck className="mr-1 h-3 w-3" />{" "}{t("Cuenta de cobros activa")}</Badge>
             ) : (
               <Badge variant="outline" className="border-amber-500 text-amber-700">
-                <AlertCircle className="mr-1 h-3 w-3" /> Acción necesaria
-              </Badge>
+                <AlertCircle className="mr-1 h-3 w-3" />{" "}{t("Acción necesaria")}</Badge>
             )}
           </div>
         </div>
@@ -151,7 +148,7 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
       <CardContent className="space-y-5">
         {error && (
           <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-            <p>{error}</p>
+            <p>{t(error || "")}</p>
             <div className="mt-3"><SupportChatButton /></div>
           </div>
         )}
@@ -159,8 +156,8 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
         {!loading && !listo && !error && (
           <p className="text-sm text-muted-foreground">
             {estado?.conectado
-              ? "Stripe necesita que completes o actualices algunos datos antes de que podamos transferirte pagos."
-              : "Activa tu cuenta de cobros antes de aceptar trabajos de pago."}
+              ? t("Stripe necesita que completes o actualices algunos datos antes de que podamos transferirte pagos.")
+              : t("Activa tu cuenta de cobros antes de aceptar trabajos de pago.")}
           </p>
         )}
 
@@ -168,35 +165,34 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
           <>
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-xl border bg-muted/30 p-4">
-                <p className="text-xs font-medium text-muted-foreground">Saldo en Stripe</p>
+                <p className="text-xs font-medium text-muted-foreground">{t("Saldo en Stripe")}</p>
                 <p className="mt-1 text-2xl font-semibold tracking-tight">
-                  {formatearImporteStripe(saldoTotal, saldo.moneda)}
+                  {formatearImporteStripe(saldoTotal, saldo.moneda, idioma)}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">Disponible + pendiente</p>
+                <p className="mt-1 text-xs text-muted-foreground">{t("Disponible + pendiente")}</p>
               </div>
               <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-                <p className="text-xs font-medium text-muted-foreground">Disponible</p>
+                <p className="text-xs font-medium text-muted-foreground">{t("Disponible")}</p>
                 <p className="mt-1 text-2xl font-semibold tracking-tight text-emerald-700 dark:text-emerald-400">
-                  {formatearImporteStripe(saldo.disponible, saldo.moneda)}
+                  {formatearImporteStripe(saldo.disponible, saldo.moneda, idioma)}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">Listo para enviar al banco</p>
+                <p className="mt-1 text-xs text-muted-foreground">{t("Listo para enviar al banco")}</p>
               </div>
               <div className="rounded-xl border p-4">
-                <p className="text-xs font-medium text-muted-foreground">Pendiente</p>
+                <p className="text-xs font-medium text-muted-foreground">{t("Pendiente")}</p>
                 <p className="mt-1 text-2xl font-semibold tracking-tight">
-                  {formatearImporteStripe(saldo.pendiente, saldo.moneda)}
+                  {formatearImporteStripe(saldo.pendiente, saldo.moneda, idioma)}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">Aún procesándose en Stripe</p>
+                <p className="mt-1 text-xs text-muted-foreground">{t("Aún procesándose en Stripe")}</p>
               </div>
             </div>
 
             {(estado.saldo?.saldos.length || 0) > 1 && (
-              <div className="text-xs text-muted-foreground">
-                Otros saldos:{" "}
+              <div className="text-xs text-muted-foreground">{t("Otros saldos:")}{" "}
                 {estado.saldo?.saldos
                   .slice(1)
                   .map((otro) =>
-                    formatearImporteStripe(otro.disponible + otro.pendiente, otro.moneda),
+                    formatearImporteStripe(otro.disponible + otro.pendiente, otro.moneda, idioma),
                   )
                   .join(" · ")}
               </div>
@@ -207,41 +203,34 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
               <div>
                 <p className="font-medium">
                   {proximoIngreso
-                    ? "Próximo ingreso al banco"
+                    ? t("Próximo ingreso al banco")
                     : proximaDisponibilidad
-                      ? "Próxima disponibilidad"
-                      : "Próximo ingreso"}
+                      ? t("Próxima disponibilidad")
+                      : t("Próximo ingreso")}
                 </p>
                 {proximoIngreso ? (
                   <>
                     <p className="mt-1 text-sm">
                       <span className="font-semibold">
-                        {formatearImporteStripe(proximoIngreso.importe, proximoIngreso.moneda)}
-                      </span>{" "}
-                      tiene llegada estimada a tu banco el {formatearFechaStripe(proximoIngreso.llegada)}.
+                        {formatearImporteStripe(proximoIngreso.importe, proximoIngreso.moneda, idioma)}
+                      </span>{" "}{t("tiene llegada estimada a tu banco el")}{" "}{formatearFechaStripe(proximoIngreso.llegada, idioma)}.
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {proximoIngreso.estado === "in_transit"
-                        ? "El ingreso ya está en camino."
-                        : "Stripe ya ha programado el ingreso."}
+                        ? t("El ingreso ya está en camino.")
+                        : t("Stripe ya ha programado el ingreso.")}
                     </p>
                   </>
                 ) : proximaDisponibilidad ? (
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    El saldo pendiente empezará a estar disponible para enviarlo al banco el{" "}
-                    {formatearFechaStripe(proximaDisponibilidad.fecha)}. Después se enviará{" "}
-                    {describirCalendarioStripe(estado)}. Stripe todavía no ha generado una fecha de llegada al banco.
-                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">{t("El saldo pendiente empezará a estar disponible para enviarlo al banco el")}{" "}
+                    {formatearFechaStripe(proximaDisponibilidad.fecha, idioma)}{t(". Después se enviará")}{" "}
+                    {describirCalendarioStripe(estado, idioma)}{t(". Stripe todavía no ha generado una fecha de llegada al banco.")}</p>
                 ) : estado.saldoError ? (
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Stripe no ha podido confirmar ahora la fecha del próximo ingreso.
-                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">{t("Stripe no ha podido confirmar ahora la fecha del próximo ingreso.")}</p>
                 ) : saldo.disponible > 0 ? (
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    El saldo se enviará {describirCalendarioStripe(estado)}. Stripe todavía no ha generado una fecha bancaria exacta.
-                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">{t("El saldo se enviará")}{" "}{describirCalendarioStripe(estado, idioma)}{t(". Stripe todavía no ha generado una fecha bancaria exacta.")}</p>
                 ) : (
-                  <p className="mt-1 text-sm text-muted-foreground">No hay ingresos bancarios programados.</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{t("No hay ingresos bancarios programados.")}</p>
                 )}
               </div>
             </div>
@@ -256,7 +245,7 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
 
         {estado?.conectado && !estado.saldo && (
           <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
-            {estado.saldoError || "Stripe no ha facilitado el saldo en este momento."}
+            {t(estado.saldoError || "Stripe no ha facilitado el saldo en este momento.")}
           </p>
         )}
 
@@ -264,28 +253,22 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
           {!listo && !error && (
             <Button onClick={() => void abrir("onboarding")} disabled={!!accion || loading}>
               {accion === "onboarding" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {estado?.conectado ? "Completar datos en Stripe" : "Activar cobros con Stripe"}
+              {estado?.conectado ? t("Completar datos en Stripe") : t("Activar cobros con Stripe")}
               <ExternalLink className="ml-2 h-4 w-4" />
             </Button>
           )}
           {estado?.conectado && estado.onboardingCompletado && (
             <Button variant="outline" onClick={() => void abrir("dashboard")} disabled={!!accion}>
-              {accion === "dashboard" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Abrir panel de Stripe <ExternalLink className="ml-2 h-4 w-4" />
+              {accion === "dashboard" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{t("Abrir panel de Stripe")}{" "}<ExternalLink className="ml-2 h-4 w-4" />
             </Button>
           )}
           <Button variant="ghost" size="sm" onClick={() => void cargar(true)} disabled={!!accion || loading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${accion === "refresh" ? "animate-spin" : ""}`} /> Actualizar
-          </Button>
+            <RefreshCw className={`mr-2 h-4 w-4 ${accion === "refresh" ? "animate-spin" : ""}`} />{" "}{t("Actualizar")}</Button>
         </div>
 
         <div className="space-y-1 text-xs text-muted-foreground">
-          <p>
-            Este saldo solo incluye pagos que Diime ya te ha liberado. El dinero de trabajos en curso sigue protegido hasta la confirmación de la entrega o la resolución de una disputa.
-          </p>
-          <p>
-            El alta y el panel se abren en una página segura de Stripe. Al terminar volverás automáticamente a Cobros en Diime.
-          </p>
+          <p>{t("Este saldo solo incluye pagos que Diime ya te ha liberado. El dinero de trabajos en curso sigue protegido hasta la confirmación de la entrega o la resolución de una disputa.")}</p>
+          <p>{t("El alta y el panel se abren en una página segura de Stripe. Al terminar volverás automáticamente a Cobros en Diime.")}</p>
         </div>
       </CardContent>
     </Card>

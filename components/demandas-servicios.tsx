@@ -1,5 +1,8 @@
 "use client"
 
+import { useT, useIdioma } from "@/components/idioma-provider"
+import { localeDe } from "@/lib/i18n"
+
 import type React from "react"
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
@@ -91,7 +94,7 @@ type ClienteSeleccionado = {
 const UBICACIONES = ["Toda España", ...PROVINCIAS_ES]
 
 
-function formatTimeAgo(dateString: string): string {
+function formatTimeAgo(dateString: string, t: ReturnType<typeof useT>, idioma: "es" | "en"): string {
   const date = new Date(dateString)
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
@@ -99,14 +102,17 @@ function formatTimeAgo(dateString: string): string {
   const diffHours = Math.floor(diffMs / 3600000)
   const diffDays = Math.floor(diffMs / 86400000)
 
-  if (diffMins < 60) return `Hace ${diffMins} min`
-  if (diffHours < 24) return `Hace ${diffHours}h`
-  if (diffDays === 1) return "Ayer"
-  if (diffDays < 7) return `Hace ${diffDays} días`
-  return date.toLocaleDateString("es-ES", { day: "numeric", month: "short" })
+  if (diffMins < 60) return t("Hace {count} min", { count: diffMins })
+  if (diffHours < 24) return t("Hace {count}h", { count: diffHours })
+  if (diffDays === 1) return t("Ayer")
+  if (diffDays < 7) return t("Hace {count} días", { count: diffDays })
+  return date.toLocaleDateString(localeDe(idioma), { day: "numeric", month: "short" })
 }
 
 export default function DemandasServicios() {
+  const t = useT()
+  const { idioma } = useIdioma()
+
   const [filtroCategoria, setFiltroCategoria] = useState<string>("Todas las categorías")
   const [filtroUbicacion, setFiltroUbicacion] = useState<string>("Toda España")
   const [filtroTiempo, setFiltroTiempo] = useState<string>("todos")
@@ -223,7 +229,7 @@ export default function DemandasServicios() {
       cliente: {
         ...(demanda.cliente || {}),
         id: demanda.cliente_id,
-        nombre: demanda.cliente?.nombre || "Cliente",
+        nombre: demanda.cliente?.nombre || "",
         apellido: demanda.cliente?.apellido || "",
       },
       demanda,
@@ -235,7 +241,7 @@ export default function DemandasServicios() {
   // chat con quien publicó la demanda y lleva a la conversación.
   const handleContactar = async (demanda: Demanda) => {
     if (!demanda.cliente_id) {
-      toast({ title: "No disponible", description: "No se ha podido identificar a quien publicó la demanda." })
+      toast({ title: t("No disponible"), description: t("No se ha podido identificar a quien publicó la demanda.") })
       return
     }
     setContactando(true)
@@ -245,26 +251,26 @@ export default function DemandasServicios() {
         data: { user },
       } = await supabase.auth.getUser()
       if (!user) {
-        toast({ title: "Inicia sesión", description: "Necesitas una cuenta para escribir al cliente." })
+        toast({ title: t("Inicia sesión"), description: t("Necesitas una cuenta para escribir al cliente.") })
         router.push("/auth/login")
         return
       }
       if (user.id === demanda.cliente_id) {
-        toast({ title: "Es tu demanda", description: "No puedes escribirte a ti mismo." })
+        toast({ title: t("Es tu demanda"), description: t("No puedes escribirte a ti mismo.") })
         return
       }
       // El vínculo con la solicitud hace que la bandeja identifique a la otra
       // parte como cliente y muestre el encargo que originó el contacto.
       const res = await crearConversacion({ otroUsuarioId: demanda.cliente_id, solicitudId: demanda.id })
       if (res.error || !res.data?.id) {
-        toast({ title: "Error", description: res.error || "No se pudo abrir el chat.", variant: "destructive" })
+        toast({ title: t("Error"), description: t(res.error || "No se pudo abrir el chat."), variant: "destructive" })
         return
       }
       setDialogDetalles(false)
       setDialogPerfilCliente(false)
       router.push(`/mensajes?c=${res.data.id}`)
     } catch {
-      toast({ title: "Error", description: "No se pudo abrir el chat.", variant: "destructive" })
+      toast({ title: t("Error"), description: t("No se pudo abrir el chat."), variant: "destructive" })
     } finally {
       setContactando(false)
     }
@@ -282,17 +288,17 @@ export default function DemandasServicios() {
     if (!demandaSeleccionada) return
     // Nada de importes ni tiempos negativos o cero.
     if (!(Number.parseFloat(formData.precio) > 0)) {
-      toast({ title: "Precio no válido", description: "El precio propuesto debe ser mayor que 0.", variant: "destructive" })
+      toast({ title: t("Precio no válido"), description: t("El precio propuesto debe ser mayor que 0."), variant: "destructive" })
       return
     }
     if (!(Number.parseInt(formData.duracion, 10) > 0)) {
-      toast({ title: "Tiempo no válido", description: "El tiempo estimado debe ser mayor que 0.", variant: "destructive" })
+      toast({ title: t("Tiempo no válido"), description: t("El tiempo estimado debe ser mayor que 0."), variant: "destructive" })
       return
     }
     if (!aceptaGastos) {
       toast({
-        title: "Falta aceptar los gastos de servicio",
-        description: "Debes aceptar los gastos de servicio de Diime antes de enviar la oferta.",
+        title: t("Falta aceptar los gastos de servicio"),
+        description: t("Debes aceptar los gastos de servicio de Diime antes de enviar la oferta."),
         variant: "destructive",
       })
       return
@@ -305,8 +311,8 @@ export default function DemandasServicios() {
       // dejaría al profesional creyendo que el cliente los ha recibido.
       if (uploadResults.some((result) => result === null)) {
         toast({
-          title: "No se pudieron subir los archivos",
-          description: "Tu oferta no se ha enviado. Inténtalo de nuevo o quita los adjuntos.",
+          title: t("No se pudieron subir los archivos"),
+          description: t("Tu oferta no se ha enviado. Inténtalo de nuevo o quita los adjuntos."),
           variant: "destructive",
         })
         setIsSubmitting(false)
@@ -326,16 +332,16 @@ export default function DemandasServicios() {
       })
 
       if (result.error) {
-        toast({ title: "Error", description: result.error, variant: "destructive" })
+        toast({ title: t("Error"), description: t(result.error), variant: "destructive" })
       } else {
-        toast({ title: "Oferta enviada", description: "Tu presupuesto ha sido enviado correctamente." })
+        toast({ title: t("Oferta enviada"), description: t("Tu presupuesto ha sido enviado correctamente.") })
         setDialogAbierto(false)
         setFormData({ precio: "", duracion: "", unidadTiempo: "dias", descripcion: "", materiales: "" })
         setAttachedFiles([])
         setAceptaGastos(false)
       }
     } catch (error) {
-      toast({ title: "Error", description: "No se pudo enviar la oferta", variant: "destructive" })
+      toast({ title: t("Error"), description: t("No se pudo enviar la oferta"), variant: "destructive" })
     }
 
     setIsSubmitting(false)
@@ -355,7 +361,7 @@ export default function DemandasServicios() {
     ? new Date(clientePerfil.fecha_registro || clientePerfil.created_at!)
     : null
   const miembroDesde = fechaRegistroCliente && !Number.isNaN(fechaRegistroCliente.getTime())
-    ? fechaRegistroCliente.toLocaleDateString("es-ES", { month: "long", year: "numeric" })
+    ? fechaRegistroCliente.toLocaleDateString(localeDe(idioma), { month: "long", year: "numeric" })
     : null
 
   return (
@@ -365,14 +371,12 @@ export default function DemandasServicios() {
         <Card className="sticky top-24 max-h-[calc(100dvh-7.5rem)] overflow-y-auto overscroll-y-contain [scrollbar-gutter:stable] p-5 space-y-6 bg-card/50 backdrop-blur-sm border-border/50">
           <div>
             <h3 className="font-semibold mb-3 flex items-center gap-2">
-              <Filter className="h-4 w-4" />
-              Filtros
-            </h3>
+              <Filter className="h-4 w-4" />{t("Filtros")}</h3>
             <Separator />
           </div>
 
           <div className="space-y-2">
-            <Label className="text-sm text-muted-foreground">Categoría profesional</Label>
+            <Label className="text-sm text-muted-foreground">{t("Categoría profesional")}</Label>
             <SelectCategoriaJerarquico
               value={filtroCategoria}
               onChange={setFiltroCategoria}
@@ -381,7 +385,7 @@ export default function DemandasServicios() {
           </div>
 
           <div className="space-y-2">
-            <Label className="text-sm text-muted-foreground">Ubicación</Label>
+            <Label className="text-sm text-muted-foreground">{t("Ubicación")}</Label>
             <Select value={filtroUbicacion} onValueChange={setFiltroUbicacion}>
               <SelectTrigger>
                 <SelectValue />
@@ -389,7 +393,7 @@ export default function DemandasServicios() {
               <SelectContent>
                 {UBICACIONES.map((ubi) => (
                   <SelectItem key={ubi} value={ubi}>
-                    {ubi}
+                    {ubi === "Toda España" ? t(ubi) : ubi}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -397,22 +401,22 @@ export default function DemandasServicios() {
           </div>
 
           <div className="space-y-2">
-            <Label className="text-sm text-muted-foreground">Publicado</Label>
+            <Label className="text-sm text-muted-foreground">{t("Publicado")}</Label>
             <Select value={filtroTiempo} onValueChange={setFiltroTiempo}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="todos">Cualquier momento</SelectItem>
-                <SelectItem value="hoy">Últimas 24 horas</SelectItem>
-                <SelectItem value="semana">Última semana</SelectItem>
-                <SelectItem value="mes">Último mes</SelectItem>
+                <SelectItem value="todos">{t("Cualquier momento")}</SelectItem>
+                <SelectItem value="hoy">{t("Últimas 24 horas")}</SelectItem>
+                <SelectItem value="semana">{t("Última semana")}</SelectItem>
+                <SelectItem value="mes">{t("Último mes")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label className="text-sm text-muted-foreground">Presupuesto</Label>
+            <Label className="text-sm text-muted-foreground">{t("Presupuesto")}</Label>
             <RangoPrecio value={rangoPresupuesto} onChange={setRangoPresupuesto} />
           </div>
 
@@ -420,9 +424,7 @@ export default function DemandasServicios() {
             variant="outline"
             className="w-full bg-transparent"
             onClick={limpiarFiltros}
-          >
-            Limpiar filtros
-          </Button>
+          >{t("Limpiar filtros")}</Button>
         </Card>
       </aside>
 
@@ -433,7 +435,7 @@ export default function DemandasServicios() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar demandas..."
+              placeholder={t("Buscar demandas...")}
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               className="pl-10 bg-background/50"
@@ -444,9 +446,7 @@ export default function DemandasServicios() {
             className="lg:hidden bg-transparent"
             onClick={() => setMostrarFiltros(!mostrarFiltros)}
           >
-            <SlidersHorizontal className="h-4 w-4 mr-2" />
-            Filtros
-          </Button>
+            <SlidersHorizontal className="h-4 w-4 mr-2" />{t("Filtros")}</Button>
         </div>
 
         {/* Mobile Filters */}
@@ -454,7 +454,7 @@ export default function DemandasServicios() {
           <Card className="lg:hidden p-4 space-y-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2 min-w-0">
-                <Label className="text-sm text-muted-foreground">Categoría profesional</Label>
+                <Label className="text-sm text-muted-foreground">{t("Categoría profesional")}</Label>
                 <SelectCategoriaJerarquico
                   value={filtroCategoria}
                   onChange={setFiltroCategoria}
@@ -462,62 +462,59 @@ export default function DemandasServicios() {
                 />
               </div>
               <div className="space-y-2 min-w-0">
-                <Label className="text-sm text-muted-foreground">Ubicación</Label>
+                <Label className="text-sm text-muted-foreground">{t("Ubicación")}</Label>
                 <Select value={filtroUbicacion} onValueChange={setFiltroUbicacion}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Ubicación" />
+                    <SelectValue placeholder={t("Ubicación")} />
                   </SelectTrigger>
                   <SelectContent>
                     {UBICACIONES.map((ubi) => (
                       <SelectItem key={ubi} value={ubi}>
-                        {ubi}
+                        {ubi === "Toda España" ? t(ubi) : ubi}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2 min-w-0 sm:col-span-2">
-                <Label className="text-sm text-muted-foreground">Publicado</Label>
+                <Label className="text-sm text-muted-foreground">{t("Publicado")}</Label>
                 <Select value={filtroTiempo} onValueChange={setFiltroTiempo}>
                   <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="todos">Cualquier momento</SelectItem>
-                    <SelectItem value="hoy">Últimas 24 horas</SelectItem>
-                    <SelectItem value="semana">Última semana</SelectItem>
-                    <SelectItem value="mes">Último mes</SelectItem>
+                    <SelectItem value="todos">{t("Cualquier momento")}</SelectItem>
+                    <SelectItem value="hoy">{t("Últimas 24 horas")}</SelectItem>
+                    <SelectItem value="semana">{t("Última semana")}</SelectItem>
+                    <SelectItem value="mes">{t("Último mes")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label className="text-sm text-muted-foreground">Presupuesto</Label>
+              <Label className="text-sm text-muted-foreground">{t("Presupuesto")}</Label>
               <RangoPrecio value={rangoPresupuesto} onChange={setRangoPresupuesto} />
             </div>
 
-            <Button variant="outline" className="w-full bg-transparent" onClick={limpiarFiltros}>
-              Limpiar filtros
-            </Button>
+            <Button variant="outline" className="w-full bg-transparent" onClick={limpiarFiltros}>{t("Limpiar filtros")}</Button>
           </Card>
         )}
 
         {/* Results Count */}
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">{demandasOrdenadas.length}</span> demandas encontradas
-          </p>
+            <span className="font-medium text-foreground">{demandasOrdenadas.length}</span>{" "}{t("demandas encontradas")}</p>
           <Select value={ordenarPor} onValueChange={(v) => setOrdenarPor(v as typeof ordenarPor)}>
             <SelectTrigger className="w-48">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="recientes">Más recientes</SelectItem>
-              <SelectItem value="antiguos">Más antiguos</SelectItem>
-              <SelectItem value="presupuesto-alto">Mayor presupuesto</SelectItem>
-              <SelectItem value="presupuesto-bajo">Menor presupuesto</SelectItem>
-              <SelectItem value="menos-ofertas">Menos ofertas</SelectItem>
+              <SelectItem value="recientes">{t("Más recientes")}</SelectItem>
+              <SelectItem value="antiguos">{t("Más antiguos")}</SelectItem>
+              <SelectItem value="presupuesto-alto">{t("Mayor presupuesto")}</SelectItem>
+              <SelectItem value="presupuesto-bajo">{t("Menor presupuesto")}</SelectItem>
+              <SelectItem value="menos-ofertas">{t("Menos ofertas")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -546,7 +543,7 @@ export default function DemandasServicios() {
                         <div className="flex-1">
                           <div className="flex flex-wrap items-center gap-2 mb-1">
                             <Badge variant="outline" className="text-xs font-normal">
-                              {demanda.categoria?.nombre}
+                              {t(demanda.categoria?.nombre || "")}
                             </Badge>
                             <PlazoNecesidad valor={demanda.urgencia} fecha={demanda.fecha_necesaria} />
                           </div>
@@ -555,9 +552,9 @@ export default function DemandasServicios() {
                           </h3>
                         </div>
                         <div className="text-left sm:text-right shrink-0">
-                          <p className="text-xs text-muted-foreground">Presupuesto</p>
+                          <p className="text-xs text-muted-foreground">{t("Presupuesto")}</p>
                           <p className="font-bold text-lg text-primary">
-                            {formatearRangoPresupuesto(demanda.presupuesto_min, demanda.presupuesto_max)}
+                            {formatearRangoPresupuesto(demanda.presupuesto_min, demanda.presupuesto_max, idioma)}
                           </p>
                         </div>
                       </div>
@@ -567,8 +564,7 @@ export default function DemandasServicios() {
                       {Array.isArray(demanda.archivos) && demanda.archivos.length > 0 && (
                         <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                           <Paperclip className="h-3 w-3" />
-                          {demanda.archivos.length} archivo{demanda.archivos.length !== 1 ? "s" : ""} adjunto
-                          {demanda.archivos.length !== 1 ? "s" : ""}
+                          {t(demanda.archivos.length === 1 ? "{count} archivo adjunto" : "{count} archivos adjuntos", { count: demanda.archivos.length })}
                         </p>
                       )}
 
@@ -602,12 +598,12 @@ export default function DemandasServicios() {
                         </div>
                         <div className="flex items-center gap-1">
                           <Clock className="h-3.5 w-3.5" />
-                          <span>{formatTimeAgo(demanda.created_at)}</span>
+                          <span>{formatTimeAgo(demanda.created_at, t, idioma)}</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <Users className="h-3.5 w-3.5" />
                           <span>
-                            {demanda.total_ofertas} {demanda.total_ofertas === 1 ? "oferta" : "ofertas"}
+                            {demanda.total_ofertas} {demanda.total_ofertas === 1 ? t("oferta") : t("ofertas")}
                           </span>
                         </div>
                       </div>
@@ -621,24 +617,18 @@ export default function DemandasServicios() {
                         <Badge
                           variant="outline"
                           className="col-span-2 flex-1 md:flex-none justify-center py-2 text-xs font-normal"
-                        >
-                          Es tu demanda
-                        </Badge>
+                        >{t("Es tu demanda")}</Badge>
                       ) : (
                         <>
                           <Button className="flex-1 md:flex-none" onClick={() => handleEnviarOferta(demanda)}>
-                            <Send className="h-4 w-4 mr-2" />
-                            Ofertar
-                          </Button>
+                            <Send className="h-4 w-4 mr-2" />{t("Ofertar")}</Button>
                           <Button
                             variant="outline"
                             className="flex-1 md:flex-none bg-transparent"
                             disabled={contactando}
                             onClick={() => handleContactar(demanda)}
                           >
-                            <MessageSquare className="h-4 w-4 mr-2" />
-                            Escribir
-                          </Button>
+                            <MessageSquare className="h-4 w-4 mr-2" />{t("Escribir")}</Button>
                         </>
                       )}
                       <Button
@@ -646,9 +636,7 @@ export default function DemandasServicios() {
                         className="col-span-2 flex-1 md:flex-none bg-transparent"
                         onClick={() => handleVerDetalles(demanda)}
                       >
-                        <Eye className="h-4 w-4 mr-2" />
-                        Ver más
-                      </Button>
+                        <Eye className="h-4 w-4 mr-2" />{t("Ver más")}</Button>
                     </div>
                   </div>
                 </CardContent>
@@ -658,8 +646,8 @@ export default function DemandasServicios() {
             {demandasFiltradas.length === 0 && !loading && (
               <Card className="p-12 text-center">
                 <AlertCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="font-semibold mb-2">No se encontraron demandas</h3>
-                <p className="text-sm text-muted-foreground">Prueba a modificar los filtros o ampliar tu búsqueda</p>
+                <h3 className="font-semibold mb-2">{t("No se encontraron demandas")}</h3>
+                <p className="text-sm text-muted-foreground">{t("Prueba a modificar los filtros o ampliar tu búsqueda")}</p>
               </Card>
             )}
           </div>
@@ -671,7 +659,7 @@ export default function DemandasServicios() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex flex-wrap items-center gap-2 mb-2">
-              <Badge variant="outline">{demandaSeleccionada?.categoria?.nombre}</Badge>
+              <Badge variant="outline">{t(demandaSeleccionada?.categoria?.nombre || "")}</Badge>
               {demandaSeleccionada && (
                 <PlazoNecesidad
                   valor={demandaSeleccionada.urgencia}
@@ -701,18 +689,18 @@ export default function DemandasServicios() {
                 <p className="font-medium">
                   {demandaSeleccionada?.cliente?.nombre} {demandaSeleccionada?.cliente?.apellido}
                 </p>
-                <p className="text-sm text-muted-foreground">Ver perfil del cliente</p>
+                <p className="text-sm text-muted-foreground">{t("Ver perfil del cliente")}</p>
               </div>
               <div className="text-right">
-                <p className="text-sm text-muted-foreground">Presupuesto</p>
+                <p className="text-sm text-muted-foreground">{t("Presupuesto")}</p>
                 <p className="font-bold text-primary">
-                  {formatearRangoPresupuesto(demandaSeleccionada?.presupuesto_min, demandaSeleccionada?.presupuesto_max)}
+                  {formatearRangoPresupuesto(demandaSeleccionada?.presupuesto_min, demandaSeleccionada?.presupuesto_max, idioma)}
                 </p>
               </div>
             </button>
 
             <div>
-              <h4 className="font-medium mb-2">Descripción del proyecto</h4>
+              <h4 className="font-medium mb-2">{t("Descripción del proyecto")}</h4>
               <p className="text-muted-foreground">{demandaSeleccionada?.descripcion}</p>
             </div>
 
@@ -720,8 +708,7 @@ export default function DemandasServicios() {
             {Array.isArray(demandaSeleccionada?.archivos) && demandaSeleccionada.archivos.length > 0 && (
               <div>
                 <h4 className="font-medium mb-2 flex items-center gap-1.5">
-                  <FileText className="h-4 w-4" />
-                  Archivos adjuntos ({demandaSeleccionada.archivos.length})
+                  <FileText className="h-4 w-4" />{t("Archivos adjuntos (")}{demandaSeleccionada.archivos.length})
                 </h4>
                 <AdjuntosLista archivos={demandaSeleccionada.archivos} />
               </div>
@@ -734,22 +721,20 @@ export default function DemandasServicios() {
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Clock className="h-4 w-4 text-muted-foreground" />
-                <span>Publicación: {demandaSeleccionada && formatTimeAgo(demandaSeleccionada.created_at)}</span>
+                <span>{t("Publicación:")}{" "}{demandaSeleccionada && formatTimeAgo(demandaSeleccionada.created_at, t, idioma)}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Users className="h-4 w-4 text-muted-foreground" />
                 <span>
                   {demandaSeleccionada?.total_ofertas}{" "}
-                  {demandaSeleccionada?.total_ofertas === 1 ? "oferta recibida" : "ofertas recibidas"}
+                  {demandaSeleccionada?.total_ofertas === 1 ? t("oferta recibida") : t("ofertas recibidas")}
                 </span>
               </div>
             </div>
 
             {/* En tu propia demanda no tiene sentido ni ofertar ni escribirte. */}
             {demandaSeleccionada?.cliente_id === usuarioActualId ? (
-              <p className="text-sm text-muted-foreground text-center py-2">
-                Esta demanda la has publicado tú. Puedes gestionarla desde Mis Solicitudes.
-              </p>
+              <p className="text-sm text-muted-foreground text-center py-2">{t("Esta demanda la has publicado tú. Puedes gestionarla desde Mis Solicitudes.")}</p>
             ) : (
               <div className="flex gap-3">
                 <Button
@@ -760,17 +745,13 @@ export default function DemandasServicios() {
                     if (demandaSeleccionada) handleEnviarOferta(demandaSeleccionada)
                   }}
                 >
-                  <Send className="h-4 w-4 mr-2" />
-                  Enviar presupuesto
-                </Button>
+                  <Send className="h-4 w-4 mr-2" />{t("Enviar presupuesto")}</Button>
                 <Button
                   variant="outline"
                   disabled={contactando}
                   onClick={() => demandaSeleccionada && handleContactar(demandaSeleccionada)}
                 >
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  Contactar
-                </Button>
+                  <MessageSquare className="h-4 w-4 mr-2" />{t("Contactar")}</Button>
               </div>
             )}
           </div>
@@ -781,8 +762,8 @@ export default function DemandasServicios() {
       <Dialog open={dialogPerfilCliente} onOpenChange={setDialogPerfilCliente}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Perfil del cliente</DialogTitle>
-            <DialogDescription>Información pública vinculada a sus demandas.</DialogDescription>
+            <DialogTitle>{t("Perfil del cliente")}</DialogTitle>
+            <DialogDescription>{t("Información pública vinculada a sus demandas.")}</DialogDescription>
           </DialogHeader>
 
           {clientePerfil && clienteSeleccionado && (
@@ -797,18 +778,18 @@ export default function DemandasServicios() {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-lg font-semibold">
-                      {clientePerfil.nombre} {clientePerfil.apellido}
+                      {clientePerfil.nombre || t("Cliente")} {clientePerfil.apellido}
                     </h3>
-                    {clientePerfil.cuenta_eliminada && <Badge variant="secondary">Cuenta eliminada</Badge>}
+                    {clientePerfil.cuenta_eliminada && <Badge variant="secondary">{t("Cuenta eliminada")}</Badge>}
                   </div>
                   <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                     <MapPin className="h-3.5 w-3.5" />
-                    <span>{clientePerfil.ubicacion || "Ubicación no indicada"}</span>
+                    <span>{clientePerfil.ubicacion || t("Ubicación no indicada")}</span>
                   </div>
                   {miembroDesde && (
                     <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-0.5">
                       <Calendar className="h-3.5 w-3.5" />
-                      <span>Miembro desde {miembroDesde}</span>
+                      <span>{t("Miembro desde")}{" "}{miembroDesde}</span>
                     </div>
                   )}
                 </div>
@@ -816,9 +797,7 @@ export default function DemandasServicios() {
 
               {clientePerfil.bio && (
                 <div className="rounded-lg bg-muted/50 p-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">
-                    Sobre el cliente
-                  </p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">{t("Sobre el cliente")}</p>
                   <p className="text-sm whitespace-pre-wrap break-words">{clientePerfil.bio}</p>
                 </div>
               )}
@@ -827,8 +806,7 @@ export default function DemandasServicios() {
 
               <div>
                 <h4 className="font-medium mb-3 flex items-center gap-2">
-                  <Briefcase className="h-4 w-4" />
-                  Demandas abiertas ({demandasAbiertasCliente.length})
+                  <Briefcase className="h-4 w-4" />{t("Demandas abiertas (")}{demandasAbiertasCliente.length})
                 </h4>
                 {demandasAbiertasCliente.length > 0 ? (
                   <div className="space-y-2">
@@ -846,38 +824,31 @@ export default function DemandasServicios() {
                         <div className="flex items-start justify-between gap-3">
                           <p className="text-sm font-medium">{demanda.titulo}</p>
                           <Badge variant="outline" className="shrink-0 text-[10px] font-normal">
-                            {demanda.categoria?.nombre || "Sin categoría"}
+                            {t(demanda.categoria?.nombre || "Sin categoría")}
                           </Badge>
                         </div>
                         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                           <span>{demanda.ubicacion}</span>
-                          <span>{formatTimeAgo(demanda.created_at)}</span>
+                          <span>{formatTimeAgo(demanda.created_at, t, idioma)}</span>
                         </div>
                       </button>
                     ))}
                     {demandasAbiertasCliente.length > 3 && (
-                      <p className="text-xs text-muted-foreground">
-                        Y {demandasAbiertasCliente.length - 3} demanda
-                        {demandasAbiertasCliente.length - 3 === 1 ? "" : "s"} más.
-                      </p>
+                      <p className="text-xs text-muted-foreground">{t(demandasAbiertasCliente.length - 3 === 1 ? "Y {count} demanda más." : "Y {count} demandas más.", { count: demandasAbiertasCliente.length - 3 })}</p>
                     )}
                   </div>
                 ) : (
-                  <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                    Este cliente no tiene otras demandas abiertas.
-                  </p>
+                  <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">{t("Este cliente no tiene otras demandas abiertas.")}</p>
                 )}
               </div>
 
               <div className="rounded-lg border border-dashed p-4">
-                <p className="text-sm font-medium">Valoraciones como cliente</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  No hay valoraciones públicas disponibles para este cliente.
-                </p>
+                <p className="text-sm font-medium">{t("Valoraciones como cliente")}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{t("No hay valoraciones públicas disponibles para este cliente.")}</p>
               </div>
 
               {clienteSeleccionado.demanda.cliente_id === usuarioActualId ? (
-                <p className="text-center text-sm text-muted-foreground">Este es tu perfil de cliente.</p>
+                <p className="text-center text-sm text-muted-foreground">{t("Este es tu perfil de cliente.")}</p>
               ) : (
                 <Button
                   className="w-full"
@@ -885,7 +856,7 @@ export default function DemandasServicios() {
                   onClick={() => handleContactar(clienteSeleccionado.demanda)}
                 >
                   {contactando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MessageSquare className="mr-2 h-4 w-4" />}
-                  {clientePerfil.cuenta_eliminada ? "Cliente no disponible" : "Escribir al cliente"}
+                  {clientePerfil.cuenta_eliminada ? t("Cliente no disponible") : t("Escribir al cliente")}
                 </Button>
               )}
             </div>
@@ -897,14 +868,14 @@ export default function DemandasServicios() {
       <Dialog open={dialogAbierto} onOpenChange={setDialogAbierto}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Enviar presupuesto</DialogTitle>
-            <DialogDescription>Para: {demandaSeleccionada?.titulo}</DialogDescription>
+            <DialogTitle>{t("Enviar presupuesto")}</DialogTitle>
+            <DialogDescription>{t("Para:")}{" "}{demandaSeleccionada?.titulo}</DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmitOferta} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Precio propuesto (€)</Label>
+                <Label>{t("Precio propuesto (€)")}</Label>
                 <Input
                   type="number"
                   min={1}
@@ -916,7 +887,7 @@ export default function DemandasServicios() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Tiempo estimado</Label>
+                <Label>{t("Tiempo estimado")}</Label>
                 <div className="flex gap-2">
                   <Input
                     type="number"
@@ -936,9 +907,9 @@ export default function DemandasServicios() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="horas">Horas</SelectItem>
-                      <SelectItem value="dias">Días</SelectItem>
-                      <SelectItem value="semanas">Semanas</SelectItem>
+                      <SelectItem value="horas">{t("Horas")}</SelectItem>
+                      <SelectItem value="dias">{t("Días")}</SelectItem>
+                      <SelectItem value="semanas">{t("Semanas")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -946,32 +917,32 @@ export default function DemandasServicios() {
             </div>
 
             <div className="space-y-2">
-              <Label>Incluye materiales</Label>
+              <Label>{t("Incluye materiales")}</Label>
               <Select value={formData.materiales} onValueChange={(v) => setFormData({ ...formData, materiales: v })}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar" />
+                  <SelectValue placeholder={t("Seleccionar")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="si">Sí, incluido en el precio</SelectItem>
-                  <SelectItem value="no">No, solo mano de obra</SelectItem>
-                  <SelectItem value="parcial">Parcialmente incluidos</SelectItem>
+                  <SelectItem value="si">{t("Sí, incluido en el precio")}</SelectItem>
+                  <SelectItem value="no">{t("No, solo mano de obra")}</SelectItem>
+                  <SelectItem value="parcial">{t("Parcialmente incluidos")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label>Descripción de tu propuesta</Label>
+              <Label>{t("Descripción de tu propuesta")}</Label>
               <Textarea
                 value={formData.descripcion}
                 onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-                placeholder="Describe tu experiencia, cómo abordarías el trabajo, disponibilidad..."
+                placeholder={t("Describe tu experiencia, cómo abordarías el trabajo, disponibilidad...")}
                 rows={4}
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Archivos adjuntos (opcional)</Label>
+              <Label>{t("Archivos adjuntos (opcional)")}</Label>
               <div className="flex flex-wrap gap-2">
                 {attachedFiles.map((file, i) => (
                   <Badge key={i} variant="secondary" className="gap-1">
@@ -987,9 +958,7 @@ export default function DemandasServicios() {
                   size="sm"
                   onClick={() => document.getElementById("file-upload")?.click()}
                 >
-                  <Paperclip className="h-4 w-4 mr-1" />
-                  Adjuntar
-                </Button>
+                  <Paperclip className="h-4 w-4 mr-1" />{t("Adjuntar")}</Button>
                 <input id="file-upload" type="file" multiple className="hidden" onChange={handleFileChange} />
               </div>
             </div>
@@ -997,13 +966,8 @@ export default function DemandasServicios() {
             {/* Garantía de cobro: la plataforma retiene el pago del cliente. */}
             <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
               <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
-                <CheckCircle2 className="h-4 w-4" /> Cobro protegido
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Si el cliente acepta tu oferta, tendrá que pagar antes de que empieces. El dinero quedará protegido
-                durante el trabajo. Cuando entregues el servicio y el cliente confirme que todo está correcto, Diime
-                liberará tu pago.
-              </p>
+                <CheckCircle2 className="h-4 w-4" />{" "}{t("Cobro protegido")}</p>
+              <p className="text-sm text-muted-foreground mt-1">{t("Si el cliente acepta tu oferta, tendrá que pagar antes de que empieces. El dinero quedará protegido durante el trabajo. Cuando entregues el servicio y el cliente confirme que todo está correcto, Diime liberará tu pago.")}</p>
             </div>
 
             {/* Aceptación explícita de los gastos de servicio: obligatoria en
@@ -1014,18 +978,11 @@ export default function DemandasServicios() {
                 onCheckedChange={(v) => setAceptaGastos(v === true)}
                 className="mt-0.5"
               />
-              <span className="text-sm text-muted-foreground">
-                Acepto los gastos de servicio de Diime ({PLATFORM_CONFIG.comisionProveedorPorcentaje}% del precio,
-                mín. {formatearPrecio(PLATFORM_CONFIG.comision_minima)}; IVA del{" "}
-                {PLATFORM_CONFIG.ivaDiimePorcentaje}% incluido). Mi oferta es un precio final y soy responsable de
-                facturar y declarar los impuestos de mi servicio.{" "}
+              <span className="text-sm text-muted-foreground">{t("Acepto los gastos de servicio de Diime (")}{PLATFORM_CONFIG.comisionProveedorPorcentaje}{t("% del precio, mín.")}{" "}{formatearPrecio(PLATFORM_CONFIG.comision_minima, idioma)}{t("; IVA del")}{" "}
+                {PLATFORM_CONFIG.ivaDiimePorcentaje}{t("% incluido). Mi oferta es un precio final y soy responsable de facturar y declarar los impuestos de mi servicio.")}{" "}
                 {Number.parseFloat(formData.precio) > 0 && (
-                  <>
-                    Si el cliente acepta esta oferta de {formatearPrecio(Number.parseFloat(formData.precio))},{" "}
-                    <span className="font-medium text-foreground">
-                      recibiré {formatearPrecio(calcularPagoProveedor(Number.parseFloat(formData.precio)).pagoNeto)}{" "}
-                      netos
-                    </span>
+                  <>{t("Si el cliente acepta esta oferta de")}{" "}{formatearPrecio(Number.parseFloat(formData.precio), idioma)},{" "}
+                    <span className="font-medium text-foreground">{t("recibiré")}{" "}{formatearPrecio(calcularPagoProveedor(Number.parseFloat(formData.precio)).pagoNeto, idioma)}{" "}{t("netos")}</span>
                     .
                   </>
                 )}
@@ -1038,13 +995,9 @@ export default function DemandasServicios() {
                 variant="outline"
                 className="flex-1 bg-transparent"
                 onClick={() => setDialogAbierto(false)}
-              >
-                Cancelar
-              </Button>
+              >{t("Cancelar")}</Button>
               <Button type="submit" className="flex-1" disabled={isSubmitting || !aceptaGastos}>
-                {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Enviar presupuesto
-              </Button>
+                {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}{t("Enviar presupuesto")}</Button>
             </div>
           </form>
         </DialogContent>

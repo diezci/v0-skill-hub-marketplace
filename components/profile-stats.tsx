@@ -1,5 +1,7 @@
 "use client"
 
+import { useT } from "@/components/idioma-provider"
+
 import { Card } from "@/components/ui/card"
 import { Star, Briefcase, MessageSquare, Award, TrendingUp, Clock } from "lucide-react"
 
@@ -20,47 +22,48 @@ export default function ProfileStats({
   responseTime,
   level,
 }: ProfileStatsProps) {
+  const t = useT()
   const stats = [
     {
       icon: Star,
-      label: "Valoración Media",
+      label: t("Valoración Media"),
       value: rating.toFixed(1),
-      subtext: `${totalReviews} valoraciones`,
+      subtext: t("{n} valoraciones", { n: totalReviews }),
       color: "text-amber-500",
     },
     {
       icon: Briefcase,
-      label: "Proyectos Completados",
+      label: t("Proyectos Completados"),
       value: completedProjects,
-      subtext: "trabajos finalizados",
+      subtext: t("trabajos finalizados"),
       color: "text-blue-500",
     },
     {
       icon: MessageSquare,
-      label: "Opiniones de Clientes",
+      label: t("Opiniones de Clientes"),
       value: totalReviews,
-      subtext: "reseñas verificadas",
+      subtext: t("reseñas verificadas"),
       color: "text-green-500",
     },
     {
       icon: Award,
-      label: "Años de Experiencia",
+      label: t("Años de Experiencia"),
       value: yearsExperience,
-      subtext: "años en el sector",
+      subtext: t("años en el sector"),
       color: "text-purple-500",
     },
     {
       icon: Clock,
-      label: "Tiempo de Respuesta",
-      value: responseTime,
-      subtext: "respuesta media",
+      label: t("Tiempo de Respuesta"),
+      value: t(responseTime),
+      subtext: t("respuesta media"),
       color: "text-orange-500",
     },
     {
       icon: TrendingUp,
-      label: "Nivel Profesional",
-      value: level.split(" ")[0],
-      subtext: level,
+      label: t("Nivel Profesional"),
+      value: t(level).split(" ")[0],
+      subtext: t(level),
       color: "text-indigo-500",
     },
   ]

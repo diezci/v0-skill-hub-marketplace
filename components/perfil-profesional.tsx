@@ -1,5 +1,8 @@
 "use client"
 
+import { useT, useIdioma } from "@/components/idioma-provider"
+import { localeDe } from "@/lib/i18n"
+
 import { useState, useEffect, useCallback } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -121,15 +124,17 @@ interface PerfilProfesionalProps {
   editable?: boolean
 }
 
-function formatearPresupuestoInteres([minimo, maximo]: [number, number]) {
-  if (minimo <= 0 && maximo >= PRECIO_MAX) return "Cualquier presupuesto"
-  if (maximo >= PRECIO_MAX) return `Desde ${formatearPrecioEuros(minimo)}`
-  if (minimo === maximo) return formatearPrecioEuros(minimo)
-  if (minimo <= 0) return `Hasta ${formatearPrecioEuros(maximo)}`
-  return `${formatearPrecioEuros(minimo)} – ${formatearPrecioEuros(maximo)}`
+function formatearPresupuestoInteres([minimo, maximo]: [number, number], t: ReturnType<typeof useT>, idioma: "es" | "en") {
+  if (minimo <= 0 && maximo >= PRECIO_MAX) return t("Cualquier presupuesto")
+  if (maximo >= PRECIO_MAX) return t("Desde {precio}", { precio: formatearPrecioEuros(minimo, idioma) })
+  if (minimo === maximo) return formatearPrecioEuros(minimo, idioma)
+  if (minimo <= 0) return t("Hasta {precio}", { precio: formatearPrecioEuros(maximo, idioma) })
+  return `${formatearPrecioEuros(minimo, idioma)} – ${formatearPrecioEuros(maximo, idioma)}`
 }
 
 export default function PerfilProfesional({ editable = false }: PerfilProfesionalProps) {
+  const t = useT()
+  const { idioma } = useIdioma()
   const { toast } = useToast()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -274,7 +279,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
         setSnapshotEdicion(completarProfesional ? datosPerfil : null)
         setIsEditing(completarProfesional)
         if (data.profesional) await cargarPortfolio(data.id)
-      } else if (result.error === "No autenticado") {
+      } else if (("codigo" in result && result.codigo === "NO_AUTENTICADO") || result.error === t("No autenticado")) {
         router.push("/auth/login")
         return
       }
@@ -307,15 +312,15 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     if (result) {
       setNewPortfolioItem((prev) => ({ ...prev, imagen_url: result.url }))
     } else {
-      toast({ title: "Error", description: "No se pudo subir la imagen.", variant: "destructive" })
+      toast({ title: t("Error"), description: t("No se pudo subir la imagen."), variant: "destructive" })
     }
   }
 
   const handleAddPortfolio = async () => {
     if (!newPortfolioItem.titulo || !newPortfolioItem.descripcion) {
       toast({
-        title: "Campos requeridos",
-        description: "Completa título y descripción.",
+        title: t("Campos requeridos"),
+        description: t("Completa título y descripción."),
         variant: "destructive",
       })
       return
@@ -328,13 +333,13 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     setSavingPortfolio(false)
 
     if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" })
+      toast({ title: t("Error"), description: result.error ? t(result.error) : undefined, variant: "destructive" })
       return
     }
 
     toast({
-      title: editingPortfolioId ? "Proyecto actualizado" : "Proyecto añadido",
-      description: "Ya aparece en tu portfolio.",
+      title: editingPortfolioId ? t("Proyecto actualizado") : t("Proyecto añadido"),
+      description: t("Ya aparece en tu portfolio."),
     })
     setShowPortfolioDialog(false)
     setNewPortfolioItem(PORTFOLIO_VACIO)
@@ -366,7 +371,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     const result = await obtenerTrabajosCompletadosParaPortfolio()
     setLoadingTrabajosDiime(false)
     if (result.error) {
-      toast({ title: "No se pudieron cargar tus trabajos", description: result.error, variant: "destructive" })
+      toast({ title: t("No se pudieron cargar tus trabajos"), description: result.error ? t(result.error) : undefined, variant: "destructive" })
       return
     }
     setTrabajosDiime(result.data || [])
@@ -396,11 +401,11 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     setDeletingPortfolioId(null)
 
     if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" })
+      toast({ title: t("Error"), description: result.error ? t(result.error) : undefined, variant: "destructive" })
       return
     }
 
-    toast({ title: "Proyecto eliminado", description: "Se ha quitado de tu portfolio." })
+    toast({ title: t("Proyecto eliminado"), description: t("Se ha quitado de tu portfolio.") })
     if (profesionalId) await cargarPortfolio(profesionalId)
   }
 
@@ -409,16 +414,16 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     // que no se deja guardar el perfil a medias.
     if (mostrarEditorProfesional && editData.categorias_interes.length === 0) {
       toast({
-        title: "Elige tus servicios",
-        description: "Marca al menos una categoría para que te lleguen las demandas que te interesan.",
+        title: t("Elige tus servicios"),
+        description: t("Marca al menos una categoría para que te lleguen las demandas que te interesan."),
         variant: "destructive",
       })
       return
     }
     if (mostrarEditorProfesional && editData.provincias_cobertura.length === 0) {
       toast({
-        title: "Elige tu zona",
-        description: "Marca al menos una provincia en la que quieras cubrir demandas.",
+        title: t("Elige tu zona"),
+        description: t("Marca al menos una provincia en la que quieras cubrir demandas."),
         variant: "destructive",
       })
       return
@@ -453,14 +458,14 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
 
     if (result.error) {
       toast({
-        title: "Error",
-        description: `No se pudo actualizar el perfil: ${result.error}`,
+        title: t("Error"),
+        description: t("No se pudo actualizar el perfil: {error}", { error: t(result.error) }),
         variant: "destructive",
       })
     } else {
       toast({
-        title: "Perfil actualizado",
-        description: "Tu información ha sido guardada correctamente.",
+        title: t("Perfil actualizado"),
+        description: t("Tu información ha sido guardada correctamente."),
       })
       setSnapshotEdicion(null)
       setIsEditing(false)
@@ -535,13 +540,13 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     if (result) {
       setEditData({ ...editData, foto_perfil: result.url })
       toast({
-        title: "Foto actualizada",
-        description: "Tu foto de perfil se ha subido correctamente.",
+        title: t("Foto actualizada"),
+        description: t("Tu foto de perfil se ha subido correctamente."),
       })
     } else {
       toast({
-        title: "Error",
-        description: "No se pudo subir la imagen. Inténtalo de nuevo.",
+        title: t("Error"),
+        description: t("No se pudo subir la imagen. Inténtalo de nuevo."),
         variant: "destructive",
       })
     }
@@ -558,13 +563,13 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     if (result) {
       setEditData({ ...editData, foto_portada: result.url })
       toast({
-        title: "Portada actualizada",
-        description: "Tu imagen de portada se ha subido correctamente.",
+        title: t("Portada actualizada"),
+        description: t("Tu imagen de portada se ha subido correctamente."),
       })
     } else {
       toast({
-        title: "Error",
-        description: "No se pudo subir la imagen. Inténtalo de nuevo.",
+        title: t("Error"),
+        description: t("No se pudo subir la imagen. Inténtalo de nuevo."),
         variant: "destructive",
       })
     }
@@ -587,12 +592,12 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
           <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
               <Avatar className="h-20 w-20">
-                <AvatarImage src={editData.foto_perfil || undefined} alt="Tu foto de perfil" />
+                <AvatarImage src={editData.foto_perfil || undefined} alt={t("Tu foto de perfil")} />
                 <AvatarFallback className="text-2xl">{editData.nombre.charAt(0)}</AvatarFallback>
               </Avatar>
               <div className="min-w-0 space-y-2">
                 <h1 className="break-words text-2xl font-bold">{editData.nombre} {editData.apellido}</h1>
-                <Badge variant="secondary">Cliente</Badge>
+                <Badge variant="secondary">{t("Cliente")}</Badge>
               </div>
             </div>
             {editable ? (
@@ -601,12 +606,12 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                   <>
                     <Button onClick={handleSave} disabled={saving || isUploading}>
                       {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      Guardar cambios
+                      {t("Guardar cambios")}
                     </Button>
-                    <Button variant="outline" onClick={cancelarEdicion} disabled={saving}>Cancelar</Button>
+                    <Button variant="outline" onClick={cancelarEdicion} disabled={saving}>{t("Cancelar")}</Button>
                   </>
                 ) : (
-                  <Button onClick={iniciarEdicion}><Edit2 className="mr-2 h-4 w-4" />Editar perfil</Button>
+                  <Button onClick={iniciarEdicion}><Edit2 className="mr-2 h-4 w-4" />{t("Editar perfil")}</Button>
                 )}
               </div>
             ) : null}
@@ -614,58 +619,58 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
           <CardContent className="space-y-6">
             {isEditing ? (
               <div className="space-y-2">
-                <Label htmlFor="cliente-avatar-upload">Foto de perfil</Label>
+                <Label htmlFor="cliente-avatar-upload">{t("Foto de perfil")}</Label>
                 <Input id="cliente-avatar-upload" type="file" accept="image/*" onChange={handleAvatarUpload} disabled={isUploading} />
-                {isUploading ? <p className="text-sm text-muted-foreground">Subiendo foto...</p> : null}
+                {isUploading ? <p className="text-sm text-muted-foreground">{t("Subiendo foto...")}</p> : null}
               </div>
             ) : null}
             <div className="grid gap-4 sm:grid-cols-2">
               {([
-                ["nombre", "Nombre", "text"],
-                ["apellido", "Apellidos", "text"],
-                ["telefono", "Teléfono", "tel"],
+                ["nombre", t("Nombre"), "text"],
+                ["apellido", t("Apellidos"), "text"],
+                ["telefono", t("Teléfono"), "tel"],
               ] as const).map(([campo, etiqueta, tipo]) => (
                 <div key={campo} className="space-y-2">
                   <Label htmlFor={`cliente-${campo}`}>{etiqueta}</Label>
                   {isEditing ? (
                     <Input id={`cliente-${campo}`} type={tipo} value={editData[campo]}
                       onChange={(e) => setEditData({ ...editData, [campo]: e.target.value })} />
-                  ) : <p>{editData[campo] || "No especificado"}</p>}
+                  ) : <p>{editData[campo] || t("No especificado")}</p>}
                 </div>
               ))}
               <div className="space-y-2">
-                <Label htmlFor="cliente-provincia">Provincia</Label>
+                <Label htmlFor="cliente-provincia">{t("Provincia")}</Label>
                 {isEditing ? (
                   <Select value={editData.ubicacion} onValueChange={(ubicacion) => setEditData({ ...editData, ubicacion })}>
-                    <SelectTrigger id="cliente-provincia"><SelectValue placeholder="Elige tu provincia" /></SelectTrigger>
+                    <SelectTrigger id="cliente-provincia"><SelectValue placeholder={t("Elige tu provincia")} /></SelectTrigger>
                     <SelectContent>
                       {provincias.map((prov) => <SelectItem key={prov.codigo} value={prov.provincia}>{prov.provincia}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                ) : <p>{editData.ubicacion || "No especificada"}</p>}
+                ) : <p>{editData.ubicacion || t("No especificada")}</p>}
               </div>
               <div className="space-y-2 sm:col-span-2">
-                <p className="text-sm font-medium">Correo electrónico</p>
-                <p className="break-all">{editData.email || "No especificado"}</p>
+                <p className="text-sm font-medium">{t("Correo electrónico")}</p>
+                <p className="break-all">{editData.email || t("No especificado")}</p>
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cliente-bio">Sobre mí</Label>
+              <Label htmlFor="cliente-bio">{t("Sobre mí")}</Label>
               {isEditing ? (
-                <Textarea id="cliente-bio" rows={4} value={editData.bio} placeholder="Cuéntanos algo sobre ti."
+                <Textarea id="cliente-bio" rows={4} value={editData.bio} placeholder={t("Cuéntanos algo sobre ti.")}
                   onChange={(e) => setEditData({ ...editData, bio: e.target.value })} />
-              ) : <p className="text-muted-foreground">{editData.bio || "No has añadido una descripción todavía."}</p>}
+              ) : <p className="text-muted-foreground">{editData.bio || t("No has añadido una descripción todavía.")}</p>}
             </div>
           </CardContent>
         </Card>
         {editable ? (
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">También puedes ofrecer servicios</CardTitle>
+              <CardTitle className="text-lg">{t("También puedes ofrecer servicios")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-muted-foreground">Completa tu perfil de proveedor para enviar ofertas. Podrás seguir contratando servicios con esta misma cuenta.</p>
-              <Button asChild><Link href="/convertirse-profesional">Crear perfil de proveedor</Link></Button>
+              <p className="text-muted-foreground">{t("Completa tu perfil de proveedor para enviar ofertas. Podrás seguir contratando servicios con esta misma cuenta.")}</p>
+              <Button asChild><Link href="/convertirse-profesional">{t("Crear perfil de proveedor")}</Link></Button>
             </CardContent>
           </Card>
         ) : null}
@@ -683,7 +688,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
         <div className="h-48 md:h-64 rounded-xl overflow-hidden bg-gradient-to-r from-primary/20 to-primary/5">
           <img
             src={editData.foto_portada || "/placeholder.svg"}
-            alt="Cover"
+            alt={t("Cover")}
             className="w-full h-full object-cover"
           />
           {editable && isEditing && (
@@ -696,7 +701,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 disabled={isUploading}
               >
                 <Camera className="h-4 w-4 mr-2" />
-                {isUploading ? "Subiendo..." : "Cambiar portada"}
+                {isUploading ? t("Subiendo...") : t("Cambiar portada")}
               </Button>
               <input
                 id="cover-upload"
@@ -754,13 +759,13 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                         <Input
                           value={editData.nombre}
                           onChange={(e) => setEditData({ ...editData, nombre: e.target.value })}
-                          placeholder="Nombre"
+                          placeholder={t("Nombre")}
                           className="text-xl font-bold h-auto py-1 w-32"
                         />
                         <Input
                           value={editData.apellido}
                           onChange={(e) => setEditData({ ...editData, apellido: e.target.value })}
-                          placeholder="Apellidos"
+                          placeholder={t("Apellidos")}
                           className="text-xl font-bold h-auto py-1 flex-1"
                         />
                       </div>
@@ -774,11 +779,11 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                       <Input
                         value={editData.titulo}
                         onChange={(e) => setEditData({ ...editData, titulo: e.target.value })}
-                        placeholder="Título profesional (ej: Maestro Albañil)"
+                        placeholder={t("Título profesional (ej: Maestro Albañil)")}
                         className="text-muted-foreground"
                       />
                     ) : (
-                      <p className="text-lg text-muted-foreground">{editData.titulo || "Sin título profesional"}</p>
+                      <p className="text-lg text-muted-foreground">{editData.titulo || t("Sin título profesional")}</p>
                     )}
 
                     <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
@@ -790,7 +795,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                             onValueChange={(value) => setEditData({ ...editData, ubicacion: value })}
                           >
                             <SelectTrigger className="h-7 w-40">
-                              <SelectValue placeholder="Provincia" />
+                              <SelectValue placeholder={t("Provincia")} />
                             </SelectTrigger>
                             <SelectContent>
                               {provincias.map((prov) => (
@@ -801,16 +806,16 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                             </SelectContent>
                           </Select>
                         ) : (
-                          <span>{editData.ubicacion || "Sin ubicación"}</span>
+                          <span>{editData.ubicacion || t("Sin ubicación")}</span>
                         )}
                       </div>
                       <div className="flex items-center gap-1">
                         <Briefcase className="h-4 w-4" />
-                        <span>{editData.proyectos_completados} proyectos</span>
+                        <span>{editData.proyectos_completados} {t("proyectos")}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Clock className="h-4 w-4" />
-                        <span>Responde en {editData.tiempo_respuesta}</span>
+                        <span>{t("Responde en")} {t(editData.tiempo_respuesta)}</span>
                       </div>
                     </div>
 
@@ -818,14 +823,14 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                       <div className="flex items-center gap-1">
                         <Star className="h-5 w-5 fill-amber-500 text-amber-500" />
                         <span className="font-bold text-lg">{editData.rating.toFixed(1)}</span>
-                        <span className="text-muted-foreground">({editData.total_reviews} valoraciones)</span>
+                        <span className="text-muted-foreground">({editData.total_reviews} {t("valoraciones)")}</span>
                       </div>
-                      <Badge variant="secondary">{editData.nivel}</Badge>
+                      <Badge variant="secondary">{t(editData.nivel)}</Badge>
                       <Badge
                         variant={editData.disponibilidad === "Disponible" ? "default" : "secondary"}
                         className={editData.disponibilidad === "Disponible" ? "bg-emerald-500" : ""}
                       >
-                        {editData.disponibilidad}
+                        {t(editData.disponibilidad)}
                       </Badge>
                     </div>
                   </div>
@@ -837,20 +842,20 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                         <>
                           <Button onClick={handleSave} disabled={saving}>
                             {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                            Guardar cambios
+                            {t("Guardar cambios")}
                           </Button>
                           <Button
                             variant="outline"
                             onClick={cancelarEdicion}
                           >
-                            Cancelar
+                            {t("Cancelar")}
                           </Button>
                         </>
                       ) : (
                         <>
                           <Button onClick={iniciarEdicion}>
                             <Edit2 className="h-4 w-4 mr-2" />
-                            Editar perfil
+                            {t("Editar perfil")}
                           </Button>
                           <Button
                             variant="outline"
@@ -863,7 +868,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                             ) : (
                               <LogOut className="h-4 w-4 mr-2" />
                             )}
-                            Cerrar sesion
+                            {t("Cerrar sesion")}
                           </Button>
                         </>
                       )
@@ -871,11 +876,11 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                       <>
                         <Button>
                           <MessageCircle className="h-4 w-4 mr-2" />
-                          Enviar mensaje
+                          {t("Enviar mensaje")}
                         </Button>
                         <Button variant="outline">
                           <Phone className="h-4 w-4 mr-2" />
-                          Contactar
+                          {t("Contactar")}
                         </Button>
                       </>
                     )}
@@ -906,19 +911,19 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 value="sobre-mi"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
               >
-                Sobre mí
+                {t("Sobre mí")}
               </TabsTrigger>
               <TabsTrigger
                 value="portfolio"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
               >
-                Portfolio
+                {t("Portfolio")}
               </TabsTrigger>
               <TabsTrigger
                 value="valoraciones"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
               >
-                Valoraciones
+                {t("Valoraciones")}
               </TabsTrigger>
             </TabsList>
 
@@ -926,7 +931,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
               {/* Bio */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Descripción</CardTitle>
+                  <CardTitle className="text-lg">{t("Descripción")}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {isEditing ? (
@@ -934,11 +939,11 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                       value={editData.bio}
                       onChange={(e) => setEditData({ ...editData, bio: e.target.value })}
                       rows={5}
-                      placeholder="Describe tu experiencia, especialización y qué te hace único..."
+                      placeholder={t("Describe tu experiencia, especialización y qué te hace único...")}
                     />
                   ) : (
                     <p className="text-muted-foreground leading-relaxed">
-                      {editData.bio || "No has añadido una descripción todavía."}
+                      {editData.bio || t("No has añadido una descripción todavía.")}
                     </p>
                   )}
                 </CardContent>
@@ -948,12 +953,12 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
               {isEditing && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Información Profesional</CardTitle>
+                    <CardTitle className="text-lg">{t("Información Profesional")}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="tarifa">Tarifa por hora (€)</Label>
+                        <Label htmlFor="tarifa">{t("Tarifa por hora (€)")}</Label>
                         <Input
                           id="tarifa"
                           type="number"
@@ -963,7 +968,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="experiencia">Años de experiencia</Label>
+                        <Label htmlFor="experiencia">{t("Años de experiencia")}</Label>
                         <Input
                           id="experiencia"
                           type="number"
@@ -980,7 +985,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
               {/* Contact Info */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Contacto</CardTitle>
+                  <CardTitle className="text-lg">{t("Contacto")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex items-center gap-3">
@@ -994,12 +999,12 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                         className="flex-1"
                       />
                     ) : (
-                      <span>{editData.telefono || "No especificado"}</span>
+                      <span>{editData.telefono || t("No especificado")}</span>
                     )}
                   </div>
                   <div className="flex items-center gap-3">
                     <Mail className="h-5 w-5 text-muted-foreground" />
-                    <span>{editData.email || "No especificado"}</span>
+                    <span>{editData.email || t("No especificado")}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -1009,33 +1014,31 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Bell className="h-5 w-5 text-primary" />
-                    Avisos de nuevas demandas
+                    {t("Avisos de nuevas demandas")}
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    Elige qué servicios, provincias y presupuestos te interesan. Solo te avisaremos de las demandas
-                    que encajen con estos filtros.
+                    {t("Elige qué servicios, provincias y presupuestos te interesan. Solo te avisaremos de las demandas que encajen con estos filtros.")}
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-5">
                   {sinCobertura && (
                     <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
                       <p className="font-medium text-amber-700 dark:text-amber-400">
-                        No estás recibiendo avisos de demandas
+                        {t("No estás recibiendo avisos de demandas")}
                       </p>
                       <p className="text-muted-foreground mt-0.5">
-                        Elige tus servicios y tus provincias {!isEditing && "(pulsa «Editar perfil») "}para empezar a
-                        recibirlas.
+                        {t("Elige tus servicios y tus provincias")} {!isEditing && <>{t("(pulsa «Editar perfil»)")} </>}{t("para empezar a recibirlas.")}
                       </p>
                     </div>
                   )}
 
                   <div className="space-y-2">
                     <p className="text-sm font-medium">
-                      Servicios que ofreces
+                      {t("Servicios que ofreces")}
                       {isEditing && <span className="text-destructive ml-1">*</span>}
                     </p>
                     {!isEditing && editData.categorias_interes.length === 0 ? (
-                      <p className="text-muted-foreground text-sm">Todavía no has elegido servicios.</p>
+                      <p className="text-muted-foreground text-sm">{t("Todavía no has elegido servicios.")}</p>
                     ) : (
                       <SelectorCategorias
                         seleccionadas={editData.categorias_interes}
@@ -1047,11 +1050,11 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
 
                   <div className="space-y-2">
                     <p className="text-sm font-medium">
-                      Provincias que cubres
+                      {t("Provincias que cubres")}
                       {isEditing && <span className="text-destructive ml-1">*</span>}
                     </p>
                     {!isEditing && editData.provincias_cobertura.length === 0 ? (
-                      <p className="text-muted-foreground text-sm">Todavía no has elegido provincias.</p>
+                      <p className="text-muted-foreground text-sm">{t("Todavía no has elegido provincias.")}</p>
                     ) : (
                       <SelectorProvincias
                         seleccionadas={editData.provincias_cobertura}
@@ -1063,7 +1066,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
 
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-sm font-medium">Presupuesto total del proyecto</p>
+                      <p className="text-sm font-medium">{t("Presupuesto total del proyecto")}</p>
                       {isEditing &&
                         (editData.presupuesto_interes[0] > 0 || editData.presupuesto_interes[1] < PRECIO_MAX) && (
                           <Button
@@ -1075,12 +1078,12 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                               setEditData({ ...editData, presupuesto_interes: [0, PRECIO_MAX] })
                             }
                           >
-                            Cualquier presupuesto
+                            {t("Cualquier presupuesto")}
                           </Button>
                         )}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Las demandas con presupuesto «A convenir» también se incluyen.
+                      {t("Las demandas con presupuesto «A convenir» también se incluyen.")}
                     </p>
                     {isEditing ? (
                       <RangoPrecio
@@ -1091,7 +1094,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                       />
                     ) : (
                       <p className="text-sm rounded-md border bg-muted/30 px-3 py-2">
-                        {formatearPresupuestoInteres(editData.presupuesto_interes)}
+                        {formatearPresupuestoInteres(editData.presupuesto_interes, t, idioma)}
                       </p>
                     )}
                   </div>
@@ -1101,12 +1104,12 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
               {/* Skills */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Habilidades</CardTitle>
+                  <CardTitle className="text-lg">{t("Habilidades")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex flex-wrap gap-2">
                     {editData.habilidades.length === 0 && !isEditing && (
-                      <p className="text-muted-foreground text-sm">No has añadido habilidades todavía.</p>
+                      <p className="text-muted-foreground text-sm">{t("No has añadido habilidades todavía.")}</p>
                     )}
                     {editData.habilidades.map((skill, i) => (
                       <Badge key={i} variant="secondary" className="text-sm py-1.5 px-3">
@@ -1124,7 +1127,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                       <Input
                         value={newSkill}
                         onChange={(e) => setNewSkill(e.target.value)}
-                        placeholder="Nueva habilidad..."
+                        placeholder={t("Nueva habilidad...")}
                         className="flex-1"
                         onKeyPress={(e) => e.key === "Enter" && addSkill()}
                       />
@@ -1141,13 +1144,13 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Award className="h-5 w-5 text-primary" />
-                    Certificaciones
+                    {t("Certificaciones")}
                   </CardTitle>
-                  <p className="text-sm text-muted-foreground">Declaradas por el proveedor</p>
+                  <p className="text-sm text-muted-foreground">{t("Declaradas por el proveedor")}</p>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {editData.certificaciones.length === 0 && !isEditing && (
-                    <p className="text-muted-foreground text-sm">No has añadido certificaciones todavía.</p>
+                    <p className="text-muted-foreground text-sm">{t("No has añadido certificaciones todavía.")}</p>
                   )}
                   <div className="space-y-2">
                     {editData.certificaciones.map((cert, i) => (
@@ -1157,7 +1160,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                           <button
                             type="button"
                             onClick={() => removeCertification(i)}
-                            aria-label={`Eliminar certificación ${cert}`}
+                            aria-label={t("Eliminar certificación {certificacion}", { certificacion: cert })}
                             className="shrink-0 hover:text-destructive"
                           >
                             <X className="h-4 w-4" />
@@ -1171,7 +1174,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                       <Input
                         value={newCert}
                         onChange={(e) => setNewCert(e.target.value)}
-                        placeholder="Nueva certificación..."
+                        placeholder={t("Nueva certificación...")}
                         className="flex-1"
                         onKeyPress={(e) => e.key === "Enter" && addCertification()}
                       />
@@ -1188,12 +1191,12 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Globe className="h-5 w-5 text-primary" />
-                    Idiomas
+                    {t("Idiomas")}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {editData.idiomas.length === 0 && !isEditing && (
-                    <p className="text-muted-foreground text-sm">No has añadido idiomas todavía.</p>
+                    <p className="text-muted-foreground text-sm">{t("No has añadido idiomas todavía.")}</p>
                   )}
                   <div className="flex flex-wrap gap-2">
                     {editData.idiomas.map((lang, i) => (
@@ -1213,7 +1216,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                       <Input
                         value={newLanguage}
                         onChange={(e) => setNewLanguage(e.target.value)}
-                        placeholder="Nuevo idioma (ej: Español - Nativo)..."
+                        placeholder={t("Nuevo idioma (ej: Español - Nativo)...")}
                         className="flex-1"
                         onKeyPress={(e) => e.key === "Enter" && addLanguage()}
                       />
@@ -1240,7 +1243,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                     }}
                   >
                     <Plus className="h-4 w-4" />
-                    Añadir proyecto
+                    {t("Añadir proyecto")}
                   </Button>
                 </div>
               )}
@@ -1248,10 +1251,10 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 {editData.portfolio.length === 0 && (
                   <div className="col-span-2 text-center py-12 text-muted-foreground">
                     <Briefcase className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No tienes proyectos en tu portfolio todavía.</p>
+                    <p>{t("No tienes proyectos en tu portfolio todavía.")}</p>
                     {editable && (
                       <p className="text-sm mt-2">
-                        Usa &laquo;Añadir proyecto&raquo; para mostrar tus trabajos a los clientes.
+                        {t("Usa «Añadir proyecto» para mostrar tus trabajos a los clientes.")}
                       </p>
                     )}
                   </div>
@@ -1270,7 +1273,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                             size="icon"
                             variant="secondary"
                             className="h-8 w-8"
-                            aria-label={`Editar ${item.titulo}`}
+                            aria-label={t("Editar {titulo}", { titulo: item.titulo })}
                             onClick={() => handleEditPortfolio(item)}
                           >
                             <Edit2 className="h-4 w-4" />
@@ -1279,7 +1282,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                             size="icon"
                             variant="destructive"
                             className="h-8 w-8"
-                            aria-label={`Eliminar ${item.titulo}`}
+                            aria-label={t("Eliminar {titulo}", { titulo: item.titulo })}
                             disabled={deletingPortfolioId === item.id}
                             onClick={() => handleDeletePortfolio(item.id)}
                           >
@@ -1296,13 +1299,13 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                       <h4 className="font-semibold">{item.titulo}</h4>
                       {item.trabajo_id && (
                         <Badge className="mt-2 gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                          <BadgeCheck className="h-3.5 w-3.5" /> Verificado por Diime
+                          <BadgeCheck className="h-3.5 w-3.5" /> {t("Verificado por Diime")}
                         </Badge>
                       )}
                       <p className="text-sm text-muted-foreground">{item.descripcion}</p>
                       {item.contexto_proveedor && (
                         <div className="mt-3 border-t pt-3">
-                          <p className="text-xs font-medium text-foreground">Aporte del profesional</p>
+                          <p className="text-xs font-medium text-foreground">{t("Aporte del profesional")}</p>
                           <p className="mt-1 text-sm text-muted-foreground">{item.contexto_proveedor}</p>
                         </div>
                       )}
@@ -1311,9 +1314,9 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                           {[item.ubicacion, item.duracion].filter(Boolean).join(" · ")}
                         </p>
                       )}
-                      {formatearRangoPortfolio(item.presupuesto) && (
+                      {formatearRangoPortfolio(item.presupuesto, idioma) && (
                         <p className="mt-2 text-xs text-muted-foreground">
-                          Coste publicado aproximado: {formatearRangoPortfolio(item.presupuesto)}
+                          {t("Coste publicado aproximado:")} {formatearRangoPortfolio(item.presupuesto, idioma)}
                         </p>
                       )}
                     </CardContent>
@@ -1340,7 +1343,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                           />
                         ))}
                       </div>
-                      <p className="text-sm text-muted-foreground">{editData.total_reviews} valoraciones</p>
+                      <p className="text-sm text-muted-foreground">{editData.total_reviews} {t("valoraciones")}</p>
                     </div>
                     <div className="flex-1 space-y-3">
                       {Object.entries(editData.estadisticas).map(([key, value]) => (
@@ -1361,8 +1364,8 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
               {editData.reviews.length === 0 && (
                 <div className="text-center py-12 text-muted-foreground">
                   <Star className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Aún no tienes valoraciones.</p>
-                  <p className="text-sm mt-2">Las valoraciones aparecerán aquí cuando completes proyectos.</p>
+                  <p>{t("Aún no tienes valoraciones.")}</p>
+                  <p className="text-sm mt-2">{t("Las valoraciones aparecerán aquí cuando completes proyectos.")}</p>
                 </div>
               )}
               <div className="space-y-4">
@@ -1411,24 +1414,24 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
           {/* Stats */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Estadísticas</CardTitle>
+              <CardTitle className="text-lg">{t("Estadísticas")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Proyectos completados</span>
+                <span className="text-muted-foreground">{t("Proyectos completados")}</span>
                 <span className="font-bold">{editData.proyectos_completados}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Años de experiencia</span>
+                <span className="text-muted-foreground">{t("Años de experiencia")}</span>
                 <span className="font-bold">{editData.anos_experiencia}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Tarifa por hora</span>
-                      <span className="font-bold">{formatearPrecioEuros(editData.tarifa_hora)}/h</span>
+                <span className="text-muted-foreground">{t("Tarifa por hora")}</span>
+                      <span className="font-bold">{formatearPrecioEuros(editData.tarifa_hora, idioma)}/h</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Tiempo de respuesta</span>
-                <span className="font-bold">{editData.tiempo_respuesta}</span>
+                <span className="text-muted-foreground">{t("Tiempo de respuesta")}</span>
+                <span className="font-bold">{t(editData.tiempo_respuesta)}</span>
               </div>
             </CardContent>
           </Card>
@@ -1438,9 +1441,9 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
       <Dialog open={showPortfolioDialog} onOpenChange={setShowPortfolioDialog}>
         <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingPortfolioId ? "Editar proyecto del portfolio" : "Añadir proyecto al portfolio"}</DialogTitle>
+            <DialogTitle>{editingPortfolioId ? t("Editar proyecto del portfolio") : t("Añadir proyecto al portfolio")}</DialogTitle>
             <DialogDescription>
-              Muestra un trabajo que ya hayas realizado. Aparecerá en tu perfil público.
+              {t("Muestra un trabajo que ya hayas realizado. Aparecerá en tu perfil público.")}
             </DialogDescription>
           </DialogHeader>
 
@@ -1449,19 +1452,19 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
               <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p className="text-sm font-medium">¿Ya hiciste este trabajo en Diime?</p>
-                    <p className="text-xs text-muted-foreground">Importa sus datos y añádelo como trabajo verificado.</p>
+                    <p className="text-sm font-medium">{t("¿Ya hiciste este trabajo en Diime?")}</p>
+                    <p className="text-xs text-muted-foreground">{t("Importa sus datos y añádelo como trabajo verificado.")}</p>
                   </div>
                   <Button type="button" size="sm" variant="outline" className="gap-2" onClick={cargarTrabajosDiime}>
-                    <ClipboardCheck className="h-4 w-4" /> Seleccionar trabajo
+                    <ClipboardCheck className="h-4 w-4" /> {t("Seleccionar trabajo")}
                   </Button>
                 </div>
                 {showTrabajosDiime && (
                   <div className="mt-3 space-y-2 border-t pt-3">
                     {loadingTrabajosDiime ? (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Cargando trabajos…</div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> {t("Cargando trabajos…")}</div>
                     ) : trabajosDiime.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">Aún no tienes trabajos finalizados en Diime.</p>
+                      <p className="text-sm text-muted-foreground">{t("Aún no tienes trabajos finalizados en Diime.")}</p>
                     ) : (
                       trabajosDiime.map((trabajo) => (
                         <button
@@ -1482,63 +1485,63 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
 
             {newPortfolioItem.trabajo_id && (
               <div className="flex items-center gap-2 rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400">
-                <BadgeCheck className="h-4 w-4 shrink-0" /> Trabajo verificado por Diime
+                <BadgeCheck className="h-4 w-4 shrink-0" /> {t("Trabajo verificado por Diime")}
               </div>
             )}
             <div className="space-y-1.5">
-              <Label htmlFor="pf-titulo">{newPortfolioItem.trabajo_id ? "Título de la demanda" : "Título del proyecto *"}</Label>
+              <Label htmlFor="pf-titulo">{newPortfolioItem.trabajo_id ? t("Título de la demanda") : t("Título del proyecto *")}</Label>
               <Input
                 id="pf-titulo"
                 value={newPortfolioItem.titulo}
                 onChange={(e) => setNewPortfolioItem({ ...newPortfolioItem, titulo: e.target.value })}
-                placeholder="Ej: Reforma integral de cocina"
+                placeholder={t("Ej: Reforma integral de cocina")}
                 disabled={Boolean(newPortfolioItem.trabajo_id)}
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="pf-descripcion">{newPortfolioItem.trabajo_id ? "Descripción de la demanda" : "Descripción *"}</Label>
+              <Label htmlFor="pf-descripcion">{newPortfolioItem.trabajo_id ? t("Descripción de la demanda") : t("Descripción *")}</Label>
               <Textarea
                 id="pf-descripcion"
                 rows={3}
                 value={newPortfolioItem.descripcion}
                 onChange={(e) => setNewPortfolioItem({ ...newPortfolioItem, descripcion: e.target.value })}
-                placeholder="Describe el proyecto, los retos y el resultado..."
+                placeholder={t("Describe el proyecto, los retos y el resultado...")}
                 disabled={Boolean(newPortfolioItem.trabajo_id)}
               />
               {newPortfolioItem.trabajo_id && (
-                <p className="text-xs text-muted-foreground">Este texto lo publicó el cliente y se muestra tal cual en el portfolio.</p>
+                <p className="text-xs text-muted-foreground">{t("Este texto lo publicó el cliente y se muestra tal cual en el portfolio.")}</p>
               )}
             </div>
 
             {newPortfolioItem.trabajo_id && (
               <div className="space-y-1.5">
-                <Label htmlFor="pf-contexto">Tu aporte al trabajo</Label>
+                <Label htmlFor="pf-contexto">{t("Tu aporte al trabajo")}</Label>
                 <Textarea
                   id="pf-contexto"
                   rows={3}
                   value={newPortfolioItem.contexto_proveedor}
                   onChange={(e) => setNewPortfolioItem({ ...newPortfolioItem, contexto_proveedor: e.target.value })}
-                  placeholder="Explica cómo lo realizaste, materiales empleados, retos resueltos o el resultado conseguido..."
+                  placeholder={t("Explica cómo lo realizaste, materiales empleados, retos resueltos o el resultado conseguido...")}
                 />
-                <p className="text-xs text-muted-foreground">Se mostrará separado de la descripción original de la demanda.</p>
+                <p className="text-xs text-muted-foreground">{t("Se mostrará separado de la descripción original de la demanda.")}</p>
               </div>
             )}
 
             <div className="space-y-1.5">
-              <Label htmlFor="pf-imagen">Adjuntar archivos</Label>
+              <Label htmlFor="pf-imagen">{t("Adjuntar archivos")}</Label>
               {newPortfolioItem.imagen_url ? (
                 <div className="relative h-40 rounded-md overflow-hidden border">
                   <img
                     src={newPortfolioItem.imagen_url}
-                    alt="Vista previa del proyecto"
+                    alt={t("Vista previa del proyecto")}
                     className="w-full h-full object-cover"
                   />
                   <Button
                     size="icon"
                     variant="destructive"
                     className="absolute top-2 right-2 h-7 w-7"
-                    aria-label="Quitar archivo"
+                    aria-label={t("Quitar archivo")}
                     onClick={() => {
                       setNewPortfolioItem({ ...newPortfolioItem, imagen_url: "" })
                     }}
@@ -1561,8 +1564,8 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                     className="flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed bg-muted/30 px-4 text-center transition-colors hover:bg-muted"
                   >
                     {uploadingPortfolioImg ? <Loader2 className="mb-2 h-5 w-5 animate-spin" /> : <FileUp className="mb-2 h-5 w-5 text-muted-foreground" />}
-                    <span className="text-sm font-medium">{uploadingPortfolioImg ? "Subiendo archivo…" : "Adjuntar archivos"}</span>
-                    <span className="mt-1 text-xs text-muted-foreground">Añade una imagen para enseñar el resultado (opcional).</span>
+                    <span className="text-sm font-medium">{uploadingPortfolioImg ? t("Subiendo archivo…") : t("Adjuntar archivos")}</span>
+                    <span className="mt-1 text-xs text-muted-foreground">{t("Añade una imagen para enseñar el resultado (opcional).")}</span>
                   </Label>
                 </div>
               )}
@@ -1570,15 +1573,15 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Servicio</Label>
+                <Label>{t("Servicio")}</Label>
                 <SelectCategoriaJerarquico
                   value={newPortfolioItem.categoria}
                   onChange={(categoria) => setNewPortfolioItem({ ...newPortfolioItem, categoria })}
-                  placeholder="Selecciona un servicio"
+                  placeholder={t("Selecciona un servicio")}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="pf-fecha">Fecha de finalización</Label>
+                <Label htmlFor="pf-fecha">{t("Fecha de finalización")}</Label>
                 <Input
                   id="pf-fecha"
                   type="date"
@@ -1590,30 +1593,30 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="pf-ubicacion">Ubicación</Label>
+                <Label htmlFor="pf-ubicacion">{t("Ubicación")}</Label>
                 <Select
                   value={newPortfolioItem.ubicacion}
                   onValueChange={(ubicacion) => setNewPortfolioItem({ ...newPortfolioItem, ubicacion })}
                 >
-                  <SelectTrigger id="pf-ubicacion"><SelectValue placeholder="Selecciona una provincia" /></SelectTrigger>
+                  <SelectTrigger id="pf-ubicacion"><SelectValue placeholder={t("Selecciona una provincia")} /></SelectTrigger>
                   <SelectContent>
                     {PROVINCIAS_ES.map((provincia) => <SelectItem key={provincia} value={provincia}>{provincia}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="pf-duracion">Duración</Label>
+                <Label htmlFor="pf-duracion">{t("Duración")}</Label>
                 <Input
                   id="pf-duracion"
                   value={newPortfolioItem.duracion}
                   onChange={(e) => setNewPortfolioItem({ ...newPortfolioItem, duracion: e.target.value })}
-                  placeholder="2 semanas"
+                  placeholder={t("2 semanas")}
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="pf-presupuesto">Presupuesto (€)</Label>
+              <Label htmlFor="pf-presupuesto">{t("Presupuesto (€)")}</Label>
               <Input
                 id="pf-presupuesto"
                 type="number"
@@ -1636,16 +1639,16 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
               }}
               disabled={savingPortfolio}
             >
-              Cancelar
+              {t("Cancelar")}
             </Button>
             <Button onClick={handleAddPortfolio} disabled={savingPortfolio || uploadingPortfolioImg}>
               {savingPortfolio ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Guardando...
+                  {t("Guardando...")}
                 </>
               ) : (
-                editingPortfolioId ? "Guardar proyecto" : "Añadir proyecto"
+                editingPortfolioId ? t("Guardar proyecto") : t("Añadir proyecto")
               )}
             </Button>
           </DialogFooter>

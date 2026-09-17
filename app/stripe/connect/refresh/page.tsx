@@ -1,3 +1,4 @@
+import { getT } from "@/lib/i18n-servidor"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -18,6 +19,8 @@ export default async function StripeConnectRefreshPage({
 }: {
   searchParams: Promise<{ native?: string | string[]; volver?: string | string[] }>
 }) {
+  const { t } = await getT()
+
   const parametros = await searchParams
   const volverA = rutaSegura(primerValor(parametros.volver))
 
@@ -33,10 +36,10 @@ export default async function StripeConnectRefreshPage({
   return (
     <main className="container mx-auto max-w-xl px-4 pb-16 pt-28">
       <Card>
-        <CardHeader><CardTitle>No se pudo renovar el enlace de Stripe</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t("No se pudo renovar el enlace de Stripe")}</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">{resultado.error || "Vuelve a tu perfil e inténtalo de nuevo."}</p>
-          <Button asChild><Link href={volverA}>Volver a Diime</Link></Button>
+          <p className="text-sm text-muted-foreground">{resultado.error || t("Vuelve a tu perfil e inténtalo de nuevo.")}</p>
+          <Button asChild><Link href={volverA}>{t("Volver a Diime")}</Link></Button>
         </CardContent>
       </Card>
     </main>

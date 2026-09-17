@@ -1,5 +1,9 @@
 "use client"
 
+import { useT, useIdioma } from "@/components/idioma-provider"
+import { traducirTextoNotificacion } from "@/lib/i18n-notificaciones"
+
+
 // Overlay festivo para los dos hitos más gratificantes de la plataforma:
 // - el cliente recibe la entrega de un trabajo ("trabajo_entregado")
 // - el profesional cobra un trabajo ("pago_liberado")
@@ -134,6 +138,8 @@ const ACENTO: Record<Tono, { borde: string; chip: string; icono: string }> = {
 }
 
 export function CelebracionNotificacion({ notificacion, onClose }: Props) {
+  const t = useT()
+  const { idioma } = useIdioma()
   const variante = VARIANTES[notificacion.tipo] || VARIANTES.trabajo_entregado
   const acento = ACENTO[variante.tono]
   const esFestivo = variante.tono === "festivo"
@@ -212,7 +218,7 @@ export function CelebracionNotificacion({ notificacion, onClose }: Props) {
         <button
           type="button"
           onClick={onClose}
-          aria-label="Cerrar"
+          aria-label={t("Cerrar")}
           className="absolute top-3 right-3 rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition"
         >
           <X className="h-4 w-4" />
@@ -233,18 +239,17 @@ export function CelebracionNotificacion({ notificacion, onClose }: Props) {
           )}
         >
           <IconoEtiqueta className="h-3.5 w-3.5" />
-          {variante.etiqueta}
+          {t(variante.etiqueta)}
         </div>
 
-        <h2 className="text-2xl font-bold mb-2 text-balance">{notificacion.titulo || variante.titulo}</h2>
+        <h2 className="text-2xl font-bold mb-2 text-balance">{traducirTextoNotificacion(idioma, notificacion.titulo || variante.titulo, notificacion.tipo)}</h2>
         {notificacion.mensaje && (
-          <p className="text-sm text-muted-foreground mb-6 text-pretty">{notificacion.mensaje}</p>
+          <p className="text-sm text-muted-foreground mb-6 text-pretty">{traducirTextoNotificacion(idioma, notificacion.mensaje, notificacion.tipo)}</p>
         )}
 
         <div className="flex gap-2 justify-center">
           <Button variant="outline" className="bg-transparent" onClick={onClose}>
-            Cerrar
-          </Button>
+             {t("Cerrar")} </Button>
           <Button
             asChild
             className={cn(
@@ -256,7 +261,7 @@ export function CelebracionNotificacion({ notificacion, onClose }: Props) {
             )}
           >
             <Link href={notificacion.link || "/"} onClick={onClose}>
-              {variante.cta}
+              {t(variante.cta)}
             </Link>
           </Button>
         </div>

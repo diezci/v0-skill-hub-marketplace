@@ -1,9 +1,13 @@
+"use client"
+
+import { useT } from "@/components/idioma-provider"
 import Link from "next/link"
 import { Mail, Shield, Heart } from "lucide-react"
 import { ReportarIncidenciaDialog } from "@/components/reportar-incidencia-dialog"
 import { DiimeLogo } from "@/components/diime-logo"
 
 const Footer = () => {
+  const t = useT()
   const links = {
     platform: [
       { name: "Buscar profesionales", href: "/profesionales" },
@@ -45,8 +49,7 @@ const Footer = () => {
               <span className="font-bold text-lg">Diime</span>
             </Link>
             <p className="text-sm text-muted-foreground leading-relaxed mb-4 max-w-xs">
-              La plataforma que conecta profesionales cualificados con clientes que buscan calidad y confianza.
-            </p>
+               {t("La plataforma que conecta profesionales cualificados con clientes que buscan calidad y confianza.")} </p>
             <div className="flex flex-col text-sm text-muted-foreground">
               {/* Los enlaces del pie miden 40px de alto para poder pulsarlos con
                   el dedo: medían 17-20px, muy por debajo de lo que recomiendan
@@ -61,14 +64,13 @@ const Footer = () => {
               </a>
               <span className="inline-flex min-h-[40px] items-center gap-2">
                 <Shield className="h-4 w-4 text-primary" />
-                Pagos protegidos hasta la entrega
-              </span>
+                 {t("Pagos protegidos hasta la entrega")} </span>
             </div>
           </div>
 
           {/* Links */}
           <div>
-            <h4 className="font-semibold mb-4 text-sm">Plataforma</h4>
+            <h4 className="font-semibold mb-4 text-sm">{t("Plataforma")}</h4>
             <ul>
               {links.platform.map((link) => (
                 <li key={link.name}>
@@ -76,7 +78,7 @@ const Footer = () => {
                     href={link.href}
                     className="inline-flex min-h-[40px] items-center text-sm text-muted-foreground hover:text-primary transition-colors"
                   >
-                    {link.name}
+                    {t(link.name)}
                   </Link>
                 </li>
               ))}
@@ -84,7 +86,7 @@ const Footer = () => {
           </div>
 
           <div>
-            <h4 className="font-semibold mb-4 text-sm">Profesionales</h4>
+            <h4 className="font-semibold mb-4 text-sm">{t("Profesionales")}</h4>
             <ul>
               {links.professionals.map((link) => (
                 <li key={link.name}>
@@ -92,7 +94,7 @@ const Footer = () => {
                     href={link.href}
                     className="inline-flex min-h-[40px] items-center text-sm text-muted-foreground hover:text-primary transition-colors"
                   >
-                    {link.name}
+                    {t(link.name)}
                   </Link>
                 </li>
               ))}
@@ -100,7 +102,7 @@ const Footer = () => {
           </div>
 
           <div>
-            <h4 className="font-semibold mb-4 text-sm">Empresa</h4>
+            <h4 className="font-semibold mb-4 text-sm">{t("Empresa")}</h4>
             <ul>
               {links.company.map((link) => (
                 <li key={link.name}>
@@ -108,7 +110,7 @@ const Footer = () => {
                     href={link.href}
                     className="inline-flex min-h-[40px] items-center text-sm text-muted-foreground hover:text-primary transition-colors"
                   >
-                    {link.name}
+                    {t(link.name)}
                   </Link>
                 </li>
               ))}
@@ -116,7 +118,7 @@ const Footer = () => {
           </div>
 
           <div>
-            <h4 className="font-semibold mb-4 text-sm">Legal</h4>
+            <h4 className="font-semibold mb-4 text-sm">{t("Legal")}</h4>
             <ul>
               {links.legal.map((link) => (
                 <li key={link.name}>
@@ -124,7 +126,7 @@ const Footer = () => {
                     href={link.href}
                     className="inline-flex min-h-[40px] items-center text-sm text-muted-foreground hover:text-primary transition-colors"
                   >
-                    {link.name}
+                    {t(link.name)}
                   </Link>
                 </li>
               ))}
@@ -134,13 +136,11 @@ const Footer = () => {
 
         <div className="border-t border-border pt-6 flex flex-col md:flex-row justify-between items-center gap-3">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Diime. Todos los derechos reservados.
-          </p>
+            © {new Date().getFullYear()}  {t("Diime. Todos los derechos reservados.")} </p>
           <div className="flex items-center gap-3">
             <ReportarIncidenciaDialog />
             <p className="text-sm text-muted-foreground inline-flex items-center gap-1.5">
-              Hecho con <Heart className="h-3.5 w-3.5 fill-primary text-primary" /> en España
-            </p>
+               {t("Hecho con")} <Heart className="h-3.5 w-3.5 fill-primary text-primary" />  {t("en España")} </p>
           </div>
         </div>
       </div>

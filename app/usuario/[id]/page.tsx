@@ -1,3 +1,4 @@
+import { getT } from "@/lib/i18n-servidor"
 import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent } from "@/components/ui/card"
@@ -18,6 +19,8 @@ export const dynamic = "force-dynamic"
 // antigüedad. Nada de correo, teléfono ni DNI, que dejaron de ser legibles al
 // cerrar la fuga de datos personales (ver scripts/043).
 export default async function PerfilUsuario({ params }: { params: Promise<{ id: string }> }) {
+  const { t, idioma } = await getT()
+
   const { id } = await params
   const supabase = await createClient()
   if (!supabase) notFound()
@@ -42,7 +45,7 @@ export default async function PerfilUsuario({ params }: { params: Promise<{ id: 
     .eq("cliente_id", id)
     .eq("estado", "completado")
 
-  const nombre = `${perfil.nombre ?? ""} ${perfil.apellido ?? ""}`.trim() || "Usuario"
+  const nombre = `${perfil.nombre ?? ""} ${perfil.apellido ?? ""}`.trim() || t("Usuario")
 
   return (
     <div className="container mx-auto max-w-3xl px-4 py-8">
@@ -72,17 +75,14 @@ export default async function PerfilUsuario({ params }: { params: Promise<{ id: 
                     reclamar. Pero deja claro que ya no está. */}
                 {perfil.cuenta_eliminada ? (
                   <Badge variant="outline" className="bg-muted text-muted-foreground border-border gap-1">
-                    <UserX className="h-3.5 w-3.5" /> Cuenta eliminada
-                  </Badge>
+                    <UserX className="h-3.5 w-3.5" /> {" "}{t("Cuenta eliminada")}</Badge>
                 ) : (
                   <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30">
-                    Cliente
-                  </Badge>
+                    {t("Cliente")}</Badge>
                 )}
                 {perfil.verificado && !perfil.cuenta_eliminada && (
                   <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 gap-1">
-                    <BadgeCheck className="h-3.5 w-3.5" /> Verificado
-                  </Badge>
+                    <BadgeCheck className="h-3.5 w-3.5" /> {" "}{t("Verificado")}</Badge>
                 )}
               </div>
 
@@ -96,13 +96,12 @@ export default async function PerfilUsuario({ params }: { params: Promise<{ id: 
                 {perfil.created_at && (
                   <span className="inline-flex items-center gap-1.5">
                     <CalendarDays className="h-4 w-4" />
-                    Miembro desde {formatearFecha(perfil.created_at)}
+                    {t("Miembro desde")}{" "}{formatearFecha(perfil.created_at, idioma)}
                   </span>
                 )}
                 <span className="inline-flex items-center gap-1.5">
                   <Briefcase className="h-4 w-4" />
-                  {contratados ?? 0} trabajo{(contratados ?? 0) !== 1 ? "s" : ""} contratado
-                  {(contratados ?? 0) !== 1 ? "s" : ""}
+                  {t(contratados === 1 ? "{cantidad} trabajo contratado" : "{cantidad} trabajos contratados", { cantidad: contratados ?? 0 })}
                 </span>
               </div>
             </div>
@@ -110,7 +109,7 @@ export default async function PerfilUsuario({ params }: { params: Promise<{ id: 
 
           {perfil.bio && (
             <div className="mt-6">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Sobre mí</h2>
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{t("Sobre mí")}</h2>
               <p className="text-sm leading-relaxed whitespace-pre-wrap">{perfil.bio}</p>
             </div>
           )}

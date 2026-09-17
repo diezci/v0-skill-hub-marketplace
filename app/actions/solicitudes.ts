@@ -1,5 +1,7 @@
 "use server"
 
+import { textoServidor } from "@/lib/i18n-servidor"
+
 import { createAdminClient } from "@/lib/supabase/admin"
 
 import { createClient } from "@/lib/supabase/server"
@@ -60,14 +62,14 @@ export async function crearSolicitud(formData: {
 }) {
   const supabase = await createClient()
   if (!supabase) {
-    return { error: "El servidor no está configurado correctamente. Falta la conexión con Supabase." }
+    return { error: await textoServidor("El servidor no está configurado correctamente. Falta la conexión con Supabase.") }
   }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) {
-    return { error: "No autenticado. Por favor inicia sesión para publicar un proyecto." }
+    return { error: await textoServidor("No autenticado. Por favor inicia sesión para publicar un proyecto.") }
   }
 
   // No confiamos en la validacion del formulario: esta accion tambien puede
@@ -79,25 +81,25 @@ export async function crearSolicitud(formData: {
     LIMITES_TEXTO_SOLICITUD.titulo.minimo,
     LIMITES_TEXTO_SOLICITUD.titulo.maximo,
   )
-  if (titulo.error) return { error: titulo.error }
+  if (titulo.error) return { error: await textoServidor(titulo.error) }
   const descripcion = textoSolicitud(
     formData.descripcion,
     "La descripción",
     LIMITES_TEXTO_SOLICITUD.descripcion.minimo,
     LIMITES_TEXTO_SOLICITUD.descripcion.maximo,
   )
-  if (descripcion.error) return { error: descripcion.error }
+  if (descripcion.error) return { error: await textoServidor(descripcion.error) }
   const ubicacion = textoSolicitud(
     formData.ubicacion,
     "La ubicación",
     LIMITES_TEXTO_SOLICITUD.ubicacion.minimo,
     LIMITES_TEXTO_SOLICITUD.ubicacion.maximo,
   )
-  if (ubicacion.error) return { error: ubicacion.error }
+  if (ubicacion.error) return { error: await textoServidor(ubicacion.error) }
   const categoriaNombre = categoriaCanonica(formData.categoria_id)
-  if (!categoriaNombre) return { error: "Selecciona una categoría válida." }
+  if (!categoriaNombre) return { error: await textoServidor("Selecciona una categoría válida.") }
   if (!esRangoPresupuestoValido(formData.presupuesto_min, formData.presupuesto_max)) {
-    return { error: "El presupuesto debe usar importes no negativos y el mínimo no puede superar el máximo." }
+    return { error: await textoServidor("El presupuesto debe usar importes no negativos y el mínimo no puede superar el máximo.") }
   }
 
   const moderacion = evaluarContenidoSolicitud({
@@ -111,13 +113,13 @@ export async function crearSolicitud(formData: {
       usuarioId: user.id,
       codigo: moderacion.codigo,
     })
-    return { error: moderacion.error, codigo: moderacion.codigo }
+    return { error: await textoServidor(moderacion.error), codigo: moderacion.codigo }
   }
   if (
     formData.fecha_necesaria &&
     (!esFechaISOValida(formData.fecha_necesaria) || formData.fecha_necesaria < fechaHoyEnEspana())
   ) {
-    return { error: "La fecha necesaria debe ser una fecha válida que no esté en el pasado." }
+    return { error: await textoServidor("La fecha necesaria debe ser una fecha válida que no esté en el pasado.") }
   }
 
   let categoria_uuid = null
@@ -162,7 +164,7 @@ export async function crearSolicitud(formData: {
 
   if (error) {
     console.error("[v0] Error creating solicitud:", error)
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   console.log("[v0] Solicitud created successfully:", data)
@@ -235,7 +237,7 @@ export async function obtenerSolicitudes(filtros?: {
 
   if (error) {
     console.error("[v0] Error en obtenerSolicitudes:", error)
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   const mapaCategorias = await obtenerMapaCategorias(
@@ -272,18 +274,18 @@ export async function actualizarSolicitud(
   },
 ) {
   const supabase = await createClient()
-  if (!supabase) return { error: "Conexión con la base de datos no disponible." }
+  if (!supabase) return { error: await textoServidor("Conexión con la base de datos no disponible.") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   if (
     campos.fecha_necesaria &&
     (!esFechaISOValida(campos.fecha_necesaria) || campos.fecha_necesaria < fechaHoyEnEspana())
   ) {
-    return { error: "La fecha necesaria debe ser una fecha válida que no esté en el pasado." }
+    return { error: await textoServidor("La fecha necesaria debe ser una fecha válida que no esté en el pasado.") }
   }
 
   // Solo se puede editar una demanda propia que siga abierta (sin trabajo en curso).
@@ -294,10 +296,10 @@ export async function actualizarSolicitud(
     .maybeSingle()
 
   if (!solicitud || solicitud.cliente_id !== user.id) {
-    return { error: "No tienes permiso para editar esta demanda." }
+    return { error: await textoServidor("No tienes permiso para editar esta demanda.") }
   }
   if (solicitud.estado !== "abierta") {
-    return { error: "Solo puedes editar demandas que sigan abiertas (sin ofertas aceptadas)." }
+    return { error: await textoServidor("Solo puedes editar demandas que sigan abiertas (sin ofertas aceptadas).") }
   }
 
   const presupuestoMinFinal =
@@ -305,7 +307,7 @@ export async function actualizarSolicitud(
   const presupuestoMaxFinal =
     campos.presupuesto_max === undefined ? solicitud.presupuesto_max : campos.presupuesto_max
   if (!esRangoPresupuestoValido(presupuestoMinFinal, presupuestoMaxFinal)) {
-    return { error: "El presupuesto debe usar importes no negativos y el mínimo no puede superar el máximo." }
+    return { error: await textoServidor("El presupuesto debe usar importes no negativos y el mínimo no puede superar el máximo.") }
   }
 
   const titulo = textoSolicitud(
@@ -314,26 +316,26 @@ export async function actualizarSolicitud(
     LIMITES_TEXTO_SOLICITUD.titulo.minimo,
     LIMITES_TEXTO_SOLICITUD.titulo.maximo,
   )
-  if (titulo.error) return { error: titulo.error }
+  if (titulo.error) return { error: await textoServidor(titulo.error) }
   const descripcion = textoSolicitud(
     campos.descripcion === undefined ? solicitud.descripcion : campos.descripcion,
     "La descripción",
     LIMITES_TEXTO_SOLICITUD.descripcion.minimo,
     LIMITES_TEXTO_SOLICITUD.descripcion.maximo,
   )
-  if (descripcion.error) return { error: descripcion.error }
+  if (descripcion.error) return { error: await textoServidor(descripcion.error) }
   const ubicacion = textoSolicitud(
     campos.ubicacion === undefined ? solicitud.ubicacion : campos.ubicacion,
     "La ubicación",
     LIMITES_TEXTO_SOLICITUD.ubicacion.minimo,
     LIMITES_TEXTO_SOLICITUD.ubicacion.maximo,
   )
-  if (ubicacion.error) return { error: ubicacion.error }
+  if (ubicacion.error) return { error: await textoServidor(ubicacion.error) }
 
   let categoriaNombre: string | undefined
   if (campos.categoria_id !== undefined) {
     const encontrada = categoriaCanonica(campos.categoria_id)
-    if (!encontrada) return { error: "Selecciona una categoría válida." }
+    if (!encontrada) return { error: await textoServidor("Selecciona una categoría válida.") }
     categoriaNombre = encontrada
   }
 
@@ -362,7 +364,7 @@ export async function actualizarSolicitud(
       solicitudId: id,
       codigo: moderacion.codigo,
     })
-    return { error: moderacion.error, codigo: moderacion.codigo }
+    return { error: await textoServidor(moderacion.error), codigo: moderacion.codigo }
   }
 
   // Una oferta aceptada crea el trabajo antes de completar la pasarela. En ese
@@ -376,9 +378,9 @@ export async function actualizarSolicitud(
     .neq("estado", "cancelado")
     .limit(1)
     .maybeSingle()
-  if (trabajoVinculadoError) return { error: trabajoVinculadoError.message }
+  if (trabajoVinculadoError) return { error: await textoServidor(trabajoVinculadoError.message) }
   if (trabajoVinculado) {
-    return { error: "No puedes editar esta demanda mientras tenga una oferta aceptada o un trabajo activo." }
+    return { error: await textoServidor("No puedes editar esta demanda mientras tenga una oferta aceptada o un trabajo activo.") }
   }
 
   // El selector trabaja con el nombre legible, pero la demanda guarda la FK a
@@ -392,7 +394,7 @@ export async function actualizarSolicitud(
       .ilike("nombre", categoriaNombre)
       .maybeSingle()
 
-    if (categoriaError) return { error: categoriaError.message }
+    if (categoriaError) return { error: await textoServidor(categoriaError.message) }
     if (categoria) {
       categoriaUuid = categoria.id
     } else {
@@ -408,20 +410,20 @@ export async function actualizarSolicitud(
       if (crearCategoriaError) {
         // Dos cambios simultáneos pueden intentar crear la misma categoría.
         // La restricción UNIQUE resuelve la carrera; recuperamos la ganadora.
-        if (crearCategoriaError.code !== "23505") return { error: crearCategoriaError.message }
+        if (crearCategoriaError.code !== "23505") return { error: await textoServidor(crearCategoriaError.message) }
         const { data: categoriaExistente, error: recuperarCategoriaError } = await supabase
           .from("categorias")
           .select("id")
           .ilike("nombre", categoriaNombre)
           .maybeSingle()
         if (recuperarCategoriaError || !categoriaExistente) {
-          return { error: "No se pudo guardar la categoría seleccionada." }
+          return { error: await textoServidor("No se pudo guardar la categoría seleccionada.") }
         }
         categoriaUuid = categoriaExistente.id
       } else if (nuevaCategoria) {
         categoriaUuid = nuevaCategoria.id
       } else {
-        return { error: "No se pudo guardar la categoría seleccionada." }
+        return { error: await textoServidor("No se pudo guardar la categoría seleccionada.") }
       }
     }
   }
@@ -453,7 +455,7 @@ export async function actualizarSolicitud(
     .select()
     .single()
 
-  if (error) return { error: error.message }
+  if (error) return { error: await textoServidor(error.message) }
 
   // Quien ya ha pujado lo hizo sobre otras condiciones: si cambian el precio,
   // el plazo o el sitio, tiene que poder revisar su oferta.
@@ -507,12 +509,12 @@ async function avisarAQuienHaPujado(
 
 export async function eliminarSolicitud(id: string) {
   const supabase = await createClient()
-  if (!supabase) return { error: "Conexión con la base de datos no disponible." }
+  if (!supabase) return { error: await textoServidor("Conexión con la base de datos no disponible.") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
   const { data: solicitud } = await supabase
     .from("solicitudes")
@@ -521,10 +523,10 @@ export async function eliminarSolicitud(id: string) {
     .maybeSingle()
 
   if (!solicitud || solicitud.cliente_id !== user.id) {
-    return { error: "No tienes permiso para borrar esta demanda." }
+    return { error: await textoServidor("No tienes permiso para borrar esta demanda.") }
   }
   if (solicitud.estado !== "abierta") {
-    return { error: "No puedes borrar una demanda con un trabajo en curso." }
+    return { error: await textoServidor("No puedes borrar una demanda con un trabajo en curso.") }
   }
 
   // El aviso va ANTES del borrado: `ofertas.solicitud_id` es ON DELETE CASCADE,
@@ -539,7 +541,7 @@ export async function eliminarSolicitud(id: string) {
   })
 
   const { error } = await supabase.from("solicitudes").delete().eq("id", id).eq("cliente_id", user.id)
-  if (error) return { error: error.message }
+  if (error) return { error: await textoServidor(error.message) }
 
   revalidatePath("/mis-solicitudes")
   revalidatePath("/mis-ofertas")
@@ -554,7 +556,7 @@ export async function obtenerMisSolicitudes() {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) {
-    return { error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   }
 
   const { data, error } = await supabase
@@ -565,7 +567,7 @@ export async function obtenerMisSolicitudes() {
 
   if (error) {
     console.error("[v0] Error en obtenerMisSolicitudes:", error)
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   const mapaCategorias = await obtenerMapaCategorias(
@@ -603,7 +605,7 @@ export async function obtenerSolicitudesAbiertas() {
 
   if (error) {
     console.error("[v0] Error en obtenerSolicitudesAbiertas:", error)
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 
   const mapaCategorias = await obtenerMapaCategorias(
@@ -646,7 +648,7 @@ export async function obtenerSolicitudesPorUsuario() {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) {
-    return { error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   }
 
   // First get solicitudes
@@ -658,7 +660,7 @@ export async function obtenerSolicitudesPorUsuario() {
 
   if (solicitudesError) {
     console.error("[v0] Error fetching solicitudes:", solicitudesError)
-    return { error: solicitudesError.message }
+    return { error: await textoServidor(solicitudesError.message) }
   }
 
   console.log("[v0] Found solicitudes for user:", solicitudes?.length || 0)

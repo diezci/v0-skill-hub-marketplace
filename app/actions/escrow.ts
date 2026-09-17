@@ -1,5 +1,7 @@
 "use server"
 
+import { idiomaActual, textoServidor } from "@/lib/i18n-servidor"
+
 import { createClient } from "@/lib/supabase/server"
 import { stripe } from "@/lib/stripe"
 import type Stripe from "stripe"
@@ -41,17 +43,17 @@ export async function crearPagoEscrow(data: {
   trabajo_id: string
 }) {
   const supabase = await createClient()
-  if (!supabase) return { error: "Conexión con la base de datos no disponible." }
+  if (!supabase) return { error: await textoServidor("Conexión con la base de datos no disponible.") }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) {
-    return { error: "No autenticado" }
+    return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   }
 
   const admin = createAdminClient()
-  if (!admin) return { error: "La configuración segura del servidor no está disponible." }
+  if (!admin) return { error: await textoServidor("La configuración segura del servidor no está disponible.") }
 
   // El identificador recibido del navegador solo sirve para localizar el
   // trabajo. Precio, cliente y profesional se vuelven a derivar en el servidor
@@ -63,19 +65,19 @@ export async function crearPagoEscrow(data: {
     .single()
 
   if (trabajoError || !trabajo) {
-    return { error: "Trabajo no encontrado" }
+    return { error: await textoServidor("Trabajo no encontrado") }
   }
 
   if (trabajo.cliente_id !== user.id) {
-    return { error: "Solo el cliente puede realizar el pago" }
+    return { error: await textoServidor("Solo el cliente puede realizar el pago") }
   }
 
   if (trabajo.estado !== "pendiente_pago" || trabajo.pago_bloqueado || trabajo.cancelacion_estado === "pendiente") {
-    return { error: "Este trabajo ya ha sido pagado" }
+    return { error: await textoServidor("Este trabajo ya ha sido pagado") }
   }
 
   if (!trabajo.oferta_id || !trabajo.solicitud_id) {
-    return { error: "El trabajo no está vinculado a una oferta y una solicitud válidas." }
+    return { error: await textoServidor("El trabajo no está vinculado a una oferta y una solicitud válidas.") }
   }
 
   const [{ data: oferta, error: ofertaError }, { data: solicitud, error: solicitudError }] = await Promise.all([
@@ -92,7 +94,7 @@ export async function crearPagoEscrow(data: {
   ])
 
   if (ofertaError || solicitudError || !oferta || !solicitud) {
-    return { error: "No se pudieron verificar los términos originales de la contratación." }
+    return { error: await textoServidor("No se pudieron verificar los términos originales de la contratación.") }
   }
 
   const relacionesValidas =
@@ -101,19 +103,19 @@ export async function crearPagoEscrow(data: {
     solicitud.cliente_id === trabajo.cliente_id &&
     solicitud.cliente_id === user.id
   if (!relacionesValidas) {
-    return { error: "Los participantes o documentos de la contratación no coinciden. No se realizará ningún cargo." }
+    return { error: await textoServidor("Los participantes o documentos de la contratación no coinciden. No se realizará ningún cargo.") }
   }
   if (oferta.estado !== "aceptada" || solicitud.estado !== "abierta") {
-    return { error: "La oferta o la solicitud ya no están disponibles para completar este pago." }
+    return { error: await textoServidor("La oferta o la solicitud ya no están disponibles para completar este pago.") }
   }
 
   const precioAcordado = Number(oferta.precio)
   const precioGuardado = Number(trabajo.precio_acordado)
   if (!Number.isFinite(precioAcordado) || precioAcordado <= 0) {
-    return { error: "El precio de la oferta no es válido." }
+    return { error: await textoServidor("El precio de la oferta no es válido.") }
   }
   if (!Number.isFinite(precioGuardado) || Math.round(precioGuardado * 100) !== Math.round(precioAcordado * 100)) {
-    return { error: "El precio del trabajo no coincide con la oferta aceptada. No se realizará ningún cargo." }
+    return { error: await textoServidor("El precio del trabajo no coincide con la oferta aceptada. No se realizará ningún cargo.") }
   }
 
   const clienteId = solicitud.cliente_id
@@ -133,7 +135,7 @@ export async function crearPagoEscrow(data: {
     !cuentaProfesional.stripe_transferencias_habilitadas ||
     !cuentaProfesional.stripe_payouts_habilitados
   ) {
-    return { error: "Este profesional aún no ha terminado de configurar su cuenta de cobros. No se realizará ningún cargo." }
+    return { error: await textoServidor("Este profesional aún no ha terminado de configurar su cuenta de cobros. No se realizará ningún cargo.") }
   }
 
   // Calculate amounts with commissions
@@ -150,7 +152,7 @@ export async function crearPagoEscrow(data: {
     Math.round((comisionProveedorOferta + pagoNetoOferta) * 100) !==
       Math.round(desgloseClienteOferta.precioBase * 100)
   ) {
-    return { error: "No se pudieron verificar los gastos de servicio aceptados por el profesional. No se realizará ningún cargo." }
+    return { error: await textoServidor("No se pudieron verificar los gastos de servicio aceptados por el profesional. No se realizará ningún cargo.") }
   }
   const desgloseOferta: DesglosePago = {
     ...desgloseClienteOferta,
@@ -178,7 +180,7 @@ export async function crearPagoEscrow(data: {
       .limit(1)
       .maybeSingle()
     if (escrowAbiertoError) {
-      return { error: "No se pudo comprobar si ya había un pago preparado." }
+      return { error: await textoServidor("No se pudo comprobar si ya había un pago preparado.") }
     }
 
     let { precioBase, comisionCliente, totalCliente, comisionProveedor, pagoNeto } = desgloseOferta
@@ -199,7 +201,7 @@ export async function crearPagoEscrow(data: {
         escrowAbierto.cliente_id === clienteId &&
         escrowAbierto.profesional_id === profesionalId
       if (!importesAnterioresValidos) {
-        return { error: "El intento de pago anterior tiene un desglose incoherente. No se realizará ningún cargo." }
+        return { error: await textoServidor("El intento de pago anterior tiene un desglose incoherente. No se realizará ningún cargo.") }
       }
 
       // La fila está ligada a una sesión ya creada. Conservamos exactamente su
@@ -210,10 +212,10 @@ export async function crearPagoEscrow(data: {
     if (escrowAbierto?.stripe_session_id) {
       const anterior = await stripe.checkout.sessions.retrieve(escrowAbierto.stripe_session_id)
       if (anterior.payment_status === "paid") {
-        return { error: "Este trabajo ya tiene un pago completado. Estamos conciliándolo con Stripe." }
+        return { error: await textoServidor("Este trabajo ya tiene un pago completado. Estamos conciliándolo con Stripe.") }
       }
       if (anterior.status === "complete") {
-        return { error: "Este pago está siendo procesado por Stripe. Espera a que termine la conciliación antes de intentarlo de nuevo." }
+        return { error: await textoServidor("Este pago está siendo procesado por Stripe. Espera a que termine la conciliación antes de intentarlo de nuevo.") }
       }
       if (anterior.status === "open") {
         const sesionCoincide =
@@ -250,7 +252,7 @@ export async function crearPagoEscrow(data: {
             .select()
             .single()
           if (normalizarError) {
-            return { error: "No se pudo conciliar el desglose del intento de pago anterior." }
+            return { error: await textoServidor("No se pudo conciliar el desglose del intento de pago anterior.") }
           }
           return {
             clientSecret: anterior.client_secret,
@@ -267,7 +269,7 @@ export async function crearPagoEscrow(data: {
         p_escrow: escrowAbierto.id, p_session: escrowAbierto.stripe_session_id,
       })
       if (cancelarEscrowError) {
-        return { error: "No se pudo cerrar de forma segura el intento de pago anterior." }
+        return { error: await textoServidor("No se pudo cerrar de forma segura el intento de pago anterior.") }
       }
       ;({ precioBase, comisionCliente, totalCliente, comisionProveedor, pagoNeto } = desgloseOferta)
     } else if (escrowAbierto) {
@@ -279,7 +281,7 @@ export async function crearPagoEscrow(data: {
         p_escrow: escrowAbierto.id,
       })
       if (cancelarEscrowError) {
-        return { error: "No se pudo cerrar de forma segura el intento de pago anterior." }
+        return { error: await textoServidor("No se pudo cerrar de forma segura el intento de pago anterior.") }
       }
     }
 
@@ -304,10 +306,12 @@ export async function crearPagoEscrow(data: {
       .select()
       .single()
     if (crearEscrowError || !escrowNuevo) {
-      return { error: crearEscrowError?.message || "No se pudo preparar el pago." }
+      return { error: await textoServidor(crearEscrowError?.message || "No se pudo preparar el pago.") }
     }
 
+    const idioma = await idiomaActual()
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
+      locale: idioma,
       ui_mode: "embedded",
       redirect_on_completion: "never",
       customer_email: user.email || undefined,
@@ -317,7 +321,9 @@ export async function crearPagoEscrow(data: {
             currency: PLATFORM_CONFIG.moneda,
             product_data: {
               name: tituloServicio,
-              description: `Precio final del servicio: ${precioBase.toFixed(2)}EUR + Gastos Diime con IVA incluido: ${comisionCliente.toFixed(2)}EUR`,
+              description: idioma === "en"
+                ? `Final service price: ${precioBase.toFixed(2)} EUR + Diime fees including VAT: ${comisionCliente.toFixed(2)} EUR`
+                : `Precio final del servicio: ${precioBase.toFixed(2)}EUR + Gastos Diime con IVA incluido: ${comisionCliente.toFixed(2)}EUR`,
             },
             unit_amount: Math.round(totalCliente * 100), // Stripe uses cents
           },
@@ -387,7 +393,7 @@ export async function crearPagoEscrow(data: {
       if (session.status === "open") {
         await stripe.checkout.sessions.expire(session.id)
       }
-      return { error: escrowError?.message || "El intento de pago fue sustituido. Vuelve a intentarlo." }
+      return { error: await textoServidor(escrowError?.message || "El intento de pago fue sustituido. Vuelve a intentarlo.") }
     }
 
     return { 
@@ -396,7 +402,7 @@ export async function crearPagoEscrow(data: {
       desglose: desgloseNormalizado,
     }
   } catch (error: any) {
-    return { error: error.message }
+    return { error: await textoServidor(error.message) }
   }
 }
 
@@ -406,31 +412,31 @@ export async function crearPagoEscrow(data: {
  */
 export async function confirmarPagoEscrow(sessionId: string) {
   const supabase = await createClient()
-  if (!supabase) return { error: "No se pudo conectar con la base de datos." }
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos.") }
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   const admin = createAdminClient()
-  if (!admin) return { error: "La configuración segura del servidor no está disponible." }
+  if (!admin) return { error: await textoServidor("La configuración segura del servidor no está disponible.") }
   try {
     const session = await stripe.checkout.sessions.retrieve(sessionId)
     const resultado = await conciliarSesionPagada(admin, session, user.id)
     revalidatePath("/mis-solicitudes")
     revalidatePath("/mis-trabajos")
-    if (resultado.tardio) return { error: "Este pago llegó después del cierre del intento. Se ha reembolsado íntegramente y el servicio no se ha reactivado." }
+    if (resultado.tardio) return { error: await textoServidor("Este pago llegó después del cierre del intento. Se ha reembolsado íntegramente y el servicio no se ha reactivado.") }
     return { data: resultado.escrow }
   } catch (error: any) {
-    return { error: error.message || "No se pudo conciliar el pago." }
+    return { error: await textoServidor(error.message || "No se pudo conciliar el pago.") }
   }
 }
 
 /** A durable claim arbitrates confirmation, dispute and cancellation. */
 export async function liberarFondosEscrow(trabajoId: string) {
   const supabase = await createClient()
-  if (!supabase) return { error: "No se pudo conectar con la base de datos." }
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos.") }
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   const admin = createAdminClient()
-  if (!admin) return { error: "La configuración segura del servidor no está disponible." }
+  if (!admin) return { error: await textoServidor("La configuración segura del servidor no está disponible.") }
   try {
     // Include the same completed operation so a retry also repairs a previous
     // interruption between the Stripe movement and the contract closure.
@@ -438,7 +444,7 @@ export async function liberarFondosEscrow(trabajoId: string) {
       .eq("trabajo_id", trabajoId).eq("cliente_id", user.id)
       .or("estado.in.(retenido,fondos_retenidos,liquidando),liquidacion_operacion_id.like.confirmacion-%")
       .maybeSingle()
-    if (error || !escrow) return { error: "No se encontró un único pago retenido para confirmar." }
+    if (error || !escrow) return { error: await textoServidor("No se encontró un único pago retenido para confirmar.") }
     const { data: reclamada, error: claimError } = await admin.rpc("diime_reclamar_liquidacion", {
       p_escrow: escrow.id, p_actor: user.id, p_tipo: "confirmacion",
     })
@@ -448,18 +454,18 @@ export async function liberarFondosEscrow(trabajoId: string) {
     revalidatePath("/mis-trabajos")
     return { success: true }
   } catch (error: any) {
-    return { error: error.message || "No se pudo completar la liquidación." }
+    return { error: await textoServidor(error.message || "No se pudo completar la liquidación.") }
   }
 }
 
 /** Accept, close Checkout links, refund if necessary and close atomically. */
 export async function reembolsarPorCancelacion(trabajoId: string) {
   const supabase = await createClient()
-  if (!supabase) return { error: "No se pudo conectar con la base de datos." }
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos.") }
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado" }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   const admin = createAdminClient()
-  if (!admin) return { error: "La configuración segura del servidor no está disponible." }
+  if (!admin) return { error: await textoServidor("La configuración segura del servidor no está disponible.") }
   try {
     const { error: bloqueoError } = await admin.rpc("diime_bloquear_checkout", {
       p_trabajo: trabajoId, p_actor: user.id, p_cancelacion: true,
@@ -488,6 +494,6 @@ export async function reembolsarPorCancelacion(trabajoId: string) {
     revalidatePath("/mis-trabajos")
     return { reembolso, reutilizado: !nuevoCierre && !cierre?.nuevo_cierre }
   } catch (error: any) {
-    return { error: error.message || "No se pudo conciliar la cancelación. Puedes reintentar sin duplicar el reembolso." }
+    return { error: await textoServidor(error.message || "No se pudo conciliar la cancelación. Puedes reintentar sin duplicar el reembolso.") }
   }
 }

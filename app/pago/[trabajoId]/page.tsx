@@ -1,5 +1,7 @@
 "use client"
 
+import { useT, useIdioma } from "@/components/idioma-provider"
+
 import { useState, useEffect, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { loadStripe } from "@stripe/stripe-js"
@@ -18,6 +20,9 @@ const stripePromise = loadStripe(
 )
 
 export default function PagoPage() {
+  const t = useT()
+  const { idioma } = useIdioma()
+
   const params = useParams()
   const router = useRouter()
   const trabajoId = params.trabajoId as string
@@ -67,8 +72,8 @@ export default function PagoPage() {
       const result = await confirmarPagoEscrow(sessionId)
       if (result.error) {
         setError(
-          `Tu pago se ha realizado, pero no se pudo registrar la confirmación (${result.error}). ` +
-            "Recarga la página o contacta con soporte: no se te cobrará dos veces.",
+          t("Tu pago se ha realizado, pero no se pudo registrar la confirmación ({error}). ", { error: t(result.error) }) +
+            t("Recarga la página o contacta con soporte: no se te cobrará dos veces."),
         )
         setStatus("error")
         return
@@ -82,7 +87,7 @@ export default function PagoPage() {
       window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
       router.push("/mis-solicitudes")
     }, 3000)
-  }, [router, sessionId])
+  }, [router, sessionId, t])
 
   if (status === "error") {
     return (
@@ -90,12 +95,10 @@ export default function PagoPage() {
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center">
             <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Error en el pago</h2>
-            <p className="text-muted-foreground mb-4">{error}</p>
+            <h2 className="text-xl font-semibold mb-2">{t("Error en el pago")}</h2>
+            <p className="text-muted-foreground mb-4">{t(error || "")}</p>
             <Button onClick={() => router.back()}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Volver
-            </Button>
+              <ArrowLeft className="h-4 w-4 mr-2" />{t("Volver")}</Button>
           </CardContent>
         </Card>
       </div>
@@ -108,8 +111,8 @@ export default function PagoPage() {
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center">
             <Loader2 className="h-12 w-12 text-primary mx-auto mb-4 animate-spin" />
-            <h2 className="text-xl font-semibold mb-2">Confirmando el pago...</h2>
-            <p className="text-muted-foreground">No cierres esta ventana.</p>
+            <h2 className="text-xl font-semibold mb-2">{t("Confirmando el pago...")}</h2>
+            <p className="text-muted-foreground">{t("No cierres esta ventana.")}</p>
           </CardContent>
         </Card>
       </div>
@@ -122,11 +125,9 @@ export default function PagoPage() {
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center">
             <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Pago realizado con exito</h2>
-            <p className="text-muted-foreground mb-2">
-              Los fondos quedan retenidos de forma segura hasta que confirmes la finalizacion del trabajo.
-            </p>
-            <p className="text-sm text-muted-foreground">Redirigiendo a Mis Solicitudes...</p>
+            <h2 className="text-xl font-semibold mb-2">{t("Pago realizado con exito")}</h2>
+            <p className="text-muted-foreground mb-2">{t("Los fondos quedan retenidos de forma segura hasta que confirmes la finalizacion del trabajo.")}</p>
+            <p className="text-sm text-muted-foreground">{t("Redirigiendo a Mis Solicitudes...")}</p>
           </CardContent>
         </Card>
       </div>
@@ -141,9 +142,7 @@ export default function PagoPage() {
           className="mb-6 bg-transparent"
           onClick={() => router.back()}
         >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Volver
-        </Button>
+          <ArrowLeft className="h-4 w-4 mr-2" />{t("Volver")}</Button>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Payment info sidebar */}
@@ -151,20 +150,14 @@ export default function PagoPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <ShieldCheck className="h-5 w-5 text-emerald-500" />
-                  Pago Protegido
-                </CardTitle>
+                  <ShieldCheck className="h-5 w-5 text-emerald-500" />{t("Pago Protegido")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 space-y-2">
                   <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
-                    <ShieldCheck className="h-4 w-4" /> Tu dinero está protegido
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    El importe <span className="font-medium text-foreground">no llega al profesional al pagar</span>:
-                    queda retenido por Diime y <span className="font-medium text-foreground">solo se libera cuando
-                    tú confirmes</span> que has recibido el servicio correctamente. Si no quedas satisfecho,{" "}
-                    <span className="font-medium text-foreground">se te reembolsa</span>.
+                    <ShieldCheck className="h-4 w-4" />{" "}{t("Tu dinero está protegido")}</p>
+                  <p className="text-sm text-muted-foreground">{t("El importe")}{" "}<span className="font-medium text-foreground">{t("no llega al profesional al pagar")}</span>{t(": queda retenido por Diime y")}{" "}<span className="font-medium text-foreground">{t("solo se libera cuando tú confirmes")}</span>{" "}{t("que has recibido el servicio correctamente. Si no quedas satisfecho,")}{" "}
+                    <span className="font-medium text-foreground">{t("se te reembolsa")}</span>.
                   </p>
                 </div>
 
@@ -172,23 +165,21 @@ export default function PagoPage() {
 
                 {desglose ? (
                   <div className="space-y-3">
-                    <h3 className="font-medium text-sm">Desglose del pago</h3>
+                    <h3 className="font-medium text-sm">{t("Desglose del pago")}</h3>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Precio final del servicio</span>
-                        <span>{formatearPrecio(desglose.precioBase)}</span>
+                        <span className="text-muted-foreground">{t("Precio final del servicio")}</span>
+                        <span>{formatearPrecio(desglose.precioBase, idioma)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          Gastos de servicio Diime ({PLATFORM_CONFIG.comisionClientePorcentaje}%; IVA del{" "}
-                          {PLATFORM_CONFIG.ivaDiimePorcentaje}% incluido)
-                        </span>
-                        <span>{formatearPrecio(desglose.comisionCliente)}</span>
+                        <span className="text-muted-foreground">{t("Gastos de servicio Diime (")}{PLATFORM_CONFIG.comisionClientePorcentaje}{t("%; IVA del")}{" "}
+                          {PLATFORM_CONFIG.ivaDiimePorcentaje}{t("% incluido)")}</span>
+                        <span>{formatearPrecio(desglose.comisionCliente, idioma)}</span>
                       </div>
                       <Separator />
                       <div className="flex justify-between font-semibold text-base">
-                        <span>Total a pagar</span>
-                        <span className="text-primary">{formatearPrecio(desglose.totalCliente)}</span>
+                        <span>{t("Total a pagar")}</span>
+                        <span className="text-primary">{formatearPrecio(desglose.totalCliente, idioma)}</span>
                       </div>
                     </div>
                   </div>
@@ -203,19 +194,19 @@ export default function PagoPage() {
                 <div className="space-y-2">
                   <div className="flex items-start gap-2 text-xs text-muted-foreground">
                     <WalletCards className="h-3.5 w-3.5 mt-0.5 text-primary shrink-0" />
-                    <span>Tarjeta, Apple Pay, Google Pay o Link, según disponibilidad</span>
+                    <span>{t("Tarjeta, Apple Pay, Google Pay o Link, según disponibilidad")}</span>
                   </div>
                   <div className="flex items-start gap-2 text-xs text-muted-foreground">
                     <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 text-emerald-500 shrink-0" />
-                    <span>Pago 100% seguro con Stripe</span>
+                    <span>{t("Pago 100% seguro con Stripe")}</span>
                   </div>
                   <div className="flex items-start gap-2 text-xs text-muted-foreground">
                     <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 text-emerald-500 shrink-0" />
-                    <span>Fondos retenidos hasta confirmacion</span>
+                    <span>{t("Fondos retenidos hasta confirmacion")}</span>
                   </div>
                   <div className="flex items-start gap-2 text-xs text-muted-foreground">
                     <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 text-emerald-500 shrink-0" />
-                    <span>Reembolso si no estas satisfecho</span>
+                    <span>{t("Reembolso si no estas satisfecho")}</span>
                   </div>
                 </div>
               </CardContent>
@@ -226,16 +217,14 @@ export default function PagoPage() {
           <div className="lg:col-span-2">
             <Card>
               <CardHeader>
-                <CardTitle>Realizar pago</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Elige tarjeta o una opción de pago rápido disponible en tu dispositivo.
-                </p>
+                <CardTitle>{t("Realizar pago")}</CardTitle>
+                <p className="text-sm text-muted-foreground">{t("Elige tarjeta o una opción de pago rápido disponible en tu dispositivo.")}</p>
               </CardHeader>
               <CardContent>
                 {status === "loading" && (
                   <div className="flex items-center justify-center py-16">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    <span className="ml-3 text-muted-foreground">Preparando checkout seguro...</span>
+                    <span className="ml-3 text-muted-foreground">{t("Preparando checkout seguro...")}</span>
                   </div>
                 )}
                 {status === "ready" && clientSecret && (

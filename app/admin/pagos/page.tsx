@@ -1,5 +1,9 @@
 "use client"
 
+import { localeDe, type Idioma } from "@/lib/i18n"
+
+import { useIdioma } from "@/components/idioma-provider"
+
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -47,13 +51,15 @@ interface Transaccion {
   profesional?: { nombre: string | null; apellido: string | null } | null
 }
 
-const eur = (v: number | null | undefined) => `${(v ?? 0).toFixed(2)} EUR`
+const eur = (v: number | null | undefined, idioma: Idioma) => new Intl.NumberFormat(localeDe(idioma), { style: "currency", currency: "EUR" }).format(v ?? 0)
 // Solo las comisiones de ambas partes son ingreso bruto de Diime. Un reembolso
 // al cliente nunca puede aparecer como comisión de la plataforma.
 const comisionDe = (t: Transaccion) =>
   t.retencion_plataforma ?? Math.max(0, (t.comision_cliente ?? 0) + (t.comision_proveedor ?? 0))
 
 export default function AdminPagosPage() {
+  const { t, idioma } = useIdioma()
+
   const [transacciones, setTransacciones] = useState<Transaccion[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
@@ -112,43 +118,37 @@ export default function AdminPagosPage() {
         return (
           <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/30">
             <Clock className="h-3 w-3 mr-1" />
-            Pago retenido
-          </Badge>
+            {t("Pago retenido")}</Badge>
         )
       case "completado":
         return (
           <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
             <CheckCircle2 className="h-3 w-3 mr-1" />
-            Liberado
-          </Badge>
+            {t("Liberado")}</Badge>
         )
       case "reembolsado":
         return (
           <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/30">
             <ArrowDownRight className="h-3 w-3 mr-1" />
-            Reembolsado
-          </Badge>
+            {t("Reembolsado")}</Badge>
         )
-      case "disputa":
+      case t("disputa"):
         return (
           <Badge className="bg-red-500/10 text-red-600 border-red-500/30">
             <AlertCircle className="h-3 w-3 mr-1" />
-            En disputa
-          </Badge>
+            {t("En disputa")}</Badge>
         )
       case "liquidando":
         return (
           <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/30">
             <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-            Moviendo fondos
-          </Badge>
+            {t("Moviendo fondos")}</Badge>
         )
       case "pendiente":
         return (
           <Badge className="bg-muted text-muted-foreground">
             <Clock className="h-3 w-3 mr-1" />
-            Pendiente de pago
-          </Badge>
+            {t("Pendiente de pago")}</Badge>
         )
       default:
         return <Badge variant="secondary">{estado}</Badge>
@@ -174,39 +174,38 @@ export default function AdminPagosPage() {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Trabajo</TableHead>
-          <TableHead>Cliente</TableHead>
-          <TableHead>Profesional</TableHead>
-          <TableHead className="text-right">Monto</TableHead>
-          <TableHead className="text-right">Comision</TableHead>
-          <TableHead className="text-right">Neto Prof.</TableHead>
-          <TableHead>Estado</TableHead>
-          <TableHead>Fecha</TableHead>
+          <TableHead>{t("Trabajo")}</TableHead>
+          <TableHead>{t("Cliente")}</TableHead>
+          <TableHead>{t("Profesional")}</TableHead>
+          <TableHead className="text-right">{t("Monto")}</TableHead>
+          <TableHead className="text-right">{t("Comision")}</TableHead>
+          <TableHead className="text-right">{t("Neto Prof.")}</TableHead>
+          <TableHead>{t("Estado")}</TableHead>
+          <TableHead>{t("Fecha")}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {lista.length === 0 ? (
           <TableRow>
             <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-              No hay transacciones en esta categoria
-            </TableCell>
+              {t("No hay transacciones en esta categoria")}</TableCell>
           </TableRow>
         ) : (
           lista.map((transaccion) => (
             <TableRow key={transaccion.id}>
               <TableCell className="font-medium max-w-[200px] truncate">
-                {transaccion.trabajo?.titulo || "Trabajo eliminado"}
+                {transaccion.trabajo?.titulo || t("Trabajo eliminado")}
               </TableCell>
               <TableCell>{nombre(transaccion.cliente)}</TableCell>
               <TableCell>{nombre(transaccion.profesional)}</TableCell>
-              <TableCell className="text-right font-medium">{eur(transaccion.monto)}</TableCell>
-              <TableCell className="text-right text-muted-foreground">{eur(comisionDe(transaccion))}</TableCell>
+              <TableCell className="text-right font-medium">{eur(transaccion.monto, idioma)}</TableCell>
+              <TableCell className="text-right text-muted-foreground">{eur(comisionDe(transaccion), idioma)}</TableCell>
               <TableCell className="text-right text-emerald-600 font-medium">
-                {eur(transaccion.pago_neto_proveedor)}
+                {eur(transaccion.pago_neto_proveedor, idioma)}
               </TableCell>
               <TableCell>{getEstadoBadge(transaccion.estado)}</TableCell>
               <TableCell className="text-muted-foreground text-sm">
-                {formatearFecha(transaccion.created_at)}
+                {formatearFecha(transaccion.created_at, idioma)}
               </TableCell>
             </TableRow>
           ))
@@ -222,11 +221,9 @@ export default function AdminPagosPage() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <CreditCard className="h-8 w-8 text-primary" />
-            Gestion de Pagos
-          </h1>
+            {t("Gestion de Pagos")}</h1>
           <p className="text-muted-foreground mt-1">
-            Monitoriza todas las transacciones y pagos de la plataforma
-          </p>
+            {t("Monitoriza todas las transacciones y pagos de la plataforma")}</p>
         </div>
         <Button asChild variant="outline" className="shrink-0">
           <a
@@ -235,8 +232,7 @@ export default function AdminPagosPage() {
             rel="noopener noreferrer"
           >
             <WalletCards className="mr-2 h-4 w-4" />
-            Saldo y movimientos en Stripe
-            <ExternalLink className="ml-2 h-4 w-4" />
+            {t("Saldo y movimientos en Stripe")}<ExternalLink className="ml-2 h-4 w-4" />
           </a>
         </Button>
       </div>
@@ -247,12 +243,11 @@ export default function AdminPagosPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <Clock className="h-4 w-4 text-amber-500" />
-              Pagos retenidos
-            </CardTitle>
+              {t("Pagos retenidos")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-amber-600">{eur(totalRetenido)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{retenidas.length} transacciones</p>
+            <p className="text-2xl font-bold text-amber-600">{eur(totalRetenido, idioma)}</p>
+            <p className="text-xs text-muted-foreground mt-1">{retenidas.length} {" "}{t("transacciones")}</p>
           </CardContent>
         </Card>
 
@@ -260,12 +255,11 @@ export default function AdminPagosPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <ArrowUpRight className="h-4 w-4 text-emerald-500" />
-              Liberado
-            </CardTitle>
+              {t("Liberado")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-emerald-600">{eur(totalLiberado)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{liberadas.length} transacciones</p>
+            <p className="text-2xl font-bold text-emerald-600">{eur(totalLiberado, idioma)}</p>
+            <p className="text-xs text-muted-foreground mt-1">{liberadas.length} {" "}{t("transacciones")}</p>
           </CardContent>
         </Card>
 
@@ -273,12 +267,11 @@ export default function AdminPagosPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-violet-500" />
-              Comisiones
-            </CardTitle>
+              {t("Comisiones")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-violet-600">{eur(totalComisiones)}</p>
-            <p className="text-xs text-muted-foreground mt-1">Total ganado</p>
+            <p className="text-2xl font-bold text-violet-600">{eur(totalComisiones, idioma)}</p>
+            <p className="text-xs text-muted-foreground mt-1">{t("Total ganado")}</p>
           </CardContent>
         </Card>
 
@@ -286,12 +279,11 @@ export default function AdminPagosPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <ArrowDownRight className="h-4 w-4 text-blue-500" />
-              Reembolsado
-            </CardTitle>
+              {t("Reembolsado")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-blue-600">{eur(totalReembolsado)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{reembolsadas.length} reembolsos</p>
+            <p className="text-2xl font-bold text-blue-600">{eur(totalReembolsado, idioma)}</p>
+            <p className="text-xs text-muted-foreground mt-1">{reembolsadas.length} {" "}{t("reembolsos")}</p>
           </CardContent>
         </Card>
       </div>
@@ -301,11 +293,11 @@ export default function AdminPagosPage() {
         <Tabs defaultValue="todas" className="w-full">
           <CardHeader>
             <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="todas">Todas ({transacciones.length})</TabsTrigger>
-              <TabsTrigger value="retenidas">En custodia ({retenidas.length})</TabsTrigger>
-              <TabsTrigger value="liberadas">Liberadas ({liberadas.length})</TabsTrigger>
-              <TabsTrigger value="disputadas">En disputa ({disputadas.length})</TabsTrigger>
-              <TabsTrigger value="reembolsadas">Reembolsadas ({reembolsadas.length})</TabsTrigger>
+              <TabsTrigger value="todas">{t("Todas (")}{transacciones.length})</TabsTrigger>
+              <TabsTrigger value="retenidas">{t("En custodia (")}{retenidas.length})</TabsTrigger>
+              <TabsTrigger value="liberadas">{t("Liberadas (")}{liberadas.length})</TabsTrigger>
+              <TabsTrigger value="disputadas">{t("En disputa (")}{disputadas.length})</TabsTrigger>
+              <TabsTrigger value="reembolsadas">{t("Reembolsadas (")}{reembolsadas.length})</TabsTrigger>
             </TabsList>
           </CardHeader>
 

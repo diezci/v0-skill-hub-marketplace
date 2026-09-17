@@ -1,3 +1,6 @@
+import type { Idioma } from "@/lib/i18n"
+import { traducirTextoNotificacion } from "@/lib/i18n-notificaciones"
+
 // Plantilla base de los correos de Diime.
 //
 // HTML con estilos en línea a propósito: los clientes de correo (Gmail,
@@ -20,6 +23,7 @@ function escapar(texto: string) {
 }
 
 export function plantillaEmail(params: {
+  idioma?: Idioma
   titulo: string
   saludo: string
   cuerpo: string
@@ -27,7 +31,8 @@ export function plantillaEmail(params: {
   botonUrl?: string
   nota?: string
 }) {
-  const { titulo, saludo, cuerpo, botonTexto, botonUrl, nota } = params
+  const { titulo, saludo, cuerpo, botonTexto, botonUrl, nota, idioma = "es" } = params
+  const t = (texto: string) => traducirTextoNotificacion(idioma, texto)
 
   const boton =
     botonTexto && botonUrl
@@ -45,7 +50,7 @@ export function plantillaEmail(params: {
     : ""
 
   return `<!doctype html>
-<html lang="es">
+<html lang="${idioma}">
 <body style="margin:0;padding:0;background:#f4f4f5;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 12px;">
     <tr><td align="center">
@@ -66,9 +71,9 @@ export function plantillaEmail(params: {
         <tr><td style="padding:0 28px 24px;border-top:1px solid ${BORDE};padding-top:16px;">
           ${pie}
           <p style="margin:0;color:${SUAVE};font-size:12px;line-height:1.5;">
-            Recibes este correo porque tienes una cuenta en Diime.
-            Puedes elegir qué avisos recibes o desactivarlos desde
-            <a href="${BASE_URL}/mi-cuenta#avisos-email" style="color:${VERDE};">Mi cuenta</a>.
+            ${escapar(t("Recibes este correo porque tienes una cuenta en Diime."))}
+            ${escapar(t("Puedes elegir qué avisos recibes o desactivarlos desde"))}
+            <a href="${BASE_URL}/mi-cuenta#avisos-email" style="color:${VERDE};">${escapar(t("Mi cuenta"))}</a>.
           </p>
         </td></tr>
       </table>
@@ -81,22 +86,24 @@ export function plantillaEmail(params: {
 // Versión en texto plano: mejora la entregabilidad y es lo que ven los clientes
 // que bloquean HTML.
 export function plantillaTexto(params: {
+  idioma?: Idioma
+  botonTexto?: string
   titulo: string
   saludo: string
   cuerpo: string
   botonUrl?: string
 }) {
-  const { titulo, saludo, cuerpo, botonUrl } = params
+  const { titulo, saludo, cuerpo, botonUrl, botonTexto, idioma = "es" } = params
   return [
     titulo,
     "",
     saludo,
     "",
     cuerpo,
-    botonUrl ? `\n${botonUrl}` : "",
+    botonUrl ? `\n${botonTexto ? `${botonTexto}: ` : ""}${botonUrl}` : "",
     "",
     "---",
-    `Recibes este correo porque tienes una cuenta en Diime. Puedes elegir qué avisos recibes en ${BASE_URL}/mi-cuenta#avisos-email`,
+    traducirTextoNotificacion(idioma, `Recibes este correo porque tienes una cuenta en Diime. Puedes elegir qué avisos recibes en ${BASE_URL}/mi-cuenta#avisos-email`),
   ]
     .filter(Boolean)
     .join("\n")

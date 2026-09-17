@@ -27,5 +27,16 @@
         <button type="button" onclick="location.replace('https://www.diime.es/')">Volver a intentarlo</button>
       </section>
     </main>
+    <script>
+      // The local Capacitor error origin cannot read the remote site's cookie.
+      // Use the device language for this pre-connection screen.
+      if ((navigator.language || "es").toLowerCase().startsWith("en")) {
+        document.documentElement.lang = "en";
+        document.title = "Offline · Diime";
+        document.querySelector("h1").textContent = "You are offline";
+        document.querySelector("p").textContent = "Check your internet connection to reload your requests, messages and jobs.";
+        document.querySelector("button").textContent = "Try again";
+      }
+    </script>
   </body>
 </html>

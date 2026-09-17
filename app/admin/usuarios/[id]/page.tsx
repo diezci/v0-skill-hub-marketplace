@@ -1,3 +1,4 @@
+import { getT } from "@/lib/i18n-servidor"
 import Link from "next/link"
 import {
   AlertCircle,
@@ -25,6 +26,8 @@ import { formatearFecha, formatearMoneda } from "@/lib/utils"
 export const dynamic = "force-dynamic"
 
 export default async function AdminUsuarioDetallePage({ params }: { params: Promise<{ id: string }> }) {
+  const { t, idioma } = await getT()
+
   const { id } = await params
   const resultado = await obtenerUsuarioConTrabajosAdmin(id)
 
@@ -33,13 +36,12 @@ export default async function AdminUsuarioDetallePage({ params }: { params: Prom
       <div className="p-6 space-y-6">
         <Button asChild variant="ghost" className="gap-2">
           <Link href="/admin/usuarios">
-            <ArrowLeft className="h-4 w-4" /> Volver a usuarios
-          </Link>
+            <ArrowLeft className="h-4 w-4" /> {" "}{t("Volver a usuarios")}</Link>
         </Button>
         <Card className="border-destructive/30">
           <CardContent className="flex items-center gap-3 py-6 text-destructive">
             <AlertCircle className="h-5 w-5" />
-            <p>{resultado.error || "No se pudo cargar el usuario."}</p>
+            <p>{resultado.error || t("No se pudo cargar el usuario.")}</p>
           </CardContent>
         </Card>
       </div>
@@ -53,15 +55,14 @@ export default async function AdminUsuarioDetallePage({ params }: { params: Prom
   const volumen = trabajos
     .filter((trabajo) => trabajo.contratado)
     .reduce((total, trabajo) => total + trabajo.precio_acordado, 0)
-  const nombre = `${usuario.nombre ?? ""} ${usuario.apellido ?? ""}`.trim() || "Usuario"
+  const nombre = `${usuario.nombre ?? ""} ${usuario.apellido ?? ""}`.trim() || t("Usuario")
   const iniciales = `${usuario.nombre?.[0] ?? ""}${usuario.apellido?.[0] ?? ""}`.toUpperCase() || "U"
 
   return (
     <div className="p-6 space-y-6">
       <Button asChild variant="ghost" className="gap-2">
         <Link href="/admin/usuarios">
-          <ArrowLeft className="h-4 w-4" /> Volver a usuarios
-        </Link>
+          <ArrowLeft className="h-4 w-4" /> {" "}{t("Volver a usuarios")}</Link>
       </Button>
 
       <Card>
@@ -75,18 +76,16 @@ export default async function AdminUsuarioDetallePage({ params }: { params: Prom
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-bold">{nombre}</h1>
                 {usuario.es_admin ? (
-                  <Badge className="bg-purple-500/10 text-purple-700 border-purple-500/30">Admin</Badge>
+                  <Badge className="bg-purple-500/10 text-purple-700 border-purple-500/30">{t("Admin")}</Badge>
                 ) : usuario.profesional ? (
                   <Badge className="bg-emerald-500/10 text-emerald-700 border-emerald-500/30">
-                    Profesional
-                  </Badge>
+                    {t("Profesional")}</Badge>
                 ) : (
-                  <Badge variant="secondary">Cliente</Badge>
+                  <Badge variant="secondary">{t("Cliente")}</Badge>
                 )}
                 {usuario.profesional && usuario.verificado && (
                   <Badge className="gap-1 bg-blue-500/10 text-blue-700 border-blue-500/30">
-                    <CheckCircle2 className="h-3.5 w-3.5" /> Verificado
-                  </Badge>
+                    <CheckCircle2 className="h-3.5 w-3.5" /> {" "}{t("Verificado")}</Badge>
                 )}
               </div>
               {usuario.profesional?.titulo && (
@@ -95,8 +94,7 @@ export default async function AdminUsuarioDetallePage({ params }: { params: Prom
               {usuario.profesional?.rating_promedio != null && (
                 <p className="mt-2 flex items-center gap-1 text-sm text-muted-foreground">
                   <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                  {usuario.profesional.rating_promedio.toFixed(1)} · {usuario.profesional.total_reseñas ?? 0} reseñas
-                </p>
+                  {usuario.profesional.rating_promedio.toFixed(1)} · {usuario.profesional.total_reseñas ?? 0} {" "}{t("reseñas")}</p>
               )}
               {usuario.id !== adminId && (
                 <AdminChatUsuarioButton usuarioId={usuario.id} nombre={nombre} className="mt-4" />
@@ -106,19 +104,19 @@ export default async function AdminUsuarioDetallePage({ params }: { params: Prom
 
           <div className="grid gap-2 text-sm sm:grid-cols-2 lg:min-w-[430px]">
             <p className="flex items-center gap-2 text-muted-foreground">
-              <Mail className="h-4 w-4" /> {usuario.email || "Sin correo disponible"}
+              <Mail className="h-4 w-4" /> {usuario.email || t("Sin correo disponible")}
             </p>
             <p className="flex items-center gap-2 text-muted-foreground">
-              <Phone className="h-4 w-4" /> {usuario.telefono || "Sin teléfono"}
+              <Phone className="h-4 w-4" /> {usuario.telefono || t("Sin teléfono")}
             </p>
             <p className="flex items-center gap-2 text-muted-foreground">
-              <MapPin className="h-4 w-4" /> {usuario.ubicacion || "Sin ubicación"}
+              <MapPin className="h-4 w-4" /> {usuario.ubicacion || t("Sin ubicación")}
             </p>
             <p className="flex items-center gap-2 text-muted-foreground">
-              <IdCard className="h-4 w-4" /> {usuario.documento || "Sin documento"}
+              <IdCard className="h-4 w-4" /> {usuario.documento || t("Sin documento")}
             </p>
             <p className="flex items-center gap-2 text-muted-foreground sm:col-span-2">
-              <Calendar className="h-4 w-4" /> Alta: {formatearFecha(usuario.created_at)}
+              <Calendar className="h-4 w-4" /> {t("Alta:")} {formatearFecha(usuario.created_at, idioma)}
             </p>
           </div>
         </CardContent>
@@ -128,8 +126,7 @@ export default async function AdminUsuarioDetallePage({ params }: { params: Prom
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <UserRound className="h-4 w-4" /> Recibidos
-            </CardTitle>
+              <UserRound className="h-4 w-4" /> {" "}{t("Recibidos")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{recibidos.length}</p>
@@ -138,8 +135,7 @@ export default async function AdminUsuarioDetallePage({ params }: { params: Prom
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <Wrench className="h-4 w-4" /> Prestados
-            </CardTitle>
+              <Wrench className="h-4 w-4" /> {" "}{t("Prestados")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-emerald-600">{prestados.length}</p>
@@ -148,8 +144,7 @@ export default async function AdminUsuarioDetallePage({ params }: { params: Prom
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <Briefcase className="h-4 w-4" /> Completados
-            </CardTitle>
+              <Briefcase className="h-4 w-4" /> {" "}{t("Completados")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-blue-600">{completados.length}</p>
@@ -157,17 +152,17 @@ export default async function AdminUsuarioDetallePage({ params }: { params: Prom
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Volumen contratado</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t("Volumen contratado")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{formatearMoneda(volumen)}</p>
+            <p className="text-2xl font-bold">{formatearMoneda(volumen, idioma)}</p>
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Historial de trabajos y justificantes</CardTitle>
+          <CardTitle className="text-base">{t("Historial de trabajos y justificantes")}</CardTitle>
         </CardHeader>
         <CardContent>
           <AdminUsuarioTrabajos trabajos={trabajos} usuarioId={usuario.id} />

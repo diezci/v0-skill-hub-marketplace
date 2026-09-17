@@ -1,5 +1,7 @@
 "use client"
 
+import { useIdioma } from "@/components/idioma-provider"
+
 import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
@@ -8,6 +10,7 @@ import { desvincularPushActual } from "@/lib/push/client"
 import { Loader2, Users, Scale, CreditCard, LayoutDashboard, LogOut, ChevronRight, ShieldAlert, MessageSquare, Briefcase, BellRing, BadgeCheck, ExternalLink, WalletCards } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { SelectorIdioma } from "@/components/selector-idioma"
 import { DiimeLogo } from "@/components/diime-logo"
 
 const navItems = [
@@ -23,6 +26,8 @@ const navItems = [
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const { t } = useIdioma()
+
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
   const [adminName, setAdminName] = useState("")
   // Pendientes de revisión visibles desde cualquier sección de administración.
@@ -81,7 +86,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         return
       }
 
-      setAdminName(`${profile.nombre || ""} ${profile.apellido || ""}`.trim() || "Admin")
+      setAdminName(`${profile.nombre || ""} ${profile.apellido || ""}`.trim() || t("Admin"))
       setIsAdmin(true)
     } catch {
       router.push("/")
@@ -114,12 +119,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="p-4 md:p-6 border-b border-border">
           <Link href="/admin" className="flex items-center gap-2">
             <DiimeLogo className="h-8 w-8" />
-            <span className="font-bold text-lg">Diime Admin</span>
+            <span className="font-bold text-lg">{t("Diime Admin")}</span>
           </Link>
+          <div className="mt-3"><SelectorIdioma /></div>
         </div>
 
         {/* Navigation */}
-        <nav aria-label="Administración" className="flex gap-1 overflow-x-auto p-3 md:flex-col md:flex-1 md:p-4">
+        <nav aria-label={t("Administración")} className="flex gap-1 overflow-x-auto p-3 md:flex-col md:flex-1 md:p-4">
           {navItems.map((item) => {
             const isActive = pathname === item.href || 
               (item.href !== "/admin" && pathname?.startsWith(item.href))
@@ -136,7 +142,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 )}
               >
                 <item.icon className="h-5 w-5" />
-                {item.label}
+                {t(item.label)}
                 {(pendientes[item.href] || 0) > 0 && (
                   <span className="ml-auto h-5 min-w-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-bold flex items-center justify-center">
                     {pendientes[item.href] > 9 ? "9+" : pendientes[item.href]}
@@ -153,9 +159,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             className="flex shrink-0 items-center gap-3 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           >
             <WalletCards className="h-5 w-5" />
-            Stripe
-            <ExternalLink className="ml-auto h-4 w-4" />
-            <span className="sr-only">Abrir saldo y movimientos de Diime en una pestaña nueva</span>
+            {t("Stripe")}<ExternalLink className="ml-auto h-4 w-4" />
+            <span className="sr-only">{t("Abrir saldo y movimientos de Diime en una pestaña nueva")}</span>
           </a>
         </nav>
 
@@ -169,7 +174,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">{adminName}</p>
-              <p className="text-xs text-muted-foreground">Administrador</p>
+              <p className="text-xs text-muted-foreground">{t("Administrador")}</p>
             </div>
           </div>
           <Button
@@ -179,8 +184,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             onClick={handleLogout}
           >
             <LogOut className="h-4 w-4" />
-            Cerrar sesión
-          </Button>
+            {t("Cerrar sesión")}</Button>
         </div>
       </aside>
 

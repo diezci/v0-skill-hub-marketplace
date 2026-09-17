@@ -1,5 +1,7 @@
 "use client"
 
+import { useT } from "@/components/idioma-provider"
+
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { ShieldCheck } from "lucide-react"
@@ -18,6 +20,7 @@ import { createClient } from "@/lib/supabase/client"
 import { desvincularPushActual } from "@/lib/push/client"
 
 export function ConfirmarMayoriaEdad() {
+  const t = useT()
   const [abierto, setAbierto] = useState(false)
   const [confirmado, setConfirmado] = useState(false)
   const [guardando, setGuardando] = useState(false)
@@ -76,11 +79,10 @@ export function ConfirmarMayoriaEdad() {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-emerald-500" />
-            Confirma que eres mayor de edad
+            {t("Confirma que eres mayor de edad")}
           </DialogTitle>
           <DialogDescription>
-            Diime permite contratar, cobrar y asumir obligaciones económicas. Por eso la cuenta solo puede utilizarla
-            una persona de 18 años o más con capacidad legal para contratar.
+            {t("Diime permite contratar, cobrar y asumir obligaciones económicas. Por eso la cuenta solo puede utilizarla una persona de 18 años o más con capacidad legal para contratar.")}
           </DialogDescription>
         </DialogHeader>
 
@@ -91,30 +93,30 @@ export function ConfirmarMayoriaEdad() {
             className="mt-0.5"
           />
           <span>
-            Confirmo que tengo 18 años o más y acepto esta condición de los{" "}
+            {t("Confirmo que tengo 18 años o más y acepto esta condición de los")}{" "}
             <Link href="/legal/terminos" target="_blank" className="text-primary underline underline-offset-4">
-              Términos de Diime
+              {t("Términos de Diime")}
             </Link>
             .
           </span>
         </label>
 
         <p className="text-xs text-muted-foreground">
-          Guardamos la fecha de esta confirmación, no tu fecha de nacimiento. Consulta la{" "}
+          {t("Guardamos la fecha de esta confirmación, no tu fecha de nacimiento. Consulta la")}{" "}
           <Link href="/legal/privacidad" target="_blank" className="text-primary underline underline-offset-4">
-            Política de privacidad
+            {t("Política de privacidad")}
           </Link>
           .
         </p>
 
-        {error && <p className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
+        {error && <p className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{t(error)}</p>}
 
         <DialogFooter>
           <Button variant="outline" onClick={salir} disabled={guardando}>
-            Cerrar sesión
+            {t("Cerrar sesión")}
           </Button>
           <Button onClick={guardar} disabled={!confirmado || guardando}>
-            {guardando ? "Guardando..." : "Confirmar y continuar"}
+            {guardando ? t("Guardando...") : t("Confirmar y continuar")}
           </Button>
         </DialogFooter>
       </DialogContent>

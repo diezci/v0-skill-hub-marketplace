@@ -15,6 +15,7 @@
     "dev": "next dev",
     "lint": "eslint .",
     "ops:create-review-accounts": "node --no-warnings scripts/create-review-accounts.mjs",
+    "test:i18n": "node scripts/test-i18n.mjs && node --no-warnings scripts/test-i18n-errores.mjs && node scripts/test-i18n-notificaciones.mjs && node scripts/test-offline-worker.mjs",
     "test:comisiones": "node --no-warnings --experimental-strip-types scripts/test-comisiones.mjs",
     "test:notificaciones": "node --no-warnings --experimental-strip-types scripts/test-filtros-notificaciones.mjs && node --no-warnings --experimental-strip-types scripts/test-preferencia-emails.mjs",
     "test:moderacion": "node --no-warnings scripts/test-moderacion.mjs",

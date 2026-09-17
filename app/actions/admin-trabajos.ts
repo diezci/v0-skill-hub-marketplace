@@ -1,5 +1,7 @@
 "use server"
 
+import { textoServidor } from "@/lib/i18n-servidor"
+
 import { createClient } from "@/lib/supabase/server"
 
 export interface AdminPersonaTrabajo {
@@ -91,12 +93,12 @@ const trocear = <T,>(valores: T[], tamaño: number): T[][] => {
 
 async function requerirAdmin() {
   const supabase = await createClient()
-  if (!supabase) return { error: "Base de datos no disponible", supabase: null, userId: null }
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible"), supabase: null, userId: null }
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "No autenticado", supabase: null, userId: null }
+  if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado"), supabase: null, userId: null }
 
   const { data: perfil } = await supabase
     .from("profiles")
@@ -105,7 +107,7 @@ async function requerirAdmin() {
     .maybeSingle()
 
   if (!perfil?.es_admin) {
-    return { error: "No tienes permiso para consultar trabajos y justificantes", supabase: null, userId: null }
+    return { error: await textoServidor("No tienes permiso para consultar trabajos y justificantes"), supabase: null, userId: null }
   }
 
   return { error: null, supabase, userId: user.id }
@@ -131,7 +133,7 @@ async function cargarTrabajos(supabase: NonNullable<Awaited<ReturnType<typeof cr
     }
 
     const { data, error } = await consulta
-    if (error) return { error: error.message, data: [] as AdminTrabajo[] }
+    if (error) return { error: await textoServidor(error.message), data: [] as AdminTrabajo[] }
     const pagina = (data as any[]) || []
     filas.push(...pagina)
     if (pagina.length < tamanoPagina) break
@@ -165,8 +167,8 @@ async function cargarTrabajos(supabase: NonNullable<Awaited<ReturnType<typeof cr
 
   const errorPerfiles = resultadosPerfiles.find((resultado) => resultado.error)?.error
   const errorEscrow = resultadosEscrow.find((resultado) => resultado.error)?.error
-  if (errorPerfiles) return { error: errorPerfiles.message, data: [] as AdminTrabajo[] }
-  if (errorEscrow) return { error: errorEscrow.message, data: [] as AdminTrabajo[] }
+  if (errorPerfiles) return { error: await textoServidor(errorPerfiles.message), data: [] as AdminTrabajo[] }
+  if (errorEscrow) return { error: await textoServidor(errorEscrow.message), data: [] as AdminTrabajo[] }
 
   const filasPerfiles = resultadosPerfiles.flatMap((resultado) => (resultado.data as any[]) || [])
   const filasEscrow = resultadosEscrow.flatMap((resultado) => (resultado.data as any[]) || [])
@@ -216,17 +218,17 @@ async function cargarTrabajos(supabase: NonNullable<Awaited<ReturnType<typeof cr
 
 export async function obtenerTrabajosAdmin() {
   const acceso = await requerirAdmin()
-  if (!acceso.supabase) return { error: acceso.error, data: [] as AdminTrabajo[] }
+  if (!acceso.supabase) return { error: await textoServidor(acceso.error), data: [] as AdminTrabajo[] }
   return cargarTrabajos(acceso.supabase)
 }
 
 export async function obtenerUsuarioConTrabajosAdmin(usuarioId: string) {
   if (!UUID_RE.test(usuarioId)) {
-    return { error: "Usuario no válido", data: null }
+    return { error: await textoServidor("Usuario no válido"), data: null }
   }
 
   const acceso = await requerirAdmin()
-  if (!acceso.supabase) return { error: acceso.error, data: null }
+  if (!acceso.supabase) return { error: await textoServidor(acceso.error), data: null }
   const supabase = acceso.supabase
 
   const [perfilResultado, profesionalResultado, contactoResultado, trabajosResultado] = await Promise.all([
@@ -244,11 +246,11 @@ export async function obtenerUsuarioConTrabajosAdmin(usuarioId: string) {
     cargarTrabajos(supabase, usuarioId),
   ])
 
-  if (perfilResultado.error) return { error: perfilResultado.error.message, data: null }
-  if (!perfilResultado.data) return { error: "Usuario no encontrado", data: null }
-  if (profesionalResultado.error) return { error: profesionalResultado.error.message, data: null }
-  if (contactoResultado.error) return { error: contactoResultado.error.message, data: null }
-  if (trabajosResultado.error) return { error: trabajosResultado.error, data: null }
+  if (perfilResultado.error) return { error: await textoServidor(perfilResultado.error.message), data: null }
+  if (!perfilResultado.data) return { error: await textoServidor("Usuario no encontrado"), data: null }
+  if (profesionalResultado.error) return { error: await textoServidor(profesionalResultado.error.message), data: null }
+  if (contactoResultado.error) return { error: await textoServidor(contactoResultado.error.message), data: null }
+  if (trabajosResultado.error) return { error: await textoServidor(trabajosResultado.error), data: null }
 
   const contacto = ((contactoResultado.data as any[]) || [])[0]
   // El parser de tipos de Supabase no reconoce bien la ñ de `total_reseñas`

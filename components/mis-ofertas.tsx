@@ -1,5 +1,8 @@
 "use client"
 
+import { useT, useIdioma } from "@/components/idioma-provider"
+import { localeDe } from "@/lib/i18n"
+
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -59,6 +62,9 @@ const necesitaConfirmarGastos = (oferta: any) => oferta.comision_proveedor_porce
   oferta.pago_neto_proveedor_previsto == null
 
 export default function MisOfertas() {
+  const t = useT()
+  const { idioma } = useIdioma()
+
   const [ofertas, setOfertas] = useState<any[]>([])
   const [perdidas, setPerdidas] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -80,7 +86,7 @@ export default function MisOfertas() {
     setLoading(true)
     const result = await obtenerOfertasPorProfesional()
     if (result.error) {
-      toast({ title: "No se pudieron cargar tus pujas", description: result.error, variant: "destructive" })
+      toast({ title: t("No se pudieron cargar tus pujas"), description: t(result.error), variant: "destructive" })
       setLoading(false)
       return
     }
@@ -116,8 +122,8 @@ export default function MisOfertas() {
     const esRepuja = esPerdida(editOferta)
     if ((esRepuja || necesitaConfirmarGastos(editOferta)) && !aceptaGastosRepuja) {
       toast({
-        title: "Falta aceptar los gastos de servicio",
-        description: "Debes revisar y aceptar los gastos de servicio de Diime antes de enviar la oferta.",
+        title: t("Falta aceptar los gastos de servicio"),
+        description: t("Debes revisar y aceptar los gastos de servicio de Diime antes de enviar la oferta."),
         variant: "destructive",
       })
       return
@@ -125,11 +131,11 @@ export default function MisOfertas() {
     const precio = Number.parseFloat(editForm.precio)
     const tiempoEstimado = Number.parseInt(editForm.tiempo_estimado, 10)
     if (!(precio > 0)) {
-      toast({ title: "Precio no válido", description: "El precio propuesto debe ser mayor que 0.", variant: "destructive" })
+      toast({ title: t("Precio no válido"), description: t("El precio propuesto debe ser mayor que 0."), variant: "destructive" })
       return
     }
     if (!(tiempoEstimado > 0)) {
-      toast({ title: "Tiempo no válido", description: "El tiempo estimado debe ser mayor que 0.", variant: "destructive" })
+      toast({ title: t("Tiempo no válido"), description: t("El tiempo estimado debe ser mayor que 0."), variant: "destructive" })
       return
     }
     setActionLoading(true)
@@ -143,8 +149,8 @@ export default function MisOfertas() {
       // los perdería sin avisar.
       if (subidas.some((r) => r === null)) {
         toast({
-          title: "No se pudieron subir los archivos",
-          description: "No se ha guardado ningún cambio. Inténtalo de nuevo o quita los adjuntos nuevos.",
+          title: t("No se pudieron subir los archivos"),
+          description: t("No se ha guardado ningún cambio. Inténtalo de nuevo o quita los adjuntos nuevos."),
           variant: "destructive",
         })
         setActionLoading(false)
@@ -174,13 +180,13 @@ export default function MisOfertas() {
           acepta_gastos: aceptaGastosRepuja,
         })
     if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" })
+      toast({ title: t("Error"), description: t(result.error), variant: "destructive" })
     } else {
       toast({
-        title: esRepuja ? "Nueva oferta enviada" : "Oferta actualizada",
+        title: esRepuja ? t("Nueva oferta enviada") : t("Oferta actualizada"),
         description: esRepuja
-          ? "Has vuelto a pujar y el cliente ha recibido tu nueva propuesta."
-          : "Los cambios se han guardado y el cliente ha sido notificado.",
+          ? t("Has vuelto a pujar y el cliente ha recibido tu nueva propuesta.")
+          : t("Los cambios se han guardado y el cliente ha sido notificado."),
       })
       setEditOferta(null)
       setAceptaGastosRepuja(false)
@@ -197,12 +203,12 @@ export default function MisOfertas() {
       ? await eliminarOfertaPerdida(deleteOferta.id)
       : await eliminarOferta(deleteOferta.id)
     if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" })
+      toast({ title: t("Error"), description: t(result.error), variant: "destructive" })
     } else {
       toast(
         esPujaPerdida
-          ? { title: "Puja borrada", description: "La puja perdida se ha eliminado." }
-          : { title: "Oferta retirada", description: "Tu oferta se ha retirado." },
+          ? { title: t("Puja borrada"), description: t("La puja perdida se ha eliminado.") }
+          : { title: t("Oferta retirada"), description: t("Tu oferta se ha retirado.") },
       )
       setDeleteOferta(null)
       await cargarOfertas()
@@ -212,12 +218,12 @@ export default function MisOfertas() {
 
   const handleContactarCliente = async (clienteId?: string, solicitudId?: string) => {
     if (!clienteId) {
-      toast({ title: "No disponible", description: "No se pudo identificar al cliente.", variant: "destructive" })
+      toast({ title: t("No disponible"), description: t("No se pudo identificar al cliente."), variant: "destructive" })
       return
     }
     const result = await crearConversacion({ otroUsuarioId: clienteId, solicitudId })
     if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" })
+      toast({ title: t("Error"), description: t(result.error), variant: "destructive" })
     } else {
       router.push(result.data?.id ? `/mensajes?c=${result.data.id}` : "/mensajes")
     }
@@ -240,19 +246,16 @@ export default function MisOfertas() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Pujas en curso ({ofertas.length})</CardTitle>
-          <CardDescription>
-            Puedes editarlas o retirarlas mientras el cliente no las acepte. Cuando una puja aceptada se pague,
-            pasará a Gestión de Proyectos como trabajo activo; hasta entonces sigue aquí.
-          </CardDescription>
+          <CardTitle>{t("Pujas en curso (")}{ofertas.length})</CardTitle>
+          <CardDescription>{t("Puedes editarlas o retirarlas mientras el cliente no las acepte. Cuando una puja aceptada se pague, pasará a Gestión de Proyectos como trabajo activo; hasta entonces sigue aquí.")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {ofertas.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="font-medium text-foreground mb-1">No tienes pujas pendientes</p>
-              <p className="text-sm mb-4">Explora las demandas publicadas y envía tu puja.</p>
-              <Button onClick={() => router.push("/demandas")}>Ver demandas</Button>
+              <p className="font-medium text-foreground mb-1">{t("No tienes pujas pendientes")}</p>
+              <p className="text-sm mb-4">{t("Explora las demandas publicadas y envía tu puja.")}</p>
+              <Button onClick={() => router.push("/demandas")}>{t("Ver demandas")}</Button>
             </div>
           ) : (
             ofertas.map((oferta) => (
@@ -261,17 +264,13 @@ export default function MisOfertas() {
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <CardTitle className="text-lg sm:text-xl">{oferta.solicitud?.titulo || "Servicio"}</CardTitle>
+                        <CardTitle className="text-lg sm:text-xl">{oferta.solicitud?.titulo || t("Servicio")}</CardTitle>
                         {esAceptadaSinPagar(oferta) ? (
                           <Badge variant="outline" className="gap-1 text-amber-600 border-amber-500/50 bg-amber-500/10">
-                            <Clock className="h-3 w-3" />
-                            Aceptada · esperando pago del cliente
-                          </Badge>
+                            <Clock className="h-3 w-3" />{t("Aceptada · esperando pago del cliente")}</Badge>
                         ) : (
                           <Badge variant="secondary" className="gap-1">
-                            <Clock className="h-3 w-3" />
-                            Enviada
-                          </Badge>
+                            <Clock className="h-3 w-3" />{t("Enviada")}</Badge>
                         )}
                       </div>
                       {/* Miniatura del cliente: pone cara a la demanda de un
@@ -292,8 +291,8 @@ export default function MisOfertas() {
                       </CardDescription>
                     </div>
                     <div className="text-left sm:text-right shrink-0">
-                      <div className="text-2xl font-bold text-primary">{formatearPrecioEuros(oferta.precio)}</div>
-                      <p className="text-sm text-muted-foreground">Precio ofertado</p>
+                      <div className="text-2xl font-bold text-primary">{formatearPrecioEuros(oferta.precio, idioma)}</div>
+                      <p className="text-sm text-muted-foreground">{t("Precio ofertado")}</p>
                     </div>
                   </div>
                 </CardHeader>
@@ -301,18 +300,18 @@ export default function MisOfertas() {
                   {necesitaConfirmarGastos(oferta) && (
                     <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
                       {esAceptadaSinPagar(oferta)
-                        ? "Falta confirmar la tarifa de esta oferta. Solicita cancelar el contrato pendiente y envía una nueva oferta revisando los gastos de servicio."
-                        : "Para que el cliente pueda contratar esta oferta, ábrela en Editar y confirma los gastos de servicio y tu importe neto."}
+                        ? t("Falta confirmar la tarifa de esta oferta. Solicita cancelar el contrato pendiente y envía una nueva oferta revisando los gastos de servicio.")
+                        : t("Para que el cliente pueda contratar esta oferta, ábrela en Editar y confirma los gastos de servicio y tu importe neto.")}
                     </p>
                   )}
                   <div className="grid gap-3 text-sm">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Calendar className="h-4 w-4" />
-                      <span>Enviada el {new Date(oferta.created_at).toLocaleDateString("es-ES")}</span>
+                      <span>{t("Enviada el")}{" "}{new Date(oferta.created_at).toLocaleDateString(localeDe(idioma))}</span>
                     </div>
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <MapPin className="h-4 w-4" />
-                      <span>{oferta.solicitud?.ubicacion || "Ubicación no especificada"}</span>
+                      <span>{oferta.solicitud?.ubicacion || t("Ubicación no especificada")}</span>
                     </div>
                     {oferta.solicitud?.urgencia && (
                       <div>
@@ -325,23 +324,22 @@ export default function MisOfertas() {
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Clock className="h-4 w-4" />
                       <span>
-                        {oferta.tiempo_estimado} {oferta.unidad_tiempo || "días"} estimados
-                      </span>
+                        {oferta.tiempo_estimado} {t(oferta.unidad_tiempo || "días")}{" "}{t("estimados")}</span>
                     </div>
                   </div>
 
                   <div className="pt-3 border-t">
-                    <p className="text-sm font-medium mb-2">Descripción del Servicio:</p>
+                    <p className="text-sm font-medium mb-2">{t("Descripción del Servicio:")}</p>
                     <p className="text-sm text-muted-foreground">{oferta.descripcion}</p>
                     {oferta.materiales_incluidos && (
                       <p className="text-sm text-muted-foreground mt-1.5">
-                        <span className="font-medium text-foreground">Materiales:</span>{" "}
+                        <span className="font-medium text-foreground">{t("Materiales:")}</span>{" "}
                         {oferta.materiales_incluidos === "si"
-                          ? "incluidos"
+                          ? t("incluidos")
                           : oferta.materiales_incluidos === "no"
-                            ? "no incluidos"
+                            ? t("no incluidos")
                             : oferta.materiales_incluidos === "parcial"
-                              ? "parcialmente incluidos"
+                              ? t("parcialmente incluidos")
                               : oferta.materiales_incluidos}
                       </p>
                     )}
@@ -350,17 +348,14 @@ export default function MisOfertas() {
                   {Array.isArray(oferta.archivos) && oferta.archivos.length > 0 && (
                     <div className="pt-1">
                       <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
-                        <FileText className="h-3.5 w-3.5" /> Archivos adjuntos ({oferta.archivos.length})
+                        <FileText className="h-3.5 w-3.5" />{" "}{t("Archivos adjuntos (")}{oferta.archivos.length})
                       </p>
                       <AdjuntosLista archivos={oferta.archivos} />
                     </div>
                   )}
 
                   {esAceptadaSinPagar(oferta) && (
-                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-muted-foreground">
-                      El cliente aceptó tu puja pero aún no ha completado el pago protegido. Cuando lo haga, el
-                      trabajo aparecerá en Gestión de Proyectos.
-                    </div>
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-muted-foreground">{t("El cliente aceptó tu puja pero aún no ha completado el pago protegido. Cuando lo haga, el trabajo aparecerá en Gestión de Proyectos.")}</div>
                   )}
 
                   {esAceptadaSinPagar(oferta) && oferta.trabajo && (
@@ -374,33 +369,25 @@ export default function MisOfertas() {
                       className="flex-1 bg-transparent"
                       onClick={() => setVerDemanda(oferta.solicitud)}
                     >
-                      <Eye className="h-4 w-4 mr-2" />
-                      Ver demanda
-                    </Button>
+                      <Eye className="h-4 w-4 mr-2" />{t("Ver demanda")}</Button>
                     <Button
                       variant="outline"
                       size="sm"
                       className="flex-1 bg-transparent"
                       onClick={() => handleContactarCliente(oferta.solicitud?.cliente_id, oferta.solicitud?.id)}
                     >
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      Contactar Cliente
-                    </Button>
+                      <MessageSquare className="h-4 w-4 mr-2" />{t("Contactar Cliente")}</Button>
                     {!esAceptadaSinPagar(oferta) && (
                       <>
                         <Button variant="outline" size="sm" className="flex-1 bg-transparent" onClick={() => abrirEditar(oferta)}>
-                          <Pencil className="h-4 w-4 mr-2" />
-                          Editar oferta
-                        </Button>
+                          <Pencil className="h-4 w-4 mr-2" />{t("Editar oferta")}</Button>
                         <Button
                           variant="outline"
                           size="sm"
                           className="flex-1 bg-transparent text-destructive border-destructive/40 hover:bg-destructive/10"
                           onClick={() => setDeleteOferta(oferta)}
                         >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Retirar
-                        </Button>
+                          <Trash2 className="h-4 w-4 mr-2" />{t("Retirar")}</Button>
                       </>
                     )}
                   </div>
@@ -419,13 +406,9 @@ export default function MisOfertas() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <X className="h-5 w-5 text-red-500" />
-              Pujas perdidas ({perdidas.length})
+              <X className="h-5 w-5 text-red-500" />{t("Pujas perdidas (")}{perdidas.length})
             </CardTitle>
-            <CardDescription>
-              Puedes revisar qué ofertaste, borrar las pujas que ya no quieras conservar y, si la demanda sigue
-              abierta, enviar una nueva propuesta.
-            </CardDescription>
+            <CardDescription>{t("Puedes revisar qué ofertaste, borrar las pujas que ya no quieras conservar y, si la demanda sigue abierta, enviar una nueva propuesta.")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {perdidas.map((oferta) => (
@@ -435,11 +418,9 @@ export default function MisOfertas() {
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-medium truncate">{oferta.solicitud?.titulo || "Servicio"}</p>
+                    <p className="font-medium truncate">{oferta.solicitud?.titulo || t("Servicio")}</p>
                     <Badge variant="outline" className="gap-1 text-red-600 border-red-500/50 bg-red-500/10 shrink-0">
-                      <X className="h-3 w-3" />
-                      No seleccionada
-                    </Badge>
+                      <X className="h-3 w-3" />{t("No seleccionada")}</Badge>
                   </div>
                   <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
                     <EnlacePerfil usuarioId={oferta.solicitud?.cliente_id} className="flex items-center gap-1.5">
@@ -452,9 +433,9 @@ export default function MisOfertas() {
                       </Avatar>
                       {oferta.solicitud?.cliente?.nombre} {oferta.solicitud?.cliente?.apellido}
                     </EnlacePerfil>
-                    {" · "}Ofertaste {formatearPrecioEuros(oferta.precio)}
+                    {" · "}{t("Ofertaste")}{" "}{formatearPrecioEuros(oferta.precio, idioma)}
                     {oferta.updated_at &&
-                      ` · ${new Date(oferta.updated_at).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })}`}
+                      ` · ${new Date(oferta.updated_at).toLocaleDateString(localeDe(idioma), { day: "numeric", month: "short", year: "numeric" })}`}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2 sm:justify-end">
@@ -464,15 +445,11 @@ export default function MisOfertas() {
                     className="shrink-0 bg-transparent"
                     onClick={() => setVerDemanda(oferta.solicitud)}
                   >
-                    <Eye className="h-4 w-4 mr-1.5" />
-                    Ver demanda
-                  </Button>
+                    <Eye className="h-4 w-4 mr-1.5" />{t("Ver demanda")}</Button>
                   {oferta.solicitud?.estado === "abierta" &&
                     !solicitudesConOfertaViva.has(oferta.solicitud_id) && (
                       <Button size="sm" className="shrink-0" onClick={() => abrirEditar(oferta)}>
-                        <Send className="h-4 w-4 mr-1.5" />
-                        Volver a pujar
-                      </Button>
+                        <Send className="h-4 w-4 mr-1.5" />{t("Volver a pujar")}</Button>
                     )}
                   <Button
                     variant="outline"
@@ -480,9 +457,7 @@ export default function MisOfertas() {
                     className="shrink-0 bg-transparent text-destructive border-destructive/40 hover:bg-destructive/10"
                     onClick={() => setDeleteOferta(oferta)}
                   >
-                    <Trash2 className="h-4 w-4 mr-1.5" />
-                    Borrar
-                  </Button>
+                    <Trash2 className="h-4 w-4 mr-1.5" />{t("Borrar")}</Button>
                 </div>
               </div>
             ))}
@@ -494,17 +469,17 @@ export default function MisOfertas() {
       <Dialog open={!!editOferta} onOpenChange={(o) => !o && setEditOferta(null)}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editOferta && esPerdida(editOferta) ? "Volver a pujar" : "Editar oferta"}</DialogTitle>
+            <DialogTitle>{editOferta && esPerdida(editOferta) ? t("Volver a pujar") : t("Editar oferta")}</DialogTitle>
             <DialogDescription>
               {editOferta && esPerdida(editOferta)
-                ? "Revisa tu propuesta anterior y envíala de nuevo. El cliente la recibirá como una nueva puja."
-                : "Puedes modificar tu oferta mientras no haya sido aceptada. El cliente recibirá una notificación."}
+                ? t("Revisa tu propuesta anterior y envíala de nuevo. El cliente la recibirá como una nueva puja.")
+                : t("Puedes modificar tu oferta mientras no haya sido aceptada. El cliente recibirá una notificación.")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Precio (€)</label>
+                <label className="text-sm font-medium">{t("Precio (€)")}</label>
                 <Input
                   type="number"
                   value={editForm.precio}
@@ -512,7 +487,7 @@ export default function MisOfertas() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Tiempo estimado</label>
+                <label className="text-sm font-medium">{t("Tiempo estimado")}</label>
                 <div className="flex gap-2">
                   <Input
                     type="number"
@@ -525,15 +500,15 @@ export default function MisOfertas() {
                     value={editForm.unidad_tiempo}
                     onChange={(e) => setEditForm({ ...editForm, unidad_tiempo: e.target.value })}
                   >
-                    <option value="horas">Horas</option>
-                    <option value="dias">Días</option>
-                    <option value="semanas">Semanas</option>
+                    <option value="horas">{t("Horas")}</option>
+                    <option value="dias">{t("Días")}</option>
+                    <option value="semanas">{t("Semanas")}</option>
                   </select>
                 </div>
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Descripción</label>
+              <label className="text-sm font-medium">{t("Descripción")}</label>
               <Textarea
                 rows={4}
                 value={editForm.descripcion}
@@ -543,7 +518,7 @@ export default function MisOfertas() {
 
             {/* Adjuntos: conservar/borrar existentes y añadir nuevos */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Archivos adjuntos</label>
+              <label className="text-sm font-medium">{t("Archivos adjuntos")}</label>
               <div className="flex flex-wrap gap-2">
                 {editArchivos.map((url, i) => (
                   <div
@@ -552,13 +527,13 @@ export default function MisOfertas() {
                   >
                     <FileText className="h-3.5 w-3.5" />
                     <a href={url} target="_blank" rel="noreferrer" className="hover:underline max-w-[140px] truncate">
-                      {decodeURIComponent(url.split("/").pop()?.split("?")[0] || `Archivo ${i + 1}`)}
+                      {decodeURIComponent(url.split("/").pop()?.split("?")[0] || t("Archivo {count}", { count: i + 1 }))}
                     </a>
                     <button
                       type="button"
                       onClick={() => setEditArchivos(editArchivos.filter((_, j) => j !== i))}
                       className="text-muted-foreground hover:text-destructive"
-                      aria-label="Quitar adjunto"
+                      aria-label={t("Quitar adjunto")}
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -575,15 +550,14 @@ export default function MisOfertas() {
                       type="button"
                       onClick={() => setEditNuevos(editNuevos.filter((_, j) => j !== i))}
                       className="text-muted-foreground hover:text-destructive"
-                      aria-label="Quitar archivo nuevo"
+                      aria-label={t("Quitar archivo nuevo")}
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 ))}
                 <label className="inline-flex items-center gap-1.5 rounded-md border border-dashed px-2.5 py-1.5 text-xs cursor-pointer hover:bg-muted transition">
-                  <Paperclip className="h-3.5 w-3.5" /> Añadir
-                  <input
+                  <Paperclip className="h-3.5 w-3.5" />{" "}{t("Añadir")}<input
                     type="file"
                     multiple
                     className="hidden"
@@ -602,24 +576,17 @@ export default function MisOfertas() {
                   onCheckedChange={(checked) => setAceptaGastosRepuja(checked === true)}
                   className="mt-0.5"
                 />
-                <span>
-                  Acepto los gastos de servicio de Diime ({PLATFORM_CONFIG.comisionProveedorPorcentaje}% del precio,
-                  mín. {formatearPrecio(PLATFORM_CONFIG.comision_minima)}; IVA del{" "}
-                  {PLATFORM_CONFIG.ivaDiimePorcentaje}% incluido). Mi oferta es un precio final y soy responsable de
-                  facturar y declarar los impuestos de mi servicio.
-                  {liquidacionRepuja && (
+                <span>{t("Acepto los gastos de servicio de Diime (")}{PLATFORM_CONFIG.comisionProveedorPorcentaje}{t("% del precio, mín.")}{" "}{formatearPrecio(PLATFORM_CONFIG.comision_minima, idioma)}{t("; IVA del")}{" "}
+                  {PLATFORM_CONFIG.ivaDiimePorcentaje}{t("% incluido). Mi oferta es un precio final y soy responsable de facturar y declarar los impuestos de mi servicio.")}{liquidacionRepuja && (
                     <>
-                      {" "}Si el cliente acepta esta oferta, recibiré {formatearPrecio(liquidacionRepuja.pagoNeto)} netos.
-                    </>
+                      {" "}{t("Si el cliente acepta esta oferta, recibiré")}{" "}{formatearPrecio(liquidacionRepuja.pagoNeto, idioma)}{" "}{t("netos.")}</>
                   )}
                 </span>
               </label>
             )}
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" className="bg-transparent" onClick={() => setEditOferta(null)}>
-              Cancelar
-            </Button>
+            <Button variant="outline" className="bg-transparent" onClick={() => setEditOferta(null)}>{t("Cancelar")}</Button>
             <Button onClick={handleGuardarEdicion} disabled={actionLoading || subiendo}>
               {actionLoading || subiendo ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -627,10 +594,10 @@ export default function MisOfertas() {
                 <Check className="h-4 w-4 mr-2" />
               )}
               {subiendo
-                ? "Subiendo..."
+                ? t("Subiendo...")
                 : editOferta && esPerdida(editOferta)
-                  ? "Enviar nueva oferta"
-                  : "Guardar cambios"}
+                  ? t("Enviar nueva oferta")
+                  : t("Guardar cambios")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -641,16 +608,16 @@ export default function MisOfertas() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {deleteOferta && esPerdida(deleteOferta) ? "¿Borrar esta puja perdida?" : "¿Retirar esta oferta?"}
+              {deleteOferta && esPerdida(deleteOferta) ? t("¿Borrar esta puja perdida?") : t("¿Retirar esta oferta?")}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {deleteOferta && esPerdida(deleteOferta)
-                ? `Se borrará tu puja de "${deleteOferta?.solicitud?.titulo || "esta demanda"}". Esta acción no se puede deshacer.`
-                : `Se retirará tu oferta de "${deleteOferta?.solicitud?.titulo || "esta demanda"}". Esta acción no se puede deshacer.`}
+                ? t("Se borrará tu puja de «{title}». Esta acción no se puede deshacer.", { title: deleteOferta?.solicitud?.titulo || t("esta demanda") })
+                : t("Se retirará tu oferta de «{title}». Esta acción no se puede deshacer.", { title: deleteOferta?.solicitud?.titulo || t("esta demanda") })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("Cancelar")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault()
@@ -660,7 +627,7 @@ export default function MisOfertas() {
               disabled={actionLoading}
             >
               {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-              {deleteOferta && esPerdida(deleteOferta) ? "Borrar puja" : "Retirar oferta"}
+              {deleteOferta && esPerdida(deleteOferta) ? t("Borrar puja") : t("Retirar oferta")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -670,11 +637,10 @@ export default function MisOfertas() {
       <Dialog open={!!verDemanda} onOpenChange={(o) => !o && setVerDemanda(null)}>
         <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{verDemanda?.titulo || "Demanda"}</DialogTitle>
-            <DialogDescription>
-              Publicada por {verDemanda?.cliente?.nombre} {verDemanda?.cliente?.apellido}
+            <DialogTitle>{verDemanda?.titulo || t("Demanda")}</DialogTitle>
+            <DialogDescription>{t("Publicada por")}{" "}{verDemanda?.cliente?.nombre} {verDemanda?.cliente?.apellido}
               {verDemanda?.created_at
-                ? ` el ${new Date(verDemanda.created_at).toLocaleDateString("es-ES")}`
+                ? t(" el {date}", { date: new Date(verDemanda.created_at).toLocaleDateString(localeDe(idioma)) })
                 : ""}
             </DialogDescription>
           </DialogHeader>
@@ -693,28 +659,28 @@ export default function MisOfertas() {
                 )}
                 {(verDemanda.presupuesto_min || verDemanda.presupuesto_max) && (
                   <Badge variant="outline">
-                    {verDemanda.presupuesto_min ? formatearPrecioEuros(verDemanda.presupuesto_min) : ""}
+                    {verDemanda.presupuesto_min ? formatearPrecioEuros(verDemanda.presupuesto_min, idioma) : ""}
                     {verDemanda.presupuesto_min && verDemanda.presupuesto_max ? " – " : ""}
                     {verDemanda.presupuesto_max
-                      ? formatearPrecioEuros(verDemanda.presupuesto_max)
+                      ? formatearPrecioEuros(verDemanda.presupuesto_max, idioma)
                       : verDemanda.presupuesto_min
-                        ? " o más"
+                        ? t(" o más")
                         : ""}
                   </Badge>
                 )}
               </div>
 
               <div>
-                <p className="font-medium mb-1.5">Descripción del cliente</p>
+                <p className="font-medium mb-1.5">{t("Descripción del cliente")}</p>
                 <p className="text-muted-foreground whitespace-pre-wrap">
-                  {verDemanda.descripcion || "Sin descripción."}
+                  {verDemanda.descripcion || t("Sin descripción.")}
                 </p>
               </div>
 
               {Array.isArray(verDemanda.archivos) && verDemanda.archivos.length > 0 && (
                 <div>
                   <p className="font-medium mb-1.5 flex items-center gap-1">
-                    <FileText className="h-4 w-4" /> Archivos adjuntos ({verDemanda.archivos.length})
+                    <FileText className="h-4 w-4" />{" "}{t("Archivos adjuntos (")}{verDemanda.archivos.length})
                   </p>
                   <AdjuntosLista archivos={verDemanda.archivos} />
                 </div>

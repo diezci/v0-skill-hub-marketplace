@@ -1,5 +1,7 @@
 "use client"
 
+import { useIdioma } from "@/components/idioma-provider"
+
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -58,6 +60,8 @@ const ESTADO_LABELS: Record<string, string> = {
 }
 
 export default function AdminIncidenciasPage() {
+  const { t, idioma } = useIdioma()
+
   const [incidencias, setIncidencias] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
@@ -79,7 +83,7 @@ export default function AdminIncidenciasPage() {
     setLoading(true)
     const result = await obtenerIncidencias()
     if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" })
+      toast({ title: t("Error"), description: result.error, variant: "destructive" })
     } else {
       setIncidencias(result.data || [])
     }
@@ -103,9 +107,9 @@ export default function AdminIncidenciasPage() {
       notas_admin: notas,
     })
     if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" })
+      toast({ title: t("Error"), description: result.error, variant: "destructive" })
     } else {
-      toast({ title: "Incidencia actualizada", description: "Los cambios se han guardado." })
+      toast({ title: t("Incidencia actualizada"), description: t("Los cambios se han guardado.") })
       setOpen(false)
       cargar()
     }
@@ -123,12 +127,12 @@ export default function AdminIncidenciasPage() {
     })
     setResolviendo(null)
     if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" })
+      toast({ title: t("Error"), description: result.error, variant: "destructive" })
       return
     }
     toast({
-      title: "Incidencia resuelta",
-      description: "Se ha avisado a quien la reportó.",
+      title: t("Incidencia resuelta"),
+      description: t("Se ha avisado a quien la reportó."),
     })
     setOpen(false)
     cargar()
@@ -155,19 +159,17 @@ export default function AdminIncidenciasPage() {
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-2">
           <ShieldAlert className="h-8 w-8 text-primary" />
-          Centro de Incidencias
-        </h1>
+          {t("Centro de Incidencias")}</h1>
         <p className="text-muted-foreground mt-1">
-          Gestiona reportes de fraude, abuso, problemas de pago y soporte técnico
-        </p>
+          {t("Gestiona reportes de fraude, abuso, problemas de pago y soporte técnico")}</p>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Abiertas" value={incidencias.filter((i) => i.estado === "abierta").length} icon={AlertCircle} color="text-amber-500" bg="bg-amber-500/10" />
-        <StatCard label="En revisión" value={incidencias.filter((i) => i.estado === "en_revision").length} icon={Clock} color="text-blue-500" bg="bg-blue-500/10" />
-        <StatCard label="Resueltas" value={incidencias.filter((i) => i.estado === "resuelta").length} icon={CheckCircle2} color="text-emerald-500" bg="bg-emerald-500/10" />
-        <StatCard label="Críticas pendientes" value={criticas} icon={ShieldAlert} color={criticas > 0 ? "text-red-500" : "text-muted-foreground"} bg={criticas > 0 ? "bg-red-500/10" : "bg-muted"} alert={criticas > 0} />
+        <StatCard label={t("Abiertas")} value={incidencias.filter((i) => i.estado === "abierta").length} icon={AlertCircle} color="text-amber-500" bg="bg-amber-500/10" />
+        <StatCard label={t("En revisión")} value={incidencias.filter((i) => i.estado === "en_revision").length} icon={Clock} color="text-blue-500" bg="bg-blue-500/10" />
+        <StatCard label={t("Resueltas")} value={incidencias.filter((i) => i.estado === "resuelta").length} icon={CheckCircle2} color="text-emerald-500" bg="bg-emerald-500/10" />
+        <StatCard label={t("Críticas pendientes")} value={criticas} icon={ShieldAlert} color={criticas > 0 ? "text-red-500" : "text-muted-foreground"} bg={criticas > 0 ? "bg-red-500/10" : "bg-muted"} alert={criticas > 0} />
       </div>
 
       {/* Filters */}
@@ -175,7 +177,7 @@ export default function AdminIncidenciasPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por asunto, descripción o email..."
+            placeholder={t("Buscar por asunto, descripción o email...")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -183,13 +185,13 @@ export default function AdminIncidenciasPage() {
         </div>
         <Select value={filtroCategoria} onValueChange={setFiltroCategoria}>
           <SelectTrigger className="w-full md:w-[220px]">
-            <SelectValue placeholder="Categoría" />
+            <SelectValue placeholder={t("Categoría")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="todas">Todas las categorías</SelectItem>
+            <SelectItem value="todas">{t("Todas las categorías")}</SelectItem>
             {Object.entries(CATEGORIA_LABELS).map(([k, v]) => (
               <SelectItem key={k} value={k}>
-                {v}
+                {t(v)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -199,10 +201,10 @@ export default function AdminIncidenciasPage() {
       {/* Tabs */}
       <Tabs defaultValue="abiertas">
         <TabsList>
-          <TabsTrigger value="abiertas">Abiertas ({abiertas.length})</TabsTrigger>
-          <TabsTrigger value="revision">En revisión ({enRevision.length})</TabsTrigger>
-          <TabsTrigger value="resueltas">Resueltas ({resueltas.length})</TabsTrigger>
-          <TabsTrigger value="todas">Todas ({filtradas.length})</TabsTrigger>
+          <TabsTrigger value="abiertas">{t("Abiertas (")}{abiertas.length})</TabsTrigger>
+          <TabsTrigger value="revision">{t("En revisión (")}{enRevision.length})</TabsTrigger>
+          <TabsTrigger value="resueltas">{t("Resueltas (")}{resueltas.length})</TabsTrigger>
+          <TabsTrigger value="todas">{t("Todas (")}{filtradas.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="abiertas" className="space-y-3 mt-4">
@@ -225,10 +227,10 @@ export default function AdminIncidenciasPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ShieldAlert className="h-5 w-5 text-primary" />
-              {selected?.asunto || "Incidencia"}
+              {selected?.asunto || t("Incidencia")}
             </DialogTitle>
             <DialogDescription>
-              Reportada el {selected ? formatearFecha(selected.created_at) : ""}
+              {t("Reportada el")}{" "}{selected ? formatearFecha(selected.created_at, idioma) : ""}
             </DialogDescription>
           </DialogHeader>
 
@@ -237,7 +239,7 @@ export default function AdminIncidenciasPage() {
               {/* Meta info */}
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="bg-muted/50 rounded-lg p-3">
-                  <p className="text-xs text-muted-foreground mb-0.5">Reportado por</p>
+                  <p className="text-xs text-muted-foreground mb-0.5">{t("Reportado por")}</p>
                   <p className="font-medium flex items-center gap-1.5">
                     <User2 className="h-3.5 w-3.5" />
                     {selected.reportador?.nombre || ""} {selected.reportador?.apellido || ""}
@@ -245,15 +247,15 @@ export default function AdminIncidenciasPage() {
                   <p className="text-xs text-muted-foreground">{selected.reportador?.email}</p>
                 </div>
                 <div className="bg-muted/50 rounded-lg p-3">
-                  <p className="text-xs text-muted-foreground mb-0.5">Categoría</p>
+                  <p className="text-xs text-muted-foreground mb-0.5">{t("Categoría")}</p>
                   <p className="font-medium flex items-center gap-1.5">
                     <Tag className="h-3.5 w-3.5" />
-                    {CATEGORIA_LABELS[selected.categoria] || selected.categoria}
+                    {t(CATEGORIA_LABELS[selected.categoria] || selected.categoria)}
                   </p>
                 </div>
                 {selected.reportado && (
                   <div className="bg-muted/50 rounded-lg p-3 col-span-2">
-                    <p className="text-xs text-muted-foreground mb-0.5">Usuario reportado</p>
+                    <p className="text-xs text-muted-foreground mb-0.5">{t("Usuario reportado")}</p>
                     <p className="font-medium">
                       {selected.reportado.nombre} {selected.reportado.apellido}{" "}
                       <span className="text-xs text-muted-foreground">({selected.reportado.email})</span>
@@ -264,7 +266,7 @@ export default function AdminIncidenciasPage() {
 
               {/* Description */}
               <div>
-                <p className="text-xs text-muted-foreground mb-1.5">Descripción</p>
+                <p className="text-xs text-muted-foreground mb-1.5">{t("Descripción")}</p>
                 <div className="bg-background border rounded-lg p-3 text-sm whitespace-pre-wrap">
                   {selected.descripcion}
                 </div>
@@ -273,39 +275,39 @@ export default function AdminIncidenciasPage() {
               {/* Editable fields */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground block mb-1.5">Estado</label>
+                  <label className="text-xs font-medium text-muted-foreground block mb-1.5">{t("Estado")}</label>
                   <Select value={estado} onValueChange={(v) => setEstado(v as IncidenciaEstado)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="abierta">Abierta</SelectItem>
-                      <SelectItem value="en_revision">En revisión</SelectItem>
-                      <SelectItem value="resuelta">Resuelta</SelectItem>
-                      <SelectItem value="cerrada">Cerrada</SelectItem>
+                      <SelectItem value="abierta">{t("Abierta")}</SelectItem>
+                      <SelectItem value="en_revision">{t("En revisión")}</SelectItem>
+                      <SelectItem value="resuelta">{t("Resuelta")}</SelectItem>
+                      <SelectItem value="cerrada">{t("Cerrada")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground block mb-1.5">Prioridad</label>
+                  <label className="text-xs font-medium text-muted-foreground block mb-1.5">{t("Prioridad")}</label>
                   <Select value={prioridad} onValueChange={(v) => setPrioridad(v as IncidenciaPrioridad)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="baja">Baja</SelectItem>
-                      <SelectItem value="media">Media</SelectItem>
-                      <SelectItem value="alta">Alta</SelectItem>
-                      <SelectItem value="critica">Crítica</SelectItem>
+                      <SelectItem value="baja">{t("Baja")}</SelectItem>
+                      <SelectItem value="media">{t("Media")}</SelectItem>
+                      <SelectItem value="alta">{t("Alta")}</SelectItem>
+                      <SelectItem value="critica">{t("Crítica")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1.5">Notas internas del admin</label>
+                <label className="text-xs font-medium text-muted-foreground block mb-1.5">{t("Notas internas del admin")}</label>
                 <Textarea
-                  placeholder="Acciones tomadas, comunicaciones, conclusiones..."
+                  placeholder={t("Acciones tomadas, comunicaciones, conclusiones...")}
                   value={notas}
                   onChange={(e) => setNotas(e.target.value)}
                   rows={4}
@@ -316,16 +318,14 @@ export default function AdminIncidenciasPage() {
 
           <DialogFooter className="gap-2 sm:gap-2">
             <Button variant="outline" onClick={() => setOpen(false)} className="bg-transparent">
-              Cancelar
-            </Button>
+              {t("Cancelar")}</Button>
             <Button variant="outline" onClick={guardar} disabled={saving || !!resolviendo}>
               {saving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Guardando...
-                </>
+                  {t("Guardando...")}</>
               ) : (
-                "Guardar cambios"
+                t("Guardar cambios")
               )}
             </Button>
             {selected && !["resuelta", "cerrada"].includes(selected.estado) && (
@@ -339,8 +339,7 @@ export default function AdminIncidenciasPage() {
                 ) : (
                   <CheckCircle2 className="h-4 w-4" />
                 )}
-                Marcar como resuelta
-              </Button>
+                {t("Marcar como resuelta")}</Button>
             )}
           </DialogFooter>
         </DialogContent>
@@ -362,12 +361,14 @@ function Lista({
   onResolver: (i: any) => void
   resolviendo: string | null
 }) {
+  const { t, idioma } = useIdioma()
+
   if (loading) {
     return (
       <Card>
         <CardContent className="pt-6 flex items-center justify-center gap-2">
           <Loader2 className="h-5 w-5 animate-spin" />
-          <span>Cargando incidencias...</span>
+          <span>{t("Cargando incidencias...")}</span>
         </CardContent>
       </Card>
     )
@@ -377,7 +378,7 @@ function Lista({
       <Card>
         <CardContent className="pt-6 text-center text-muted-foreground py-12">
           <ShieldAlert className="h-10 w-10 mx-auto mb-2 opacity-40" />
-          <p>No hay incidencias en esta categoría</p>
+          <p>{t("No hay incidencias en esta categoría")}</p>
         </CardContent>
       </Card>
     )
@@ -398,17 +399,17 @@ function Lista({
               <div className="flex-1 min-w-0">
                 <CardTitle className="text-base truncate">{inc.asunto}</CardTitle>
                 <CardDescription className="text-xs mt-1">
-                  {inc.reportador?.nombre} {inc.reportador?.apellido} · {formatearFecha(inc.created_at)}
+                  {inc.reportador?.nombre} {inc.reportador?.apellido} · {formatearFecha(inc.created_at, idioma)}
                 </CardDescription>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 <Badge variant="outline" className={ESTADO_STYLES[inc.estado]}>
-                  {ESTADO_LABELS[inc.estado]}
+                  {t(ESTADO_LABELS[inc.estado] || inc.estado)}
                 </Badge>
                 <Badge variant="outline" className={PRIORIDAD_STYLES[inc.prioridad]}>
-                  {inc.prioridad}
+                  {t(inc.prioridad)}
                 </Badge>
-                <Badge variant="outline">{CATEGORIA_LABELS[inc.categoria]}</Badge>
+                <Badge variant="outline">{t(CATEGORIA_LABELS[inc.categoria] || inc.categoria)}</Badge>
               </div>
             </div>
           </CardHeader>
@@ -417,8 +418,7 @@ function Lista({
             <div className="flex flex-wrap items-center gap-2 mt-2">
               <Button variant="ghost" size="sm" className="-ml-2 gap-2">
                 <Eye className="h-4 w-4" />
-                Ver y gestionar
-              </Button>
+                {t("Ver y gestionar")}</Button>
               {!["resuelta", "cerrada"].includes(inc.estado) && (
                 <Button
                   size="sm"
@@ -435,8 +435,7 @@ function Lista({
                   ) : (
                     <CheckCircle2 className="h-4 w-4" />
                   )}
-                  Marcar resuelta
-                </Button>
+                  {t("Marcar resuelta")}</Button>
               )}
             </div>
           </CardContent>

@@ -1,5 +1,8 @@
 "use client"
 
+import { useT } from "@/components/idioma-provider"
+
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { LogOut } from "lucide-react"
@@ -8,6 +11,7 @@ import { createClient } from "@/lib/supabase/client"
 import { desvincularPushActual } from "@/lib/push/client"
 
 export default function LogoutButton() {
+  const t = useT()
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
 
@@ -29,7 +33,7 @@ export default function LogoutButton() {
       className="gap-2"
     >
       <LogOut className="h-4 w-4" />
-      {isLoading ? "Cerrando sesion..." : "Cerrar sesion"}
+      {isLoading ? t("Cerrando sesion...") : t("Cerrar sesion")}
     </Button>
   )
 }

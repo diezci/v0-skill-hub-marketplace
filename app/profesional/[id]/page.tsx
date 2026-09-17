@@ -1,3 +1,5 @@
+import { getT } from "@/lib/i18n-servidor"
+import { localeDe } from "@/lib/i18n"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import PerfilProfesionalPublico from "@/components/perfil-profesional-publico"
@@ -10,23 +12,25 @@ import { obtenerProfesionalPorId } from "@/app/actions/profiles"
 export const dynamic = "force-dynamic"
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { t } = await getT()
+
   try {
     const { id } = await params
     const result = await obtenerProfesionalPorId(id)
 
     if (!result.data) {
-      return { title: "Perfil no encontrado | Diime" }
+      return { title: t("Perfil no encontrado | Diime") }
     }
 
     const profile = result.data
     const nombre = `${profile.perfil?.nombre || ""} ${profile.perfil?.apellido || ""}`.trim()
 
     return {
-      title: `${nombre} - ${profile.titulo || "Profesional"} | Diime`,
-      description: `${profile.perfil?.bio || "Profesional en Diime"} - ${profile.proyectos_completados || 0} proyectos completados.`,
+      title: `${nombre} - ${profile.titulo || t("Profesional")} | Diime`,
+      description: `${profile.perfil?.bio || t("Profesional en Diime")} - ${t(profile.proyectos_completados === 1 ? "{cantidad} proyecto completado." : "{cantidad} proyectos completados.", { cantidad: profile.proyectos_completados || 0 })}`,
     }
   } catch {
-    return { title: "Perfil | Diime" }
+    return { title: t("Perfil | Diime") }
   }
 }
 
@@ -37,6 +41,8 @@ export default async function ProfilePage({
   params: Promise<{ id: string }>
   searchParams: Promise<{ valorar?: string }>
 }) {
+  const { t, idioma } = await getT()
+
   const { id } = await params
   // Llegar con ?valorar=1 (p. ej. desde el botón "Valorar" del chat) abre
   // directamente la pestaña de valoraciones.
@@ -73,7 +79,7 @@ export default async function ProfilePage({
     proyectos_completados: profile.proyectos_completados || 0,
     anos_experiencia: profile["años_experiencia"] ?? profile.anos_experiencia ?? 0,
     tarifa_hora: profile.tarifa_por_hora || 0,
-    tiempo_respuesta: profile.tiempo_respuesta || "24 horas",
+    tiempo_respuesta: profile.tiempo_respuesta || t("24 horas"),
     nivel: profile.verificado ? "Experto Verificado" : "Profesional",
     disponibilidad: profile.disponible ? "Disponible" : "No disponible",
     verificado: profile.verificado || false,
@@ -103,12 +109,12 @@ export default async function ProfilePage({
       avatar: review.cliente?.foto_perfil || "",
       rating: review.rating,
       fecha: review.created_at
-        ? new Date(review.created_at).toLocaleDateString("es-ES", { day: "numeric", month: "short" })
+        ? new Date(review.created_at).toLocaleDateString(localeDe(idioma), { day: "numeric", month: "short" })
         : review.fecha_creacion
-        ? new Date(review.fecha_creacion).toLocaleDateString("es-ES", { day: "numeric", month: "short" })
+        ? new Date(review.fecha_creacion).toLocaleDateString(localeDe(idioma), { day: "numeric", month: "short" })
         : "",
       texto: review.comentario,
-      proyecto: review.tipo_proyecto || "Proyecto",
+      proyecto: review.tipo_proyecto || t("Proyecto"),
     })),
     estadisticas: {
       entrega_tiempo: 95,

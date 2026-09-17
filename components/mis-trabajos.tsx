@@ -1,5 +1,8 @@
 "use client"
 
+import { useT, useIdioma } from "@/components/idioma-provider"
+import { localeDe } from "@/lib/i18n"
+
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -45,6 +48,9 @@ const estadoConfig: Record<
 }
 
 export default function MisTrabajos() {
+  const t = useT()
+  const { idioma } = useIdioma()
+
   const [filtroEstado, setFiltroEstado] = useState<EstadoTrabajo | "todos">("todos")
   const [trabajos, setTrabajos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -66,14 +72,14 @@ export default function MisTrabajos() {
     const result = await actualizarEstadoTrabajo(trabajoId, "completado")
     if (result.error) {
       toast({
-        title: "Error",
-        description: result.error,
+        title: t("Error"),
+        description: t(result.error),
         variant: "destructive",
       })
     } else {
       toast({
-        title: "Trabajo completado",
-        description: "El trabajo ha sido marcado como completado",
+        title: t("Trabajo completado"),
+        description: t("El trabajo ha sido marcado como completado"),
       })
       setTrabajos(trabajos.map((t) => (t.id === trabajoId ? { ...t, estado: "completado" } : t)))
     }
@@ -102,33 +108,25 @@ export default function MisTrabajos() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Mis Trabajos</CardTitle>
-          <CardDescription>Gestiona todos tus trabajos activos y completados</CardDescription>
+          <CardTitle>{t("Mis Trabajos")}</CardTitle>
+          <CardDescription>{t("Gestiona todos tus trabajos activos y completados")}</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="todos" className="space-y-6" onValueChange={(v) => setFiltroEstado(v as any)}>
             <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="todos">
-                Todos
-                <Badge variant="secondary" className="ml-2">
+              <TabsTrigger value="todos">{t("Todos")}<Badge variant="secondary" className="ml-2">
                   {contadores.todos}
                 </Badge>
               </TabsTrigger>
-              <TabsTrigger value="en_progreso">
-                En Progreso
-                <Badge variant="secondary" className="ml-2">
+              <TabsTrigger value="en_progreso">{t("En Progreso")}<Badge variant="secondary" className="ml-2">
                   {contadores.en_progreso}
                 </Badge>
               </TabsTrigger>
-              <TabsTrigger value="completado">
-                Completados
-                <Badge variant="secondary" className="ml-2">
+              <TabsTrigger value="completado">{t("Completados")}<Badge variant="secondary" className="ml-2">
                   {contadores.completado}
                 </Badge>
               </TabsTrigger>
-              <TabsTrigger value="cancelado">
-                Cancelados
-                <Badge variant="secondary" className="ml-2">
+              <TabsTrigger value="cancelado">{t("Cancelados")}<Badge variant="secondary" className="ml-2">
                   {contadores.cancelado}
                 </Badge>
               </TabsTrigger>
@@ -139,9 +137,8 @@ export default function MisTrabajos() {
                 <Card>
                   <CardContent className="flex flex-col items-center justify-center py-12">
                     <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground text-center">
-                      No tienes trabajos{" "}
-                      {filtroEstado !== "todos" && `en estado "${estadoConfig[filtroEstado as EstadoTrabajo]?.label}"`}
+                    <p className="text-muted-foreground text-center">{t("No tienes trabajos")}{" "}
+                      {filtroEstado !== "todos" && t("en estado «{status}»", { status: t(estadoConfig[filtroEstado as EstadoTrabajo]?.label || "") })}
                     </p>
                   </CardContent>
                 </Card>
@@ -159,14 +156,14 @@ export default function MisTrabajos() {
                               <div className="flex-1">
                                 <CardTitle className="text-xl">{trabajo.solicitud?.titulo}</CardTitle>
                                 <CardDescription className="mt-1">
-                                  {trabajo.solicitud?.categoria?.nombre || "Categoría no especificada"}
+                                  {t(trabajo.solicitud?.categoria?.nombre || "Categoría no especificada")}
                                 </CardDescription>
                               </div>
                             </div>
                           </div>
                           <Badge variant={config.variant} className="gap-1.5 self-start">
                             <IconoEstado className="h-3.5 w-3.5" />
-                            {config.label}
+                            {t(config.label)}
                           </Badge>
                         </div>
                       </CardHeader>
@@ -176,7 +173,7 @@ export default function MisTrabajos() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                           <div className="flex items-center gap-2 text-muted-foreground">
                             <Calendar className="h-4 w-4" />
-                            <span>Iniciado: {new Date(trabajo.created_at).toLocaleDateString("es-ES")}</span>
+                            <span>{t("Iniciado:")}{" "}{new Date(trabajo.created_at).toLocaleDateString(localeDe(idioma))}</span>
                           </div>
                           <div className="flex items-center gap-2 text-muted-foreground">
                             <MapPin className="h-4 w-4" />
@@ -184,7 +181,7 @@ export default function MisTrabajos() {
                           </div>
                           <div className="flex items-center gap-2 text-muted-foreground">
                             <Euro className="h-4 w-4" />
-                            <span className="font-semibold text-foreground">{formatearPrecioEuros(trabajo.oferta?.precio)}</span>
+                            <span className="font-semibold text-foreground">{formatearPrecioEuros(trabajo.oferta?.precio, idioma)}</span>
                           </div>
                           <div className="flex items-center gap-2 text-muted-foreground">
                             <User className="h-4 w-4" />
@@ -197,8 +194,7 @@ export default function MisTrabajos() {
                         {trabajo.transaccion_escrow && (
                           <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
                             <AlertCircle className="h-4 w-4 text-primary" />
-                            <span className="text-sm">
-                              Pago protegido - Estado: {trabajo.transaccion_escrow.estado}
+                            <span className="text-sm">{t("Pago protegido - Estado:")}{" "}{t(trabajo.transaccion_escrow.estado)}
                             </span>
                           </div>
                         )}
@@ -208,31 +204,22 @@ export default function MisTrabajos() {
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button variant="default" size="sm" className="gap-2">
-                                  <CheckCircle2 className="h-4 w-4" />
-                                  Marcar como Completado
-                                </Button>
+                                  <CheckCircle2 className="h-4 w-4" />{t("Marcar como Completado")}</Button>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>¿Marcar trabajo como completado?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Esta acción notificará al cliente que el trabajo está completado. Si hay un pago en
-                                    pago protegido, el cliente podrá liberar la transferencia.
-                                  </AlertDialogDescription>
+                                  <AlertDialogTitle>{t("¿Marcar trabajo como completado?")}</AlertDialogTitle>
+                                  <AlertDialogDescription>{t("Esta acción notificará al cliente que el trabajo está completado. Si hay un pago en pago protegido, el cliente podrá liberar la transferencia.")}</AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleMarcarCompletado(trabajo.id)}>
-                                    Confirmar
-                                  </AlertDialogAction>
+                                  <AlertDialogCancel>{t("Cancelar")}</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleMarcarCompletado(trabajo.id)}>{t("Confirmar")}</AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
                             </AlertDialog>
                           )}
                           {trabajo.estado === "completado" && !trabajo.review && (
-                            <Button variant="outline" size="sm">
-                              Dejar Valoración
-                            </Button>
+                            <Button variant="outline" size="sm">{t("Dejar Valoración")}</Button>
                           )}
                         </div>
                       </CardContent>

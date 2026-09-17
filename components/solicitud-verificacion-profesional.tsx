@@ -1,5 +1,7 @@
 "use client"
 
+import { useT } from "@/components/idioma-provider"
+
 import { useEffect, useId, useState, useTransition, type FormEvent } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -34,6 +36,7 @@ export function SolicitudVerificacionProfesional({
 }: {
   onVerificacionActualizada?: (verificado: boolean) => void
 }) {
+  const t = useT()
   const router = useRouter()
   const mensajeId = useId()
   const ayudaId = useId()
@@ -121,27 +124,27 @@ export function SolicitudVerificacionProfesional({
       <CardHeader>
         <CardTitle role="heading" aria-level={2} className="flex items-center gap-2 text-lg">
           <ClipboardList className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
-          Verificación por Diime
+          {t("Verificación por Diime")}
         </CardTitle>
         <CardDescription>
-          Solicita la revisión de tu perfil profesional. Diime te contactará por chat, correo electrónico o teléfono.
+          {t("Solicita la revisión de tu perfil profesional. Diime te contactará por chat, correo electrónico o teléfono.")}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {confirmacion ? (
-          <p role="status" className="text-sm text-emerald-700 dark:text-emerald-400">{confirmacion}</p>
+          <p role="status" className="text-sm text-emerald-700 dark:text-emerald-400">{t(confirmacion)}</p>
         ) : null}
 
         {cargando ? (
           <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
-            Cargando verificación…
+            {t("Cargando verificación…")}
           </p>
         ) : datos ? (
           <>
             {datos.empresa ? (
               <p className="break-words text-sm text-muted-foreground">
-                Perfil vinculado a <span className="font-medium text-foreground">{datos.empresa.nombre}</span>.
+                {t("Perfil vinculado a")} <span className="font-medium text-foreground">{datos.empresa.nombre}</span>.
               </p>
             ) : null}
 
@@ -152,15 +155,15 @@ export function SolicitudVerificacionProfesional({
                   className="max-w-full whitespace-normal text-left"
                 >
                   {estado === "verificado" ? <BadgeCheck aria-hidden="true" /> : null}
-                  {etiquetasVerificacion[estado]}
+                  {t(etiquetasVerificacion[estado])}
                 </Badge>
-                <p className="text-sm text-muted-foreground">{explicaciones[estado]}</p>
+                <p className="text-sm text-muted-foreground">{t(explicaciones[estado])}</p>
               </div>
             ) : null}
 
             {solicitud?.comentario_publico ? (
               <div className="space-y-1 rounded-lg border bg-muted/40 p-3">
-                <p className="text-sm font-medium">Comentario de Diime</p>
+                <p className="text-sm font-medium">{t("Comentario de Diime")}</p>
                 <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">
                   {solicitud.comentario_publico}
                 </p>
@@ -170,7 +173,7 @@ export function SolicitudVerificacionProfesional({
             {puedeSolicitar ? (
               <form onSubmit={enviarSolicitud} className="space-y-3">
                 <div className="space-y-2">
-                  <Label htmlFor={mensajeId}>Mensaje para Diime (opcional)</Label>
+                  <Label htmlFor={mensajeId}>{t("Mensaje para Diime (opcional)")}</Label>
                   <Textarea
                     id={mensajeId}
                     aria-describedby={ayudaId}
@@ -179,28 +182,28 @@ export function SolicitudVerificacionProfesional({
                     maxLength={MAX_MENSAJE}
                     rows={4}
                     disabled={enviando || envioSinConfirmar}
-                    placeholder="Cuéntanos qué servicios ofreces o añade información útil para revisar tu perfil."
+                    placeholder={t("Cuéntanos qué servicios ofreces o añade información útil para revisar tu perfil.")}
                     className="min-h-28 resize-y"
                   />
                   <p id={ayudaId} className="text-xs text-muted-foreground">
-                    {mensaje.length} / {MAX_MENSAJE} caracteres
+                    {mensaje.length} / {MAX_MENSAJE} {t("caracteres")}
                   </p>
                 </div>
                 <Button type="submit" disabled={enviando || envioSinConfirmar} className="min-h-11 w-full whitespace-normal sm:w-auto">
                   {enviando ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" /> : null}
-                  {enviando ? "Enviando…" : solicitud ? "Volver a solicitar verificación" : "Solicitar verificación"}
+                  {enviando ? t("Enviando…") : solicitud ? t("Volver a solicitar verificación") : t("Solicitar verificación")}
                 </Button>
               </form>
             ) : null}
           </>
         ) : null}
 
-        {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+        {error ? <p role="alert" className="text-sm text-destructive">{t(error)}</p> : null}
 
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           {datos ? (
             <Button asChild variant="outline" className="min-h-11 w-full sm:w-auto">
-              <Link href="/mensajes"><MessageCircle className="h-4 w-4 shrink-0" aria-hidden="true" />Ver mensajes</Link>
+              <Link href="/mensajes"><MessageCircle className="h-4 w-4 shrink-0" aria-hidden="true" />{t("Ver mensajes")}</Link>
             </Button>
           ) : null}
           <Button
@@ -214,7 +217,7 @@ export function SolicitudVerificacionProfesional({
             className="min-h-11 w-full sm:w-auto"
           >
             <RefreshCw className="h-4 w-4 shrink-0" aria-hidden="true" />
-            {error && !datos ? "Reintentar" : "Actualizar estado"}
+            {error && !datos ? t("Reintentar") : t("Actualizar estado")}
           </Button>
         </div>
       </CardContent>
