@@ -27,7 +27,7 @@ const faqs = [
   },
   {
     q: "¿Puedo cancelar un trabajo contratado?",
-    a: "Sí. Si el trabajo aún no ha comenzado, puedes cancelarlo y recibirás el reembolso completo. Si ya está en progreso, se aplica la política de cancelación parcial según los términos acordados.",
+    a: "Puedes solicitar una cancelación de mutuo acuerdo antes de la entrega. Si la otra parte acepta y ya habías pagado, se devuelve el precio del servicio; Diime conserva los gastos de servicio del cliente cobrados al pagar. Si no habías pagado, no se mueve dinero. Si se rechaza, se abre una disputa que resuelve Diime. Los pagos tardíos que no activan la contratación se devuelven íntegramente.",
   },
   {
     q: "¿Cómo me registro como profesional?",

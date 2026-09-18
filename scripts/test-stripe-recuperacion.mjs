@@ -8,10 +8,10 @@ function load(file, dependencies) {
   {exports,require:name=>{if(name==='server-only')return {};if(name in dependencies)return dependencies[name];throw new Error(`Unexpected dependency ${name}`)}})
  return exports
 }
-function fixture() {
+function fixture(total=110) {
  const refunds=[],transfers=[];let pending=false,failTransfer=false,disputed=false
  const stripe={
-  paymentIntents:{retrieve:async()=>({currency:'eur',status:'succeeded',latest_charge:'ch_test',amount:11000,amount_received:11000})},
+  paymentIntents:{retrieve:async()=>({currency:'eur',status:'succeeded',latest_charge:'ch_test',amount:Math.round(total*100),amount_received:Math.round(total*100)})},
   charges:{retrieve:async()=>({id:'ch_test',disputed})},
   refunds:{list:async()=>({data:refunds,has_more:false}),retrieve:async id=>({...refunds.find(r=>r.id===id),status:pending?'pending':'succeeded'}),create:async p=>{const r={...p,id:'re_test',status:pending?'pending':'succeeded'};refunds.push(r);return r}},
   transfers:{list:async()=>({data:transfers,has_more:false}),retrieve:async id=>transfers.find(t=>t.id===id),create:async p=>{if(failTransfer)throw Error('Interrupted transfer');const t={...p,id:'tr_test',amount_reversed:0};transfers.push(t);return t}},
@@ -51,6 +51,22 @@ await check('Bank dispute blocks every financial movement',async()=>{
 await check('Different recipient on retry cannot cause a second transfer',async()=>{
  const f=fixture();await f.m.ejecutarLiquidacionStripe(params)
  await assert.rejects(()=>f.m.ejecutarLiquidacionStripe({...params,connectedAccountId:'acct_changed'}));assert.equal(f.transfers.length,1)
+})
+await check('Paid cancellation refunds only 20 of 22 EUR, keeps the 2 EUR fee and retries the same refund',async()=>{
+ const f=fixture(22)
+ const cancellation={...params,montoTotal:22,reembolsoCliente:20,netoProveedor:0,connectedAccountId:null,operacionId:'cancelacion-mutua-test'}
+ await f.m.ejecutarLiquidacionStripe(cancellation);await f.m.ejecutarLiquidacionStripe(cancellation)
+ assert.equal(f.refunds.length,1);assert.equal(f.refunds[0].amount,2000);assert.equal(f.transfers.length,0)
+ assert.equal(f.refunds[0].metadata.reembolso_centimos,'2000')
+})
+await check('The old 22 EUR cancellation and late-payment refunds retain their frozen amount',async()=>{
+ for(const operation of ['cancelacion-mutua-antigua','pago-tardio-test']) {
+  const f=fixture(22);const old={...params,montoTotal:22,reembolsoCliente:22,netoProveedor:0,connectedAccountId:null,operacionId:operation}
+  await f.m.ejecutarLiquidacionStripe(old);await f.m.ejecutarLiquidacionStripe(old)
+  assert.equal(f.refunds.length,1);assert.equal(f.refunds[0].amount,2200);assert.equal(f.transfers.length,0)
+  await assert.rejects(()=>f.m.ejecutarLiquidacionStripe({...old,reembolsoCliente:20}),/reparto fijado/)
+  assert.equal(f.refunds.length,1)
+ }
 })
 await check('Expiration racing with a captured payment reconciles instead of cancelling the charge record',async()=>{
  const f=fixture();let reads=0;const calls=[]

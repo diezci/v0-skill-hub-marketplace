@@ -1,5 +1,6 @@
 "use server"
 
+import { construirLinkNotificacion } from "@/lib/notificaciones-contexto"
 import { textoServidor } from "@/lib/i18n-servidor"
 
 import { createClient } from "@/lib/supabase/server"
@@ -242,7 +243,7 @@ export async function solicitarCancelacion(trabajoId: string, razon: string, arc
 
   const { data: trabajo } = await supabase
     .from("trabajos")
-    .select("id, cliente_id, profesional_id, estado, cancelacion_estado, titulo")
+    .select("id, solicitud_id, oferta_id, cliente_id, profesional_id, estado, cancelacion_estado, titulo")
     .eq("id", trabajoId)
     .maybeSingle()
 
@@ -250,7 +251,8 @@ export async function solicitarCancelacion(trabajoId: string, razon: string, arc
     return { error: await textoServidor("No tienes permiso sobre este trabajo") }
   }
   // Cancelación de mutuo acuerdo: antes del pago o con el trabajo en curso.
-  // Si ya está pagado y se acepta, el cliente recibe el reembolso íntegro.
+  // Si ya está pagado y se acepta, se devuelve el servicio y se conservan
+  // los gastos Diime del cliente según el reparto fijado en la liquidación.
   if (!["pendiente_pago", "en_progreso"].includes(trabajo.estado)) {
     return { error: await textoServidor("Este trabajo ya no admite cancelación de mutuo acuerdo (usa la disputa si hay un problema).") }
   }
@@ -296,6 +298,7 @@ export async function solicitarCancelacion(trabajoId: string, razon: string, arc
       usuarioId: otroId,
       tipo: "cancelacion_solicitada",
       titulo: "Solicitud de cancelación",
+      metadata: { titulo_trabajo: trabajo.titulo },
       // Antes de pagar, la demanda sigue en estado "abierta" y por tanto en la
       // pestaña Abiertas, no en En Progreso: decir "En Progreso" mandaba al
       // cliente a una pestaña donde su demanda no estaba.
@@ -304,7 +307,7 @@ export async function solicitarCancelacion(trabajoId: string, razon: string, arc
           ? `Mis Solicitudes (pestaña ${trabajo.estado === "pendiente_pago" ? "Abiertas" : "En Progreso"})`
           : trabajo.estado === "pendiente_pago" ? "Mis Pujas" : "Gestión de proyectos (pestaña Activos)"
       }.`,
-      link: otroEsCliente ? "/mis-solicitudes" : trabajo.estado === "pendiente_pago" ? "/mis-ofertas" : "/mis-trabajos",
+      link: construirLinkNotificacion({ seccion: otroEsCliente ? "/mis-solicitudes" : trabajo.estado === "pendiente_pago" ? "/mis-ofertas" : "/mis-trabajos", solicitudId: trabajo.solicitud_id, trabajoId, ofertaId: trabajo.oferta_id, aspecto: "cancelacion" }),
     })
   }
 
@@ -330,7 +333,7 @@ export async function editarSolicitudCancelacion(
 
   const { data: trabajo } = await supabase
     .from("trabajos")
-    .select("id, cliente_id, profesional_id, estado, cancelacion_estado, cancelacion_solicitada_por, titulo")
+    .select("id, solicitud_id, oferta_id, cliente_id, profesional_id, estado, cancelacion_estado, cancelacion_solicitada_por, titulo")
     .eq("id", trabajoId)
     .maybeSingle()
 
@@ -378,8 +381,9 @@ export async function editarSolicitudCancelacion(
     usuarioId: otroId,
     tipo: "cancelacion_actualizada",
     titulo: "Solicitud de cancelación actualizada",
+    metadata: { titulo_trabajo: trabajo.titulo },
     mensaje: `La otra parte ha actualizado sus argumentos o archivos para cancelar "${trabajo.titulo}".`,
-    link: otroEsCliente ? "/mis-solicitudes" : trabajo.estado === "pendiente_pago" ? "/mis-ofertas" : "/mis-trabajos",
+    link: construirLinkNotificacion({ seccion: otroEsCliente ? "/mis-solicitudes" : trabajo.estado === "pendiente_pago" ? "/mis-ofertas" : "/mis-trabajos", solicitudId: trabajo.solicitud_id, trabajoId, ofertaId: trabajo.oferta_id, aspecto: "cancelacion" }),
   })
 
   revalidatePath("/mis-solicitudes")
@@ -399,7 +403,7 @@ export async function retirarSolicitudCancelacion(trabajoId: string) {
 
   const { data: trabajo } = await supabase
     .from("trabajos")
-    .select("id, cliente_id, profesional_id, estado, cancelacion_estado, cancelacion_solicitada_por, titulo")
+    .select("id, solicitud_id, oferta_id, cliente_id, profesional_id, estado, cancelacion_estado, cancelacion_solicitada_por, titulo")
     .eq("id", trabajoId)
     .maybeSingle()
 
@@ -446,8 +450,9 @@ export async function retirarSolicitudCancelacion(trabajoId: string) {
     usuarioId: otroId,
     tipo: "cancelacion_retirada",
     titulo: "Solicitud de cancelación retirada",
+    metadata: { titulo_trabajo: trabajo.titulo },
     mensaje: `La otra parte ha retirado la solicitud de cancelación de "${trabajo.titulo}". El servicio continúa.`,
-    link: otroEsCliente ? "/mis-solicitudes" : trabajo.estado === "pendiente_pago" ? "/mis-ofertas" : "/mis-trabajos",
+    link: construirLinkNotificacion({ seccion: otroEsCliente ? "/mis-solicitudes" : trabajo.estado === "pendiente_pago" ? "/mis-ofertas" : "/mis-trabajos", solicitudId: trabajo.solicitud_id, trabajoId, ofertaId: trabajo.oferta_id, aspecto: "cancelacion" }),
   })
 
   revalidatePath("/mis-solicitudes")
@@ -476,7 +481,7 @@ export async function responderCancelacion(
       // cancelacion_razon: sin pedirla, la disputa que se abre al rechazar
       // quedaba con "Motivo original de la cancelación: no indicado" aunque el
       // solicitante lo hubiera escrito, y quien la resuelve se queda sin el dato.
-      "id, cliente_id, profesional_id, estado, cancelacion_estado, cancelacion_solicitada_por, cancelacion_razon, cancelacion_adjuntos_solicitante, solicitud_id, oferta_id, titulo",
+      "id, solicitud_id, oferta_id, cliente_id, profesional_id, estado, cancelacion_estado, cancelacion_solicitada_por, cancelacion_razon, cancelacion_adjuntos_solicitante, titulo",
     )
     .eq("id", trabajoId)
     .maybeSingle()
@@ -499,8 +504,8 @@ export async function responderCancelacion(
   }
 
   if (aceptar) {
-    // Si el cliente ya había pagado, se le devuelve TODO automáticamente
-    // (cancelación de mutuo acuerdo = reembolso íntegro, comisión incluida).
+    // La liquidación fija el reembolso y los gastos retenidos. Los reintentos
+    // conservan siempre los importes originales, incluso en casos históricos.
     const { reembolsarPorCancelacion } = await import("./escrow")
     const reembolsoResult = await reembolsarPorCancelacion(trabajoId)
     if (reembolsoResult.error) {
@@ -549,10 +554,11 @@ export async function responderCancelacion(
       usuarioId: trabajo.cancelacion_solicitada_por,
       tipo: aceptar ? "cancelacion_aceptada" : "disputa_abierta",
       titulo: aceptar ? "Cancelación aceptada" : "Cancelación rechazada: disputa abierta",
+      metadata: { titulo_trabajo: trabajo.titulo },
       mensaje: aceptar
         ? `La otra parte ha aceptado cancelar "${trabajo.titulo}". El trabajo queda cancelado.`
         : `La otra parte ha rechazado cancelar "${trabajo.titulo}". Se ha abierto una disputa que resolverá el equipo de Diime según los términos de la contratación (en caso de duda, a favor del cliente).`,
-      link: solicitanteEsCliente ? "/mis-solicitudes" : trabajo.estado === "pendiente_pago" ? "/mis-ofertas" : "/mis-trabajos",
+      link: construirLinkNotificacion({ seccion: solicitanteEsCliente ? "/mis-solicitudes" : "/mis-trabajos", solicitudId: trabajo.solicitud_id, trabajoId, ofertaId: trabajo.oferta_id, aspecto: aceptar ? "cancelacion" : "disputa" }),
     })
   }
 
@@ -630,8 +636,9 @@ export async function actualizarProgresoTrabajo(trabajoId: string, progreso: num
       usuarioId: trabajo.cliente_id,
       tipo: "progreso_trabajo",
       titulo: `Progreso actualizado: ${Math.min(100, Math.max(0, progreso))}%`,
+      metadata: { titulo_trabajo: data?.titulo },
       mensaje: mensaje || `El profesional ha actualizado el progreso de "${data?.titulo ?? "tu trabajo"}".`,
-      link: "/mis-solicitudes",
+      link: construirLinkNotificacion({ seccion: "/mis-solicitudes", solicitudId: data?.solicitud_id, trabajoId, aspecto: "progreso" }),
     })
   }
 
@@ -712,8 +719,9 @@ export async function marcarTrabajoEntregado(trabajoId: string, mensaje?: string
       usuarioId: trabajo.cliente_id,
       tipo: "trabajo_entregado",
       titulo: `Entrega: ${trabajo.titulo ?? "tu trabajo"}`,
+      metadata: { titulo_trabajo: trabajo.titulo },
       mensaje: `${nombrePro} te ha entregado "${trabajo.titulo ?? "tu trabajo"}". Revísalo y confirma la finalización para liberar el pago.`,
-      link: "/mis-solicitudes",
+      link: construirLinkNotificacion({ seccion: "/mis-solicitudes", solicitudId: data?.solicitud_id, trabajoId, aspecto: "entrega" }),
     })
   }
 

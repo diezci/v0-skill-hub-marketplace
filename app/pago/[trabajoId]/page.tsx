@@ -156,9 +156,7 @@ export default function PagoPage() {
                 <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 space-y-2">
                   <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
                     <ShieldCheck className="h-4 w-4" />{" "}{t("Tu dinero está protegido")}</p>
-                  <p className="text-sm text-muted-foreground">{t("El importe")}{" "}<span className="font-medium text-foreground">{t("no llega al profesional al pagar")}</span>{t(": queda retenido por Diime y")}{" "}<span className="font-medium text-foreground">{t("solo se libera cuando tú confirmes")}</span>{" "}{t("que has recibido el servicio correctamente. Si no quedas satisfecho,")}{" "}
-                    <span className="font-medium text-foreground">{t("se te reembolsa")}</span>.
-                  </p>
+                  <p className="text-sm text-muted-foreground">{t("El pago al profesional queda aplazado hasta que confirmes la entrega o se resuelva una disputa. Si hay un problema, puedes solicitar la mediación de Diime.")}</p>
                 </div>
 
                 <Separator />
@@ -182,6 +180,8 @@ export default function PagoPage() {
                         <span className="text-primary">{formatearPrecio(desglose.totalCliente, idioma)}</span>
                       </div>
                     </div>
+                    <p className="text-xs text-muted-foreground">{t("Si canceláis de mutuo acuerdo después de pagar, se te devuelve el precio del servicio. Diime conserva los gastos de servicio del cliente: {comision}.", { comision: formatearPrecio(desglose.comisionCliente, idioma) })}</p>
+                    <p className="text-xs text-muted-foreground">{t("Los pagos tardíos que no activan la contratación se devuelven íntegramente.")}</p>
                   </div>
                 ) : (
                   <div className="flex items-center justify-center py-4">
@@ -206,7 +206,7 @@ export default function PagoPage() {
                   </div>
                   <div className="flex items-start gap-2 text-xs text-muted-foreground">
                     <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 text-emerald-500 shrink-0" />
-                    <span>{t("Reembolso si no estas satisfecho")}</span>
+                    <span>{t("Reembolso según cancelación o resolución")}</span>
                   </div>
                 </div>
               </CardContent>

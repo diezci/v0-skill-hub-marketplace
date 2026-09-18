@@ -18,7 +18,7 @@ import { PartyPopper, X, Scale, ShieldCheck, ShieldAlert } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface Props {
-  notificacion: { id: string; tipo: string; titulo?: string; mensaje?: string; link?: string }
+  notificacion: { id: string; tipo: string; titulo?: string; mensaje?: string | null; link?: string | null }
   onClose: () => void
 }
 

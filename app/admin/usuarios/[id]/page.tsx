@@ -13,6 +13,8 @@ import {
   Star,
   UserRound,
   Wrench,
+  CreditCard,
+  ShieldAlert,
 } from "lucide-react"
 import { obtenerUsuarioConTrabajosAdmin } from "@/app/actions/admin-trabajos"
 import { AdminChatUsuarioButton } from "@/components/admin-chat-usuario-button"
@@ -99,6 +101,10 @@ export default async function AdminUsuarioDetallePage({ params }: { params: Prom
               {usuario.id !== adminId && (
                 <AdminChatUsuarioButton usuarioId={usuario.id} nombre={nombre} className="mt-4" />
               )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button asChild variant="outline" size="sm"><Link href={`/admin/pagos?usuario=${usuario.id}`}><CreditCard className="mr-2 h-4 w-4" />{t("Pagos y cobros")}</Link></Button>
+                <Button asChild variant="outline" size="sm"><Link href={`/admin/incidencias?usuario=${usuario.id}`}><ShieldAlert className="mr-2 h-4 w-4" />{t("Incidencias")}</Link></Button>
+              </div>
             </div>
           </div>
 

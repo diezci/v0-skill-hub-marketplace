@@ -1,5 +1,6 @@
 "use server"
 
+import { construirLinkNotificacion } from "@/lib/notificaciones-contexto"
 import { textoServidor } from "@/lib/i18n-servidor"
 
 import { createClient } from "@/lib/supabase/server"
@@ -106,9 +107,10 @@ export async function buscarYEnviarInvitaciones(solicitudId: string) {
     destinatarios.map((p) => ({
       usuario_id: p.id,
       tipo: "demanda_nueva",
+      metadata: { titulo_trabajo: solicitud.titulo },
       titulo,
       mensaje,
-      link: "/demandas",
+      link: construirLinkNotificacion({ seccion: "/demandas", solicitudId: solicitud.id, aspecto: "demanda_nueva" }),
       leida: false,
     })),
   )
@@ -127,7 +129,7 @@ export async function buscarYEnviarInvitaciones(solicitudId: string) {
       tipo: "demanda_nueva",
       titulo,
       mensaje,
-      link: "/demandas",
+      link: construirLinkNotificacion({ seccion: "/demandas", solicitudId: solicitud.id, aspecto: "demanda_nueva" }),
     })
   }
 

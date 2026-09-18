@@ -109,6 +109,12 @@ const ETIQUETA_ESTADO_PAGO: Record<string, string> = {
   disputa: "Congelado por disputa",
 }
 
+function importeRegistrado(valor: unknown): number | null {
+  if (valor === null || valor === undefined || valor === "") return null
+  const importe = Number(valor)
+  return Number.isFinite(importe) && importe >= 0 ? importe : null
+}
+
 export default async function FacturaPage({
   params,
   searchParams,
@@ -169,8 +175,14 @@ export default async function FacturaPage({
     : baseOriginal
   const comisionProveedorReal = Number(escrow?.comision_proveedor ?? comisionProveedor)
   const pagoNetoReal = Number(escrow?.pago_neto_proveedor ?? pagoNeto)
-  const comisionClienteOriginal = Number(escrow?.comision_cliente ?? comisionCliente)
-  const totalClienteOriginal = Number(escrow?.monto ?? totalCliente)
+  // Las liquidaciones históricas conservan sus importes. No se les aplica
+  // la tarifa vigente ni se deduce una comisión a partir del saldo restante.
+  const hayReembolsoLiquidado = liquidacionCerrada && reembolsoCliente > 0
+  const totalClienteOriginal = escrow ? importeRegistrado(escrow.monto) : totalCliente
+  const comisionClienteOriginal = escrow ? importeRegistrado(escrow.comision_cliente) : comisionCliente
+  const reembolsoIntegro = hayReembolsoLiquidado && totalClienteOriginal !== null &&
+    Math.round(reembolsoCliente * 100) === Math.round(totalClienteOriginal * 100)
+  const comisionClienteRetenida = hayReembolsoLiquidado ? importeRegistrado(escrow?.comision_cliente_retenida) : null
   const porcentajeProveedorOferta = Number(oferta?.comision_proveedor_porcentaje)
   const minimoProveedorOferta = Number(oferta?.comision_proveedor_minima)
   const mostrarTarifaProveedorOferta =
@@ -327,28 +339,37 @@ export default async function FacturaPage({
               <>
                 <div className="grid grid-cols-[1fr_auto] gap-4 px-4 py-2.5">
                   <span>
-                    {t("Gastos de servicio Diime (IVA del")}{" "}{PLATFORM_CONFIG.ivaDiimePorcentaje} {" "}{t("% incluido)")}{!escrow && (
+                    {hayReembolsoLiquidado ? t("Gastos de servicio Diime cobrados al pagar (IVA del") : t("Gastos de servicio Diime (IVA del")}{" "}{PLATFORM_CONFIG.ivaDiimePorcentaje} {" "}{t("% incluido)")}{!escrow && (
                       <> ({PLATFORM_CONFIG.comisionClientePorcentaje}{t("%, mín.")}{" "}{formatearEuros(PLATFORM_CONFIG.comision_minima, idioma)})</>
                     )}
                   </span>
-                  <span className="font-medium">{formatearEuros(comisionClienteOriginal, idioma)}</span>
+                  <span className="font-medium">{comisionClienteOriginal !== null ? formatearEuros(comisionClienteOriginal, idioma) : t("Desglose original no disponible")}</span>
                 </div>
-                <DetalleIvaDiime importe={comisionClienteOriginal} />
+                {comisionClienteOriginal !== null && <DetalleIvaDiime importe={comisionClienteOriginal} />}
                 <div className="grid grid-cols-[1fr_auto] gap-4 px-4 py-3 bg-muted/40">
                   <span className="font-semibold">
                     {contratado ? t("Total pagado por el cliente") : t("Total pendiente de pago por el cliente")}
                   </span>
-                  <span className="font-bold text-lg">{formatearEuros(totalClienteOriginal, idioma)}</span>
+                  <span className="font-bold text-lg">{totalClienteOriginal !== null ? formatearEuros(totalClienteOriginal, idioma) : t("No consta")}</span>
                 </div>
                 {reembolsoCliente > 0 && (
                   <>
                     <div className="grid grid-cols-[1fr_auto] gap-4 px-4 py-2.5 text-blue-700 dark:text-blue-300">
-                      <span>{t("Reembolso del precio del servicio")}</span>
+                      <span>{reembolsoIntegro ? t("Reembolso íntegro del pago") : t("Reembolso registrado")}</span>
                       <span className="font-medium">−{formatearEuros(reembolsoCliente, idioma)}</span>
                     </div>
+                    {hayReembolsoLiquidado && (
+                      <>
+                        <div className="grid grid-cols-[1fr_auto] gap-4 px-4 py-2.5">
+                          <span>{t("Gastos de servicio Diime retenidos tras el reembolso")}</span>
+                          <span className="font-medium">{comisionClienteRetenida !== null ? formatearEuros(comisionClienteRetenida, idioma) : t("No consta")}</span>
+                        </div>
+                        {comisionClienteRetenida !== null && <DetalleIvaDiime importe={comisionClienteRetenida} />}
+                      </>
+                    )}
                     <div className="grid grid-cols-[1fr_auto] gap-4 px-4 py-2.5">
                       <span className="font-semibold">{t("Coste final tras la resolución")}</span>
-                      <span className="font-semibold">{formatearEuros(totalClienteOriginal - reembolsoCliente, idioma)}</span>
+                      <span className="font-semibold">{totalClienteOriginal !== null ? formatearEuros(totalClienteOriginal - reembolsoCliente, idioma) : t("No consta")}</span>
                     </div>
                   </>
                 )}
@@ -396,8 +417,14 @@ export default async function FacturaPage({
         {mostrarCliente && reembolsoCliente > 0 && (
           <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-3 text-xs text-muted-foreground">
             {t("Reembolsado al cliente:")}{" "}{formatearEuros(reembolsoCliente, idioma)}{escrow.fecha_reembolso ? ` ${t("el {fecha}", { fecha: formatearFechaLarga(escrow.fecha_reembolso, idioma) })}` : ""}.
-            {reembolsoCliente < totalClienteOriginal && (
-              <> {" "}{t("La comisión inicial del cliente (")}{formatearEuros(comisionClienteOriginal, idioma)}{t(") no se reduce: cubre el servicio de pago protegido y gestión de la disputa.")}</>
+            {reembolsoIntegro && (
+              <> {" "}{t("Esta operación se reembolsó íntegramente.")}</>
+            )}
+            {comisionClienteRetenida === 0 && (
+              <> {" "}{t("No se han retenido gastos de servicio al cliente.")}</>
+            )}
+            {comisionClienteRetenida !== null && comisionClienteRetenida > 0 && (
+              <> {" "}{t("Gastos de servicio del cliente retenidos por Diime: {comision}.", { comision: formatearEuros(comisionClienteRetenida, idioma) })}</>
             )}
           </div>
         )}
@@ -423,16 +450,18 @@ export default async function FacturaPage({
               {t("El importe abonado por el cliente queda")}{" "}
               <span className="font-medium text-foreground">{t("cobrado mediante Stripe con la transferencia aplazada")}</span> {" "}{t("y solo se abona al profesional cuando el cliente confirma la entrega del trabajo.")}</li>
             <li>
-              {t("Cualquiera de las partes puede solicitar la")}{" "}
-              <span className="font-medium text-foreground">{t("cancelación de mutuo acuerdo")}</span> {" "}{t("antes de la entrega. Si la otra parte la acepta y el trabajo ya estaba pagado, el cliente recibe el")}{" "}
-              <span className="font-medium text-foreground">{t("reembolso íntegro")}</span> {" "}{t("automáticamente.")}</li>
+              {hayReembolsoLiquidado
+                ? reembolsoIntegro
+                  ? t("Esta operación se reembolsó íntegramente.")
+                  : t("El reembolso y los gastos de servicio de esta operación son los registrados en el desglose de este justificante.")
+                : t("Cualquiera de las partes puede solicitar una cancelación de mutuo acuerdo antes de la entrega. Si la otra parte acepta y el trabajo ya estaba pagado, se devuelve al cliente el precio del servicio y Diime conserva los gastos de servicio del cliente cobrados al pagar. Si no se había pagado, no se mueve dinero.")}</li>
             <li>
               {t("Si la cancelación se rechaza, se abre automáticamente una")}{" "}
               <span className="font-medium text-foreground">{t("disputa")}</span> {" "}{t("que resuelve el equipo de Diime conforme a estos términos.")}{" "}
               <span className="font-medium text-foreground">{t("En caso de duda, se resolverá a favor del cliente.")}</span>
             </li>
             <li>
-              {t("Si el cliente rechaza una entrega, se le reembolsa el importe pagado excepto los gastos de servicio de la plataforma, que no son reembolsables.")}</li>
+              {t("Si hay una disputa, el reembolso y el pago al profesional dependen de su resolución. Los pagos tardíos que no activan la contratación se devuelven íntegramente.")}</li>
             <li>
               {t("La conversación y los archivos intercambiados en Diime forman parte de la documentación del encargo y podrán utilizarse como prueba en caso de disputa.")}</li>
             <li>

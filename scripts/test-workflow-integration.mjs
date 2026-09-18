@@ -15,7 +15,9 @@ const quote=x=>'"'+x.replaceAll('"','""')+'"';
 const schema=JSON.parse(await fs.readFile(new URL('./fixtures/workflow-schema-20260909.json',import.meta.url),'utf8'));
 const grants=JSON.parse(await fs.readFile(new URL('./fixtures/workflow-grants-20260909.json',import.meta.url),'utf8'));
 const conn={host:'127.0.0.1',port,user:'postgres',password:'workflow-local-only'};
-const migrationFiles=['051_presupuesto_avisos_profesionales.sql','052_snapshot_comision_ofertas.sql',...(await fs.readdir(path.join(root,'supabase/migrations'))).filter(f=>f.startsWith('20260909')).sort()];
+const migrationFiles=['051_presupuesto_avisos_profesionales.sql','052_snapshot_comision_ofertas.sql',...(await fs.readdir(path.join(root,'supabase/migrations'))).filter(f=>f.startsWith('20260909')).sort(),
+  '20260918113744_notificaciones_pagos_contexto.sql',
+  '20260918121920_retener_comision_cancelacion_pagada.sql'];
 async function restore(name,withMigrations) {
   await server.createDatabase(name);
   const db=new pg.Client({...conn,database:name});await db.connect();

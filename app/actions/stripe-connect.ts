@@ -5,7 +5,7 @@ import { textoServidor } from "@/lib/i18n-servidor"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
-import { errorIdentidadCuentaStripe } from "@/lib/stripe-connect-identidad"
+import { errorIdentidadCuentaStripe, esCuentaPersonalPropiaStripe } from "@/lib/stripe-connect-identidad"
 import { revalidatePath } from "next/cache"
 
 function siteUrl() {
@@ -36,6 +36,8 @@ export type EstadoStripeConnect = {
   transferenciasHabilitadas: boolean
   payoutsHabilitados: boolean
   requisitosPendientes: string[]
+  cuentaPersonalAnterior: boolean
+  avisoTitularidad: string | null
   saldo: {
     saldos: SaldoStripePorMoneda[]
     proximoIngreso: {
@@ -120,6 +122,8 @@ export async function obtenerEstadoStripeConnect() {
         transferenciasHabilitadas: false,
         payoutsHabilitados: false,
         requisitosPendientes: [] as string[],
+        cuentaPersonalAnterior: false,
+        avisoTitularidad: null,
         saldo: null,
         saldoError: null,
       } satisfies EstadoStripeConnect,
@@ -148,6 +152,8 @@ export async function obtenerEstadoStripeConnect() {
           transferenciasHabilitadas: false,
           payoutsHabilitados: false,
           requisitosPendientes: [] as string[],
+          cuentaPersonalAnterior: false,
+          avisoTitularidad: null,
           saldo: null,
           saldoError: null,
         } satisfies EstadoStripeConnect,
@@ -156,26 +162,22 @@ export async function obtenerEstadoStripeConnect() {
 
     const estado = estadoCuenta(account)
     const errorIdentidad = errorIdentidadCuentaStripe(account, perfil)
-    if (errorIdentidad) {
-      await admin.from("profesionales").update({
-        stripe_onboarding_completado: false,
-        stripe_transferencias_habilitadas: false,
-        stripe_payouts_habilitados: false,
-        stripe_estado_actualizado_at: new Date().toISOString(),
-      }).eq("id", profesional.id)
-      return { error: await textoServidor(errorIdentidad) }
-    }
+    const cuentaPersonalAnterior = !!errorIdentidad && esCuentaPersonalPropiaStripe(account, perfil)
+    // Keep the new-collection gate closed after a representation change, but
+    // do not hide money already in the same person's historical account.
+    // The RPC checks both account and company under a lock, including failures.
     const { data: guardado, error: guardarError } = await admin.rpc("actualizar_estado_cuenta_stripe", {
       p_profesional_id: profesional.id,
       p_account_id: profesional.stripe_account_id,
       p_empresa_esperada: perfil.empresa_id,
-      p_onboarding: estado.stripe_onboarding_completado,
-      p_transferencias: estado.stripe_transferencias_habilitadas,
-      p_payouts: estado.stripe_payouts_habilitados,
+      p_onboarding: !errorIdentidad && estado.stripe_onboarding_completado,
+      p_transferencias: !errorIdentidad && estado.stripe_transferencias_habilitadas,
+      p_payouts: !errorIdentidad && estado.stripe_payouts_habilitados,
       p_requisitos: estado.stripe_requisitos_pendientes,
     })
     if (guardarError) throw guardarError
     if (!guardado) return { error: await textoServidor("Tu perfil de cobros ha cambiado. Actualiza el estado para volver a comprobarlo.") }
+    if (errorIdentidad && !cuentaPersonalAnterior) return { error: await textoServidor(errorIdentidad) }
 
     const opcionesCuenta = { stripeAccount: profesional.stripe_account_id }
     const [resultadoSaldo, resultadoPayouts, resultadoMovimientos, resultadoCalendario] = await Promise.allSettled([
@@ -270,10 +272,14 @@ export async function obtenerEstadoStripeConnect() {
     return {
       data: {
         conectado: true,
-        onboardingCompletado: estado.stripe_onboarding_completado,
-        transferenciasHabilitadas: estado.stripe_transferencias_habilitadas,
-        payoutsHabilitados: estado.stripe_payouts_habilitados,
+        onboardingCompletado: !errorIdentidad && estado.stripe_onboarding_completado,
+        transferenciasHabilitadas: !errorIdentidad && estado.stripe_transferencias_habilitadas,
+        payoutsHabilitados: !errorIdentidad && estado.stripe_payouts_habilitados,
         requisitosPendientes: estado.stripe_requisitos_pendientes,
+        cuentaPersonalAnterior,
+        avisoTitularidad: cuentaPersonalAnterior
+          ? await textoServidor("Tu perfil está vinculado a una empresa, pero esta cuenta de Stripe es personal. Puedes consultar tu saldo y tus ingresos anteriores. Contacta con soporte para regularizar la titularidad antes de aceptar nuevos cobros de empresa.")
+          : null,
         saldo,
         saldoError:
           erroresSaldo.length > 0
@@ -357,7 +363,7 @@ export async function crearEnlaceDashboardStripe() {
   try {
     const cuenta = await stripe.accounts.retrieve(profesional.stripe_account_id)
     const errorIdentidad = errorIdentidadCuentaStripe(cuenta, perfil)
-    if (errorIdentidad) return { error: await textoServidor(errorIdentidad) }
+    if (errorIdentidad && !esCuentaPersonalPropiaStripe(cuenta, perfil)) return { error: await textoServidor(errorIdentidad) }
     const link = await stripe.accounts.createLoginLink(profesional.stripe_account_id)
     return { data: { url: link.url } }
   } catch (error: any) {

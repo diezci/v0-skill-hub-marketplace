@@ -4,6 +4,8 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import PerfilProfesionalPublico from "@/components/perfil-profesional-publico"
 import { obtenerProfesionalPorId } from "@/app/actions/profiles"
+import PerfilMiembro from "@/components/empresas/perfil-miembro"
+import { esEmpresasLocal, obtenerEmpleadoEmpresa } from "@/lib/empresas/service"
 
 // Esta página lee la sesión (cookies) para personalizar acciones; debe
 // renderizarse siempre en el servidor por request, nunca como shell estático
@@ -16,6 +18,11 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
   try {
     const { id } = await params
+    if (esEmpresasLocal()) {
+      const miembro = await obtenerEmpleadoEmpresa(id)
+      if (miembro) return { title: `${miembro.perfil.nombre} - ${miembro.empresa.empresa.nombre} | Diime`, description: miembro.perfil.bio, robots: { index: false, follow: false } }
+      return { title: t("Perfil no encontrado | Diime"), robots: { index: false, follow: false } }
+    }
     const result = await obtenerProfesionalPorId(id)
 
     if (!result.data) {
@@ -44,6 +51,11 @@ export default async function ProfilePage({
   const { t, idioma } = await getT()
 
   const { id } = await params
+  if (esEmpresasLocal()) {
+    const miembro = await obtenerEmpleadoEmpresa(id)
+    if (!miembro) notFound()
+    return <PerfilMiembro perfil={miembro.perfil} empresa={miembro.empresa} />
+  }
   // Llegar con ?valorar=1 (p. ej. desde el botón "Valorar" del chat) abre
   // directamente la pestaña de valoraciones.
   const { valorar } = await searchParams

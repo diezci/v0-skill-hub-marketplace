@@ -12,6 +12,7 @@ export async function crearNotificacion(params: {
   titulo: string
   mensaje?: string
   link?: string
+  metadata?: Record<string, unknown>
 }) {
   const supabase = await createClient()
   if (!supabase) return
@@ -36,6 +37,7 @@ export async function crearNotificacion(params: {
     titulo: params.titulo,
     mensaje: params.mensaje ?? params.titulo,
     link: params.link ?? null,
+    metadata: params.metadata ?? {},
     leida: false,
   })
   if (error) return

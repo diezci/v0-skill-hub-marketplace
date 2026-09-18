@@ -3,7 +3,10 @@
 import { useIdioma } from "@/components/idioma-provider"
 import { localeDe } from "@/lib/i18n"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
+import { useNotificacionesSeccion } from "@/hooks/use-notificaciones-seccion"
+import { useDestinoNotificacion } from "@/hooks/use-destino-notificacion"
+import { AvisosTarjeta, type AvisoTarjeta } from "@/components/avisos-tarjeta"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -118,8 +121,13 @@ const estadoTrabajoConfig: Record<
 }
 
 export default function MisTrabajosPage() {
+  return <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>}><MisTrabajosPageContenido /></Suspense>
+}
+
+function MisTrabajosPageContenido() {
   const { t, idioma } = useIdioma()
 
+  const { paraEntidad, marcarLeidas } = useNotificacionesSeccion("/mis-trabajos")
   const [trabajos, setTrabajos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   // Pestaña activa controlada: las tarjetas-resumen también la seleccionan.
@@ -281,6 +289,7 @@ export default function MisTrabajosPage() {
   const trabajosEntregados = trabajos.filter((t) => t.estado === "entregado")
   const trabajosCompletados = trabajos.filter((t) => t.estado === "completado")
   const trabajosEnDisputa = trabajos.filter((t) => t.estado === "en_disputa")
+  const trabajosCancelados = trabajos.filter((t) => t.estado === "cancelado")
 
   // Importes NETOS para el proveedor (tras la comisión de la plataforma).
   const netoDe = (t: any) =>
@@ -295,6 +304,23 @@ export default function MisTrabajosPage() {
   // Dinero retenido por una disputa abierta: es lo que está en juego mientras
   // Diime decide, y lo primero que se quiere ver de un vistazo.
   const totalEnDisputa = trabajosEnDisputa.reduce((sum, t) => sum + netoDe(t), 0)
+
+  useDestinoNotificacion({
+    cargando: loading,
+    seleccionar: setActiveTab,
+    resolver: (params) => {
+      const trabajo = trabajos.find((item) => params.get("trabajo") ? item.id === params.get("trabajo")
+        : params.get("solicitud") ? item.solicitud_id === params.get("solicitud") : false)
+      const esDisputa = params.get("aspecto")?.includes("disputa") || params.get("aspecto") === "trabajo_rechazado"
+      if (!trabajo) return esDisputa ? { id: "disputas-proveedor", tab: "disputas" } : null
+      const tab = esDisputa ? "disputas" : trabajo.estado === "entregado" ? "entregados"
+        : trabajo.estado === "completado" ? "completados"
+        : trabajo.estado === "en_disputa" ? "disputas"
+        : trabajo.estado === "cancelado" ? "cancelados" : "activos"
+      return { id: tab === "disputas" ? "disputas-proveedor" : `trabajo-${trabajo.id}`, tab }
+    },
+  })
+  const avisosTrabajo = (trabajo: any) => paraEntidad({ trabajoId: trabajo.id, solicitudId: trabajo.solicitud_id, ofertaId: trabajo.oferta_id })
 
   if (loading) {
     return (
@@ -317,7 +343,7 @@ export default function MisTrabajosPage() {
         {/* Estas tarjetas SON la navegación: cada una salta a su pestaña. Antes
             había además una barra de pestañas debajo con los mismos cuatro
             destinos, que solo duplicaba esto. */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 sm:gap-4 mb-8">
           <button type="button" className="text-left h-full" onClick={() => setActiveTab("activos")}>
             <Card
               className={`w-full h-full border-blue-500/20 bg-blue-500/5 transition hover:shadow-md ${
@@ -409,6 +435,14 @@ export default function MisTrabajosPage() {
               </CardContent>
             </Card>
           </button>
+          <button type="button" className="text-left h-full" onClick={() => setActiveTab("cancelados")}>
+            <Card className={`w-full h-full border-red-500/20 bg-red-500/5 transition hover:shadow-md ${activeTab === "cancelados" ? "ring-2 ring-primary/50" : ""}`}>
+              <CardContent className="flex items-center gap-3 p-4">
+                <XCircle className="h-6 w-6 text-red-500" />
+                <div><p className="text-sm text-muted-foreground">{t("Cancelados")}</p><p className="text-2xl font-bold">{trabajosCancelados.length}</p></div>
+              </CardContent>
+            </Card>
+          </button>
         </div>
 
         {/* Two-column layout: jobs list on left, calendar on right */}
@@ -431,6 +465,8 @@ export default function MisTrabajosPage() {
                 <TrabajoCard
                   key={trabajo.id}
                   trabajo={trabajo}
+                  avisos={avisosTrabajo(trabajo)}
+                  onMarcarLeidas={marcarLeidas}
                   onUpdateProgress={() => openUpdateDialog(trabajo)}
                   onMarkDelivered={() => openDeliveryDialog(trabajo)}
                   onContactar={() => handleContactarCliente(trabajo)}
@@ -457,6 +493,8 @@ export default function MisTrabajosPage() {
                 <TrabajoCard
                   key={trabajo.id}
                   trabajo={trabajo}
+                  avisos={avisosTrabajo(trabajo)}
+                  onMarcarLeidas={marcarLeidas}
                   onContactar={() => handleContactarCliente(trabajo)}
                   formatDate={formatDate}
                   formatCurrency={formatCurrency}
@@ -481,6 +519,8 @@ export default function MisTrabajosPage() {
                 <TrabajoCard
                   key={trabajo.id}
                   trabajo={trabajo}
+                  avisos={avisosTrabajo(trabajo)}
+                  onMarcarLeidas={marcarLeidas}
                   onContactar={() => handleContactarCliente(trabajo)}
                   formatDate={formatDate}
                   formatCurrency={formatCurrency}
@@ -491,9 +531,22 @@ export default function MisTrabajosPage() {
             )}
           </TabsContent>
 
+          <TabsContent value="cancelados" className="space-y-4">
+            {trabajosCancelados.length === 0 ? (
+              <Card className="p-12 text-center">
+                <XCircle className="mx-auto mb-4 h-12 w-12 text-muted-foreground/50" />
+                <h3 className="mb-2 text-lg font-medium">{t("No tienes trabajos cancelados")}</h3>
+                <p className="text-muted-foreground">{t("Los trabajos cancelados y sus novedades aparecerán aquí")}</p>
+              </Card>
+            ) : trabajosCancelados.map((trabajo) => (
+              <TrabajoCard key={trabajo.id} trabajo={trabajo} avisos={avisosTrabajo(trabajo)} onMarcarLeidas={marcarLeidas}
+                onContactar={() => handleContactarCliente(trabajo)} formatDate={formatDate} formatCurrency={formatCurrency} getDaysRemaining={getDaysRemaining} />
+            ))}
+          </TabsContent>
+
           {/* Seguimiento de disputas: las que ha abierto el profesional y las
               que el cliente ha abierto contra él. */}
-          <TabsContent value="disputas" className="space-y-4">
+          <TabsContent value="disputas" id="disputas-proveedor" tabIndex={-1} className="scroll-mt-24 space-y-4">
             <MisDisputas rol="proveedor" />
           </TabsContent>
           </Tabs>
@@ -654,6 +707,8 @@ export default function MisTrabajosPage() {
 
 function TrabajoCard({
   trabajo,
+  avisos,
+  onMarcarLeidas,
   onUpdateProgress,
   onMarkDelivered,
   onContactar,
@@ -665,6 +720,8 @@ function TrabajoCard({
   showPaymentStatus,
 }: {
   trabajo: any
+  avisos: AvisoTarjeta[]
+  onMarcarLeidas: (ids: string[]) => Promise<unknown> | void
   onUpdateProgress?: () => void
   onMarkDelivered?: () => void
   onContactar?: () => void
@@ -699,7 +756,8 @@ function TrabajoCard({
 
   return (
     <Card
-      className={`overflow-hidden hover:shadow-md transition-shadow ${
+      id={`trabajo-${trabajo.id}`} tabIndex={-1}
+      className={`scroll-mt-24 overflow-hidden hover:shadow-md transition-shadow ${avisos.length ? "ring-2 ring-primary/50 border-primary/40" : ""} ${
         pagoRetenidoActivo ? "ring-2 ring-emerald-500/50" : ""
       }`}
     >
@@ -719,7 +777,8 @@ function TrabajoCard({
       <CardContent className="p-0">
         <div className="flex flex-col lg:flex-row">
           {/* Main Content */}
-          <div className="flex-1 p-6">
+          <div className="min-w-0 flex-1 p-6">
+            <AvisosTarjeta avisos={avisos} onMarcarLeidas={onMarcarLeidas} />
             <div className="flex items-start justify-between mb-4">
               <EnlacePerfil usuarioId={trabajo.cliente_id} className="flex items-center gap-3">
                 <Avatar className="h-12 w-12 border-2 border-background">

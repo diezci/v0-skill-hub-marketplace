@@ -3,6 +3,7 @@
 import { useT, useIdioma } from "@/components/idioma-provider"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { AlertCircle, CalendarClock, Loader2, WalletCards } from "lucide-react"
 import {
   obtenerEstadoStripeConnect,
@@ -27,11 +28,16 @@ export function ResumenCobrosMenu() {
     let activo = true
 
     const cargar = async () => {
-      const resultado = await obtenerEstadoStripeConnect()
-      if (!activo) return
-      if (resultado.error) setError(resultado.error)
-      else setEstado(resultado.data || null)
-      setCargando(false)
+      try {
+        const resultado = await obtenerEstadoStripeConnect()
+        if (!activo) return
+        if (resultado.error) setError(resultado.error)
+        else setEstado(resultado.data || null)
+      } catch {
+        if (activo) setError("No se pudo consultar Stripe. Comprueba tu conexión y vuelve a intentarlo.")
+      } finally {
+        if (activo) setCargando(false)
+      }
     }
 
     void cargar()
@@ -67,14 +73,23 @@ export function ResumenCobrosMenu() {
     )
   }
 
+  const avisoTitularidad = estado.cuentaPersonalAnterior ? (
+    <p className="mt-2 text-[11px] leading-snug text-amber-800 dark:text-amber-300">
+      {t("Los nuevos cobros de empresa requieren revisar la titularidad.")}{" "}
+      <Link href="/cobros" className="font-medium underline underline-offset-2">{t("Ver detalle en Cobros")}</Link>
+    </p>
+  ) : null
+
   if (!estado.saldo) {
     return (
       <div className="mx-1 my-1 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-xs">
+        {estado.cuentaPersonalAnterior && <p className="mb-1 font-medium">{t("Cuenta personal anterior")}</p>}
         <p className="flex items-center gap-1.5 font-medium text-amber-800 dark:text-amber-300">
           <AlertCircle className="h-3.5 w-3.5" />{" "}{t("Saldo no disponible")}</p>
         <p className="mt-1 text-muted-foreground">
           {t(estado.saldoError || "Stripe no ha facilitado el saldo en este momento.")}
         </p>
+        {avisoTitularidad}
       </div>
     )
   }
@@ -85,21 +100,22 @@ export function ResumenCobrosMenu() {
   const proximaDisponibilidad = estado.saldo?.proximaDisponibilidad
 
   return (
-    <div className="mx-1 my-1 rounded-lg border border-emerald-500/15 bg-emerald-500/5 px-3 py-3" aria-live="polite">
+    <div className={`mx-1 my-1 rounded-lg border px-3 py-3 ${estado.cuentaPersonalAnterior ? "border-amber-500/20 bg-amber-500/5" : "border-emerald-500/15 bg-emerald-500/5"}`} aria-live="polite">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-medium text-muted-foreground">{t("Saldo en Stripe")}</p>
+          <p className="text-xs font-medium text-muted-foreground">{estado.cuentaPersonalAnterior ? t("Saldo de tu cuenta personal") : t("Saldo en Stripe")}</p>
           <p className="mt-0.5 text-xl font-semibold tracking-tight">
             {formatearImporteStripe(total, saldo.moneda, idioma)}
           </p>
         </div>
-        {!estado.saldo.modoReal && (
+        {estado.saldo.modoReal === false && (
           <span className="rounded-full bg-amber-500/10 px-2 py-1 text-[10px] font-medium text-amber-700">{t("Prueba")}</span>
         )}
       </div>
       <p className="mt-1 text-[11px] text-muted-foreground">{t("Disponible")}{" "}{formatearImporteStripe(saldo.disponible, saldo.moneda, idioma)}{" "}{t("· Pendiente")}{" "}
         {formatearImporteStripe(saldo.pendiente, saldo.moneda, idioma)}
       </p>
+      {avisoTitularidad}
       <div className="mt-2.5 flex gap-2 border-t border-emerald-500/10 pt-2.5 text-xs">
         <CalendarClock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
         <div>

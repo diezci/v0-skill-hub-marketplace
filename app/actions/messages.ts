@@ -203,12 +203,21 @@ export async function obtenerMensajes(conversacionId: string) {
     return { error: await textoServidor(error.message), data: [] }
   }
 
-  // Mark messages as read
-  await supabase
-    .from("mensajes")
-    .update({ leido: true })
-    .eq("conversacion_id", conversacionId)
-    .neq("remitente_id", user.id)
+  // Only acknowledge the messages returned by this read. A new message can
+  // arrive between SELECT and UPDATE and must stay unread until it is shown.
+  const idsMostrados = (mensajes || [])
+    .filter(mensaje => !mensaje.leido && mensaje.remitente_id !== user.id)
+    .map(mensaje => mensaje.id)
+  for (let inicio = 0; inicio < idsMostrados.length; inicio += 100) {
+    const { error: errorLectura } = await supabase
+      .from("mensajes")
+      .update({ leido: true })
+      .eq("conversacion_id", conversacionId)
+      .neq("remitente_id", user.id)
+      .eq("leido", false)
+      .in("id", idsMostrados.slice(inicio, inicio + 100))
+    if (errorLectura) return { error: await textoServidor("No se pudieron marcar los mensajes como leídos"), data: [] }
+  }
 
   return { data: mensajes }
 }

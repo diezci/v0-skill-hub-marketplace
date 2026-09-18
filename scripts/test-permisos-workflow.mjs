@@ -12,11 +12,13 @@ function cargar(ruta, dependencias) {
     exports: modulo.exports, module: modulo,
     require(nombre) {
       if (nombre in dependencias) return dependencias[nombre]
+      if (nombre === "@/lib/i18n-servidor") return { textoServidor: async texto => texto, idiomaActual: async () => "es" }
+      if (nombre === "@/lib/notificaciones-contexto") return cargar("lib/notificaciones-contexto.ts", {})
       if (nombre === "@/lib/stripe-connect-identidad") return cargar("lib/stripe-connect-identidad.ts", {})
       throw new Error(`Dependencia sin simular: ${nombre}`)
     },
     console: { error() {}, info() {} }, process: { env: { NEXT_PUBLIC_SITE_URL: "https://test.diime.es" } },
-    URLSearchParams, Date,
+    URL, URLSearchParams, Date,
   }, { filename: ruta })
   return modulo.exports
 }
@@ -81,6 +83,13 @@ for (const [propietario, estado, permitido] of [["otro", "abierta", false], ["yo
   assert.equal(Boolean(resultado.success), permitido)
   assert.equal(admin.llamadas.some(([op]) => op === "insert"), permitido)
   assert.equal(sesion.llamadas.some(([op]) => op === "insert"), false)
+  if (permitido) {
+    const aviso = admin.llamadas.find(([op]) => op === "insert")[2][0]
+    const destino = new URL(aviso.link, "https://www.diime.es")
+    assert.equal(destino.pathname, "/demandas")
+    assert.equal(destino.searchParams.get("solicitud"), "s1")
+    assert.equal(aviso.metadata.titulo_trabajo, "Prueba")
+  }
 }
 
 // Registro de empresa: el actor siempre es la sesión; no se acepta un ID de
@@ -199,7 +208,14 @@ for (const empresa of [null, "empresa-1"]) {
   })
   assert.equal((await helper.rechazarYNotificarOfertasPerdedoras(origen, { solicitudId: "s1" })).notificadas, 3)
   assert.deepEqual(ofertas.map((o) => o.estado), ["rechazada", "rechazada", "rechazada", "aceptada", "retirada", "rechazada"])
-  assert.equal(admin.llamadas.find(([op]) => op === "insert")[2].length, 3)
+  const avisos = admin.llamadas.find(([op]) => op === "insert")[2]
+  assert.equal(avisos.length, 3)
+  for (const [index, aviso] of avisos.entries()) {
+    const destino = new URL(aviso.link, "https://www.diime.es")
+    assert.equal(destino.pathname, "/mis-ofertas")
+    assert.equal(destino.searchParams.get("solicitud"), "s1")
+    assert.equal(destino.searchParams.get("oferta"), ofertas[index].id)
+  }
 }
 
 // Una baja bloqueada conserva sesión y no mueve dinero ni cancela trabajos.

@@ -19,17 +19,17 @@ for (const [id,role] of [[customer,'cliente'],[provider,'profesional'],[admin,'a
  await sql('insert into profiles(id,email,nombre,es_admin) values($1,$2,$3,$4)',[id,`${role}-${id}@example.test`,role,id===admin])
 }
 await sql("insert into profesionales(id,titulo,stripe_account_id,stripe_transferencias_habilitadas,stripe_payouts_habilitados,stripe_onboarding_completado) values($1,'Pruebas',$2,true,true,true)",[provider,`acct_${provider}`])
-async function fixture({paid=true, delivered=false, history=false}={}) {
+async function fixture({paid=true, delivered=false, history=false, base=100, customerFee=10, providerFee=5}={}) {
  const solicitud=(await sql("insert into solicitudes(cliente_id,titulo,descripcion,ubicacion,estado) values($1,'Prueba financiera','Solo datos de prueba','Madrid','abierta') returning id",[customer]))[0].id
- const oferta=(await sql("insert into ofertas(solicitud_id,profesional_id,precio,tiempo_estimado,descripcion,estado,comision_proveedor_porcentaje,comision_proveedor_minima,comision_proveedor_prevista,pago_neto_proveedor_previsto) values($1,$2,100,1,'Prueba','pendiente',5,2,5,95) returning id",[solicitud,provider]))[0].id
- const trabajo=(await sql("insert into trabajos(solicitud_id,oferta_id,cliente_id,profesional_id,titulo,precio_acordado,estado) values($1,$2,$3,$4,'Prueba financiera',100,'pendiente_pago') returning id",[solicitud,oferta,customer,provider]))[0].id
+ const oferta=(await sql("insert into ofertas(solicitud_id,profesional_id,precio,tiempo_estimado,descripcion,estado,comision_proveedor_porcentaje,comision_proveedor_minima,comision_proveedor_prevista,pago_neto_proveedor_previsto) values($1,$2,$3,1,'Prueba','pendiente',5,2,$4,$5) returning id",[solicitud,provider,base,providerFee,base-providerFee]))[0].id
+ const trabajo=(await sql("insert into trabajos(solicitud_id,oferta_id,cliente_id,profesional_id,titulo,precio_acordado,estado) values($1,$2,$3,$4,'Prueba financiera',$5,'pendiente_pago') returning id",[solicitud,oferta,customer,provider,base]))[0].id
  await sql("update ofertas set estado='aceptada' where id=$1",[oferta])
  let old
- const escrow = async state => (await sql("insert into transacciones_escrow(trabajo_id,cliente_id,profesional_id,monto,monto_base,comision_cliente,comision_proveedor_original,comision_proveedor,pago_neto_proveedor,estado,stripe_session_id) values($1,$2,$3,110,100,10,5,5,95,$4,$5) returning id",[trabajo,customer,provider,state,`cs_${randomUUID()}`]))[0].id
+ const escrow = async state => (await sql("insert into transacciones_escrow(trabajo_id,cliente_id,profesional_id,monto,monto_base,comision_cliente,comision_proveedor_original,comision_proveedor,pago_neto_proveedor,estado,stripe_session_id) values($1,$2,$3,$4,$5,$6,$7,$7,$8,$9,$10) returning id",[trabajo,customer,provider,base+customerFee,base,customerFee,providerFee,base-providerFee,state,`cs_${randomUUID()}`]))[0].id
  if(history) old=await escrow('cancelado')
  const id=await escrow('pendiente')
  const e=(await sql('select * from transacciones_escrow where id=$1',[id]))[0]
- if(paid) await rpc('diime_confirmar_pago',id,e.stripe_session_id,`pi_${id}`,`ch_${id}`,11000,'eur')
+ if(paid) await rpc('diime_confirmar_pago',id,e.stripe_session_id,`pi_${id}`,`ch_${id}`,Math.round((base+customerFee)*100),'eur')
  if(delivered) await sql("update trabajos set estado='entregado' where id=$1",[trabajo])
  return {trabajo,solicitud,oferta,id,old,session:e.stripe_session_id}
 }
@@ -98,8 +98,88 @@ try {
   const f=await fixture();await sql("update trabajos set cancelacion_estado='pendiente',cancelacion_solicitada_por=$2,cancelacion_razon='Prueba' where id=$1",[f.trabajo,customer])
   await rpc('diime_bloquear_checkout',f.trabajo,provider,true)
   const e=await rpc('diime_reclamar_liquidacion',f.id,provider,'cancelacion');await finish(e);await finish(e)
+  assert.equal(Number(e.monto_reembolsado),100);assert.equal(Number(e.comision_cliente_retenida),10)
+  assert.equal(Number(e.retencion_plataforma),10);assert.equal(Number(e.comision_proveedor),0);assert.equal(Number(e.pago_neto_proveedor),0)
   assert.equal((await sql('select estado from trabajos where id=$1',[f.trabajo]))[0].estado,'cancelado')
   assert.equal(Number((await sql('select comision_proveedor_original from transacciones_escrow where id=$1',[f.id]))[0].comision_proveedor_original),5)
+ })
+ await check('A new EUR22 paid cancellation refunds EUR20 and retains only the EUR2 customer fee across retries',async()=>{
+  const f=await fixture({base:20,customerFee:2,providerFee:2})
+  await sql("update trabajos set cancelacion_estado='pendiente',cancelacion_solicitada_por=$2,cancelacion_razon='Prueba 22' where id=$1",[f.trabajo,customer])
+  await rpc('diime_bloquear_checkout',f.trabajo,provider,true)
+  const assertSplit=e=>{
+   assert.equal(Number(e.monto),22);assert.equal(Number(e.monto_reembolsado),20)
+   assert.equal(Number(e.comision_cliente_retenida),2);assert.equal(Number(e.retencion_plataforma),2)
+   assert.equal(Number(e.monto_bruto_proveedor),0);assert.equal(Number(e.comision_proveedor),0);assert.equal(Number(e.pago_neto_proveedor),0)
+   assert.equal(Number(e.comision_proveedor_original),2)
+  }
+  const first=await rpc('diime_reclamar_liquidacion',f.id,provider,'cancelacion');assertSplit(first)
+  const retry=await rpc('diime_reclamar_liquidacion',f.id,provider,'cancelacion');assertSplit(retry)
+  assert.equal(retry.liquidacion_operacion_id,first.liquidacion_operacion_id)
+  await fails(()=>sql('update transacciones_escrow set monto_reembolsado=22,comision_cliente_retenida=0,retencion_plataforma=0 where id=$1',[f.id]))
+  const done=await finish(first);assert.equal(done.avisos.length,1)
+  assert.match(done.avisos[0].mensaje,/reembolsado 20(?:\.00)? EUR/)
+  assert.match(done.avisos[0].mensaje,/conserva 2(?:\.00)? EUR de comisión del cliente/)
+  assert.ok(!done.avisos[0].mensaje.includes('íntegramente'))
+  const completed=await rpc('diime_reclamar_liquidacion',f.id,provider,'cancelacion');assertSplit(completed)
+  assert.equal(completed.liquidacion_estado,'completada');assert.equal((await finish(completed)).avisos.length,0)
+ })
+ for(const amounts of [
+  {base:100,customerFee:3,providerFee:5}, // A stored fee can differ from today's tariff.
+  {base:20.45,customerFee:2.05,providerFee:2.05},
+  {base:1,customerFee:2,providerFee:1}, // Minimum customer fee exceeds the service price.
+ ]) await check(`Cancellation preserves the exact stored EUR${amounts.customerFee} fee on EUR${amounts.base} of service`,async()=>{
+  const f=await fixture(amounts)
+  await sql("update trabajos set cancelacion_estado='pendiente',cancelacion_solicitada_por=$2,cancelacion_razon='Comisión guardada' where id=$1",[f.trabajo,customer])
+  await rpc('diime_bloquear_checkout',f.trabajo,provider,true)
+  const claimed=await rpc('diime_reclamar_liquidacion',f.id,provider,'cancelacion')
+  assert.equal(Number(claimed.monto_reembolsado),amounts.base)
+  assert.equal(Number(claimed.comision_cliente_retenida),amounts.customerFee)
+  assert.equal(Number(claimed.retencion_plataforma),amounts.customerFee)
+  assert.equal(Number(claimed.comision_proveedor),0);assert.equal(Number(claimed.pago_neto_proveedor),0)
+  await finish(claimed)
+  const saved=(await sql('select * from transacciones_escrow where id=$1',[f.id]))[0]
+  assert.equal(Number(saved.monto_reembolsado),amounts.base)
+  assert.equal(Number(saved.comision_cliente_retenida),amounts.customerFee)
+  assert.equal(saved.liquidacion_estado,'completada')
+ })
+ for(const legacyContext of [true,false]) await check(`A frozen legacy EUR22 cancellation keeps its full refund (${legacyContext?'with':'without'} saved context)`,async()=>{
+  const f=await fixture({base:20,customerFee:2,providerFee:2})
+  await sql("update trabajos set cancelacion_estado='pendiente',cancelacion_solicitada_por=$2,cancelacion_razon='Legacy' where id=$1",[f.trabajo,customer])
+  await rpc('diime_bloquear_checkout',f.trabajo,provider,true)
+  // This is the exact durable split written by the preceding function version,
+  // before a Stripe or database interruption. No guard is disabled in the test.
+  const context=legacyContext?JSON.stringify({tipo:'cancelacion',actor:provider,destino:null}):null
+  await sql("update transacciones_escrow set estado='liquidando',liquidacion_estado='error',liquidacion_operacion_id=$2,monto_reembolsado=22,monto_bruto_proveedor=0,comision_proveedor=0,pago_neto_proveedor=0,comision_cliente_retenida=0,retencion_plataforma=0,liquidacion_contexto=$3::jsonb where id=$1",[f.id,`cancelacion-mutua-${f.id}`,context])
+  const claimed=await rpc('diime_reclamar_liquidacion',f.id,provider,'cancelacion')
+  assert.equal(Number(claimed.monto_reembolsado),22);assert.equal(Number(claimed.comision_cliente_retenida),0)
+  assert.equal(Number(claimed.retencion_plataforma),0);assert.equal(claimed.liquidacion_contexto.tipo,'cancelacion')
+  await fails(()=>sql('update transacciones_escrow set monto_reembolsado=20,comision_cliente_retenida=2,retencion_plataforma=2 where id=$1',[f.id]))
+  const done=await finish(claimed);assert.equal(done.avisos.length,1)
+  assert.match(done.avisos[0].mensaje,/devuelto íntegramente 22(?:\.00)? EUR/)
+  const completed=await rpc('diime_reclamar_liquidacion',f.id,provider,'cancelacion')
+  assert.equal(Number(completed.monto_reembolsado),22);assert.equal(Number(completed.retencion_plataforma),0)
+  assert.equal((await finish(completed)).avisos.length,0)
+ })
+ await check('A late EUR22 payment for a replaced attempt still refunds the entire EUR22 with no fees',async()=>{
+  const f=await fixture({paid:false,history:true,base:20,customerFee:2,providerFee:2})
+  const old=(await sql('select * from transacciones_escrow where id=$1',[f.old]))[0]
+  const paid=await rpc('diime_confirmar_pago',f.old,old.stripe_session_id,`pi_${f.old}`,`ch_${f.old}`,2200,'eur')
+  assert.equal(paid.tardio,true)
+  const claimed=await rpc('diime_reclamar_liquidacion',f.old,null,'pago_tardio')
+  assert.equal(Number(claimed.monto_reembolsado),22);assert.equal(Number(claimed.retencion_plataforma),0)
+  assert.equal(Number(claimed.comision_cliente_retenida),0);assert.equal(Number(claimed.comision_proveedor),0)
+  assert.equal(Number(claimed.pago_neto_proveedor),0)
+  await finish(claimed)
+  assert.equal((await sql('select estado from transacciones_escrow where id=$1',[f.id]))[0].estado,'pendiente')
+ })
+ await check('A EUR22 dispute decided for the customer still refunds base EUR20 and keeps only EUR2',async()=>{
+  const f=await fixture({base:20,customerFee:2,providerFee:2});const d=await rpc('diime_abrir_disputa',f.trabajo,customer,'Decisión cliente')
+  await fails(()=>rpc('diime_reclamar_liquidacion',f.id,admin,'disputa',22,d.id,'cliente','No puede devolver la comisión'))
+  const claimed=await rpc('diime_reclamar_liquidacion',f.id,admin,'disputa',20,d.id,'cliente','Reembolso del servicio')
+  assert.equal(Number(claimed.monto_reembolsado),20);assert.equal(Number(claimed.retencion_plataforma),2)
+  assert.equal(Number(claimed.comision_cliente_retenida),2);assert.equal(Number(claimed.comision_proveedor),0)
+  assert.equal(Number(claimed.pago_neto_proveedor),0);await finish(claimed)
  })
  for (const outcome of ['cliente','proveedor']) await check(`Unpaid mediation ${outcome} moves no money and has the correct next state`,async()=>{
   const f=await fixture({paid:false});await rpc('diime_cerrar_intento',f.id,f.session)

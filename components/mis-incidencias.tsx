@@ -3,7 +3,10 @@
 import { useT, useIdioma } from "@/components/idioma-provider"
 import { localeDe } from "@/lib/i18n"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
+import { useNotificacionesSeccion } from "@/hooks/use-notificaciones-seccion"
+import { useDestinoNotificacion } from "@/hooks/use-destino-notificacion"
+import { AvisosTarjeta } from "@/components/avisos-tarjeta"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -47,9 +50,14 @@ const PRIORIDAD_CLS: Record<string, string> = {
 }
 
 export default function MisIncidencias() {
+  return <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>}><MisIncidenciasContenido /></Suspense>
+}
+
+function MisIncidenciasContenido() {
   const t = useT()
   const { idioma } = useIdioma()
 
+  const { pendientes, marcarLeidas } = useNotificacionesSeccion("/incidencias")
   const [incidencias, setIncidencias] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [aRetirar, setARetirar] = useState<any>(null)
@@ -84,6 +92,17 @@ export default function MisIncidencias() {
   const formatFecha = (f: string) =>
     new Date(f).toLocaleDateString(localeDe(idioma), { day: "numeric", month: "short", year: "numeric" })
 
+  const destino = useDestinoNotificacion({
+    cargando: loading,
+    resolver: (params) => {
+      const incidencia = incidencias.find((item) => item.id === params.get("incidencia"))
+      return incidencia ? { id: `incidencia-${incidencia.id}` } : null
+    },
+  })
+  const avisosIncidencia = (id: string) => pendientes.filter((aviso) =>
+    aviso.metadata?.incidencia_id === id || (aviso.link && new URL(aviso.link, "https://www.diime.es").searchParams.get("incidencia") === id),
+  )
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -117,8 +136,9 @@ export default function MisIncidencias() {
             const estado = ESTADO_CONFIG[inc.estado] || ESTADO_CONFIG.abierta
             const EstadoIcon = estado.icon
             return (
-              <Card key={inc.id}>
+              <Card key={inc.id} id={`incidencia-${inc.id}`} tabIndex={-1} className={`scroll-mt-24 ${avisosIncidencia(inc.id).length || destino === `incidencia-${inc.id}` ? "ring-2 ring-primary/50 border-primary/40" : ""}`}>
                 <CardContent className="pt-6 space-y-3">
+                  <AvisosTarjeta avisos={avisosIncidencia(inc.id)} onMarcarLeidas={marcarLeidas} titulo="Novedades de esta incidencia" />
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <h3 className="font-semibold">{inc.asunto}</h3>

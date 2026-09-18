@@ -38,14 +38,14 @@ import { cn } from "@/lib/utils"
 import { DiimeLogo } from "@/components/diime-logo"
 import { createClient } from "@/lib/supabase/client"
 import { desvincularPushActual, sincronizarBadgeApp } from "@/lib/push/client"
-import {
-  obtenerResumenNotificaciones,
-  marcarNotificacionesLeidasPorLink,
-} from "@/app/actions/notificaciones"
+import { useResumenNotificaciones } from "@/hooks/use-notificaciones-seccion"
+import { CampanaNotificaciones } from "@/components/campana-notificaciones"
+import type { NotificacionContextual } from "@/lib/notificaciones-contexto"
 import { CelebracionNotificacion } from "@/components/celebracion-notificacion"
 import { useToast } from "@/hooks/use-toast"
 import { ToastAction } from "@/components/ui/toast"
 import { ResumenCobrosMenu } from "@/components/resumen-cobros-menu"
+import type { ActorEmpresa } from "@/lib/empresas/types"
 
 // Notificaciones que merecen un aviso destacado a pantalla completa: los hitos
 // buenos (entrega recibida, cobro) y también la resolución de una disputa, que
@@ -60,20 +60,21 @@ const TIPOS_CELEBRABLES = [
 ]
 const CELEBRADAS_KEY = "diime_notifs_celebradas"
 
-const Navbar = () => {
+const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null } = {}) => {
   const t = useT()
   const [isOpen, setIsOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [userEmail, setUserEmail] = useState<string | null>(null)
-  const [userName, setUserName] = useState<string | null>(null)
+  const [isAuthenticated, setIsAuthenticated] = useState(!!actorEmpresaLocal)
+  const [userEmail, setUserEmail] = useState<string | null>(actorEmpresaLocal?.email ?? null)
+  const [userName, setUserName] = useState<string | null>(actorEmpresaLocal?.nombre ?? null)
   const [userPhoto, setUserPhoto] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [isProfessional, setIsProfessional] = useState(false)
-  const [notificacionesNoLeidas, setNotificacionesNoLeidas] = useState(0)
-  const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0)
-  const [porSeccion, setPorSeccion] = useState<Record<string, number>>({})
-  const [celebracion, setCelebracion] = useState<any>(null)
+  const { resumen, usuarioId } = useResumenNotificaciones()
+  const notificacionesNoLeidas = resumen.noLeidas
+  const mensajesNoLeidos = resumen.mensajesNoLeidos
+  const porSeccion = resumen.porSeccion
+  const [celebracion, setCelebracion] = useState<{ usuarioId: string; notificacion: NotificacionContextual } | null>(null)
   const pathname = usePathname()
   const router = useRouter()
   const { toast } = useToast()
@@ -92,6 +93,14 @@ const Navbar = () => {
   }, [pathname])
 
   useEffect(() => {
+    if (actorEmpresaLocal) {
+      setIsAuthenticated(true)
+      setUserName(actorEmpresaLocal.nombre)
+      setUserEmail(actorEmpresaLocal.email)
+      setIsAdmin(false)
+      setIsProfessional(false)
+      return
+    }
     let supabase
     try {
       supabase = createClient()
@@ -142,7 +151,7 @@ const Navbar = () => {
     })
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [actorEmpresaLocal])
 
   // Los admins solo deben ver el panel de administración. La única excepción
   // es la vista de un perfil abierta expresamente desde la bandeja de
@@ -163,96 +172,40 @@ const Navbar = () => {
     }
   }, [isAdmin, pathname, router])
 
-  // Cargar contadores de notificaciones y mensajes sin leer para los badges del navbar.
+  // Reading is explicit in the bell, section panel or work detail. Navigation
+  // never clears an entire section before the person sees what changed.
+  useEffect(() => { setCelebracion(null) }, [usuarioId])
+
   useEffect(() => {
-    if (!isAuthenticated || isAdmin) {
-      setNotificacionesNoLeidas(0)
-      setMensajesNoLeidos(0)
-      setPorSeccion({})
-      return
-    }
-    let activo = true
-    const cargar = async () => {
+    if (actorEmpresaLocal || !isAuthenticated || isAdmin || !usuarioId) return
+    void sincronizarBadgeApp(resumen.noLeidas + resumen.mensajesNoLeidos)
+    const um = resumen.ultimoMensajeNoLeido
+    if (um && !pathname?.startsWith("/mensajes")) {
       try {
-        const r = await obtenerResumenNotificaciones()
-        if (!activo) return
-        setNotificacionesNoLeidas(r.noLeidas || 0)
-        setMensajesNoLeidos(r.mensajesNoLeidos || 0)
-        setPorSeccion(r.porSeccion || {})
-        void sincronizarBadgeApp((r.noLeidas || 0) + (r.mensajesNoLeidos || 0))
-
-        // Popup con preview del último mensaje de chat sin leer (fuera de
-        // /mensajes y una sola vez por mensaje en esta sesión del navegador).
-        const um: any = (r as any).ultimoMensajeNoLeido
-        if (
-          um &&
-          !(pathname ?? "").startsWith("/mensajes")
-        ) {
-          const yaAvisado = sessionStorage.getItem("diime_ultimo_msg_avisado")
-          if (yaAvisado !== um.id) {
-            sessionStorage.setItem("diime_ultimo_msg_avisado", um.id)
-            toast({
-              title: `💬 ${um.remitente}`,
-              description: um.preview,
-              action: (
-                <ToastAction altText={t("Abrir chat")} onClick={() => router.push(`/mensajes?c=${um.conversacion_id}`)}>
-                   {t("Abrir")} </ToastAction>
-              ),
-            })
-          }
+        if (sessionStorage.getItem("diime_ultimo_msg_avisado") !== um.id) {
+          sessionStorage.setItem("diime_ultimo_msg_avisado", um.id)
+          toast({ title: `💬 ${um.remitente}`, description: um.preview,
+            action: <ToastAction altText={t("Abrir chat")} onClick={() => router.push(`/mensajes?c=${um.conversacion_id}`)}>{t("Abrir")}</ToastAction> })
         }
-
-        // Celebración a pantalla completa para entregas recibidas y pagos
-        // cobrados: una sola vez por notificación (registro en localStorage)
-        // y solo si es reciente, para no celebrar historial antiguo.
-        const candidatas = (r.notificaciones || []).filter(
-          (n: any) =>
-            !n.leida &&
-            TIPOS_CELEBRABLES.includes(n.tipo) &&
-            Date.now() - new Date(n.created_at).getTime() < 48 * 60 * 60 * 1000,
-        )
-        if (candidatas.length > 0) {
-          let celebradas: string[] = []
-          try {
-            celebradas = JSON.parse(localStorage.getItem(CELEBRADAS_KEY) || "[]")
-          } catch {}
-          const nueva = candidatas.find((n: any) => !celebradas.includes(n.id))
-          if (nueva) {
-            localStorage.setItem(CELEBRADAS_KEY, JSON.stringify([...celebradas, nueva.id].slice(-50)))
-            setCelebracion(nueva)
-          }
-        }
-      } catch {
-        // silencioso: los badges son secundarios
-      }
+      } catch {}
     }
-    cargar()
-    const alRecibirPush = () => void cargar()
-    window.addEventListener("diime:push", alRecibirPush)
-    window.addEventListener("diime:notification", alRecibirPush)
-    // 15s para que el badge aparezca poco después de recibir una oferta/aviso.
-    const id = setInterval(cargar, 15000)
-    return () => {
-      activo = false
-      window.removeEventListener("diime:push", alRecibirPush)
-      window.removeEventListener("diime:notification", alRecibirPush)
-      clearInterval(id)
+    const candidatas = resumen.notificaciones.filter(n => TIPOS_CELEBRABLES.includes(n.tipo) && Date.now() - new Date(n.created_at).getTime() < 48 * 60 * 60 * 1000)
+    if (candidatas.length) {
+      try {
+        const almacenadas = JSON.parse(localStorage.getItem(CELEBRADAS_KEY) || "[]")
+        const celebradas: string[] = Array.isArray(almacenadas) ? almacenadas : []
+        const nueva = candidatas.find(n => !celebradas.includes(n.id))
+        if (nueva) { localStorage.setItem(CELEBRADAS_KEY, JSON.stringify([...celebradas, nueva.id].slice(-50))); setCelebracion({ usuarioId, notificacion: nueva }) }
+      } catch {}
     }
-  }, [isAuthenticated, isAdmin, pathname, t])
-
-  // Al entrar en una sección, sus notificaciones se dan por vistas y el badge se apaga.
-  useEffect(() => {
-    if (!pathname || !(porSeccion[pathname] > 0)) return
-    const cantidad = porSeccion[pathname]
-    const siguientesNoLeidas = Math.max(0, notificacionesNoLeidas - cantidad)
-    setPorSeccion((prev) => ({ ...prev, [pathname]: 0 }))
-    setNotificacionesNoLeidas(siguientesNoLeidas)
-    void sincronizarBadgeApp(siguientesNoLeidas + mensajesNoLeidos)
-    marcarNotificacionesLeidasPorLink(pathname).catch(() => {})
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, porSeccion])
+  }, [resumen, usuarioId, isAuthenticated, isAdmin, pathname, t, actorEmpresaLocal, toast, router])
 
   const handleLogout = async () => {
+    if (actorEmpresaLocal) {
+      toast({ title: t("Cuenta de prueba"), description: t("Puedes cambiar de cuenta desde la barra del entorno local.") })
+      setIsOpen(false)
+      return
+    }
     try {
       await desvincularPushActual()
       const supabase = createClient()
@@ -300,6 +253,7 @@ const Navbar = () => {
     },
     { name: "Mensajes", path: "/mensajes", icon: MessageSquare, shortName: "Mensajes" },
   ]
+  if (actorEmpresaLocal) navLinks.push({ name: "Mi empresa", path: "/mi-empresa", icon: Building2, shortName: "Mi empresa" })
 
   // Badge de cada sección: sus notificaciones sin leer (en Mensajes, además,
   // los mensajes de chat sin leer).
@@ -313,8 +267,8 @@ const Navbar = () => {
 
   return (
     <>
-    {celebracion && (
-      <CelebracionNotificacion notificacion={celebracion} onClose={() => setCelebracion(null)} />
+    {celebracion && celebracion.usuarioId === usuarioId && isAuthenticated && !isAdmin && !actorEmpresaLocal && (
+      <CelebracionNotificacion notificacion={celebracion.notificacion} onClose={() => setCelebracion(null)} />
     )}
     <header
       className={cn(
@@ -325,13 +279,13 @@ const Navbar = () => {
       )}
     >
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          <Link href="/" className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-3 h-16">
+          <Link href="/" className="flex shrink-0 items-center gap-2">
             <DiimeLogo className="h-9 w-9" />
             <span className="font-bold text-xl hidden sm:block">Diime</span>
           </Link>
 
-          <nav className="hidden 2xl:flex items-center gap-1">
+          <nav className="hidden xl:flex min-w-0 items-center gap-0.5 2xl:gap-1">
             {navLinks.map((link) => {
               const Icon = link.icon
               return (
@@ -340,13 +294,13 @@ const Navbar = () => {
                   href={link.path}
                   title={t(link.name)}
                   className={cn(
-                    "px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap",
+                    "px-2 2xl:px-3 py-2 rounded-lg text-xs 2xl:text-sm font-medium transition-colors flex items-center gap-1.5 2xl:gap-2 whitespace-nowrap",
                     pathname === link.path
                       ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted",
                   )}
                 >
-                  <Icon className="h-4 w-4 shrink-0" />
+                  <Icon className="hidden 2xl:block h-4 w-4 shrink-0" />
                   <span>{t(link.shortName)}</span>
                   {badgeDe(link.path) > 0 && (
                     <span className="ml-0.5 h-4 min-w-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
@@ -358,7 +312,8 @@ const Navbar = () => {
             })}
           </nav>
 
-          <div className="hidden 2xl:flex items-center gap-2">
+          <div className="hidden xl:flex shrink-0 items-center gap-1 2xl:gap-2">
+            {isAuthenticated && !actorEmpresaLocal && <CampanaNotificaciones />}
             <SelectorIdioma compacto />
             <ThemeToggle />
             {isAuthenticated ? (
@@ -405,12 +360,12 @@ const Navbar = () => {
                   <DropdownMenuItem asChild>
                     <Link href="/mi-perfil" className="cursor-pointer">
                       <UserCircle className="mr-2 h-4 w-4" />
-                       {t("Mi Perfil")} </Link>
+                       {t("Mi Perfil")}{porSeccion["/mi-perfil"] > 0 && <span className="ml-2 rounded-full bg-red-500 px-1.5 text-xs text-white">{porSeccion["/mi-perfil"]}</span>} </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="/incidencias" className="cursor-pointer">
                       <ShieldAlert className="mr-2 h-4 w-4" />
-                       {t("Incidencias")} </Link>
+                       {t("Incidencias")}{porSeccion["/incidencias"] > 0 && <span className="ml-2 rounded-full bg-red-500 px-1.5 text-xs text-white">{porSeccion["/incidencias"]}</span>} </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="/mi-empresa" className="cursor-pointer">
@@ -445,7 +400,8 @@ const Navbar = () => {
             )}
           </div>
 
-          <div className="flex 2xl:hidden items-center gap-2">
+          <div className="flex xl:hidden items-center gap-2">
+            {isAuthenticated && !actorEmpresaLocal && <CampanaNotificaciones />}
             <SelectorIdioma compacto />
             <ThemeToggle />
             {isAuthenticated ? (
@@ -498,7 +454,7 @@ const Navbar = () => {
         </div>
 
         {isOpen && (
-          <div id="mobile-navigation" className="2xl:hidden py-4 border-t animate-in slide-in-from-top-2">
+          <div id="mobile-navigation" className="xl:hidden max-h-[calc(100dvh-4rem)] overflow-y-auto py-4 border-t animate-in slide-in-from-top-2">
             <nav className="flex flex-col gap-1">
               {navLinks.map((link) => {
                 const Icon = link.icon
@@ -547,7 +503,7 @@ const Navbar = () => {
                     className="px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted flex items-center gap-3"
                   >
                     <UserCircle className="h-5 w-5 shrink-0" />
-                     {t("Mi Perfil")} </Link>
+                     {t("Mi Perfil")}{porSeccion["/mi-perfil"] > 0 && <span className="ml-2 rounded-full bg-red-500 px-1.5 text-xs text-white">{porSeccion["/mi-perfil"]}</span>} </Link>
                   {isProfessional && (
                     <Link
                       href="/cobros"
@@ -563,7 +519,7 @@ const Navbar = () => {
                     className="px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted flex items-center gap-3"
                   >
                     <ShieldAlert className="h-5 w-5 shrink-0" />
-                     {t("Incidencias")} </Link>
+                     {t("Incidencias")}{porSeccion["/incidencias"] > 0 && <span className="ml-2 rounded-full bg-red-500 px-1.5 text-xs text-white">{porSeccion["/incidencias"]}</span>} </Link>
                   <Link
                     href="/mi-empresa"
                     onClick={() => setIsOpen(false)}

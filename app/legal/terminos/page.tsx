@@ -35,13 +35,14 @@ export default async function Terminos() {
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">{t("5. Comisiones")}</h2>
           <p>
-            {t("Diime aplica gastos de servicio sobre cada transacción completada. El porcentaje vigente se indica en la plataforma antes de confirmar cada operación y el importe mostrado incluye el IVA aplicable a los servicios de Diime. Las tarifas están sujetas a cambios con previo aviso de 30 días.")}</p>
+            {t("Diime aplica gastos de servicio al pago de la contratación. El porcentaje vigente se indica en la plataforma antes de confirmar cada operación y el importe mostrado incluye el IVA aplicable a los servicios de Diime. En una cancelación de mutuo acuerdo de un trabajo pagado, Diime conserva los gastos de servicio del cliente cobrados al pagar. Las tarifas están sujetas a cambios con previo aviso de 30 días.")}</p>
           <p className="mt-3">
             {t("El proveedor fija el precio final de su servicio, incluyendo los impuestos que correspondan, y es el único responsable de determinar su tratamiento fiscal, emitir la factura al cliente y declarar e ingresar el IVA cuando resulte aplicable. Diime no calcula, retiene ni declara el IVA correspondiente al servicio prestado por el proveedor.")}</p>
         </section>
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">{t("6. Cancelaciones y reembolsos")}</h2>
-          <p>{t("Las condiciones de cancelación y reembolso dependen del estado del trabajo. Antes del inicio, el cliente puede cancelar y recibir un reembolso completo. Una vez iniciado el trabajo, la política de reembolso se aplica de forma proporcional al trabajo realizado, según lo acordado entre las partes.")}</p>
+          <p>{t("Cualquiera de las partes puede solicitar una cancelación de mutuo acuerdo antes de la entrega. Si la otra parte acepta y el trabajo ya estaba pagado, se devuelve al cliente el precio del servicio y Diime conserva los gastos de servicio del cliente cobrados al pagar. Si no se había pagado, no se mueve dinero. Si la cancelación se rechaza, se abre una disputa que resuelve Diime según los términos de la contratación y las pruebas aportadas.")}</p>
+          <p className="mt-3">{t("Los pagos tardíos recibidos tras el cierre del intento de pago, sin que se active la contratación, se devuelven íntegramente, sin retener comisión. El justificante recoge los importes y el resultado de cada operación; los reembolsos ya ejecutados no se modifican.")}</p>
         </section>
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">{t("7. Contenido y conducta de los usuarios")}</h2>

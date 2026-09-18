@@ -1,5 +1,6 @@
 import { getT } from "@/lib/i18n-servidor"
 import DemandasServicios from "@/components/demandas-servicios"
+import { Suspense } from "react"
 
 export async function generateMetadata() {
   const { t } = await getT()
@@ -19,7 +20,9 @@ export default async function DemandasPage() {
         <p className="text-muted-foreground">
           {t("Explora las solicitudes de servicios publicadas por usuarios. Filtra por tu especialidad y ubicación para encontrar proyectos y enviar tus presupuestos.")}</p>
       </div>
-      <DemandasServicios />
+      <Suspense fallback={<div className="h-40 animate-pulse rounded-xl bg-muted/50" />}>
+        <DemandasServicios />
+      </Suspense>
     </div>
   )
 }

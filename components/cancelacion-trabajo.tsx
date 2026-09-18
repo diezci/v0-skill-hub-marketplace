@@ -184,7 +184,7 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
         toast({
           title: aceptar ? t("Cancelación aceptada") : t("Cancelación rechazada: disputa abierta"),
           description: aceptar
-            ? t("El trabajo ha quedado cancelado. Si el cliente había pagado, se le reembolsa íntegramente.")
+            ? t("El trabajo ha quedado cancelado. Consulta el justificante para ver el reembolso y los gastos de servicio registrados.")
             : t("Tus argumentos y archivos se han enviado al equipo de Diime para que resuelva."),
         })
         setOpenRechazar(false)
@@ -374,7 +374,7 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
                 )}
               {/* max-w-prose: a lo ancho de una tarjeta grande, una línea de texto
                   de borde a borde se lee mal. */}
-              <p className="mt-1.5 max-w-prose break-words text-sm text-muted-foreground">{t("Si aceptas, el trabajo se cancela (y si el cliente ya pagó, se le reembolsa íntegramente). Si rechazas, podrás aportar tus argumentos y archivos; se abrirá una disputa automáticamente y la resolverá el equipo de Diime.")}</p>
+              <p className="mt-1.5 max-w-prose break-words text-sm text-muted-foreground">{t("Si aceptas, el trabajo se cancela. Si ya estaba pagado, se devuelve al cliente el precio del servicio y Diime conserva los gastos de servicio del cliente cobrados al pagar. Si no se había pagado, no se mueve dinero. Si rechazas, podrás aportar tus argumentos y archivos; se abrirá una disputa automáticamente y la resolverá el equipo de Diime.")}</p>
             </div>
           </div>
           {/* En móvil las dos acciones no caben de forma fiable en una sola fila
@@ -594,7 +594,7 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{t("Solicitar cancelación")}</DialogTitle>
-          <DialogDescription>{t("La cancelación debe ser de mutuo acuerdo: la otra parte recibirá un aviso y deberá aceptarla o rechazarla. Si la acepta y el trabajo ya estaba pagado, el cliente recibe el reembolso íntegro automáticamente. Si la rechaza, se abrirá una disputa que resolverá el equipo de Diime.")}</DialogDescription>
+          <DialogDescription>{t("La cancelación debe ser de mutuo acuerdo: la otra parte recibirá un aviso y deberá aceptarla o rechazarla. Si la acepta y el trabajo ya estaba pagado, se devuelve al cliente el precio del servicio y Diime conserva los gastos de servicio del cliente cobrados al pagar. Si no se había pagado, no se mueve dinero. Si la rechaza, se abrirá una disputa que resolverá el equipo de Diime.")}</DialogDescription>
         </DialogHeader>
         <div className="space-y-1.5 py-1">
           <label className="text-sm font-medium">{t("Motivo *")}</label>

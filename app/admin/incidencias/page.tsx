@@ -2,7 +2,9 @@
 
 import { useIdioma } from "@/components/idioma-provider"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -18,7 +20,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { AlertCircle, CheckCircle2, Clock, Eye, Loader2, Search, ShieldAlert, Tag, User2 } from "lucide-react"
+import { AlertCircle, CheckCircle2, Clock, CreditCard, Eye, Loader2, Search, ShieldAlert, Tag, User2 } from "lucide-react"
+import { AdminChatUsuarioButton } from "@/components/admin-chat-usuario-button"
 import {
   actualizarIncidencia,
   obtenerIncidencias,
@@ -50,6 +53,7 @@ const ESTADO_STYLES: Record<string, string> = {
   en_revision: "bg-blue-500/10 text-blue-600 border-blue-500/30",
   resuelta: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
   cerrada: "bg-muted text-muted-foreground border-border",
+  retirada: "bg-muted text-muted-foreground border-border",
 }
 
 const ESTADO_LABELS: Record<string, string> = {
@@ -57,6 +61,7 @@ const ESTADO_LABELS: Record<string, string> = {
   en_revision: "En revisión",
   resuelta: "Resuelta",
   cerrada: "Cerrada",
+  retirada: "Retirada",
 }
 
 export default function AdminIncidenciasPage() {
@@ -73,6 +78,12 @@ export default function AdminIncidenciasPage() {
   const [notas, setNotas] = useState("")
   const [saving, setSaving] = useState(false)
   const [resolviendo, setResolviendo] = useState<string | null>(null)
+  const [pestana, setPestana] = useState("abiertas")
+  const router = useRouter()
+  const params = useSearchParams()
+  const incidenciaId = params.get("incidencia")
+  const usuarioId = params.get("usuario")
+  const detalleAbierto = useRef<string | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -97,6 +108,20 @@ export default function AdminIncidenciasPage() {
     setNotas(inc.notas_admin || "")
     setOpen(true)
   }
+
+  useEffect(() => {
+    if (usuarioId) setPestana("todas")
+  }, [usuarioId])
+
+  useEffect(() => {
+    if (!incidenciaId) { detalleAbierto.current = null; return }
+    if (loading || detalleAbierto.current === incidenciaId) return
+    const incidencia = incidencias.find(i => i.id === incidenciaId)
+    if (!incidencia) return
+    detalleAbierto.current = incidenciaId
+    setPestana(incidencia.estado === "abierta" ? "abiertas" : incidencia.estado === "en_revision" ? "revision" : "resueltas")
+    abrirDetalle(incidencia)
+  }, [incidenciaId, incidencias, loading])
 
   const guardar = async () => {
     if (!selected) return
@@ -143,16 +168,20 @@ export default function AdminIncidenciasPage() {
       !search ||
       i.asunto?.toLowerCase().includes(search.toLowerCase()) ||
       i.descripcion?.toLowerCase().includes(search.toLowerCase()) ||
-      i.reportador?.email?.toLowerCase().includes(search.toLowerCase())
+      i.reportador?.email?.toLowerCase().includes(search.toLowerCase()) ||
+      `${i.reportador?.nombre || ""} ${i.reportador?.apellido || ""}`.toLowerCase().includes(search.toLowerCase()) ||
+      i.id?.toLowerCase().includes(search.toLowerCase()) ||
+      i.trabajo_id?.toLowerCase().includes(search.toLowerCase())
     const matchCat = filtroCategoria === "todas" || i.categoria === filtroCategoria
-    return matchSearch && matchCat
+    const matchUsuario = !usuarioId || i.reportado_por === usuarioId || i.usuario_reportado === usuarioId
+    return matchSearch && matchCat && matchUsuario
   })
 
   const abiertas = filtradas.filter((i) => i.estado === "abierta")
   const enRevision = filtradas.filter((i) => i.estado === "en_revision")
-  const resueltas = filtradas.filter((i) => ["resuelta", "cerrada"].includes(i.estado))
+  const resueltas = filtradas.filter((i) => ["resuelta", "cerrada", "retirada"].includes(i.estado))
 
-  const criticas = incidencias.filter((i) => i.prioridad === "critica" && i.estado !== "cerrada").length
+  const criticas = incidencias.filter((i) => i.prioridad === "critica" && ["abierta", "en_revision"].includes(i.estado)).length
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -163,6 +192,13 @@ export default function AdminIncidenciasPage() {
         <p className="text-muted-foreground mt-1">
           {t("Gestiona reportes de fraude, abuso, problemas de pago y soporte técnico")}</p>
       </div>
+
+      {usuarioId && <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-muted/30 p-3 text-sm">
+        <span>{t("Incidencias de este usuario")}</span>
+        <Button asChild variant="outline" size="sm"><Link href={`/admin/usuarios/${encodeURIComponent(usuarioId)}`}>{t("Ver usuario")}</Link></Button>
+        <Button variant="ghost" size="sm" onClick={() => router.replace("/admin/incidencias")}>{t("Ver todas")}</Button>
+      </div>}
+      {incidenciaId && !loading && !incidencias.some(i => i.id === incidenciaId) && <p role="status" className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm">{t("La incidencia del aviso no está disponible. Actualiza la lista o revisa el resto de incidencias.")}</p>}
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -177,7 +213,7 @@ export default function AdminIncidenciasPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder={t("Buscar por asunto, descripción o email...")}
+            placeholder={t("Buscar por asunto, nombre, email o referencia...")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -199,8 +235,8 @@ export default function AdminIncidenciasPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="abiertas">
-        <TabsList>
+      <Tabs value={pestana} onValueChange={setPestana}>
+        <TabsList className="max-w-full overflow-x-auto justify-start">
           <TabsTrigger value="abiertas">{t("Abiertas (")}{abiertas.length})</TabsTrigger>
           <TabsTrigger value="revision">{t("En revisión (")}{enRevision.length})</TabsTrigger>
           <TabsTrigger value="resueltas">{t("Resueltas (")}{resueltas.length})</TabsTrigger>
@@ -245,6 +281,7 @@ export default function AdminIncidenciasPage() {
                     {selected.reportador?.nombre || ""} {selected.reportador?.apellido || ""}
                   </p>
                   <p className="text-xs text-muted-foreground">{selected.reportador?.email}</p>
+                  {selected.reportado_por && <Link href={`/admin/usuarios/${selected.reportado_por}`} className="mt-2 inline-block text-xs text-primary underline underline-offset-2">{t("Ver usuario")}</Link>}
                 </div>
                 <div className="bg-muted/50 rounded-lg p-3">
                   <p className="text-xs text-muted-foreground mb-0.5">{t("Categoría")}</p>
@@ -262,6 +299,14 @@ export default function AdminIncidenciasPage() {
                     </p>
                   </div>
                 )}
+              </div>
+
+              <div className="flex flex-wrap gap-2 rounded-lg border p-3">
+                {selected.reportado_por && <AdminChatUsuarioButton usuarioId={selected.reportado_por} nombre={`${selected.reportador?.nombre || ""} ${selected.reportador?.apellido || ""}`.trim() || t("Usuario")} />}
+                {(selected.reportado_por || selected.trabajo_id) && <Button asChild variant="outline" size="sm">
+                  <Link href={selected.trabajo_id ? `/admin/pagos?trabajo=${selected.trabajo_id}` : `/admin/pagos?usuario=${selected.reportado_por}`}><CreditCard className="mr-2 h-4 w-4" />{t("Revisar pagos y cobros")}</Link>
+                </Button>}
+                {selected.trabajo_id && <p className="w-full text-xs text-muted-foreground">{t("Trabajo")}: TRB-{selected.trabajo_id.slice(0, 8).toUpperCase()}</p>}
               </div>
 
               {/* Description */}
@@ -285,6 +330,7 @@ export default function AdminIncidenciasPage() {
                       <SelectItem value="en_revision">{t("En revisión")}</SelectItem>
                       <SelectItem value="resuelta">{t("Resuelta")}</SelectItem>
                       <SelectItem value="cerrada">{t("Cerrada")}</SelectItem>
+                      <SelectItem value="retirada">{t("Retirada")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -305,13 +351,14 @@ export default function AdminIncidenciasPage() {
               </div>
 
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1.5">{t("Notas internas del admin")}</label>
+                <label className="text-xs font-medium text-muted-foreground block mb-1.5">{t("Respuesta y resolución para el usuario")}</label>
                 <Textarea
                   placeholder={t("Acciones tomadas, comunicaciones, conclusiones...")}
                   value={notas}
                   onChange={(e) => setNotas(e.target.value)}
                   rows={4}
                 />
+                <p className="mt-1 text-xs text-muted-foreground">{t("Esta respuesta es visible para quien reportó la incidencia. Resolver la incidencia no ejecuta un cobro ni un reembolso.")}</p>
               </div>
             </div>
           )}
@@ -328,7 +375,7 @@ export default function AdminIncidenciasPage() {
                 t("Guardar cambios")
               )}
             </Button>
-            {selected && !["resuelta", "cerrada"].includes(selected.estado) && (
+            {selected && !["resuelta", "cerrada", "retirada"].includes(selected.estado) && (
               <Button
                 onClick={() => marcarResuelta(selected, notas)}
                 disabled={saving || !!resolviendo}
@@ -390,7 +437,7 @@ function Lista({
           key={inc.id}
           className={cn(
             "cursor-pointer transition-all hover:shadow-md hover:border-primary/40",
-            inc.prioridad === "critica" && inc.estado !== "cerrada" && "border-red-500/40 bg-red-500/5",
+            inc.prioridad === "critica" && ["abierta", "en_revision"].includes(inc.estado) && "border-red-500/40 bg-red-500/5",
           )}
           onClick={() => onOpen(inc)}
         >
@@ -419,7 +466,7 @@ function Lista({
               <Button variant="ghost" size="sm" className="-ml-2 gap-2">
                 <Eye className="h-4 w-4" />
                 {t("Ver y gestionar")}</Button>
-              {!["resuelta", "cerrada"].includes(inc.estado) && (
+              {!["resuelta", "cerrada", "retirada"].includes(inc.estado) && (
                 <Button
                   size="sm"
                   className="gap-2 bg-emerald-600 hover:bg-emerald-700"

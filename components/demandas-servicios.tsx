@@ -4,7 +4,7 @@ import { useT, useIdioma } from "@/components/idioma-provider"
 import { localeDe } from "@/lib/i18n"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { formatearRangoPresupuesto } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
@@ -37,6 +37,7 @@ import {
   Briefcase,
   Calendar,
   FileText,
+  Bell,
 } from "lucide-react"
 import { uploadFile } from "@/lib/upload-helpers"
 import { toast } from "@/hooks/use-toast"
@@ -45,11 +46,15 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { crearOferta } from "@/app/actions/ofertas"
 import { obtenerSolicitudesAbiertas } from "@/app/actions/solicitudes"
 import { crearConversacion } from "@/app/actions/messages"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { PROVINCIAS_ES } from "@/lib/provincias"
 import { SelectCategoriaJerarquico } from "@/components/select-categoria-jerarquico"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
+import { PresetsFiltrosDemandas } from "@/components/presets-filtros-demandas"
+import type { FiltrosDemandas } from "@/lib/presets-demandas"
+import { useNotificacionesSeccion } from "@/hooks/use-notificaciones-seccion"
+import { AvisosTarjeta, type AvisoTarjeta } from "@/components/avisos-tarjeta"
 
 type ClientePublico = {
   id?: string
@@ -120,6 +125,12 @@ export default function DemandasServicios() {
   const [busqueda, setBusqueda] = useState("")
   const [ordenarPor, setOrdenarPor] = useState<"recientes" | "antiguos" | "presupuesto-alto" | "presupuesto-bajo" | "menos-ofertas">("recientes")
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
+  const [soloNovedades, setSoloNovedades] = useState(false)
+  const { pendientes, paraEntidad, marcarLeidas } = useNotificacionesSeccion("/demandas")
+  const [avisosDetalle, setAvisosDetalle] = useState<AvisoTarjeta[]>([])
+  const avisosMostrados = useRef(new Set<string>())
+  const enlaceAbierto = useRef("")
+  const searchParams = useSearchParams()
 
   const [dialogAbierto, setDialogAbierto] = useState(false)
   const [demandaSeleccionada, setDemandaSeleccionada] = useState<Demanda | null>(null)
@@ -128,6 +139,7 @@ export default function DemandasServicios() {
   const [clienteSeleccionado, setClienteSeleccionado] = useState<ClienteSeleccionado | null>(null)
   const [contactando, setContactando] = useState(false)
   const [usuarioActualId, setUsuarioActualId] = useState<string | null>(null)
+  const cuentaAvisos = useRef<string | null>(null)
   const router = useRouter()
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -142,6 +154,17 @@ export default function DemandasServicios() {
     setFiltroTiempo("todos")
     setRangoPresupuesto([0, PRECIO_MAX])
     setBusqueda("")
+    setSoloNovedades(false)
+  }
+
+  const aplicarFiltrosGuardados = (filtros: FiltrosDemandas) => {
+    setFiltroCategoria(filtros.categoria)
+    setFiltroUbicacion(filtros.ubicacion)
+    setFiltroTiempo(filtros.tiempo)
+    setRangoPresupuesto(filtros.presupuesto)
+    setBusqueda(filtros.busqueda)
+    setOrdenarPor(filtros.orden)
+    setSoloNovedades(false)
   }
 
   const [formData, setFormData] = useState({
@@ -153,26 +176,76 @@ export default function DemandasServicios() {
   })
 
   useEffect(() => {
+    let activo = true
+    let revisionSesion = 0
+    const supabase = createClient()
     async function cargarDemandas() {
+      const revision = revisionSesion
       setLoading(true)
       // Quién soy, para no ofrecerme pujar ni escribirme en mis propias
       // demandas (el servidor lo rechaza igualmente, pero el botón no debería
       // ni aparecer).
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      setUsuarioActualId(user?.id ?? null)
-
-      const result = await obtenerSolicitudesAbiertas()
-      // Solo demandas reales: nada de datos de ejemplo.
-      setDemandas(result.data || [])
-      setLoading(false)
+      try {
+        const [{ data: { user } }, result] = await Promise.all([
+          supabase.auth.getUser(),
+          obtenerSolicitudesAbiertas(),
+        ])
+        if (!activo) return
+        if (revision === revisionSesion) setUsuarioActualId(user?.id ?? null)
+        // Solo demandas reales: nada de datos de ejemplo.
+        setDemandas(result.data || [])
+      } finally {
+        if (activo) setLoading(false)
+      }
     }
-    cargarDemandas()
+    void cargarDemandas().catch(() => {})
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      revisionSesion += 1
+      if (activo) setUsuarioActualId(session?.user.id ?? null)
+    })
+    return () => { activo = false; data.subscription.unsubscribe() }
   }, [])
 
+  useEffect(() => {
+    if (cuentaAvisos.current && cuentaAvisos.current !== usuarioActualId) {
+      setAvisosDetalle([])
+      avisosMostrados.current.clear()
+      setDialogDetalles(false)
+    }
+    cuentaAvisos.current = usuarioActualId
+  }, [usuarioActualId])
+
+  // Notification links open the exact request even when saved filters exclude it.
+  useEffect(() => {
+    const solicitudId = searchParams.get("solicitud")
+    const clave = solicitudId ? `${solicitudId}:${searchParams.get("notificacion") || ""}` : ""
+    if (!clave) { enlaceAbierto.current = ""; return }
+    if (loading || clave === enlaceAbierto.current) return
+    const demanda = demandas.find((item) => item.id === solicitudId)
+    enlaceAbierto.current = clave
+    if (!demanda) {
+      toast({ title: t("Esta solicitud ya no está disponible"), description: t("Puede haberse cerrado o eliminado. El aviso conserva el contexto de la solicitud.") })
+      return
+    }
+    avisosMostrados.current.clear()
+    setAvisosDetalle([])
+    setDemandaSeleccionada(demanda)
+    setDialogDetalles(true)
+  }, [searchParams, loading, demandas, t])
+
+  // Entering the section leaves badges intact. Only the opened request's notices
+  // are acknowledged, with their full context retained inside the details dialog.
+  useEffect(() => {
+    if (!dialogDetalles || !demandaSeleccionada) return
+    const avisos = paraEntidad({ solicitudId: demandaSeleccionada.id }).filter((aviso) => !avisosMostrados.current.has(aviso.id))
+    if (!avisos.length) return
+    for (const aviso of avisos) avisosMostrados.current.add(aviso.id)
+    setAvisosDetalle((actuales) => [...actuales, ...avisos])
+    void marcarLeidas(avisos.map((aviso) => aviso.id))
+  }, [dialogDetalles, demandaSeleccionada, pendientes, paraEntidad, marcarLeidas])
+
   const demandasFiltradas = demandas.filter((d) => {
+    if (soloNovedades && !paraEntidad({ solicitudId: d.id }).length) return false
     // Category filter
     if (filtroCategoria !== "Todas las categorías" && d.categoria?.nombre !== filtroCategoria) return false
 
@@ -220,8 +293,19 @@ export default function DemandasServicios() {
   })
 
   const handleVerDetalles = (demanda: Demanda) => {
+    avisosMostrados.current.clear()
+    setAvisosDetalle([])
     setDemandaSeleccionada(demanda)
     setDialogDetalles(true)
+  }
+
+  const cambiarDialogDetalles = (abierto: boolean) => {
+    setDialogDetalles(abierto)
+    if (!abierto && searchParams.has("solicitud")) {
+      const params = new URLSearchParams(searchParams.toString())
+      for (const campo of ["solicitud", "notificacion", "aspecto"]) params.delete(campo)
+      router.replace(`/demandas${params.size ? `?${params}` : ""}`, { scroll: false })
+    }
   }
 
   const handleVerCliente = (demanda: Demanda) => {
@@ -429,7 +513,12 @@ export default function DemandasServicios() {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 space-y-4">
+      <div className="min-w-0 flex-1 space-y-4">
+        <PresetsFiltrosDemandas
+          usuarioId={usuarioActualId}
+          filtros={{ categoria: filtroCategoria, ubicacion: filtroUbicacion, tiempo: filtroTiempo, presupuesto: rangoPresupuesto, busqueda, orden: ordenarPor }}
+          onAplicar={aplicarFiltrosGuardados}
+        />
         {/* Search Bar */}
         <div className="flex gap-3">
           <div className="relative flex-1">
@@ -437,6 +526,7 @@ export default function DemandasServicios() {
             <Input
               placeholder={t("Buscar demandas...")}
               value={busqueda}
+              maxLength={500}
               onChange={(e) => setBusqueda(e.target.value)}
               className="pl-10 bg-background/50"
             />
@@ -502,7 +592,7 @@ export default function DemandasServicios() {
         )}
 
         {/* Results Count */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-muted-foreground">
             <span className="font-medium text-foreground">{demandasOrdenadas.length}</span>{" "}{t("demandas encontradas")}</p>
           <Select value={ordenarPor} onValueChange={(v) => setOrdenarPor(v as typeof ordenarPor)}>
@@ -519,6 +609,16 @@ export default function DemandasServicios() {
           </Select>
         </div>
 
+        {(pendientes.length > 0 || soloNovedades) && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant={soloNovedades ? "default" : "outline"} size="sm" aria-pressed={soloNovedades} onClick={() => setSoloNovedades(!soloNovedades)}>
+              <Bell className="mr-1.5 h-4 w-4" />{t("Solo con novedades")}
+              <span className="ml-1.5">({demandas.filter((demanda) => paraEntidad({ solicitudId: demanda.id }).length > 0).length})</span>
+            </Button>
+            <p className="text-xs text-muted-foreground">{t("Las tarjetas resaltadas muestran qué ha cambiado en cada solicitud.")}</p>
+          </div>
+        )}
+
         {/* Loading State */}
         {loading && (
           <div className="flex items-center justify-center py-12">
@@ -529,12 +629,16 @@ export default function DemandasServicios() {
         {/* Demandas List */}
         {!loading && (
           <div className="space-y-4">
-            {demandasOrdenadas.map((demanda) => (
+            {demandasOrdenadas.map((demanda) => {
+              const avisos = paraEntidad({ solicitudId: demanda.id })
+              return (
               <Card
                 key={demanda.id}
-                className="group overflow-hidden transition-all hover:shadow-lg hover:border-primary/20 bg-card/50 backdrop-blur-sm"
+                id={`solicitud-${demanda.id}`}
+                className={`group scroll-mt-28 overflow-hidden transition-all hover:shadow-lg bg-card/50 backdrop-blur-sm ${avisos.length ? "border-primary/50 ring-1 ring-primary/20" : "hover:border-primary/20"}`}
               >
                 <CardContent className="p-5">
+                  <AvisosTarjeta avisos={avisos} onMarcarLeidas={marcarLeidas} />
                   <div className="flex flex-col md:flex-row gap-4">
                     {/* Main Content */}
                     <div className="flex-1 space-y-3">
@@ -641,7 +745,7 @@ export default function DemandasServicios() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+            )})}
 
             {demandasFiltradas.length === 0 && !loading && (
               <Card className="p-12 text-center">
@@ -655,7 +759,7 @@ export default function DemandasServicios() {
       </div>
 
       {/* Dialog Ver Detalles */}
-      <Dialog open={dialogDetalles} onOpenChange={setDialogDetalles}>
+      <Dialog open={dialogDetalles} onOpenChange={cambiarDialogDetalles}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -671,13 +775,14 @@ export default function DemandasServicios() {
           </DialogHeader>
 
           <div className="space-y-6">
+            <AvisosTarjeta avisos={avisosDetalle} />
             <button
               type="button"
               className="w-full flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer text-left"
               onClick={() => {
                 if (demandaSeleccionada) {
                   handleVerCliente(demandaSeleccionada)
-                  setDialogDetalles(false)
+                  cambiarDialogDetalles(false)
                 }
               }}
             >
@@ -741,7 +846,7 @@ export default function DemandasServicios() {
                   type="button"
                   className="flex-1"
                   onClick={() => {
-                    setDialogDetalles(false)
+                    cambiarDialogDetalles(false)
                     if (demandaSeleccionada) handleEnviarOferta(demandaSeleccionada)
                   }}
                 >

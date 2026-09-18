@@ -3,7 +3,10 @@
 import { useT, useIdioma } from "@/components/idioma-provider"
 import { localeDe } from "@/lib/i18n"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
+import { useNotificacionesSeccion } from "@/hooks/use-notificaciones-seccion"
+import { useDestinoNotificacion } from "@/hooks/use-destino-notificacion"
+import { AvisosTarjeta } from "@/components/avisos-tarjeta"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -62,9 +65,14 @@ const necesitaConfirmarGastos = (oferta: any) => oferta.comision_proveedor_porce
   oferta.pago_neto_proveedor_previsto == null
 
 export default function MisOfertas() {
+  return <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>}><MisOfertasContenido /></Suspense>
+}
+
+function MisOfertasContenido() {
   const t = useT()
   const { idioma } = useIdioma()
 
+  const { paraEntidad, marcarLeidas } = useNotificacionesSeccion("/mis-ofertas")
   const [ofertas, setOfertas] = useState<any[]>([])
   const [perdidas, setPerdidas] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -99,6 +107,19 @@ export default function MisOfertas() {
   useEffect(() => {
     cargarOfertas()
   }, [])
+
+  useDestinoNotificacion({
+    cargando: loading,
+    resolver: (params) => {
+      const oferta = [...ofertas, ...perdidas].find((item) =>
+        params.get("oferta") ? item.id === params.get("oferta")
+          : params.get("solicitud") ? item.solicitud_id === params.get("solicitud")
+          : params.get("trabajo") ? item.trabajo?.id === params.get("trabajo") : false,
+      )
+      return oferta ? { id: `puja-${oferta.id}` } : null
+    },
+  })
+  const avisosOferta = (oferta: any) => paraEntidad({ solicitudId: oferta.solicitud_id, ofertaId: oferta.id, trabajoId: oferta.trabajo?.id })
 
   // Si existe historial rechazado y también una puja nueva para la misma
   // demanda, no ofrecemos volver a pujar otra vez desde la tarjeta antigua.
@@ -259,7 +280,7 @@ export default function MisOfertas() {
             </div>
           ) : (
             ofertas.map((oferta) => (
-              <Card key={oferta.id} className="hover:shadow-md transition-shadow">
+              <Card key={oferta.id} id={`puja-${oferta.id}`} tabIndex={-1} className={`scroll-mt-24 hover:shadow-md transition-shadow ${avisosOferta(oferta).length ? "ring-2 ring-primary/50 border-primary/40" : ""}`}>
                 <CardHeader>
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
@@ -297,6 +318,7 @@ export default function MisOfertas() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <AvisosTarjeta avisos={avisosOferta(oferta)} onMarcarLeidas={marcarLeidas} />
                   {necesitaConfirmarGastos(oferta) && (
                     <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
                       {esAceptadaSinPagar(oferta)
@@ -414,9 +436,11 @@ export default function MisOfertas() {
             {perdidas.map((oferta) => (
               <div
                 key={oferta.id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border p-4"
+                id={`puja-${oferta.id}`} tabIndex={-1}
+                className={`scroll-mt-24 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border p-4 ${avisosOferta(oferta).length ? "ring-2 ring-primary/50 border-primary/40" : ""}`}
               >
                 <div className="min-w-0 flex-1">
+                  <AvisosTarjeta avisos={avisosOferta(oferta)} onMarcarLeidas={marcarLeidas} />
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-medium truncate">{oferta.solicitud?.titulo || t("Servicio")}</p>
                     <Badge variant="outline" className="gap-1 text-red-600 border-red-500/50 bg-red-500/10 shrink-0">

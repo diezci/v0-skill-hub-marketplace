@@ -1,13 +1,27 @@
+type CuentaStripeIdentificable = {
+  deleted?: boolean | void
+  metadata?: Record<string, string> | null
+  business_type?: string | null
+  details_submitted?: boolean
+}
+
+// A company membership does not transfer ownership of a person's existing
+// account. This exception is for accessing that personal account only; new
+// collections and webhooks must still pass errorIdentidadCuentaStripe.
+export function esCuentaPersonalPropiaStripe(
+  cuenta: CuentaStripeIdentificable,
+  profesional: { id: string },
+): boolean {
+  return !cuenta.deleted && cuenta.business_type === "individual"
+    && cuenta.metadata?.diime_profesional_id === profesional.id
+    && !cuenta.metadata?.diime_empresa_id
+}
+
 // Se usa al consultar Connect y al procesar eventos de Stripe. Los metadatos
 // identifican al titular creado por Diime; empresa_id se obtiene del perfil
 // protegido en la base de datos, nunca de datos enviados por el navegador.
 export function errorIdentidadCuentaStripe(
-  cuenta: {
-    deleted?: boolean | void
-    metadata?: Record<string, string> | null
-    business_type?: string | null
-    details_submitted?: boolean
-  },
+  cuenta: CuentaStripeIdentificable,
   profesional: { id: string; empresa_id?: string | null },
 ): string | null {
   if (cuenta.deleted || cuenta.metadata?.diime_profesional_id !== profesional.id) {

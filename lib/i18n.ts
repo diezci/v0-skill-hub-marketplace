@@ -1,10 +1,16 @@
 // Shared, deterministic translations. No browser globals or user-content rewriting.
+import { EN_AVISOS } from "./traducciones/avisos"
+import { EN_ADMIN_PAGOS } from "./traducciones/admin-pagos"
+import { EN_COBROS } from "./traducciones/cobros"
+import { EN_REEMBOLSOS } from "./traducciones/reembolsos"
+import { EN_ACTIVIDAD } from "./traducciones/actividad"
 import { EN_NOTIFICACIONES } from "./traducciones/notificaciones"
 import { EN_COMMON } from "./traducciones/common"
 import { EN_ACCOUNTS } from "./traducciones/accounts"
 import { EN_WORKFLOWS } from "./traducciones/workflows"
 import { EN_PAGES } from "./traducciones/pages"
 import { EN_SERVER } from "./traducciones/server"
+import { EN_DEMANDAS } from "./traducciones/demandas"
 
 export type Idioma = "es" | "en"
 
@@ -200,7 +206,7 @@ const EN: Diccionario = {
   "bienvenida.pie": "The provider transfer is made only after client confirmation or dispute resolution.",
 }
 
-export const INGLES: Diccionario = { ...EN_NOTIFICACIONES, ...EN_COMMON, ...EN_ACCOUNTS, ...EN_WORKFLOWS, ...EN_PAGES, ...EN_SERVER, ...EN }
+export const INGLES: Diccionario = { ...EN_AVISOS, ...EN_ADMIN_PAGOS, ...EN_COBROS, ...EN_REEMBOLSOS, ...EN_ACTIVIDAD, ...EN_NOTIFICACIONES, ...EN_COMMON, ...EN_ACCOUNTS, ...EN_WORKFLOWS, ...EN_PAGES, ...EN_SERVER, ...EN_DEMANDAS, ...EN }
 const DICCIONARIOS: Record<Idioma, Diccionario> = { es: ES, en: INGLES }
 export type ParametrosTraduccion = Record<string, string | number>
 export type Traductor = (clave: string, parametros?: ParametrosTraduccion) => string

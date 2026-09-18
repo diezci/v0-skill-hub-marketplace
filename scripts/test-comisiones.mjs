@@ -3,6 +3,7 @@ import {
   calcularPagoProveedor,
   calcularPagoProveedorConTarifa,
   calcularTotalCliente,
+  calcularReembolsoCliente,
   desglosarIvaIncluido,
   PLATFORM_CONFIG,
 } from "../lib/comisiones.ts"
@@ -12,6 +13,7 @@ assert.equal(PLATFORM_CONFIG.ivaDiimePorcentaje, 21)
 assert.deepEqual(desglosarIvaIncluido(10), { baseImponible: 8.26, cuotaIva: 1.74, total: 10 })
 assert.deepEqual(desglosarIvaIncluido(2), { baseImponible: 1.65, cuotaIva: 0.35, total: 2 })
 assert.deepEqual(calcularTotalCliente(100), { precioBase: 100, comisionCliente: 10, totalCliente: 110 })
+assert.deepEqual(calcularReembolsoCliente(20), { totalPagado: 22, reembolso: 20, retencionPlataforma: 2 })
 assert.deepEqual(calcularPagoProveedor(10), { precioBase: 10, comisionProveedor: 2, pagoNeto: 8 })
 assert.deepEqual(calcularPagoProveedor(20), { precioBase: 20, comisionProveedor: 2, pagoNeto: 18 })
 assert.deepEqual(calcularPagoProveedor(100), { precioBase: 100, comisionProveedor: 10, pagoNeto: 90 })

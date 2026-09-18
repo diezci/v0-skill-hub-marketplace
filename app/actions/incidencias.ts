@@ -260,7 +260,8 @@ export async function actualizarIncidencia(
       mensaje: `Tu incidencia "${incidencia.asunto}" se ha marcado como ${
         resuelta ? "resuelta" : "cerrada"
       }.${nota ? ` Respuesta del equipo: ${nota}` : ""}`,
-      link: "/incidencias",
+      link: `/incidencias?incidencia=${encodeURIComponent(id)}&aspecto=incidencia_resuelta`,
+      metadata: { incidencia_id: id, titulo_trabajo: incidencia.asunto },
     })
   }
 

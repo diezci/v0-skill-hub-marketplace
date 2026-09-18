@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // La revisión local de empresas conserva su compilación separada del trabajo habitual.
+  distDir: process.env.DIIME_EMPRESAS_LOCAL === "1" && process.env.NODE_ENV !== "production" ? ".next-empresas" : ".next",
+  ...(process.env.DIIME_EMPRESAS_LOCAL === "1" && process.env.NODE_ENV !== "production"
+    ? { experimental: { serverActions: { bodySizeLimit: "6mb" } } }
+    : {}),
   // Vercel asigna un identificador único por despliegue para Skew Protection.
   // Un SHA puede generar varios despliegues (preview, producción o reintentos).
   // La navegación inferior de la app ocupa esa esquina; el indicador de

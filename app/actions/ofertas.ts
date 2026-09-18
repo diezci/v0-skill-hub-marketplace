@@ -1,5 +1,6 @@
 "use server"
 
+import { construirLinkNotificacion } from "@/lib/notificaciones-contexto"
 import { textoServidor } from "@/lib/i18n-servidor"
 
 import { createClient } from "@/lib/supabase/server"
@@ -190,8 +191,9 @@ export async function crearOferta(formData: {
       usuarioId: solicitud.cliente_id,
       tipo: "oferta_nueva",
       titulo: "Nueva oferta en tu demanda",
+      metadata: { titulo_trabajo: solicitud.titulo },
       mensaje: `Has recibido una oferta en "${solicitud.titulo}".`,
-      link: "/mis-solicitudes",
+      link: construirLinkNotificacion({ seccion: "/mis-solicitudes", solicitudId: formData.solicitud_id, ofertaId: data.id, aspecto: "ofertas" }),
     })
   }
 
@@ -425,10 +427,11 @@ export async function actualizarOferta(
         usuarioId: solicitud.cliente_id,
         tipo: "oferta_actualizada",
         titulo: "Una oferta ha sido actualizada",
+        metadata: { titulo_trabajo: solicitud.titulo },
         mensaje: `El profesional ha modificado su oferta en "${solicitud.titulo}"${
           campos.precio != null ? ` (nuevo precio: ${campos.precio}€)` : ""
         }. Revísala en Mis Solicitudes.`,
-        link: "/mis-solicitudes",
+        link: construirLinkNotificacion({ seccion: "/mis-solicitudes", solicitudId: oferta.solicitud_id, ofertaId, aspecto: "ofertas" }),
       })
     }
   }
@@ -492,8 +495,9 @@ export async function eliminarOferta(ofertaId: string) {
         usuarioId: solicitud.cliente_id,
         tipo: "oferta_retirada",
         titulo: "Un profesional ha retirado su oferta",
+        metadata: { titulo_trabajo: solicitud.titulo },
         mensaje: `Una de las ofertas que habías recibido en "${solicitud.titulo}" ya no está disponible.`,
-        link: "/mis-solicitudes",
+        link: construirLinkNotificacion({ seccion: "/mis-solicitudes", solicitudId: oferta.solicitud_id, ofertaId, aspecto: "ofertas" }),
       })
     }
   }
@@ -587,8 +591,9 @@ export async function aceptarOferta(ofertaId: string) {
     usuarioId: oferta.profesional_id,
     tipo: "oferta_aceptada",
     titulo: "Han aceptado tu puja",
+    metadata: { titulo_trabajo: oferta.solicitud?.titulo },
     mensaje: `Tu oferta para "${oferta.solicitud?.titulo ?? "una demanda"}" ha sido aceptada. Cuando el cliente complete el pago protegido, el trabajo aparecerá en Gestión de Proyectos.`,
-    link: "/mis-ofertas",
+    link: construirLinkNotificacion({ seccion: "/mis-ofertas", solicitudId: oferta.solicitud_id, ofertaId, aspecto: "oferta_aceptada" }),
   })
 
   return { data: trabajoResult.data }
@@ -643,8 +648,9 @@ export async function rechazarOferta(ofertaId: string) {
     usuarioId: oferta.profesional_id,
     tipo: "oferta_rechazada",
     titulo: "Han rechazado tu oferta",
+    metadata: { titulo_trabajo: solicitud.titulo },
     mensaje: `Tu oferta para "${solicitud.titulo}" ha sido rechazada.`,
-    link: "/mis-ofertas",
+    link: construirLinkNotificacion({ seccion: "/mis-ofertas", solicitudId: oferta.solicitud_id, ofertaId, aspecto: "oferta_rechazada" }),
   })
 
   revalidatePath("/mis-solicitudes")

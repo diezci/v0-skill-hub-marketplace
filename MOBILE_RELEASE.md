@@ -1,12 +1,13 @@
 # Publicación móvil de Diime
 
-Android y web comprobados el 5 de septiembre de 2026; la última revisión completa
-de las consolas corresponde al 19 de agosto de 2026. La app usa Capacitor 8, carga
+Android y web comprobados el 5 de septiembre de 2026; la prueba interna de
+Google Play se publicó y verificó en Console el 13 de septiembre de 2026.
+El estado de Apple conserva sus fechas de comprobación indicadas abajo. La app usa Capacitor 8, carga
 `https://www.diime.es` y conserva una pantalla local para errores de conexión.
 El identificador configurado en iOS y Android es `es.diime.app`.
 
-> Confirma que `es.diime.app` es el identificador definitivo antes del primer
-> upload: después no se puede cambiar sin crear otra app en las tiendas.
+> `es.diime.app` ya se ha utilizado en el primer upload de Google Play;
+> cambiarlo requiere crear otra aplicación.
 
 ## Estado verificable
 
@@ -15,7 +16,7 @@ El identificador configurado en iOS y Android es `es.diime.app`.
 | Web del repositorio | Build OK | `pnpm build`, 50 rutas generadas; ver deuda técnica abajo |
 | Supabase de producción | Alertas operativas aplicadas | Tabla, RLS y función de registro operativo creadas el 4 de septiembre de 2026; verificar además las migraciones funcionales 045–049 |
 | Sincronización Capacitor | OK | 8 plugins sincronizados en iOS y Android |
-| Android | `1.0.1 (2)` firmado, sin subir | API 36; AAB verificado con `jarsigner` y APK con `apksigner` |
+| Android | `1.0.1 (2)` disponible en prueba interna | Console: canal activo, «Disponible para testers internos», publicado el 13 de septiembre de 2026 |
 | Android físico | Inicio y navegación básica OK | Huawei ANE-LX1, Android 9; APK debug `1.0.1 (2)` actualizado sin borrar datos |
 | Android virtual | Validación actual pendiente | Prueba antigua en API 36; el emulador API 35 del 5 de septiembre quedó sin responder |
 | iOS en simulador | Build y ejecución OK | Xcode 26.5, iOS 26.5 e iPhone 17 Pro; lanzamiento inicial solo iPhone |
@@ -31,8 +32,8 @@ depuración de WebView ni copias de seguridad de datos de la app.
 
 No son cambios que deban automatizarse con credenciales o claves inventadas:
 
-1. Confirmar el estado actual de `1.0 (1)` en App Store Connect y completar o
-   crear la ficha de Google Play con el identificador `es.diime.app`.
+1. Confirmar el estado actual de iOS en App Store Connect y completar la ficha
+   de Google Play de `es.diime.app`; Android ya tiene una prueba interna activa.
 2. Las dos cuentas de revisión se crearon en producción el 4 de septiembre de
    2026 y sus recorridos web quedaron verificados. Queda probar sus accesos en
    los binarios y cargar sus contraseñas exclusivamente en las consolas.
@@ -50,32 +51,41 @@ No son cambios que deban automatizarse con credenciales o claves inventadas:
 
 ### Google Play: punto de continuación
 
-- Console comprobada tras habilitar JavaScript desde Eventos de Apple el
-  5 de septiembre de 2026: cuenta personal `diezcii`, desarrollador
-  `8713826654791303474`, **sin aplicaciones creadas**. «Crear aplicación» está
-  deshabilitado hasta completar las verificaciones de la cuenta.
-- La página principal muestra dos tareas: verificar el dispositivo Android y
-  verificar el teléfono de contacto. El detalle del teléfono indica que primero
-  deben completarse las demás verificaciones; el acceso a su formulario también
-  está deshabilitado. No se ha solicitado ni enviado ningún código SMS.
-- En «Cuenta de desarrollador», los correos de contacto y del perfil constan
-  verificados; el teléfono no. El domicilio legal de la cuenta Google no
-  coincide con el domicilio autorizado en `STORE_COMPLIANCE_ES.md`: queda
+- Cuenta personal `diezcii`, desarrollador `8713826654791303474`. El titular
+  completó la verificación del Android y la del teléfono; Console confirmó
+  «Se ha verificado el número de teléfono» y permitió crear la aplicación.
+- Diime: ID de Console `4973971543456365272`, paquete `es.diime.app`.
+- El 13 de septiembre se subió el AAB firmado `1.0.1 (2)` y se publicó la
+  versión **«1.0.1 (2) — Prueba interna»**. Canal
+  `4701136643965295095`, lanzamiento `1`: **Activo / Disponible para testers
+  internos / Sin revisar**. No está publicado en producción.
+- Enlace de invitación verificado con la cuenta autorizada:
+  https://play.google.com/apps/internaltest/4701136643965295095
+  La página muestra «You're invited to test es.diime.app (unreviewed)».
+  El titular debe aceptar la invitación para obtener la instalación.
+- Lista seleccionada: **«tester iniciales»**, con una cuenta. El enlace no da
+  acceso a cualquiera: añadir previamente a la lista los correos Google de
+  otras personas que el titular quiera invitar. No se han añadido cuentas ni
+  aceptado la invitación en nombre del titular durante la publicación.
+- Google puede mostrar el nombre temporal **`es.diime.app (unreviewed)`** hasta
+  completar la configuración y revisión. La consola advierte que los cambios
+  suelen propagarse en una hora, aunque pueden tardar más.
+- La validación del lanzamiento mostró dos advertencias no bloqueantes:
+  ausencia de archivo de desofuscación y de símbolos de depuración nativos.
+  `minifyEnabled` está desactivado; no se inventaron ni subieron símbolos.
+- El domicilio legal de la cuenta Google observado anteriormente no coincide
+  con el domicilio autorizado en `STORE_COMPLIANCE_ES.md`: queda
   contrastarlo con el titular antes de confirmar datos públicos del comerciante.
   No se ha modificado la identidad ni el perfil de pagos de la cuenta.
-- Para la verificación física Google exige Android **10 o posterior**, sin
-  root. El Huawei conectado tiene Android **9**: sirve para probar Diime, pero
-  no cumple ese requisito. Se puede usar otro dispositivo prestado iniciando
-  sesión como titular en la aplicación oficial Play Console.
-  [Requisito oficial](https://support.google.com/googleplay/android-developer/answer/14316361?hl=es).
-- Si corresponde a una cuenta personal nueva, antes de solicitar acceso a
-  producción se necesita una prueba cerrada con al menos **12 testers**
+- El panel de esta cuenta exige, antes de solicitar acceso a producción,
+  una prueba cerrada con al menos **12 testers**
   inscritos durante **14 días continuados**. No confundir una instalación por
-  USB ni una prueba interna con esta prueba cerrada.
+  USB ni esta prueba interna con la prueba cerrada. El panel mostraba cero
+  participantes en prueba cerrada antes de publicar la interna.
   [Pruebas exigidas por Google](https://support.google.com/googleplay/android-developer/answer/14151465?hl=es).
-- No se ha subido ni publicado `1.0.1 (2)` en Google Play. Quedan completar
-  la ficha, las declaraciones actuales, los accesos de revisión y el canal de
-  pruebas que corresponda. No afirmar que Google ha aprobado la app.
+- Quedan completar la ficha, las declaraciones actuales, los accesos de revisión
+  y la prueba cerrada. Una prueba interna disponible no equivale a aprobación
+  de Google ni a acceso a producción. Las notas avisan de no hacer pagos reales.
 
 ### Ajustes de arranque del 5 de septiembre de 2026
 

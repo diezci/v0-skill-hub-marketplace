@@ -4,6 +4,9 @@ import { useT, useIdioma } from "@/components/idioma-provider"
 import { localeDe } from "@/lib/i18n"
 
 import { useEffect, useState } from "react"
+import { useNotificacionesSeccion } from "@/hooks/use-notificaciones-seccion"
+import { useDestinoNotificacion } from "@/hooks/use-destino-notificacion"
+import { AvisosTarjeta } from "@/components/avisos-tarjeta"
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -97,6 +100,7 @@ export default function MisDisputas({
   const t = useT()
   const { idioma } = useIdioma()
 
+  const { paraEntidad, marcarLeidas } = useNotificacionesSeccion(rol === "cliente" ? "/mis-solicitudes" : "/mis-trabajos")
   const [disputas, setDisputas] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [retirandoId, setRetirandoId] = useState<string | null>(null)
@@ -156,6 +160,23 @@ export default function MisDisputas({
   const formatFecha = (f: string) =>
     new Date(f).toLocaleDateString(localeDe(idioma), { day: "numeric", month: "short", year: "numeric" })
 
+  const avisosDisputa = (disputa: any) => paraEntidad({ trabajoId: disputa.trabajo_id }).filter((aviso) => {
+    const disputaId = (aviso.link && new URL(aviso.link, "https://www.diime.es").searchParams.get("disputa")) || aviso.metadata?.disputa_id
+    // A withdrawn dispute and its replacement are separate cases. Legacy
+    // notices without a case ID stay in the section panel when ambiguous.
+    return disputaId ? disputaId === disputa.id : disputas.filter((item) => item.trabajo_id === disputa.trabajo_id).length === 1
+  })
+
+  useDestinoNotificacion({
+    cargando: loading,
+    resolver: (params) => {
+      const disputaId = params.get("disputa")
+      const candidatas = disputas.filter((item) => disputaId ? item.id === disputaId : item.trabajo_id === params.get("trabajo"))
+      const disputa = candidatas.length === 1 ? candidatas[0] : null
+      return disputa ? { id: `disputa-${disputa.id}` } : null
+    },
+  })
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -202,8 +223,9 @@ export default function MisDisputas({
           : []
         const hayPruebasCancelacion = adjuntosSolicitante.length > 0 || adjuntosRespuesta.length > 0
         return (
-          <Card key={d.id}>
+          <Card key={d.id} id={`disputa-${d.id}`} tabIndex={-1} className={`scroll-mt-24 ${avisosDisputa(d).length ? "ring-2 ring-primary/50 border-primary/40" : ""}`}>
             <CardContent className="pt-6 space-y-3">
+              <AvisosTarjeta avisos={avisosDisputa(d)} onMarcarLeidas={marcarLeidas} />
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h3 className="font-semibold truncate">{d.trabajo_titulo}</h3>

@@ -70,6 +70,7 @@ export const EN_NOTIFICACIONES: Record<string, string> = {
   "El cliente confirmó la entrega. Se te ha transferido {0} EUR netos.": "The client confirmed delivery. A net amount of EUR {0} has been transferred to you.",
   "Cancelación reembolsada": "Cancellation refunded",
   "Se ha cancelado el servicio de mutuo acuerdo y se han devuelto íntegramente {0} EUR.": "The service has been cancelled by mutual agreement and EUR {0} has been refunded in full.",
+  "Se ha cancelado el servicio de mutuo acuerdo. Se han reembolsado {0} EUR. Diime conserva {1} EUR de comisión del cliente.": "The service has been cancelled by mutual agreement. EUR {0} has been refunded. Diime retains EUR {1} in client service fees.",
   "Disputa resuelta": "Dispute resolved",
   "La mediación de Diime ha concluido. Reembolso al cliente: {0} EUR. Motivo: {1}. La decisión es privada y no impide emprender otras acciones.": "Diime's mediation has concluded. Refund to the client: EUR {0}. Reason: {1}. The decision is private and does not prevent further action.",
   "La mediación de Diime ha concluido. Transferencia neta al proveedor: {0} EUR. Motivo: {1}. La decisión es privada y no impide emprender otras acciones.": "Diime's mediation has concluded. Net transfer to the provider: EUR {0}. Reason: {1}. The decision is private and does not prevent further action.",

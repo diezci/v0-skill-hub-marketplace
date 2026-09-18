@@ -1,3 +1,4 @@
+import { construirLinkNotificacion } from "@/lib/notificaciones-contexto"
 import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { SupabaseClient } from "@supabase/supabase-js"
@@ -45,8 +46,9 @@ export async function rechazarYNotificarOfertasPerdedoras(
       usuario_id: oferta.profesional_id,
       tipo: "oferta_rechazada",
       titulo: "Tu puja no ha sido seleccionada",
+      metadata: { titulo_trabajo: titulo },
       mensaje: `El cliente ha contratado a otro profesional para "${titulo}". Gracias por participar: puedes seguir pujando en otras demandas.`,
-      link: "/mis-ofertas",
+      link: construirLinkNotificacion({ seccion: "/mis-ofertas", solicitudId: params.solicitudId, ofertaId: oferta.id, aspecto: "oferta_rechazada" }),
       leida: false,
     }))
 

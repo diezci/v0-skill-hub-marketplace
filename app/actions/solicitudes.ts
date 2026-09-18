@@ -1,5 +1,6 @@
 "use server"
 
+import { construirLinkNotificacion } from "@/lib/notificaciones-contexto"
 import { textoServidor } from "@/lib/i18n-servidor"
 
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -464,7 +465,7 @@ export async function actualizarSolicitud(
     tipo: "demanda_actualizada",
     titulo: "Han cambiado una demanda en la que pujaste",
     mensaje: `El cliente ha modificado "${data?.titulo ?? "una demanda"}". Revisa tu oferta por si ya no encaja con las nuevas condiciones.`,
-    link: "/mis-ofertas",
+    link: construirLinkNotificacion({ seccion: "/mis-ofertas", solicitudId: id, aspecto: "demanda_actualizada" }),
   })
 
   revalidatePath("/mis-solicitudes")
@@ -537,7 +538,7 @@ export async function eliminarSolicitud(id: string) {
     tipo: "demanda_retirada",
     titulo: "Han retirado una demanda en la que pujaste",
     mensaje: `El cliente ha borrado "${solicitud.titulo}", así que tu oferta ya no sigue adelante. Puedes seguir pujando en otras demandas.`,
-    link: "/mis-ofertas",
+    link: construirLinkNotificacion({ seccion: "/mis-ofertas", solicitudId: id, aspecto: "demanda_retirada" }),
   })
 
   const { error } = await supabase.from("solicitudes").delete().eq("id", id).eq("cliente_id", user.id)

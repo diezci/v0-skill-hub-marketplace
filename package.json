@@ -13,13 +13,18 @@
     "cap:doctor": "cap doctor",
     "cap:assets": "capacitor-assets generate",
     "dev": "next dev",
+    "dev:empresas": "DIIME_EMPRESAS_LOCAL=1 next dev --hostname 127.0.0.1 --port 3200",
     "lint": "eslint .",
     "ops:create-review-accounts": "node --no-warnings scripts/create-review-accounts.mjs",
     "test:i18n": "node scripts/test-i18n.mjs && node --no-warnings scripts/test-i18n-errores.mjs && node scripts/test-i18n-notificaciones.mjs && node scripts/test-offline-worker.mjs",
     "test:comisiones": "node --no-warnings --experimental-strip-types scripts/test-comisiones.mjs",
-    "test:notificaciones": "node --no-warnings --experimental-strip-types scripts/test-filtros-notificaciones.mjs && node --no-warnings --experimental-strip-types scripts/test-preferencia-emails.mjs",
+    "test:notificaciones": "node --no-warnings --experimental-strip-types scripts/test-filtros-notificaciones.mjs && node --no-warnings --experimental-strip-types scripts/test-preferencia-emails.mjs && node scripts/test-notificaciones-contexto.mjs && node scripts/test-notificaciones-provider.mjs && node scripts/test-centro-notificaciones-sesion.mjs && node scripts/test-navbar-notificaciones-sesion.mjs && node scripts/test-actividad-ui.mjs && node scripts/test-mensajes-lectura.mjs",
     "test:moderacion": "node --no-warnings scripts/test-moderacion.mjs",
-    "start": "next start"
+    "test:empresas": "node scripts/test-empresas-local.mjs",
+    "start": "next start",
+    "test:admin-pagos": "node scripts/test-admin-reembolso.mjs && node scripts/test-admin-pagos-ui.mjs",
+    "test:cobros": "node scripts/test-cobros-representacion.mjs && node scripts/test-cobros-representacion-ui.mjs",
+    "test:reembolsos": "node scripts/test-stripe-recuperacion.mjs && node scripts/test-reembolsos-ui.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",

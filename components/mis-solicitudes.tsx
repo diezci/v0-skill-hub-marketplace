@@ -3,7 +3,10 @@
 import { useT, useIdioma } from "@/components/idioma-provider"
 import { localeDe } from "@/lib/i18n"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
+import { useNotificacionesSeccion } from "@/hooks/use-notificaciones-seccion"
+import { useDestinoNotificacion } from "@/hooks/use-destino-notificacion"
+import { AvisosTarjeta } from "@/components/avisos-tarjeta"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { formatearPrecioEuros, formatearRangoPresupuesto } from "@/lib/utils"
@@ -63,9 +66,14 @@ const cnCard = (base: string, activa: boolean) =>
   `${base} w-full transition hover:shadow-md ${activa ? "ring-2 ring-primary/50" : ""}`
 
 export default function MisSolicitudes() {
+  return <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>}><MisSolicitudesContenido /></Suspense>
+}
+
+function MisSolicitudesContenido() {
   const t = useT()
   const { idioma } = useIdioma()
 
+  const { paraEntidad, marcarLeidas } = useNotificacionesSeccion("/mis-solicitudes")
   const [activeTab, setActiveTab] = useState("solicitudes")
   // Lo reporta <MisDisputas onCount>. null = aún cargando, para no enseñar un 0
   // que luego cambie.
@@ -412,6 +420,28 @@ export default function MisSolicitudes() {
     (s) => s.estado === "completado" || s.estado === "completada" || s.estado === "cerrada",
   )
 
+  useDestinoNotificacion({
+    cargando: loading,
+    seleccionar: setActiveTab,
+    resolver: (params) => {
+      const solicitud = solicitudes.find((item) =>
+        (params.get("solicitud") && item.id === params.get("solicitud")) ||
+        (params.get("trabajo") && item.trabajo?.id === params.get("trabajo")) ||
+        (params.get("oferta") && item.ofertas?.some((oferta: any) => oferta.id === params.get("oferta"))),
+      )
+      const esDisputa = params.get("aspecto")?.includes("disputa") || params.get("aspecto") === "trabajo_rechazado"
+      if (!solicitud) return esDisputa ? { id: "disputas-cliente", tab: "disputas" } : null
+      const estado = solicitud.trabajo?.estado
+      const tab = esDisputa || estado === "en_disputa" ? "disputas"
+        : estado === "entregado" ? "por-confirmar"
+        : ["completado", "completada", "cerrada"].includes(solicitud.estado) ? "historial"
+        : ["en_progreso", "en-progreso"].includes(solicitud.estado) ? "en-progreso" : "solicitudes"
+      return { id: tab === "disputas" ? "disputas-cliente" : `solicitud-${solicitud.id}`, tab }
+    },
+  })
+  const avisosSolicitud = (solicitud: any) => paraEntidad({ solicitudId: solicitud.id, trabajoId: solicitud.trabajo?.id })
+  const estiloAviso = (solicitud: any) => avisosSolicitud(solicitud).length ? "ring-2 ring-primary/50 border-primary/40" : ""
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -568,7 +598,7 @@ export default function MisSolicitudes() {
               const terminosBloqueados =
                 solicitud.trabajo && solicitud.trabajo.estado !== "cancelado"
               return (
-              <Card key={solicitud.id} className="overflow-hidden">
+              <Card key={solicitud.id} id={`solicitud-${solicitud.id}`} tabIndex={-1} className={`scroll-mt-24 overflow-hidden ${estiloAviso(solicitud)}`}>
                 <CardHeader className="pb-3">
                   <div className="flex flex-col items-start justify-between gap-3 sm:flex-row">
                     <div className="space-y-1">
@@ -595,6 +625,7 @@ export default function MisSolicitudes() {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
+                  <AvisosTarjeta avisos={avisosSolicitud(solicitud)} onMarcarLeidas={marcarLeidas} />
                   {/* Oferta aceptada con el pago sin completar (p. ej. abandonó la
                       pasarela): la demanda sigue abierta y desde aquí se retoma el
                       pago. Hasta pagar, nada se consuma. */}
@@ -667,7 +698,7 @@ export default function MisSolicitudes() {
 
                       <div className="grid gap-3">
                         {ofertasPendientes.map((oferta: any) => (
-                          <Card key={oferta.id} className="bg-muted/50">
+                          <Card key={oferta.id} id={`oferta-${oferta.id}`} className={`bg-muted/50 ${paraEntidad({ ofertaId: oferta.id }).length ? "ring-2 ring-primary/50" : ""}`}>
                             <CardContent className="p-4">
                               <div className="flex items-start gap-4">
                                 <Avatar className="h-12 w-12">
@@ -805,7 +836,8 @@ export default function MisSolicitudes() {
               return (
                 <Card
                   key={solicitud.id}
-                  className={`${esEntregado ? "border-purple-500/50 bg-purple-500/5" : ""} w-full min-w-0 max-w-full overflow-hidden`}
+                  id={`solicitud-${solicitud.id}`} tabIndex={-1}
+                  className={`scroll-mt-24 ${estiloAviso(solicitud)} ${esEntregado ? "border-purple-500/50 bg-purple-500/5" : ""} w-full min-w-0 max-w-full overflow-hidden`}
                 >
                   <CardHeader className="min-w-0 px-4 sm:px-6">
                     <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -845,6 +877,7 @@ export default function MisSolicitudes() {
                     </div>
                   </CardHeader>
                   <CardContent className="min-w-0 space-y-6 px-4 sm:px-6">
+                    <AvisosTarjeta avisos={avisosSolicitud(solicitud)} onMarcarLeidas={marcarLeidas} />
                     {/* Professional Info */}
                     <div className="flex min-w-0 flex-col items-stretch gap-4 rounded-lg bg-muted/50 p-4 sm:flex-row sm:items-center">
                       <div className="flex min-w-0 items-center gap-4 sm:flex-1">
@@ -1084,8 +1117,9 @@ export default function MisSolicitudes() {
             solicitudesCompletadas.map((solicitud) => {
               const hasReview = solicitud.trabajo?.review_cliente_id
               return (
-                <Card key={solicitud.id} className="overflow-hidden border-emerald-500/20 bg-emerald-500/5">
+                <Card key={solicitud.id} id={`solicitud-${solicitud.id}`} tabIndex={-1} className={`scroll-mt-24 overflow-hidden border-emerald-500/20 bg-emerald-500/5 ${estiloAviso(solicitud)}`}>
                   <CardContent className="p-4 sm:p-6">
+                    <AvisosTarjeta avisos={avisosSolicitud(solicitud)} onMarcarLeidas={marcarLeidas} />
                     <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex min-w-0 items-start gap-3 sm:items-center sm:gap-4">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 sm:h-12 sm:w-12">
@@ -1141,7 +1175,7 @@ export default function MisSolicitudes() {
 
         {/* Seguimiento de disputas: las que ha abierto el cliente y las que el
             profesional ha abierto contra él. */}
-        <TabsContent value="disputas" className="space-y-4">
+        <TabsContent value="disputas" id="disputas-cliente" tabIndex={-1} className="scroll-mt-24 space-y-4">
           <MisDisputas rol="cliente" onCount={setDisputasCount} />
         </TabsContent>
       </Tabs>

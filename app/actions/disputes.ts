@@ -1,5 +1,6 @@
 "use server"
 
+import { construirLinkNotificacion } from "@/lib/notificaciones-contexto"
 import { textoServidor } from "@/lib/i18n-servidor"
 
 import { createClient } from "@/lib/supabase/server"
@@ -47,16 +48,18 @@ export async function crearDisputa(data: {
       p_trabajo: data.trabajo_id, p_actor: user.id, p_motivo: motivo,
     })
     if (error) throw error
+    const { data: trabajoAviso } = await supabase.from("trabajos").select("titulo").eq("id", data.trabajo_id).maybeSingle()
     const otraParteId = user.id === disputa.cliente_id ? disputa.profesional_id : disputa.cliente_id
     const { crearNotificacion } = await import("@/lib/notificaciones")
     await crearNotificacion({
       usuarioId: otraParteId,
       tipo: "disputa_abierta",
       titulo: data.avisoOtraParte?.titulo || "Se ha abierto una disputa",
+      metadata: { titulo_trabajo: trabajoAviso?.titulo },
       mensaje: data.avisoOtraParte?.mensaje || (disputa.escrow_id
         ? "El trabajo está en disputa. La transferencia queda bloqueada mientras Diime revisa las pruebas."
         : "Se ha abierto una mediación sobre la cancelación. No se ha realizado ningún pago."),
-      link: otraParteId === disputa.cliente_id ? "/mis-solicitudes" : "/mis-trabajos",
+      link: construirLinkNotificacion({ seccion: otraParteId === disputa.cliente_id ? "/mis-solicitudes" : "/mis-trabajos", trabajoId: data.trabajo_id, aspecto: "disputa" }),
     })
     revalidatePath("/admin/disputas")
     revalidatePath("/mis-trabajos")
@@ -239,8 +242,9 @@ export async function retirarDisputa(disputaId: string) {
         usuarioId: otraParteId,
         tipo: "disputa_retirada",
         titulo: "Disputa retirada",
+        metadata: { titulo_trabajo: titulo },
         mensaje: `Se ha retirado la disputa sobre "${titulo}". El trabajo continúa con normalidad.`,
-        link: otraParteId === disputa.cliente_id ? "/mis-solicitudes" : "/mis-trabajos",
+        link: construirLinkNotificacion({ seccion: otraParteId === disputa.cliente_id ? "/mis-solicitudes" : "/mis-trabajos", trabajoId: disputa.trabajo_id, aspecto: "disputa" }),
       })
     }
     const { data: admins } = await supabase.from("profiles").select("id").eq("es_admin", true)
@@ -250,8 +254,9 @@ export async function retirarDisputa(disputaId: string) {
           usuario_id: a.id,
           tipo: "disputa_retirada_admin",
           titulo: "Disputa retirada",
+          metadata: { titulo_trabajo: titulo, trabajo_id: disputa.trabajo_id, disputa_id: disputaId },
           mensaje: `Se ha retirado la disputa sobre "${titulo}"; ya no requiere revisión.`,
-          link: "/admin/disputas",
+          link: construirLinkNotificacion({ seccion: "/admin/disputas", trabajoId: disputa.trabajo_id, aspecto: "disputa_retirada" }),
           leida: false,
         })),
       )

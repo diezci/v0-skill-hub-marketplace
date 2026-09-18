@@ -133,7 +133,8 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
   const [sendingMessage, setSendingMessage] = useState(false) // State for sending message indicator
   const searchParams = useSearchParams()
   const router = useRouter()
-  const [autoSelectDone, setAutoSelectDone] = useState(false)
+  const autoSelectId = useRef("")
+  const conversacionActual = useRef<string | null>(null)
   const [uploading, setUploading] = useState(false)
   // Valorar desde el chat: trabajo completado pendiente de reseña con el otro usuario.
   const [reviewTrabajo, setReviewTrabajo] = useState<{ id: string; titulo?: string } | null>(null)
@@ -202,18 +203,47 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
   }, [])
 
   const handleSelectConversation = async (conv: Conversation) => {
+    conversacionActual.current = conv.id
+    if (searchParams?.get("c") !== conv.id) {
+      autoSelectId.current = conv.id
+      router.replace(`${enPanelAdmin ? "/admin/mensajes" : "/mensajes"}?c=${encodeURIComponent(conv.id)}`, { scroll: false })
+    }
     setSelectedConversation(conv)
     setShowMobileChat(true)
+    setMessages([])
+    setProyectosCompartidos([])
     setLoadingMessages(true) // Set loading state before fetching messages
-    const result = await obtenerMensajes(conv.id)
-    setMessages(result.data ? (result.data as Message[]) : [])
-    setLoadingMessages(false) // Set loading state to false after fetching messages
+    try {
+      const result = await obtenerMensajes(conv.id)
+      if (conversacionActual.current !== conv.id) return
+      if (result.error) {
+        toast({ title: t("Error"), description: t(result.error), variant: "destructive" })
+        return
+      }
+      setMessages(result.data ? (result.data as Message[]) : [])
+      setConversations(actuales => actuales.map(actual => actual.id === conv.id ? { ...actual, unread_count: 0 } : actual))
+      window.dispatchEvent(new CustomEvent("diime:notification"))
+    } catch {
+      if (conversacionActual.current === conv.id) toast({ title: t("Error"), description: t("No se pudo cargar la conversación. Vuelve a intentarlo."), variant: "destructive" })
+    } finally {
+      if (conversacionActual.current === conv.id) setLoadingMessages(false)
+    }
 
     // Historial completo de trabajos con este usuario para el panel lateral.
-    setProyectosCompartidos([])
     if (enPanelAdmin) return
     const otroId = currentUserId === conv.participante_1 ? conv.participante_2 : conv.participante_1
-    obtenerTrabajosConUsuario(otroId).then((r) => setProyectosCompartidos(r.data || []))
+    obtenerTrabajosConUsuario(otroId).then((r) => {
+      if (conversacionActual.current === conv.id) setProyectosCompartidos(r.data || [])
+    })
+  }
+
+  const cerrarConversacion = () => {
+    conversacionActual.current = null
+    autoSelectId.current = ""
+    setSelectedConversation(null)
+    setMessages([])
+    setShowMobileChat(false)
+    router.replace(enPanelAdmin ? "/admin/mensajes" : "/mensajes", { scroll: false })
   }
 
   // Chat en vivo: refrescar la conversación abierta cada pocos segundos (y la
@@ -221,14 +251,23 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
   useEffect(() => {
     const convId = selectedConversation?.id
     if (!convId) return
+    let activo = true
     const id = setInterval(async () => {
       if (document.visibilityState !== "visible") return
-      const result = await obtenerMensajes(convId)
-      if (result.data) setMessages(result.data as Message[])
+      try {
+        const result = await obtenerMensajes(convId)
+        if (!activo || conversacionActual.current !== convId || result.error) return
+        if (result.data) {
+          const recibidosSinLeer = result.data.some((mensaje: Message) => mensaje.remitente_id !== currentUserId && !mensaje.leido)
+          setMessages(result.data as Message[])
+          setConversations(actuales => actuales.map(actual => actual.id === convId ? { ...actual, unread_count: 0 } : actual))
+          if (recibidosSinLeer) window.dispatchEvent(new CustomEvent("diime:notification"))
+        }
+      } catch { /* Retry at the next poll without clearing the conversation. */ }
     }, 4000)
-    return () => clearInterval(id)
+    return () => { activo = false; clearInterval(id) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedConversation?.id])
+  }, [selectedConversation?.id, currentUserId])
 
   useEffect(() => {
     const id = setInterval(async () => {
@@ -277,16 +316,28 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
 
   // Si llegamos con ?c=<id>, abrir esa conversación automáticamente.
   useEffect(() => {
-    if (autoSelectDone || loading) return
-    const convId = searchParams?.get("c")
-    if (!convId) return
+    const convId = searchParams?.get("c") || ""
+    if (!convId) { autoSelectId.current = ""; return }
+    if (autoSelectId.current === convId || loading) return
     const target = conversations.find((c) => String(c.id) === convId)
     if (target) {
-      handleSelectConversation(target)
-      setAutoSelectDone(true)
+      autoSelectId.current = convId
+      setActiveTab("all")
+      setSearchQuery("")
+      void handleSelectConversation(target)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversations, loading, searchParams, autoSelectDone])
+  }, [conversations, loading, searchParams])
+
+  useEffect(() => {
+    if (searchParams?.get("filtro") !== "no-leidos") return
+    setActiveTab("unread")
+    setSearchQuery("")
+    conversacionActual.current = null
+    setSelectedConversation(null)
+    setMessages([])
+    setShowMobileChat(false)
+  }, [searchParams])
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation) return
@@ -550,6 +601,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                       className={cn(
                         "flex items-start gap-3 pl-4 pr-5 py-3 cursor-pointer transition-colors hover:bg-muted/50",
                         isSelected && "bg-muted",
+                        hasUnread && "border-l-2 border-l-emerald-500 bg-emerald-500/5",
                         conv.pinned && "bg-primary/5",
                       )}
                     >
@@ -663,7 +715,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                     variant="ghost"
                     size="icon"
                     className="shrink-0 md:hidden"
-                    onClick={() => setSelectedConversation(null)}
+                    onClick={cerrarConversacion}
                   >
                     <ArrowLeft className="h-5 w-5" />
                   </Button>

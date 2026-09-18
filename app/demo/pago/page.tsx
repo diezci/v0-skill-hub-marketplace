@@ -194,7 +194,7 @@ export default function DemoPagoPage() {
                   {[
                     t("Pago 100% seguro con Stripe"),
                     t("Fondos retenidos hasta confirmacion"),
-                    t("Reembolso si no estas satisfecho"),
+                    t("Reembolso según cancelación o resolución"),
                     t("Mediacion gratuita en disputas"),
                   ].map((t) => (
                     <div key={t} className="flex items-start gap-2 text-xs text-muted-foreground">
@@ -249,6 +249,8 @@ export default function DemoPagoPage() {
                     <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("Que cubre tu pago")}</h4>
                   </div>
                   <p className="text-muted-foreground text-xs leading-relaxed">{t("El precio acordado con el profesional (")}{formatearPrecio(desglose.precioBase, idioma)}{t(") y los servicios de la plataforma: pago protegido en escrow, mediacion en disputas, soporte 24/7 y garantia de satisfaccion.")}</p>
+                  <p className="text-xs text-muted-foreground">{t("Si canceláis de mutuo acuerdo después de pagar, se te devuelve el precio del servicio. Diime conserva los gastos de servicio del cliente: {comision}.", { comision: formatearPrecio(desglose.comisionCliente, idioma) })}</p>
+                  <p className="text-xs text-muted-foreground">{t("Los pagos tardíos que no activan la contratación se devuelven íntegramente.")}</p>
                 </div>
               </CardContent>
             </Card>

@@ -82,6 +82,11 @@ function componentHarness(file, exportName = 'default') {
       return [state[index], value => { state[index] = typeof value === 'function' ? value(state[index]) : value }]
     },
     useEffect() { cursor++ },
+    useRef(initial) {
+      const index = cursor++
+      if (!(index in state)) state[index] = { current: initial }
+      return state[index]
+    },
     useMemo(fn, dependencies) {
       const index = cursor++
       const previous = effects[index]
@@ -105,7 +110,8 @@ function componentHarness(file, exportName = 'default') {
     if (name === '@/lib/provincias') return { PROVINCIAS_ES: ['Madrid', 'Barcelona'] }
     if (name === '@/lib/precios') return { PRECIO_MAX: 100000 }
     if (name === '@/hooks/use-toast') return { useToast: () => ({ toast() {} }), toast() {} }
-    if (name === 'next/navigation') return { useRouter: () => ({ push() {}, refresh() {} }) }
+    if (name === 'next/navigation') return { useRouter: () => ({ push() {}, refresh() {} }), useSearchParams: () => new URLSearchParams() }
+    if (name === '@/hooks/use-notificaciones-seccion') return { useNotificacionesSeccion: () => ({ pendientes: [], paraEntidad: () => [], marcarLeidas: async () => ({ success: true }) }) }
     return ui
   }
   const module = { exports: {} }

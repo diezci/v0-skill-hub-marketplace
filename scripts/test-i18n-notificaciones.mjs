@@ -51,6 +51,14 @@ await comprobar("Los mensajes de chat y el contenido libre nunca se traducen", (
 
 await comprobar("Los avisos financieros históricos se traducen sin cambiar importes ni notas", () => {
   assert.equal(
+    traducir("en", "Se ha cancelado el servicio de mutuo acuerdo y se han devuelto íntegramente 22.00 EUR."),
+    "The service has been cancelled by mutual agreement and EUR 22.00 has been refunded in full.",
+  )
+  assert.equal(
+    traducir("en", "Se ha cancelado el servicio de mutuo acuerdo. Se han reembolsado 20.00 EUR. Diime conserva 2.00 EUR de comisión del cliente."),
+    "The service has been cancelled by mutual agreement. EUR 20.00 has been refunded. Diime retains EUR 2.00 in client service fees.",
+  )
+  assert.equal(
     traducir("en", "La mediación de Diime ha concluido. Reembolso al cliente: 105.42 EUR. Motivo: Sin entregar. La decisión es privada y no impide emprender otras acciones."),
     "Diime's mediation has concluded. Refund to the client: EUR 105.42. Reason: Sin entregar. The decision is private and does not prevent further action.",
   )

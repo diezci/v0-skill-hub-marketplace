@@ -10,6 +10,7 @@ import { IdiomaProvider } from "@/components/idioma-provider"
 import { idiomaActual } from "@/lib/i18n-servidor"
 import { RegistrarSW } from "@/components/registrar-sw"
 import { CapacitorBridge } from "@/components/capacitor-bridge"
+import { esEmpresasLocal, obtenerActorEmpresaLocal } from "@/lib/empresas/service"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-space" })
@@ -72,6 +73,7 @@ export default async function RootLayout({
   // el provider: así el HTML ya sale traducido y `lang` es correcto para
   // lectores de pantalla y buscadores.
   const idioma = await idiomaActual()
+  const actorEmpresaLocal = esEmpresasLocal() ? await obtenerActorEmpresaLocal().catch(() => null) : null
 
   return (
     <html lang={idioma} suppressHydrationWarning className={`${inter.variable} ${spaceGrotesk.variable} bg-background dark`}>
@@ -79,7 +81,7 @@ export default async function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <IdiomaProvider idioma={idioma}>
             <div className="flex flex-col min-h-screen">
-              <AppChrome>{children}</AppChrome>
+              <AppChrome actorEmpresaLocal={actorEmpresaLocal}>{children}</AppChrome>
             </div>
             <Toaster />
             <RegistrarSW />

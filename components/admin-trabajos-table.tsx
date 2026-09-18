@@ -170,7 +170,7 @@ export function AdminTrabajosTable({
                 const fechaContratacion = trabajo.escrow?.fecha_retencion || trabajo.escrow?.created_at
 
                 return (
-                  <TableRow key={trabajo.id}>
+                  <TableRow key={trabajo.id} id={`trabajo-${trabajo.id}`} className="scroll-mt-6">
                     <TableCell className="min-w-[220px]">
                       <p className="font-medium">{trabajo.titulo}</p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
@@ -203,6 +203,7 @@ export function AdminTrabajosTable({
                     </TableCell>
                     <TableCell>
                       <EstadoBadge estado={trabajo.escrow?.estado} tipo="pago" />
+                      <Link href={`/admin/pagos?trabajo=${trabajo.id}`} className="mt-2 block text-xs text-primary underline underline-offset-2">{t("Revisar pago")}</Link>
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                       {trabajo.contratado ? formatearFecha(fechaContratacion, idioma) : t("No contratado")}

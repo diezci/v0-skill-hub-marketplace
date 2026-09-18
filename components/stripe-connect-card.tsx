@@ -48,19 +48,27 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
   const cargar = useCallback(
     async (avisar = false) => {
       setAccion("refresh")
-      const result = await obtenerEstadoStripeConnect()
-      if (result.error) {
-        setEstado(null)
-        setError(result.error)
-        if (avisar) {
-          toast({ title: t("No se pudo consultar Stripe"), description: t(result.error), variant: "destructive" })
+      try {
+        const result = await obtenerEstadoStripeConnect()
+        if (result.error) {
+          setEstado(null)
+          setError(result.error)
+          if (avisar) {
+            toast({ title: t("No se pudo consultar Stripe"), description: t(result.error), variant: "destructive" })
+          }
+        } else {
+          setEstado(result.data || null)
+          setError(null)
         }
-      } else {
-        setEstado(result.data || null)
-        setError(null)
+      } catch {
+        const mensaje = "No se pudo consultar Stripe. Comprueba tu conexión y vuelve a intentarlo."
+        setEstado(null)
+        setError(mensaje)
+        if (avisar) toast({ title: t("No se pudo consultar Stripe"), description: t(mensaje), variant: "destructive" })
+      } finally {
+        setLoading(false)
+        setAccion(null)
       }
-      setLoading(false)
-      setAccion(null)
     },
     [toast, t],
   )
@@ -85,35 +93,44 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
 
   const abrir = async (tipo: "onboarding" | "dashboard") => {
     setAccion(tipo)
-    const { Capacitor } = await import("@capacitor/core")
-    const appNativa = Capacitor.isNativePlatform()
-    const urlActual = new URL(window.location.href)
-    urlActual.searchParams.delete("stripe_connect")
-    const volverA = `${urlActual.pathname}${urlActual.search}`
-    const result =
-      tipo === "onboarding"
-        ? await crearEnlaceOnboardingStripe({ appNativa, volverA })
-        : await crearEnlaceDashboardStripe()
-    if (result.error || !result.data?.url) {
+    try {
+      const { Capacitor } = await import("@capacitor/core")
+      const appNativa = Capacitor.isNativePlatform()
+      const urlActual = new URL(window.location.href)
+      urlActual.searchParams.delete("stripe_connect")
+      const volverA = `${urlActual.pathname}${urlActual.search}`
+      const result =
+        tipo === "onboarding"
+          ? await crearEnlaceOnboardingStripe({ appNativa, volverA })
+          : await crearEnlaceDashboardStripe()
+      if (result.error || !result.data?.url) {
+        toast({
+          title: t("No se pudo abrir Stripe"),
+          description: t(result.error || "Inténtalo de nuevo."),
+          variant: "destructive",
+        })
+        return
+      }
+      if (appNativa) {
+        const { Browser } = await import("@capacitor/browser")
+        await Browser.open({ url: result.data.url })
+      } else {
+        window.location.assign(result.data.url)
+      }
+    } catch {
       toast({
         title: t("No se pudo abrir Stripe"),
-        description: t(result.error || "Inténtalo de nuevo."),
+        description: t("Comprueba tu conexión y vuelve a intentarlo."),
         variant: "destructive",
       })
+    } finally {
       setAccion(null)
-      return
-    }
-    if (appNativa) {
-      const { Browser } = await import("@capacitor/browser")
-      await Browser.open({ url: result.data.url })
-      setAccion(null)
-    } else {
-      window.location.assign(result.data.url)
     }
   }
 
+  const cuentaPersonalAnterior = !!estado?.cuentaPersonalAnterior
   const listo =
-    !!estado?.onboardingCompletado && !!estado?.transferenciasHabilitadas && !!estado?.payoutsHabilitados
+    !cuentaPersonalAnterior && !!estado?.onboardingCompletado && !!estado?.transferenciasHabilitadas && !!estado?.payoutsHabilitados
   const saldo = saldoPrincipalStripe(estado)
   const saldoTotal = saldo.disponible + saldo.pendiente
   const proximoIngreso = estado?.saldo?.proximoIngreso
@@ -126,15 +143,20 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
           <div>
             <CardTitle className="flex items-center gap-2 text-lg">
               <WalletCards className="h-5 w-5" />{" "}{t("Cobros profesionales")}</CardTitle>
-            <CardDescription className="mt-1.5">{t("Consulta lo que tienes en Stripe y cuándo llegará el próximo ingreso a tu banco.")}</CardDescription>
+            <CardDescription className="mt-1.5">{cuentaPersonalAnterior
+              ? t("Consulta el saldo y los ingresos de tu cuenta personal anterior.")
+              : t("Consulta lo que tienes en Stripe y cuándo llegará el próximo ingreso a tu banco.")}</CardDescription>
           </div>
           <div className="flex flex-wrap gap-2">
-            {estado?.saldo && !estado.saldo.modoReal && (
+            {estado?.saldo?.modoReal === false && (
               <Badge variant="outline" className="border-amber-500 text-amber-700">{t("Modo de prueba")}</Badge>
             )}
             {loading ? (
               <Badge variant="secondary">
                 <Loader2 className="mr-1 h-3 w-3 animate-spin" />{" "}{t("Comprobando")}</Badge>
+            ) : cuentaPersonalAnterior ? (
+              <Badge variant="outline" className="border-amber-500 text-amber-700 dark:text-amber-300">
+                <AlertCircle className="mr-1 h-3 w-3" />{" "}{t("Cuenta personal anterior")}</Badge>
             ) : listo ? (
               <Badge className="bg-emerald-600">
                 <ShieldCheck className="mr-1 h-3 w-3" />{" "}{t("Cuenta de cobros activa")}</Badge>
@@ -153,7 +175,14 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
           </div>
         )}
 
-        {!loading && !listo && !error && (
+        {cuentaPersonalAnterior && (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm" role="status">
+            <p>{t(estado?.avisoTitularidad || "Tu perfil está vinculado a una empresa, pero esta cuenta de Stripe es personal. Puedes consultar tu saldo y tus ingresos anteriores. Contacta con soporte para regularizar la titularidad antes de aceptar nuevos cobros de empresa.")}</p>
+            <div className="mt-3"><SupportChatButton /></div>
+          </div>
+        )}
+
+        {!loading && !listo && !error && !cuentaPersonalAnterior && (
           <p className="text-sm text-muted-foreground">
             {estado?.conectado
               ? t("Stripe necesita que completes o actualices algunos datos antes de que podamos transferirte pagos.")
@@ -165,7 +194,7 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
           <>
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-xl border bg-muted/30 p-4">
-                <p className="text-xs font-medium text-muted-foreground">{t("Saldo en Stripe")}</p>
+                <p className="text-xs font-medium text-muted-foreground">{cuentaPersonalAnterior ? t("Saldo de tu cuenta personal") : t("Saldo en Stripe")}</p>
                 <p className="mt-1 text-2xl font-semibold tracking-tight">
                   {formatearImporteStripe(saldoTotal, saldo.moneda, idioma)}
                 </p>
@@ -176,7 +205,7 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
                 <p className="mt-1 text-2xl font-semibold tracking-tight text-emerald-700 dark:text-emerald-400">
                   {formatearImporteStripe(saldo.disponible, saldo.moneda, idioma)}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">{t("Listo para enviar al banco")}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{cuentaPersonalAnterior ? t("Disponible en tu cuenta personal") : t("Listo para enviar al banco")}</p>
               </div>
               <div className="rounded-xl border p-4">
                 <p className="text-xs font-medium text-muted-foreground">{t("Pendiente")}</p>
@@ -237,7 +266,7 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
 
             {estado.saldoError && (
               <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
-                {estado.saldoError}
+                {t(estado.saldoError)}
               </p>
             )}
           </>
@@ -250,16 +279,16 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
         )}
 
         <div className="flex flex-wrap gap-2">
-          {!listo && !error && (
+          {!listo && !error && !cuentaPersonalAnterior && (
             <Button onClick={() => void abrir("onboarding")} disabled={!!accion || loading}>
               {accion === "onboarding" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {estado?.conectado ? t("Completar datos en Stripe") : t("Activar cobros con Stripe")}
               <ExternalLink className="ml-2 h-4 w-4" />
             </Button>
           )}
-          {estado?.conectado && estado.onboardingCompletado && (
+          {estado?.conectado && (estado.onboardingCompletado || cuentaPersonalAnterior) && (
             <Button variant="outline" onClick={() => void abrir("dashboard")} disabled={!!accion}>
-              {accion === "dashboard" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{t("Abrir panel de Stripe")}{" "}<ExternalLink className="ml-2 h-4 w-4" />
+              {accion === "dashboard" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{cuentaPersonalAnterior ? t("Abrir mi cuenta personal en Stripe") : t("Abrir panel de Stripe")}{" "}<ExternalLink className="ml-2 h-4 w-4" />
             </Button>
           )}
           <Button variant="ghost" size="sm" onClick={() => void cargar(true)} disabled={!!accion || loading}>
@@ -268,7 +297,9 @@ export function StripeConnectCard({ estadoInicial = null, errorInicial = null }:
 
         <div className="space-y-1 text-xs text-muted-foreground">
           <p>{t("Este saldo solo incluye pagos que Diime ya te ha liberado. El dinero de trabajos en curso sigue protegido hasta la confirmación de la entrega o la resolución de una disputa.")}</p>
-          <p>{t("El alta y el panel se abren en una página segura de Stripe. Al terminar volverás automáticamente a Cobros en Diime.")}</p>
+          <p>{cuentaPersonalAnterior
+            ? t("El panel abre tu cuenta personal en una página segura de Stripe.")
+            : t("El alta y el panel se abren en una página segura de Stripe. Al terminar volverás automáticamente a Cobros en Diime.")}</p>
         </div>
       </CardContent>
     </Card>
