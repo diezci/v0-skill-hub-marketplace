@@ -14,11 +14,13 @@ import { AvisosEnPantalla } from "@/components/avisos-en-pantalla"
 import { ConfirmarMayoriaEdad } from "@/components/confirmar-mayoria-edad"
 import { EntornoEmpresasLocal } from "@/components/empresas/entorno-local"
 import type { ActorEmpresa } from "@/lib/empresas/types"
+import { useViewportAdaptable } from "@/hooks/use-viewport-adaptable"
 
 // El panel de administración (/admin) tiene su propio layout completo con barra
 // lateral. Allí no mostramos el navbar/footer/chat público ni el padding del
 // navbar, para que el admin tenga una experiencia exclusivamente de administración.
 export function AppChrome({ children, actorEmpresaLocal }: { children: React.ReactNode; actorEmpresaLocal?: ActorEmpresa | null }) {
+  useViewportAdaptable()
   const pathname = usePathname()
   const esMensajes = pathname?.startsWith("/mensajes") ?? false
 
@@ -51,7 +53,7 @@ export function AppChrome({ children, actorEmpresaLocal }: { children: React.Rea
           /demandas o a un perfil. */}
       {!actorEmpresaLocal && <BienvenidaPrimeraVisita />}
       <Navbar actorEmpresaLocal={actorEmpresaLocal} />
-      <main className={esMensajes ? "h-dvh min-h-0 flex-none overflow-hidden pt-16" : "flex-1 pt-16"}>
+      <main data-app-main className={esMensajes ? "h-dvh min-h-0 flex-none overflow-hidden pt-16" : "flex-1 pt-16"}>
         {actorEmpresaLocal && <EntornoEmpresasLocal actor={actorEmpresaLocal} />}
         {!actorEmpresaLocal && pathname && <AvisosSeccion key={pathname} seccion={pathname} />}
         {children}

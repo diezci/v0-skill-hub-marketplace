@@ -18,7 +18,8 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     // `standalone`: al abrirla desde el icono se ve sin barra de navegador,
     // como una app. Google Play (TWA) exige standalone o fullscreen.
     display: "standalone",
-    orientation: "portrait",
+    // La ventana puede girar o cambiar de proporción al abrir un plegable.
+    orientation: "any",
     lang: idioma,
     dir: "ltr",
     background_color: "#0a0a0a",

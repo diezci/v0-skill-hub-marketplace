@@ -9,9 +9,35 @@ import {
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { IDIOMAS, esIdiomaValido } from "@/lib/i18n"
+
+/** Variante integrada en el menú de cuenta, con navegación por teclado. */
+export function SelectorIdiomaMenu() {
+  const { idioma, cambiarIdioma, t } = useIdioma()
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger className="gap-2">
+        <Languages className="h-4 w-4" aria-hidden="true" />
+        {t("nav.idioma")}
+        <span className="ml-auto text-xs text-muted-foreground">{IDIOMAS.find(({ id }) => id === idioma)?.etiqueta}</span>
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent>
+        <DropdownMenuRadioGroup value={idioma} aria-label={t("nav.idioma")} onValueChange={(valor) => {
+          if (esIdiomaValido(valor)) cambiarIdioma(valor)
+        }}>
+          {IDIOMAS.map(({ id, etiqueta }) => (
+            <DropdownMenuRadioItem key={id} value={id} lang={id}>{etiqueta}</DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  )
+}
 
 export function SelectorIdioma({ compacto = false }: { compacto?: boolean }) {
   const { idioma, cambiarIdioma, t } = useIdioma()

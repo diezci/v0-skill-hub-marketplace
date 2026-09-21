@@ -1,6 +1,6 @@
 "use client"
 
-import { SelectorIdioma } from "@/components/selector-idioma"
+import { SelectorIdioma, SelectorIdiomaMenu } from "@/components/selector-idioma"
 import { useT } from "@/components/idioma-provider"
 
 
@@ -278,7 +278,7 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
           : "bg-background/80 backdrop-blur-sm border-b border-border/40",
       )}
     >
-      <div className="container mx-auto px-4">
+      <div data-app-navbar-container className="container mx-auto px-4">
         <div className="flex items-center justify-between gap-3 h-16">
           <Link href="/" className="flex shrink-0 items-center gap-2">
             <DiimeLogo className="h-9 w-9" />
@@ -314,7 +314,7 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
 
           <div className="hidden xl:flex shrink-0 items-center gap-1 2xl:gap-2">
             {isAuthenticated && !actorEmpresaLocal && <CampanaNotificaciones />}
-            <SelectorIdioma compacto />
+            {!isAuthenticated && <SelectorIdioma compacto />}
             <ThemeToggle />
             {isAuthenticated ? (
               <DropdownMenu>
@@ -384,6 +384,8 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
                   >
                     <LogOut className="mr-2 h-4 w-4" />
                      {t("Cerrar sesión")} </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <SelectorIdiomaMenu />
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
@@ -402,7 +404,7 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
 
           <div className="flex xl:hidden items-center gap-2">
             {isAuthenticated && !actorEmpresaLocal && <CampanaNotificaciones />}
-            <SelectorIdioma compacto />
+            {!isAuthenticated && <SelectorIdioma compacto />}
             <ThemeToggle />
             {isAuthenticated ? (
               <Link
@@ -541,6 +543,10 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
                   >
                     <LogOut className="h-5 w-5 shrink-0" />
                      {t("Cerrar Sesion")} </button>
+                  <div className="mt-2 flex items-center justify-between gap-3 border-t px-4 pt-3 pb-1">
+                    <span className="text-sm font-medium">{t("nav.idioma")}</span>
+                    <SelectorIdioma />
+                  </div>
                 </div>
               )}
             </nav>

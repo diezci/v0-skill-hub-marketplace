@@ -4,6 +4,10 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  --diime-safe-top: env(safe-area-inset-top, 0px);
+  --diime-safe-right: env(safe-area-inset-right, 0px);
+  --diime-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --diime-safe-left: env(safe-area-inset-left, 0px);
   --background: hsl(0 0% 100%);
   --foreground: hsl(0 0% 9%);
   --card: hsl(0 0% 98%);
@@ -147,9 +151,40 @@
   display: none;
 }
 
+/* Los bordes seguros pueden ser diferentes a cada lado y cambian al girar o
+   desplegar la pantalla. El ancho disponible, no el modelo, decide el diseño. */
+[data-app-main],
+[data-app-footer] {
+  min-width: 0;
+  padding-left: var(--diime-safe-left);
+  padding-right: var(--diime-safe-right);
+}
+
+[data-app-navbar-container] {
+  padding-left: max(1rem, var(--diime-safe-left));
+  padding-right: max(1rem, var(--diime-safe-right));
+}
+
+#mobile-navigation {
+  max-height: max(0px, calc(var(--diime-viewport-height, 100dvh) - 4rem - var(--diime-safe-top) - var(--diime-safe-bottom)));
+  overscroll-behavior: contain;
+}
+
+/* Un formulario abierto conserva sus datos al cambiar de pantalla y sigue
+   siendo desplazable dentro del espacio que queda encima del teclado. */
+[data-slot="dialog-content"],
+[data-slot="alert-dialog-content"] {
+  left: calc((100% + var(--diime-safe-left) - var(--diime-safe-right)) / 2);
+  top: calc(var(--diime-viewport-top, 0px) + (var(--diime-viewport-height, 100dvh) + var(--diime-safe-top) - var(--diime-safe-bottom)) / 2);
+  width: calc(100% - var(--diime-safe-left) - var(--diime-safe-right) - 2rem);
+  max-height: max(0px, calc(var(--diime-viewport-height, 100dvh) - var(--diime-safe-top) - var(--diime-safe-bottom) - 2rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 html[data-native="true"] body {
   overscroll-behavior-y: none;
-  padding-top: env(safe-area-inset-top);
+  padding-top: var(--diime-safe-top);
 }
 
 /* La zona del sistema debe ser siempre opaca. El contenido de la página puede
@@ -163,20 +198,20 @@ html[data-native="true"] body::before {
   top: 0;
   right: 0;
   left: 0;
-  height: env(safe-area-inset-top);
+  height: var(--diime-safe-top);
   pointer-events: none;
   background: var(--background);
 }
 
 html[data-native="true"] header.fixed {
-  top: env(safe-area-inset-top);
+  top: var(--diime-safe-top);
   background: var(--background);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
 
 html[data-native="true"] main {
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: var(--diime-safe-bottom);
 }
 
 /* En la app nativa el pie legal solo pertenece a la portada. Las secciones de
@@ -188,13 +223,17 @@ html[data-native="true"] [data-app-footer]:not([data-home="true"]) {
 
 /* Mensajes ocupa exactamente el viewport. El documento y el pie no deben
    desplazarse: cada columna tiene su propia zona de scroll y las cabeceras y
-   el compositor permanecen siempre visibles. `dvh` sigue el teclado y las
-   barras móviles, evitando el salto clásico de `100vh` en Safari/WKWebView. */
+   el compositor permanecen siempre visibles. VisualViewport sigue el teclado
+   y los cambios de pantalla; `dvh` sirve de respaldo antes de hidratar. */
 html[data-messages-view="true"],
 html[data-messages-view="true"] body {
-  height: 100dvh;
+  height: var(--diime-viewport-height, 100dvh);
   overflow: hidden;
   overscroll-behavior: none;
+}
+
+html[data-messages-view="true"] [data-app-main] {
+  height: var(--diime-viewport-height, 100dvh);
 }
 
 html[data-native="true"][data-messages-view="true"] body {
@@ -202,14 +241,25 @@ html[data-native="true"][data-messages-view="true"] body {
 }
 
 html[data-native="true"][data-messages-view="true"] main {
-  height: 100dvh;
-  padding-top: calc(4rem + env(safe-area-inset-top));
-  padding-bottom: env(safe-area-inset-bottom);
+  height: var(--diime-viewport-height, 100dvh);
+  padding-top: calc(4rem + var(--diime-safe-top));
+  padding-bottom: var(--diime-safe-bottom);
 }
 
 html[data-native="true"] .messages-profile-panel {
-  top: env(safe-area-inset-top);
-  bottom: env(safe-area-inset-bottom);
+  top: var(--diime-safe-top);
+  bottom: var(--diime-safe-bottom);
+}
+
+@media (width < 64rem) {
+  .messages-profile-panel {
+    top: var(--diime-safe-top);
+    right: var(--diime-safe-right);
+    bottom: auto;
+    left: var(--diime-safe-left);
+    width: auto;
+    height: calc(var(--diime-viewport-height, 100dvh) - var(--diime-safe-top) - var(--diime-safe-bottom));
+  }
 }
 
 .animate-fade-in {
