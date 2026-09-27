@@ -7,6 +7,7 @@ import type React from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
@@ -411,9 +412,9 @@ export default function RegistroPage() {
 
                 <div className="grid gap-2">
                   <Label htmlFor="password">{t("Contraseña")}</Label>
-                  <Input
+                  <PasswordInput
                     id="password"
-                    type="password"
+                    autoComplete="new-password"
                     placeholder={t("Mínimo 6 caracteres")}
                     required
                     value={password}
@@ -423,9 +424,9 @@ export default function RegistroPage() {
 
                 <div className="grid gap-2">
                   <Label htmlFor="repeat-password">{t("Repetir Contraseña")}</Label>
-                  <Input
+                  <PasswordInput
                     id="repeat-password"
-                    type="password"
+                    autoComplete="new-password"
                     placeholder={t("Repite tu contraseña")}
                     required
                     value={repeatPassword}

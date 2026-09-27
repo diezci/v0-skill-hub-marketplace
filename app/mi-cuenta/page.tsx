@@ -188,7 +188,15 @@ export default async function MiCuentaPage() {
             <CardTitle>{t("Soporte")}</CardTitle>
             <CardDescription>{t("¿Algo no funciona como esperabas?")}</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <Button asChild variant="outline">
+              <Link href="/ayuda">{t("Centro de ayuda")}</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <a href="mailto:contacto@diime.es?subject=Sugerencia%20sobre%20Diime">
+                {idioma === "en" ? "Send a suggestion" : "Enviar sugerencia"}
+              </a>
+            </Button>
             <ReportarIncidenciaDialog
               triggerLabel="Reportar un problema"
               triggerVariant="outline"

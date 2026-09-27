@@ -7,7 +7,7 @@ import type React from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -77,9 +77,9 @@ export default function ActualizarContrasenaPage() {
                   </Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
+                    <PasswordInput
                       id="password"
-                      type="password"
+                      autoComplete="new-password"
                       className="pl-10"
                       required
                       value={password}
@@ -95,9 +95,9 @@ export default function ActualizarContrasenaPage() {
                   </Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
+                    <PasswordInput
                       id="confirmPassword"
-                      type="password"
+                      autoComplete="new-password"
                       className="pl-10"
                       required
                       value={confirmPassword}

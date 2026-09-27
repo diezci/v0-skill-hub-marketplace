@@ -4,7 +4,7 @@ import { useT } from "@/components/idioma-provider"
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Loader2, KeyRound } from "lucide-react"
 import { updatePassword } from "@/app/actions/auth"
 import { useToast } from "@/hooks/use-toast"
@@ -45,9 +45,8 @@ export function CambiarContrasenaForm() {
           <label className="text-sm font-medium" htmlFor="nueva-contrasena">
             {t("Nueva contraseña")}
           </label>
-          <Input
+          <PasswordInput
             id="nueva-contrasena"
-            type="password"
             autoComplete="new-password"
             value={nueva}
             onChange={(e) => setNueva(e.target.value)}
@@ -58,9 +57,8 @@ export function CambiarContrasenaForm() {
           <label className="text-sm font-medium" htmlFor="confirmar-contrasena">
             {t("Confirmar contraseña")}
           </label>
-          <Input
+          <PasswordInput
             id="confirmar-contrasena"
-            type="password"
             autoComplete="new-password"
             value={confirmar}
             onChange={(e) => setConfirmar(e.target.value)}

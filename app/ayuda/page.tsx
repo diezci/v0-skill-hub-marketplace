@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Mail, HelpCircle } from "lucide-react"
 import { SupportChatButton } from "@/components/support-chat-button"
+import Link from "next/link"
 
 export async function generateMetadata() {
   const { t } = await getT()
@@ -40,7 +41,7 @@ const faqs = [
 ]
 
 export default async function Ayuda() {
-  const { t } = await getT()
+  const { t, idioma } = await getT()
 
   return (
     <div className="container mx-auto px-4 py-16 max-w-4xl">
@@ -62,6 +63,28 @@ export default async function Ayuda() {
           </Card>
         ))}
       </div>
+
+      <section aria-labelledby="ayuda-seguridad" className="mb-8 rounded-2xl border border-border p-6">
+        <h2 id="ayuda-seguridad" className="mb-2 text-xl font-bold">
+          {idioma === "en" ? "Your security and privacy" : "Tu seguridad y privacidad"}
+        </h2>
+        <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
+          {idioma === "en"
+            ? "Find out what data Diime uses, how to report content and how to request deletion of your account."
+            : "Consulta qué datos utiliza Diime, cómo reportar contenido y cómo solicitar la eliminación de tu cuenta."}
+        </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          <Button asChild variant="outline">
+            <Link href="/legal/privacidad">{t("Política de privacidad")}</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/legal/normas-comunidad">{t("Normas de la comunidad")}</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/eliminar-cuenta">{t("Eliminar mi cuenta")}</Link>
+          </Button>
+        </div>
+      </section>
 
       <div className="rounded-2xl border border-border bg-muted/30 p-8 text-center">
         <h2 className="text-xl font-bold mb-2">{t("¿No encuentras lo que buscas?")}</h2>
