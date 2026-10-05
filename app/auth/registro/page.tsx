@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
+import { destinoAuthSeguro } from "@/lib/auth-redirect"
 import { BotonesOAuth } from "@/components/botones-oauth"
 
 const provincias = [
@@ -63,7 +64,7 @@ export default function RegistroPage() {
   const [telefonoPrefijo, setTelefonoPrefijo] = useState("+34")
   const [telefonoNumero, setTelefonoNumero] = useState("")
   const [ubicacion, setUbicacion] = useState("")
-  const [tokenInvitacion, setTokenInvitacion] = useState("")
+  const [siguiente, setSiguiente] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [aceptaTerminos, setAceptaTerminos] = useState(false)
@@ -76,11 +77,8 @@ export default function RegistroPage() {
   useEffect(() => {
     const parametros = new URLSearchParams(window.location.search)
     setQuiereSerProfesional(parametros.get("siguiente") === "profesional")
-    const token = parametros.get("token")?.trim()
-    if (token) {
-      setTokenInvitacion(token)
-      setTipoEntidad("empresa")
-    }
+    setSiguiente(destinoAuthSeguro(parametros.get("next"), ""))
+    if (parametros.has("token")) setError("Las invitaciones de empresa se aceptan desde el enlace individual enviado por el titular.")
   }, [])
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -112,13 +110,13 @@ export default function RegistroPage() {
       return
     }
 
-    if (!documento.trim() && (tipoEntidad !== "empresa" || !tokenInvitacion.trim())) {
+    if (!documento.trim()) {
       setError(t("Por favor ingresa tu {documento}", { documento: tipoEntidad === "empresa" ? "CIF" : "DNI" }))
       setIsLoading(false)
       return
     }
 
-    if (tipoEntidad === "empresa" && !tokenInvitacion && !nombreEmpresa.trim()) {
+    if (tipoEntidad === "empresa" && !nombreEmpresa.trim()) {
       setError("Por favor ingresa el nombre de tu empresa")
       setIsLoading(false)
       return
@@ -147,7 +145,7 @@ export default function RegistroPage() {
         documentoPersonal: tipoEntidad === "empresa" ? documentoPersonal : undefined,
         cargoEmpresa: tipoEntidad === "empresa" ? cargoEmpresa || undefined : undefined,
         nombreEmpresa: tipoEntidad === "empresa" ? nombreEmpresa : undefined,
-        tokenInvitacion: tokenInvitacion || undefined,
+        next: siguiente || undefined,
         telefono,
         ubicacion,
         aceptaTerminos,
@@ -160,7 +158,9 @@ export default function RegistroPage() {
 
       // Si venía de "quiero ser profesional", se arrastra la intención para
       // invitarle a completar su perfil profesional nada más registrarse.
-      if (tipoEntidad === "empresa") {
+      if (siguiente) {
+        router.push(`/auth/registro-exitoso?next=${encodeURIComponent(siguiente)}`)
+      } else if (tipoEntidad === "empresa") {
         router.push("/mi-empresa")
       } else {
         router.push(quiereSerProfesional ? "/auth/registro-exitoso?siguiente=profesional" : "/auth/registro-exitoso")
@@ -293,7 +293,7 @@ export default function RegistroPage() {
                   </Select>
                 </div>
 
-                {tipoEntidad === "empresa" && !tokenInvitacion && (
+                {tipoEntidad === "empresa" && (
                   <div className="grid gap-2">
                     <Label htmlFor="nombre-empresa">{t("Nombre de la Empresa")}</Label>
                     <Input
@@ -313,7 +313,7 @@ export default function RegistroPage() {
                     id="documento"
                     type="text"
                     placeholder={tipoEntidad === "empresa" ? "A12345678" : "12345678X"}
-                    required={tipoEntidad !== "empresa" || !tokenInvitacion.trim()}
+                    required
                     value={documento}
                     onChange={(e) => setDocumento(e.target.value.toUpperCase())}
                   />
@@ -353,21 +353,6 @@ export default function RegistroPage() {
                   </div>
                 )}
 
-                {tipoEntidad === "empresa" && (
-                  <div className="grid gap-2">
-                    <Label htmlFor="token-invitacion">{t("Token de Invitación (opcional)")}</Label>
-                    <Input
-                      id="token-invitacion"
-                      type="text"
-                      placeholder={t("Si te invitaron a una empresa...")}
-                      value={tokenInvitacion}
-                      onChange={(e) => setTokenInvitacion(e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      {t("El vínculo se completa desde Mi Empresa, después de confirmar tu correo.")}
-                    </p>
-                  </div>
-                )}
 
                 <div className="grid gap-2">
                   <Label>{t("Teléfono (opcional)")}</Label>
@@ -449,7 +434,7 @@ export default function RegistroPage() {
 
               <div className="mt-4 text-center text-sm">
                 {t("¿Ya tienes cuenta?")}{" "}
-                <Link href={tokenInvitacion ? `/auth/login?next=${encodeURIComponent(`/mi-empresa?token=${encodeURIComponent(tokenInvitacion)}`)}` : "/auth/login"} className="underline underline-offset-4 hover:text-primary">
+                <Link href={siguiente ? `/auth/login?next=${encodeURIComponent(siguiente)}` : "/auth/login"} className="underline underline-offset-4 hover:text-primary">
                   {t("Inicia sesión")}
                 </Link>
               </div>

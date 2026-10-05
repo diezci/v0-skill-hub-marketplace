@@ -23,7 +23,7 @@ export default function PerfilMiembro({ perfil, empresa: datos }: { perfil: Miem
       <div className="relative h-32 bg-gradient-to-r from-primary/20 to-primary/5 sm:h-44" />
       <CardContent className="pt-0">
         <div className="-mt-12 flex flex-col gap-4 sm:-mt-14 sm:flex-row">
-          <InicialesEmpresa nombre={perfil.nombre} className="relative size-24 shrink-0 border-4 border-background text-2xl shadow-lg sm:size-28" />
+          <InicialesEmpresa nombre={perfil.nombre} fotoUrl={perfil.fotoUrl} className="relative size-24 shrink-0 border-4 border-background text-2xl shadow-lg sm:size-28" />
           <div className="min-w-0 flex-1 sm:pt-14">
             <div className="flex flex-wrap items-center gap-2"><h1 className="break-words text-2xl font-bold">{perfil.nombre}</h1><Badge variant="secondary" className="gap-1"><Users className="size-3.5" />{t(vinculoActivo ? "Miembro del equipo" : "Colaboración anterior")}</Badge></div>
             <p className="mt-1 text-muted-foreground">{perfil.cargo}</p>

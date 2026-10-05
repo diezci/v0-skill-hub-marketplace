@@ -1,5 +1,6 @@
 "use client"
 
+import { IdentidadEmpresa } from "@/components/identidad-empresa"
 import { useT, useIdioma } from "@/components/idioma-provider"
 import { localeDe } from "@/lib/i18n"
 
@@ -178,13 +179,13 @@ function MisSolicitudesContenido() {
     setActionLoading(false)
   }
 
-  const handleContactar = async (otroUsuarioId: string, solicitudId?: string, trabajoId?: string) => {
+  const handleContactar = async (otroUsuarioId: string, solicitudId?: string, trabajoId?: string, ofertaId?: string) => {
     if (!otroUsuarioId) {
       toast({ title: t("No disponible"), description: t("No se pudo identificar al destinatario."), variant: "destructive" })
       return
     }
     toast({ title: t("Abriendo chat..."), description: t("Preparando la conversación.") })
-    const result = await crearConversacion({ otroUsuarioId, solicitudId, trabajoId })
+    const result = await crearConversacion({ otroUsuarioId, solicitudId, trabajoId, ofertaId })
     if (result.error) {
       toast({ title: t("Error"), description: t(result.error), variant: "destructive" })
     } else {
@@ -603,6 +604,7 @@ function MisSolicitudesContenido() {
                   <div className="flex flex-col items-start justify-between gap-3 sm:flex-row">
                     <div className="space-y-1">
                       <CardTitle className="text-xl">{solicitud.titulo}</CardTitle>
+                      <IdentidadEmpresa empresa={solicitud.empresa} />
                       <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Calendar className="h-4 w-4" />{t("Publicada el")}{" "}{formatearFecha(solicitud.created_at)}
@@ -710,6 +712,7 @@ function MisSolicitudesContenido() {
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-start justify-between gap-2">
                                     <div>
+                                      <IdentidadEmpresa empresa={oferta.empresa} />
                                       <p className="font-semibold">
                                         <EnlacePerfil usuarioId={oferta.profesional_id}>
                                           {oferta.profesional?.profiles?.nombre} {oferta.profesional?.profiles?.apellido}
@@ -770,7 +773,7 @@ function MisSolicitudesContenido() {
                                       size="sm"
                                       variant="outline"
                                       className="bg-transparent"
-                                      onClick={() => handleContactar(oferta.profesional_id, solicitud.id)}
+                                      onClick={() => handleContactar(oferta.profesional_id, solicitud.id, undefined, oferta.id)}
                                     >
                                       <MessageSquare className="h-4 w-4 mr-1" />{t("Contactar")}</Button>
                                     <Button size="sm" variant="ghost" onClick={() => router.push(`/profesional/${oferta.profesional_id}`)}>

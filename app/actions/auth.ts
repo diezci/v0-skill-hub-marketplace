@@ -2,6 +2,7 @@
 
 import { idiomaActual, textoServidor } from "@/lib/i18n-servidor"
 
+import { destinoAuthSeguro } from "@/lib/auth-redirect"
 import { createClient } from "@/lib/supabase/server"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
@@ -21,6 +22,7 @@ export async function registrarUsuario(formData: {
   cargoEmpresa?: string
   nombreEmpresa?: string
   tokenInvitacion?: string
+  next?: string
   telefono?: string
   ubicacion?: string
   aceptaTerminos: boolean
@@ -35,8 +37,9 @@ export async function registrarUsuario(formData: {
     return { error: await textoServidor("Para crear una cuenta debes confirmar que tienes 18 años o más.") }
   }
 
+  if (formData.tokenInvitacion) return { error: await textoServidor("Las invitaciones de empresa se aceptan desde el enlace individual enviado por el titular.") }
+
   const registroEmpresa = formData.tipoEntidad === "empresa" ? {
-    tokenInvitacion: formData.tokenInvitacion?.trim() || undefined,
     nombreEmpresa: formData.nombreEmpresa?.trim(),
     cif: formData.documento?.trim().toUpperCase(),
     documentoPersonal: formData.documentoPersonal?.trim() || "",
@@ -47,7 +50,7 @@ export async function registrarUsuario(formData: {
   if (registroEmpresa && !registroEmpresa.documentoPersonal) {
     return { error: await textoServidor("Indica tu DNI/NIE como persona que representa a la empresa") }
   }
-  if (registroEmpresa && !registroEmpresa.tokenInvitacion && (!registroEmpresa.nombreEmpresa || !registroEmpresa.cif)) {
+  if (registroEmpresa && (!registroEmpresa.nombreEmpresa || !registroEmpresa.cif)) {
     return { error: await textoServidor("Indica el nombre y CIF de tu empresa o utiliza una invitación") }
   }
   const documentoDeLaPersona = registroEmpresa?.documentoPersonal || formData.documento || null
@@ -59,11 +62,15 @@ export async function registrarUsuario(formData: {
     || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
     || "http://localhost:3000"
 
+  const callback = new URL("/auth/callback", siteUrl)
+  const siguiente = destinoAuthSeguro(formData.next, registroEmpresa ? "/mi-empresa" : "/")
+  callback.searchParams.set("next", siguiente)
+
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email: formData.email,
     password: formData.password,
     options: {
-      emailRedirectTo: registroEmpresa ? `${siteUrl}/auth/callback?next=/mi-empresa` : `${siteUrl}/auth/callback`,
+      emailRedirectTo: callback.toString(),
       data: {
         idioma: await idiomaActual(),
         nombre: formData.nombre,

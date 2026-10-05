@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
 import { conciliarSesionPagada, liquidarPagoReclamado } from "@/lib/flujo-pagos"
 import { registrarEventoOperativo } from "@/lib/operaciones"
-import { errorIdentidadCuentaStripe } from "@/lib/stripe-connect-identidad"
+import { errorIdentidadCuentaStripe, errorIdentidadCuentaStripeEmpresa } from "@/lib/stripe-connect-identidad"
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -130,17 +130,22 @@ export async function POST(request: Request) {
 
       case "account.updated": {
         const account = await stripe.accounts.retrieve(event.data.object.id)
+        // Retrieve authoritative Stripe state, then resolve the persisted economic
+        // owner. Metadata alone can never redirect a webhook to another owner.
+        const { data: empresaCuenta, error: empresaError } = await supabase.from("empresa_cuentas_stripe")
+          .select("empresa_id").eq("stripe_account_id", account.id).maybeSingle()
+        if (empresaError) throw empresaError
         const { data: profesional, error: profesionalError } = await supabase.from("profesionales")
           .select("id").eq("stripe_account_id", account.id).maybeSingle()
         if (profesionalError) throw profesionalError
-        if (profesional) {
-          const { data: perfil, error: perfilError } = await supabase.from("profiles")
-            .select("empresa_id").eq("id", profesional.id).single()
-          if (perfilError) throw perfilError
-          const identidadError = errorIdentidadCuentaStripe(account, { id: profesional.id, empresa_id: perfil.empresa_id })
-          const { error: actualizarError } = await supabase.rpc("actualizar_estado_cuenta_stripe", {
-            p_profesional_id: profesional.id, p_account_id: account.id,
-            p_empresa_esperada: perfil.empresa_id,
+        if (empresaCuenta && profesional) throw new Error("Una cuenta Stripe no puede pertenecer a empresa y profesional a la vez.")
+        if (empresaCuenta || profesional) {
+          const identidadError = empresaCuenta
+            ? errorIdentidadCuentaStripeEmpresa(account, empresaCuenta.empresa_id)
+            : errorIdentidadCuentaStripe(account, { id: profesional!.id })
+          const { error: actualizarError } = await supabase.rpc(empresaCuenta ? "actualizar_estado_cuenta_stripe_empresa" : "actualizar_estado_cuenta_stripe", {
+            ...(empresaCuenta ? { p_empresa_id: empresaCuenta.empresa_id } : { p_profesional_id: profesional!.id, p_empresa_esperada: null }),
+            p_account_id: account.id,
             p_onboarding: !identidadError && account.details_submitted,
             p_transferencias: !identidadError && account.capabilities?.transfers === "active",
             p_payouts: !identidadError && account.payouts_enabled,

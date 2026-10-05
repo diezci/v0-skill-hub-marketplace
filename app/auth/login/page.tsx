@@ -13,8 +13,9 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Mail, Lock, AlertCircle } from "lucide-react"
+import { destinoAuthSeguro } from "@/lib/auth-redirect"
 import { BotonesOAuth } from "@/components/botones-oauth"
 
 export default function LoginPage() {
@@ -26,6 +27,8 @@ export default function LoginPage() {
   const [emailError, setEmailError] = useState<string | null>(null)
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const router = useRouter()
+  const [siguiente, setSiguiente] = useState("")
+  useEffect(() => { setSiguiente(destinoAuthSeguro(new URLSearchParams(window.location.search).get("next"), "")) }, [])
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -75,7 +78,7 @@ export default function LoginPage() {
       })
       if (error) throw error
       const requested = new URLSearchParams(window.location.search).get("next")
-      const destination = requested?.startsWith("/") && !requested.startsWith("//") ? requested : "/"
+      const destination = destinoAuthSeguro(requested)
       router.push(destination)
       router.refresh()
     } catch (error: unknown) {
@@ -187,7 +190,7 @@ export default function LoginPage() {
 
             <div className="text-center text-sm">
               <span className="text-muted-foreground">{t("¿No tienes cuenta?")}</span>{" "}
-              <Link href="/auth/registro" className="font-medium text-primary hover:underline">
+              <Link href={siguiente ? `/auth/registro?next=${encodeURIComponent(siguiente)}` : "/auth/registro"} className="font-medium text-primary hover:underline">
                 {t("Regístrate gratis")}
               </Link>
             </div>

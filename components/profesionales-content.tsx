@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import type { EmpresaPublica } from "@/lib/empresas/types"
 import GigFilters from "@/components/gig-filters"
 import GigListing from "@/components/gig-listing"
 import { subcategoriaIdsDeCategoriaPrincipal } from "@/lib/categorias"
@@ -25,7 +26,7 @@ const FILTROS_INICIALES: ProfesionalesFiltros = {
   precioMax: PRECIO_HORA_MAX,
 }
 
-export default function ProfesionalesContent() {
+export default function ProfesionalesContent({ empresas = [] }: { empresas?: EmpresaPublica[] }) {
   const [filtros, setFiltros] = useState<ProfesionalesFiltros>(FILTROS_INICIALES)
 
   // Atajo desde el homepage: /profesionales?categoria=exteriores-y-jardin deja
@@ -56,7 +57,7 @@ export default function ProfesionalesContent() {
         <GigFilters filtros={filtros} onChange={update} onReset={reset} />
       </div>
       <div className="lg:col-span-3">
-        <GigListing filtros={filtros} />
+        <GigListing filtros={filtros} empresas={empresas} />
       </div>
     </div>
   )

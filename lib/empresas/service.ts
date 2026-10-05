@@ -2,6 +2,7 @@ import "server-only"
 import { cookies, headers } from "next/headers"
 import { ACTORES_EMPRESA_LOCAL } from "./seed"
 import { empresaLocalStore } from "./local-store"
+import { empleadoEmpresaReal, empresaPublicaReal, empresasPublicasReales, espacioEmpresaReal, invitacionEmpresaReal } from "./production-store"
 import type { ActorEmpresa, EmpresaPublica, EspacioEmpresa, InvitacionEmpresa, MiembroEmpresaPublico, ResultadoEmpresa } from "./types"
 
 export function esEmpresasLocal(): boolean {
@@ -26,21 +27,23 @@ export async function obtenerActorEmpresaLocal(): Promise<ActorEmpresa> {
 }
 
 export async function obtenerEmpresaPublica(id: string): Promise<EmpresaPublica | null> {
-  if (!esEmpresasLocal()) return null
+  if (!esEmpresasLocal()) return empresaPublicaReal(id)
   try { await validarAccesoEmpresasLocal(); return await empresaLocalStore.publica(id) } catch { return null }
 }
 
 export async function obtenerEspacioEmpresa(): Promise<ResultadoEmpresa<EspacioEmpresa>> {
+  if (!esEmpresasLocal()) return espacioEmpresaReal()
   try { return await empresaLocalStore.espacio(await obtenerActorEmpresaLocal()) }
   catch (error) { return { error: error instanceof Error ? error.message : "No se pudo abrir el espacio de empresa local." } }
 }
 
 export async function obtenerEmpleadoEmpresa(usuarioId: string): Promise<{ perfil: MiembroEmpresaPublico; empresa: EmpresaPublica } | null> {
-  if (!esEmpresasLocal()) return null
+  if (!esEmpresasLocal()) return empleadoEmpresaReal(usuarioId)
   try { await validarAccesoEmpresasLocal(); return await empresaLocalStore.empleado(usuarioId) } catch { return null }
 }
 
 export async function obtenerInvitacionEmpresa(token: string): Promise<ResultadoEmpresa<{ invitacion: InvitacionEmpresa; empresaNombre: string; coincideEmail: boolean }>> {
+  if (!esEmpresasLocal()) return invitacionEmpresaReal(token)
   try { return await empresaLocalStore.invitacion(await obtenerActorEmpresaLocal(), token) }
   catch (error) { return { error: error instanceof Error ? error.message : "No se pudo abrir esta invitación local." } }
 }
@@ -48,4 +51,10 @@ export async function obtenerInvitacionEmpresa(token: string): Promise<Resultado
 export async function obtenerDocumentoVerificacionEmpresaLocal(): Promise<ResultadoEmpresa<{ contenido: Uint8Array; nombre: string }>> {
   try { return await empresaLocalStore.documentoVerificacion(await obtenerActorEmpresaLocal()) }
   catch (error) { return { error: error instanceof Error ? error.message : "No se pudo abrir el documento local." } }
+}
+
+export async function obtenerEmpresasPublicas(): Promise<EmpresaPublica[]> {
+  if (!esEmpresasLocal()) return empresasPublicasReales()
+  const empresa = await obtenerEmpresaPublica("reformas-garcia")
+  return empresa ? [empresa] : []
 }

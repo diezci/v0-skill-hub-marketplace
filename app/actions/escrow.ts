@@ -10,6 +10,8 @@ import { calcularTotalCliente, PLATFORM_CONFIG } from "@/lib/comisiones"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { crearTransferGroup } from "@/lib/stripe-liquidacion"
 import { cerrarCheckoutsPendientes, conciliarSesionPagada, liquidarPagoReclamado } from "@/lib/flujo-pagos"
+import { obtenerDestinoCobroTrabajo, puedePagarTrabajo } from "@/lib/empresas/cobros"
+import { validarActorTrabajoEmpresa } from "@/lib/empresas/identidad"
 
 type DesglosePago = {
   precioBase: number
@@ -60,7 +62,7 @@ export async function crearPagoEscrow(data: {
   // desde la oferta aceptada y la solicitud que la originó.
   const { data: trabajo, error: trabajoError } = await admin
     .from("trabajos")
-    .select("id, titulo, precio_acordado, profesional_id, cliente_id, estado, oferta_id, solicitud_id, pago_bloqueado, cancelacion_estado")
+    .select("id, titulo, precio_acordado, profesional_id, cliente_id, estado, oferta_id, solicitud_id, pago_bloqueado, cancelacion_estado, empresa_cliente_id, empresa_proveedora_id, actor_contratacion_id, proveedor_cobros_usuario_id, proveedor_stripe_account_id")
     .eq("id", data.trabajo_id)
     .single()
 
@@ -68,7 +70,7 @@ export async function crearPagoEscrow(data: {
     return { error: await textoServidor("Trabajo no encontrado") }
   }
 
-  if (trabajo.cliente_id !== user.id) {
+  if (!await puedePagarTrabajo(supabase, trabajo, user.id)) {
     return { error: await textoServidor("Solo el cliente puede realizar el pago") }
   }
 
@@ -83,12 +85,12 @@ export async function crearPagoEscrow(data: {
   const [{ data: oferta, error: ofertaError }, { data: solicitud, error: solicitudError }] = await Promise.all([
     admin
       .from("ofertas")
-      .select("id, solicitud_id, profesional_id, precio, estado, comision_proveedor_prevista, pago_neto_proveedor_previsto")
+      .select("id, solicitud_id, profesional_id, precio, estado, comision_proveedor_prevista, pago_neto_proveedor_previsto, empresa_id")
       .eq("id", trabajo.oferta_id)
       .maybeSingle(),
     admin
       .from("solicitudes")
-      .select("id, cliente_id, titulo, estado")
+      .select("id, cliente_id, titulo, estado, empresa_id")
       .eq("id", trabajo.solicitud_id)
       .maybeSingle(),
   ])
@@ -100,8 +102,9 @@ export async function crearPagoEscrow(data: {
   const relacionesValidas =
     oferta.solicitud_id === solicitud.id &&
     oferta.profesional_id === trabajo.profesional_id &&
+    (oferta.empresa_id || null) === (trabajo.empresa_proveedora_id || null) &&
     solicitud.cliente_id === trabajo.cliente_id &&
-    solicitud.cliente_id === user.id
+    (solicitud.empresa_id || null) === (trabajo.empresa_cliente_id || null)
   if (!relacionesValidas) {
     return { error: await textoServidor("Los participantes o documentos de la contratación no coinciden. No se realizará ningún cargo.") }
   }
@@ -121,22 +124,6 @@ export async function crearPagoEscrow(data: {
   const clienteId = solicitud.cliente_id
   const profesionalId = oferta.profesional_id
   const tituloServicio = solicitud.titulo || trabajo.titulo || "Servicio profesional"
-
-  // No se cobra al cliente hasta saber que el profesional está verificado y
-  // que Stripe permite transferirle el dinero.
-  const { data: cuentaProfesional } = await admin
-    .from("profesionales")
-    .select("stripe_account_id, stripe_onboarding_completado, stripe_transferencias_habilitadas, stripe_payouts_habilitados")
-    .eq("id", profesionalId)
-    .maybeSingle()
-  if (
-    !cuentaProfesional?.stripe_account_id ||
-    !cuentaProfesional.stripe_onboarding_completado ||
-    !cuentaProfesional.stripe_transferencias_habilitadas ||
-    !cuentaProfesional.stripe_payouts_habilitados
-  ) {
-    return { error: await textoServidor("Este profesional aún no ha terminado de configurar su cuenta de cobros. No se realizará ningún cargo.") }
-  }
 
   // Calculate amounts with commissions
   const desgloseClienteOferta = calcularTotalCliente(precioAcordado)
@@ -161,6 +148,20 @@ export async function crearPagoEscrow(data: {
   }
 
   try {
+    // The employee remains the recorded actor. The immutable contract snapshot
+    // identifies the economic provider and the account receiving the funds.
+    const { destino, titularId } = await obtenerDestinoCobroTrabajo(admin, trabajo)
+    const { error: destinoError } = await admin.rpc("empresa_fijar_destino_cobro_trabajo", {
+      p_trabajo: trabajo.id, p_actor: user.id, p_destino: destino,
+    })
+    if (destinoError) throw destinoError
+    const identidadCobro = {
+      proveedor_cobros_usuario_id: titularId || "",
+      diime_proveedor_tipo: trabajo.empresa_proveedora_id ? "empresa" : "personal",
+      proveedor_stripe_account_id: destino,
+      empresa_proveedora_id: trabajo.empresa_proveedora_id || "",
+      empresa_cliente_id: trabajo.empresa_cliente_id || "",
+    }
     // Al no fijar `payment_method_types`, Checkout usa los métodos dinámicos
     // activados en Stripe. Esto permite mostrar tarjeta, Apple Pay, Google Pay,
     // Link y cualquier otro método compatible sin desplegar código de nuevo.
@@ -227,9 +228,14 @@ export async function crearPagoEscrow(data: {
           anterior.metadata?.escrow_id === escrowAbierto.id &&
           anterior.metadata?.cliente_id === clienteId &&
           anterior.metadata?.profesional_id === profesionalId &&
+          (!(trabajo.empresa_proveedora_id || anterior.metadata?.proveedor_cobros_usuario_id) ||
+            Object.entries(identidadCobro).every(([campo, valor]) => anterior.metadata?.[campo] === valor)) &&
           Math.round(Number(anterior.metadata?.precio_acordado) * 100) === Math.round(precioAcordado * 100)
 
         if (sesionCoincide && anterior.client_secret) {
+          if (!await puedePagarTrabajo(supabase, trabajo, user.id)) {
+            return { error: await textoServidor("Ya no puedes realizar pagos en nombre de esta empresa.") }
+          }
           // La fila de escrow es la foto contractual del intento de pago. Si
           // la tarifa cambia mientras Checkout sigue abierto, mostramos sus
           // importes guardados y no un desglose recalculado con la tarifa nueva.
@@ -286,6 +292,7 @@ export async function crearPagoEscrow(data: {
     }
 
     const camposEscrow = {
+      actor_pago_id: user.id,
       trabajo_id: trabajo.id,
       cliente_id: clienteId,
       profesional_id: profesionalId,
@@ -338,6 +345,8 @@ export async function crearPagoEscrow(data: {
           trabajo_id: trabajo.id,
           escrow_id: escrowNuevo.id,
           type: "diime_pago_protegido",
+          actor_pago_id: user.id,
+          ...identidadCobro,
         },
       },
       metadata: {
@@ -351,6 +360,8 @@ export async function crearPagoEscrow(data: {
         pago_neto_proveedor: pagoNeto.toString(),
         total_cliente: totalCliente.toString(),
         type: "diime_pago_protegido",
+        actor_pago_id: user.id,
+        ...identidadCobro,
       },
     }
 
@@ -396,7 +407,12 @@ export async function crearPagoEscrow(data: {
       return { error: await textoServidor(escrowError?.message || "El intento de pago fue sustituido. Vuelve a intentarlo.") }
     }
 
-    return { 
+    if (!await puedePagarTrabajo(supabase, trabajo, user.id)) {
+      if (session.status === "open") await stripe.checkout.sessions.expire(session.id)
+      return { error: await textoServidor("Ya no puedes realizar pagos en nombre de esta empresa.") }
+    }
+
+    return {
       clientSecret: session.client_secret,
       escrow,
       desglose: desgloseNormalizado,
@@ -419,7 +435,13 @@ export async function confirmarPagoEscrow(sessionId: string) {
   if (!admin) return { error: await textoServidor("La configuración segura del servidor no está disponible.") }
   try {
     const session = await stripe.checkout.sessions.retrieve(sessionId)
-    const resultado = await conciliarSesionPagada(admin, session, user.id)
+    const { data: trabajo, error: trabajoError } = await admin.from("trabajos")
+      .select("id,cliente_id,profesional_id,empresa_cliente_id")
+      .eq("id", session.metadata?.trabajo_id || "").maybeSingle()
+    if (trabajoError || !trabajo || !await puedePagarTrabajo(supabase, trabajo, user.id)) {
+      return { error: await textoServidor("No tienes permiso para confirmar este pago.") }
+    }
+    const resultado = await conciliarSesionPagada(admin, session, trabajo.cliente_id)
     revalidatePath("/mis-solicitudes")
     revalidatePath("/mis-trabajos")
     if (resultado.tardio) return { error: await textoServidor("Este pago llegó después del cierre del intento. Se ha reembolsado íntegramente y el servicio no se ha reactivado.") }
@@ -435,13 +457,15 @@ export async function liberarFondosEscrow(trabajoId: string) {
   if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos.") }
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
+  const permisoError = await validarActorTrabajoEmpresa(supabase, trabajoId, user.id, "gestionar_cobros", "cliente")
+  if (permisoError) return { error: await textoServidor(permisoError) }
   const admin = createAdminClient()
   if (!admin) return { error: await textoServidor("La configuración segura del servidor no está disponible.") }
   try {
     // Include the same completed operation so a retry also repairs a previous
     // interruption between the Stripe movement and the contract closure.
     const { data: escrow, error } = await admin.from("transacciones_escrow").select("*")
-      .eq("trabajo_id", trabajoId).eq("cliente_id", user.id)
+      .eq("trabajo_id", trabajoId)
       .or("estado.in.(retenido,fondos_retenidos,liquidando),liquidacion_operacion_id.like.confirmacion-%")
       .maybeSingle()
     if (error || !escrow) return { error: await textoServidor("No se encontró un único pago retenido para confirmar.") }
@@ -464,6 +488,8 @@ export async function reembolsarPorCancelacion(trabajoId: string) {
   if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos.") }
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
+  const permisoError = await validarActorTrabajoEmpresa(supabase, trabajoId, user.id, "gestionar_cobros")
+  if (permisoError) return { error: await textoServidor(permisoError) }
   const admin = createAdminClient()
   if (!admin) return { error: await textoServidor("La configuración segura del servidor no está disponible.") }
   try {

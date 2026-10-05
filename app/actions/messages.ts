@@ -163,7 +163,10 @@ export async function obtenerConversaciones() {
     })
   )
 
-  return { data: enrichedConversations }
+  const { data: empresariales, error: errorEmpresa } = await supabase.rpc("empresa_conversaciones_listar")
+  if (errorEmpresa) return { error: await textoServidor(errorEmpresa.message), data: enrichedConversations }
+  return { data: [...enrichedConversations, ...(empresariales || [])].sort((a, b) =>
+    new Date(b.fecha_ultimo_mensaje || b.created_at || 0).getTime() - new Date(a.fecha_ultimo_mensaje || a.created_at || 0).getTime()) }
 }
 
 export async function obtenerMensajes(conversacionId: string) {
@@ -177,6 +180,10 @@ export async function obtenerMensajes(conversacionId: string) {
   if (!user) {
     return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado"), data: [] }
   }
+
+  const { data: empresaMensajes, error: errorEmpresa } = await supabase.rpc("empresa_mensajes_listar", { p_conversacion_id: conversacionId })
+  if (errorEmpresa) return { error: await textoServidor(errorEmpresa.message), data: [] }
+  if (empresaMensajes !== null) return { data: empresaMensajes }
 
   // Verify user is part of this conversation
   const { data: conv } = await supabase
@@ -241,6 +248,17 @@ export async function enviarMensaje(
 
   const errorModeracion = errorContenidoProhibido(contenido, adjunto?.nombre)
   if (errorModeracion) return { error: await textoServidor(errorModeracion) }
+
+  const { data: mensajeEmpresa, error: errorEmpresa } = await supabase.rpc("empresa_mensaje_enviar", {
+    p_conversacion_id: conversacionId, p_contenido: contenido,
+    p_tipo: adjunto?.tipo || "texto", p_archivo_url: adjunto?.url || null, p_archivo_nombre: adjunto?.nombre || null,
+  })
+  if (errorEmpresa) return { error: await textoServidor(errorEmpresa.message) }
+  if (mensajeEmpresa) {
+    revalidatePath("/mensajes")
+    revalidatePath("/mi-empresa")
+    return { data: mensajeEmpresa }
+  }
 
   // Verify user is part of this conversation
   const { data: conv } = await supabase
@@ -316,11 +334,13 @@ export async function crearConversacion(params: {
   otroUsuarioId: string
   solicitudId?: string
   trabajoId?: string
+  ofertaId?: string
   mensajeInicial?: string
-}) {
+}): Promise<{ data?: any; error?: string; codigo?: string }> {
   if (!UUID_RE.test(params.otroUsuarioId)) return { error: await textoServidor("Usuario no válido") }
   if (params.solicitudId && !UUID_RE.test(params.solicitudId)) return { error: await textoServidor("Demanda no válida") }
   if (params.trabajoId && !UUID_RE.test(params.trabajoId)) return { error: await textoServidor("Trabajo no válido") }
+  if (params.ofertaId && !UUID_RE.test(params.ofertaId)) return { error: await textoServidor("Oferta no válida") }
 
   const supabase = await createClient()
   if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
@@ -331,6 +351,29 @@ export async function crearConversacion(params: {
   
   if (!user) {
     return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
+  }
+
+  // A company project always opens its shared thread. A private thread is
+  // never converted into business correspondence or exposed to a manager.
+  const contextoEmpresa = params.trabajoId
+    ? await supabase.from("trabajos").select("empresa_cliente_id, empresa_proveedora_id").eq("id", params.trabajoId).maybeSingle()
+    : params.solicitudId
+      ? await supabase.from("solicitudes").select("empresa_id").eq("id", params.solicitudId).maybeSingle()
+      : null
+  const contexto = contextoEmpresa?.data as { empresa_cliente_id?: string; empresa_proveedora_id?: string; empresa_id?: string } | null
+  const ofertaContexto = params.ofertaId
+    ? await supabase.from("ofertas").select("empresa_id").eq("id", params.ofertaId).maybeSingle()
+    : null
+  if (contexto?.empresa_cliente_id || contexto?.empresa_proveedora_id || contexto?.empresa_id || ofertaContexto?.data?.empresa_id) {
+    const { data, error } = await supabase.rpc("empresa_chat_crear", {
+      p_trabajo_id: params.trabajoId || null, p_solicitud_id: params.solicitudId || null, p_otro_usuario_id: params.otroUsuarioId, p_oferta_id: params.ofertaId || null,
+    })
+    if (error) return { error: await textoServidor(error.message) }
+    if (params.mensajeInicial) {
+      const envio = await enviarMensaje(data.id, params.mensajeInicial)
+      if (envio.error) return envio
+    }
+    return { data }
   }
 
   const errorModeracion = errorContenidoProhibido(params.mensajeInicial)
@@ -624,4 +667,27 @@ export async function vincularConversacionATrabajo(conversacionId: string, traba
 
   revalidatePath("/mensajes")
   return { success: true }
+}
+
+export async function crearConversacionEmpresa(empresaId: string) {
+  if (!UUID_RE.test(empresaId)) return { error: await textoServidor("Empresa no válida") }
+  const supabase = await createClient()
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: await textoServidor("Debes iniciar sesión"), codigo: "NO_AUTENTICADO" }
+  const { data, error } = await supabase.rpc("empresa_chat_crear", { p_empresa_id: empresaId })
+  if (error) return { error: await textoServidor(error.message) }
+  revalidatePath("/mensajes")
+  return { data }
+}
+
+export async function crearConversacionTrabajoEmpresa(trabajoId: string): Promise<{ data?: { id: string }; error?: string }> {
+  if (!UUID_RE.test(trabajoId)) return { error: await textoServidor("Trabajo no válido") }
+  const supabase = await createClient()
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: await textoServidor("Debes iniciar sesión") }
+  const { data, error } = await supabase.rpc("empresa_chat_crear", { p_trabajo_id: trabajoId })
+  if (error) return { error: await textoServidor(error.message) }
+  return { data }
 }

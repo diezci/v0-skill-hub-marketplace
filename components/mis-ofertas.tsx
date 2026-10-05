@@ -1,5 +1,6 @@
 "use client"
 
+import { IdentidadEmpresa } from "@/components/identidad-empresa"
 import { useT, useIdioma } from "@/components/idioma-provider"
 import { localeDe } from "@/lib/i18n"
 
@@ -181,6 +182,7 @@ function MisOfertasContenido() {
     }
     const result = esRepuja
       ? await crearOferta({
+          empresa_id: editOferta.empresa_id || null,
           solicitud_id: editOferta.solicitud_id,
           precio,
           tiempo_estimado: tiempoEstimado,
@@ -237,12 +239,12 @@ function MisOfertasContenido() {
     setActionLoading(false)
   }
 
-  const handleContactarCliente = async (clienteId?: string, solicitudId?: string) => {
+  const handleContactarCliente = async (clienteId?: string, solicitudId?: string, ofertaId?: string) => {
     if (!clienteId) {
       toast({ title: t("No disponible"), description: t("No se pudo identificar al cliente."), variant: "destructive" })
       return
     }
-    const result = await crearConversacion({ otroUsuarioId: clienteId, solicitudId })
+    const result = await crearConversacion({ otroUsuarioId: clienteId, solicitudId, ofertaId })
     if (result.error) {
       toast({ title: t("Error"), description: t(result.error), variant: "destructive" })
     } else {
@@ -318,6 +320,8 @@ function MisOfertasContenido() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <IdentidadEmpresa empresa={oferta.empresa} />
+                  <IdentidadEmpresa empresa={oferta.solicitud?.empresa} />
                   <AvisosTarjeta avisos={avisosOferta(oferta)} onMarcarLeidas={marcarLeidas} />
                   {necesitaConfirmarGastos(oferta) && (
                     <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
@@ -396,7 +400,7 @@ function MisOfertasContenido() {
                       variant="outline"
                       size="sm"
                       className="flex-1 bg-transparent"
-                      onClick={() => handleContactarCliente(oferta.solicitud?.cliente_id, oferta.solicitud?.id)}
+                      onClick={() => handleContactarCliente(oferta.solicitud?.cliente_id, oferta.solicitud?.id, oferta.id)}
                     >
                       <MessageSquare className="h-4 w-4 mr-2" />{t("Contactar Cliente")}</Button>
                     {!esAceptadaSinPagar(oferta) && (
@@ -440,6 +444,8 @@ function MisOfertasContenido() {
                 className={`scroll-mt-24 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border p-4 ${avisosOferta(oferta).length ? "ring-2 ring-primary/50 border-primary/40" : ""}`}
               >
                 <div className="min-w-0 flex-1">
+                  <IdentidadEmpresa empresa={oferta.empresa} />
+                  <IdentidadEmpresa empresa={oferta.solicitud?.empresa} />
                   <AvisosTarjeta avisos={avisosOferta(oferta)} onMarcarLeidas={marcarLeidas} />
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-medium truncate">{oferta.solicitud?.titulo || t("Servicio")}</p>

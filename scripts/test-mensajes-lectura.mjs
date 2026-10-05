@@ -16,7 +16,7 @@ function escenario({ iniciales = [], nuevo = null, errorLectura = false, autoriz
   let llegadaSimulada = false
   const supabase = {
     auth: { getUser: async () => ({ data: { user: autenticado ? { id: usuario } : null } }) },
-    rpc: async () => ({ data: bloqueado }),
+    rpc: async (nombre) => ({ data: nombre === "empresa_mensajes_listar" ? null : bloqueado }),
     from(tabla) {
       let accion = "select"
       const filtros = []

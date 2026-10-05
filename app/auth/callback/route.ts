@@ -1,3 +1,4 @@
+import { destinoAuthSeguro } from "@/lib/auth-redirect"
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 
@@ -5,7 +6,7 @@ export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get("code")
   const requested = requestUrl.searchParams.get("next")
-  const destination = requested?.startsWith("/") && !requested.startsWith("//") ? requested : "/"
+  const destination = destinoAuthSeguro(requested)
 
   if (code) {
     const supabase = await createClient()

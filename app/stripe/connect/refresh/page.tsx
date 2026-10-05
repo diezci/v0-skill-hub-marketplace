@@ -3,7 +3,7 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { crearEnlaceOnboardingStripe } from "@/app/actions/stripe-connect"
+import { crearEnlaceOnboardingStripe, crearEnlaceOnboardingStripeEmpresa } from "@/app/actions/stripe-connect"
 import { StripeConnectRetornoNativo } from "@/components/stripe-connect-retorno-nativo"
 
 function primerValor(valor?: string | string[]) {
@@ -17,7 +17,7 @@ function rutaSegura(valor?: string) {
 export default async function StripeConnectRefreshPage({
   searchParams,
 }: {
-  searchParams: Promise<{ native?: string | string[]; volver?: string | string[] }>
+  searchParams: Promise<{ native?: string | string[]; volver?: string | string[]; empresa?: string | string[] }>
 }) {
   const { t } = await getT()
 
@@ -30,7 +30,10 @@ export default async function StripeConnectRefreshPage({
 
   // Los Account Links son de un solo uso. En web conservamos la sesión y
   // generamos automáticamente uno nuevo, tal como recomienda Stripe.
-  const resultado = await crearEnlaceOnboardingStripe({ volverA })
+  const empresaId = primerValor(parametros.empresa)
+  const resultado = empresaId
+    ? await crearEnlaceOnboardingStripeEmpresa(empresaId, { volverA })
+    : await crearEnlaceOnboardingStripe({ volverA })
   if (resultado.data?.url) redirect(resultado.data.url)
 
   return (

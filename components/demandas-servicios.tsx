@@ -1,5 +1,7 @@
 "use client"
 
+import { SelectorIdentidadEmpresa } from "@/components/selector-identidad-empresa"
+import { IdentidadEmpresa } from "@/components/identidad-empresa"
 import { useT, useIdioma } from "@/components/idioma-provider"
 import { localeDe } from "@/lib/i18n"
 
@@ -69,6 +71,7 @@ type ClientePublico = {
 }
 
 type Demanda = {
+  empresa?: { id: string; nombre: string } | null
   id: string
   titulo: string
   descripcion: string
@@ -132,6 +135,7 @@ export default function DemandasServicios() {
   const enlaceAbierto = useRef("")
   const searchParams = useSearchParams()
 
+  const [empresaId, setEmpresaId] = useState<string | null>(null)
   const [dialogAbierto, setDialogAbierto] = useState(false)
   const [demandaSeleccionada, setDemandaSeleccionada] = useState<Demanda | null>(null)
   const [dialogDetalles, setDialogDetalles] = useState(false)
@@ -405,6 +409,7 @@ export default function DemandasServicios() {
       const successfulUploads = uploadResults.map((result) => result!.url)
 
       const result = await crearOferta({
+        empresa_id: empresaId,
         solicitud_id: demandaSeleccionada.id,
         precio: Number.parseFloat(formData.precio),
         tiempo_estimado: Number.parseInt(formData.duracion, 10),
@@ -674,6 +679,7 @@ export default function DemandasServicios() {
 
                       {/* Meta Info */}
                       <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                        <IdentidadEmpresa empresa={demanda.empresa} />
                         <button
                           type="button"
                           className="flex items-center gap-1.5 hover:text-primary transition-colors cursor-pointer"
@@ -772,6 +778,7 @@ export default function DemandasServicios() {
               )}
             </div>
             <DialogTitle className="text-xl">{demandaSeleccionada?.titulo}</DialogTitle>
+            <IdentidadEmpresa empresa={demandaSeleccionada?.empresa} />
           </DialogHeader>
 
           <div className="space-y-6">
@@ -978,6 +985,7 @@ export default function DemandasServicios() {
           </DialogHeader>
 
           <form onSubmit={handleSubmitOferta} className="space-y-4">
+            <SelectorIdentidadEmpresa value={empresaId} onChange={setEmpresaId} disabled={isSubmitting} />
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{t("Precio propuesto (€)")}</Label>

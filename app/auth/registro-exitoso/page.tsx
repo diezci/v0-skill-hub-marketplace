@@ -1,3 +1,4 @@
+import { destinoAuthSeguro } from "@/lib/auth-redirect"
 import { getT } from "@/lib/i18n-servidor"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { CheckCircle, HardHat, ArrowRight } from "lucide-react"
@@ -11,10 +12,11 @@ import { Button } from "@/components/ui/button"
 export default async function RegistroExitosoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ siguiente?: string }>
+  searchParams: Promise<{ siguiente?: string; next?: string }>
 }) {
   const { t } = await getT()
-  const { siguiente } = await searchParams
+  const { siguiente, next } = await searchParams
+  const destino = destinoAuthSeguro(next, "")
   const vieneComoProfesional = siguiente === "profesional"
 
   return (
@@ -29,6 +31,7 @@ export default async function RegistroExitosoPage({
             <CardDescription>{t("Ya formas parte de Diime")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {destino && <div className="rounded-lg border border-primary/30 p-4"><p className="mb-3 text-sm text-muted-foreground">{t("Confirma tu correo y continúa para aceptar la invitación desde tu cuenta.")}</p><Button asChild className="w-full"><Link href={destino}>{t("Continuar")}<ArrowRight className="size-4" /></Link></Button></div>}
             {/* Paso siguiente para quien va a ofrecer servicios: sin categorías
                 ni provincias no le llegará ninguna demanda, así que se explica. */}
             <div

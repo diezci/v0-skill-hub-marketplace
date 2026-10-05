@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { identidadesEmpresas, validarEmpresaOperacion } from "@/lib/empresas/identidad"
 import { after } from "next/server"
 import { buscarYEnviarInvitaciones } from "./invitaciones"
 import { evaluarContenidoSolicitud } from "@/lib/moderacion"
@@ -51,6 +52,7 @@ function textoSolicitud(
 }
 
 export async function crearSolicitud(formData: {
+  empresa_id?: string | null
   titulo: string
   descripcion: string
   categoria_id: string // This is actually the category name
@@ -72,6 +74,9 @@ export async function crearSolicitud(formData: {
   if (!user) {
     return { error: await textoServidor("No autenticado. Por favor inicia sesión para publicar un proyecto.") }
   }
+
+  const errorEmpresa = await validarEmpresaOperacion(supabase, formData.empresa_id)
+  if (errorEmpresa) return { error: await textoServidor(errorEmpresa) }
 
   // No confiamos en la validacion del formulario: esta accion tambien puede
   // invocarse directamente. Limites, taxonomia y moderacion se aplican siempre
@@ -149,6 +154,7 @@ export async function crearSolicitud(formData: {
     .from("solicitudes")
     .insert({
       cliente_id: user.id,
+      empresa_id: formData.empresa_id || null,
       titulo: titulo.valor,
       descripcion: descripcion.valor,
       categoria_id: categoria_uuid,
@@ -223,6 +229,7 @@ export async function obtenerSolicitudes(filtros?: {
   estado?: string
 }) {
   const supabase = await createClient()
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   let query = supabase.from("solicitudes").select("*").order("created_at", { ascending: false })
 
@@ -250,7 +257,9 @@ export async function obtenerSolicitudes(filtros?: {
     (data || []).map((s: any) => s.cliente_id),
   )
 
+  const empresas = await identidadesEmpresas(supabase, (data || []).map((s: any) => s.empresa_id))
   const enriquecidas = (data || []).map((s: any) => ({
+    empresa: empresas[s.empresa_id] || null,
     ...s,
     categoria: s.categoria_id ? mapaCategorias[s.categoria_id] || null : null,
     cliente: s.cliente_id ? mapaPerfiles[s.cliente_id] || null : null,
@@ -552,6 +561,7 @@ export async function eliminarSolicitud(id: string) {
 
 export async function obtenerMisSolicitudes() {
   const supabase = await createClient()
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
@@ -597,6 +607,7 @@ export async function obtenerMisSolicitudes() {
 
 export async function obtenerSolicitudesAbiertas() {
   const supabase = await createClient()
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const { data, error } = await supabase
     .from("solicitudes")
@@ -629,10 +640,12 @@ export async function obtenerSolicitudesAbiertas() {
     ((conteos as any[] | null) || []).map((c) => [c.solicitud_id, Number(c.total) || 0]),
   )
 
+  const empresas = await identidadesEmpresas(supabase, (data || []).map((s: any) => s.empresa_id))
   const dataWithCounts = (data || []).map((solicitud: any) => {
     const perfil = solicitud.cliente_id ? mapaPerfiles[solicitud.cliente_id] : null
     return {
       ...solicitud,
+      empresa: empresas[solicitud.empresa_id] || null,
       categoria: solicitud.categoria_id ? mapaCategorias[solicitud.categoria_id] || null : null,
       cliente: perfil,
       total_ofertas: totalPorSolicitud.get(solicitud.id) ?? 0,
@@ -644,6 +657,7 @@ export async function obtenerSolicitudesAbiertas() {
 
 export async function obtenerSolicitudesPorUsuario() {
   const supabase = await createClient()
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
   const {
     data: { user },
@@ -671,6 +685,8 @@ export async function obtenerSolicitudesPorUsuario() {
     (solicitudes || []).map((s: any) => s.categoria_id),
   )
 
+  const empresasSolicitudes = await identidadesEmpresas(supabase, (solicitudes || []).map((s: any) => s.empresa_id))
+
   // Then get ofertas for each solicitud with professional info
   const dataWithOfertas = await Promise.all(
     solicitudes.map(async (solicitud: any) => {
@@ -685,6 +701,8 @@ export async function obtenerSolicitudesPorUsuario() {
           estado,
           created_at,
           profesional_id,
+          empresa_id,
+          actor_usuario_id,
           archivos,
           materiales_incluidos,
           condiciones_pago
@@ -695,12 +713,14 @@ export async function obtenerSolicitudesPorUsuario() {
         return { ...solicitud, ofertas: [] }
       }
 
+      const empresasOfertas = await identidadesEmpresas(supabase, (ofertas || []).map((o: any) => o.empresa_id))
+
       // Get professional profiles for each oferta
       const ofertasWithProfesional = await Promise.all(
         (ofertas || []).map(async (oferta: any) => {
           const { data: profesional, error: profesionalError } = await supabase
             .from("profesionales")
-            .select("id, titulo, tarifa_por_hora, rating_promedio, total_reseñas")
+            .select('id, titulo, tarifa_por_hora, rating_promedio, "total_reseñas"')
             .eq("id", oferta.profesional_id)
             .single()
 
@@ -720,6 +740,7 @@ export async function obtenerSolicitudesPorUsuario() {
 
           return {
             ...oferta,
+            empresa: empresasOfertas[oferta.empresa_id] || null,
             profesional: profesional
               ? {
                   ...profesional,
@@ -796,6 +817,7 @@ export async function obtenerSolicitudesPorUsuario() {
 
       return {
         ...solicitud,
+        empresa: empresasSolicitudes[solicitud.empresa_id] || null,
         categoria: solicitud.categoria_id ? mapaCategorias[solicitud.categoria_id] || null : null,
         ofertas: ofertasWithProfesional,
         trabajo,

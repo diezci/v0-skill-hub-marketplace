@@ -892,7 +892,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
         </Card>
       </div>
 
-      {editable && tienePerfilProfesional ? (
+      {editable && tienePerfilProfesional && !editData.verificado ? (
         <div className="px-4 md:px-0">
           <SolicitudVerificacionProfesional
             key={profesionalId}

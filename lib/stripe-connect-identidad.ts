@@ -5,37 +5,31 @@ type CuentaStripeIdentificable = {
   details_submitted?: boolean
 }
 
-// A company membership does not transfer ownership of a person's existing
-// account. This exception is for accessing that personal account only; new
-// collections and webhooks must still pass errorIdentidadCuentaStripe.
-export function esCuentaPersonalPropiaStripe(
-  cuenta: CuentaStripeIdentificable,
-  profesional: { id: string },
-): boolean {
-  return !cuenta.deleted && cuenta.business_type === "individual"
-    && cuenta.metadata?.diime_profesional_id === profesional.id
-    && !cuenta.metadata?.diime_empresa_id
+/** Membership never changes the economic identity of a personal Connect account. */
+export function esCuentaPersonalPropiaStripe(cuenta: CuentaStripeIdentificable, profesional: { id: string }): boolean {
+  return !errorIdentidadCuentaStripe(cuenta, profesional)
 }
 
-// Se usa al consultar Connect y al procesar eventos de Stripe. Los metadatos
-// identifican al titular creado por Diime; empresa_id se obtiene del perfil
-// protegido en la base de datos, nunca de datos enviados por el navegador.
 export function errorIdentidadCuentaStripe(
   cuenta: CuentaStripeIdentificable,
   profesional: { id: string; empresa_id?: string | null },
 ): string | null {
-  if (cuenta.deleted || cuenta.metadata?.diime_profesional_id !== profesional.id) {
-    return "La cuenta de cobros no corresponde a este profesional. Contacta con soporte."
+  if (cuenta.deleted || cuenta.business_type !== "individual"
+    || cuenta.metadata?.diime_profesional_id !== profesional.id
+    || cuenta.metadata?.diime_empresa_id
+    || (cuenta.metadata?.diime_proveedor_tipo && cuenta.metadata.diime_proveedor_tipo !== "personal")) {
+    return "La cuenta de cobros no corresponde a tu actividad personal. Contacta con soporte para revisar la titularidad. Se conserva la cuenta y su historial."
   }
-  const tipoEsperado = profesional.empresa_id ? "company" : "individual"
-  if ((cuenta.business_type || cuenta.details_submitted) && cuenta.business_type !== tipoEsperado) {
-    return profesional.empresa_id
-      ? "Tu cuenta de cobros está a nombre de un particular y ahora representas a una empresa. Contacta con soporte para regularizar la titularidad antes de aceptar nuevos cobros. Se conserva la cuenta y su historial."
-      : "Tu cuenta de cobros está a nombre de una empresa y tu perfil actúa como particular. Contacta con soporte para regularizar la titularidad antes de aceptar nuevos cobros. Se conserva la cuenta y su historial."
-  }
-  const empresaCuenta = cuenta.metadata?.diime_empresa_id
-  if (empresaCuenta && empresaCuenta !== profesional.empresa_id) {
-    return "La empresa de tu cuenta de cobros no coincide con la que representas. Contacta con soporte para regularizarla. Se conserva la cuenta y su historial."
+  return null
+}
+
+/** A company account belongs to the company, never to its current owner or staff. */
+export function errorIdentidadCuentaStripeEmpresa(cuenta: CuentaStripeIdentificable, empresaId: string): string | null {
+  if (cuenta.deleted || cuenta.business_type !== "company"
+    || cuenta.metadata?.diime_empresa_id !== empresaId
+    || cuenta.metadata?.diime_proveedor_tipo !== "empresa"
+    || cuenta.metadata?.diime_profesional_id) {
+    return "La cuenta de cobros no corresponde a esta empresa. Contacta con soporte para revisar la titularidad. Se conserva el destino de los contratos existentes."
   }
   return null
 }

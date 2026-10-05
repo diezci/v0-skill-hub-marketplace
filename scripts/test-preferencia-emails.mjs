@@ -145,7 +145,8 @@ await comprobar("La preferencia de correo no elimina el aviso web ni bloquea el 
   const avisosWeb = [], avisosPush = []
   const escritor = cargar("lib/notificaciones.ts", {
     "@/lib/supabase/server": { createClient: async () => ({ auth: { getUser: async () => ({ data: { user: { id: "remitente" } } }) } }) },
-    "@/lib/supabase/admin": { createAdminClient: () => ({ from: () => ({ insert: async (datos) => { avisosWeb.push(datos); return { error: null } } }) }) },
+    "@/lib/supabase/admin": { createAdminClient: () => ({ from: () => ({ insert: (datos) => { avisosWeb.push(datos); return { select: () => ({ maybeSingle: async () => ({ data: datos, error: null }) }) } } }) }) },
+    "@/lib/empresas/notificaciones": { destinatariosOperacionEmpresa: async () => { throw new Error("Un aviso personal no consulta miembros empresariales") } },
     "@/lib/push/enviar": { enviarPushAUsuario: async (...datos) => { avisosPush.push(datos) } },
     "@/lib/emails/enviar": email,
   })

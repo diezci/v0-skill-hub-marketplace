@@ -4,6 +4,8 @@ import { construirLinkNotificacion } from "@/lib/notificaciones-contexto"
 import { textoServidor } from "@/lib/i18n-servidor"
 
 import { createClient } from "@/lib/supabase/server"
+import { validarActorTrabajoEmpresa } from "@/lib/empresas/identidad"
+import { destinatariosOperacionEmpresa } from "@/lib/empresas/notificaciones"
 import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cerrarCheckoutsPendientes, enviarAvisosExternos, liquidarPagoReclamado } from "@/lib/flujo-pagos"
@@ -34,6 +36,8 @@ export async function crearDisputa(data: {
   if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos.") }
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
+  const permisoEmpresa = await validarActorTrabajoEmpresa(supabase, data.trabajo_id, user.id)
+  if (permisoEmpresa) return { error: await textoServidor(permisoEmpresa) }
   const admin = createAdminClient()
   if (!admin) return { error: await textoServidor("La configuración segura del servidor no está disponible") }
   const motivo = data.motivo?.trim()
@@ -48,22 +52,26 @@ export async function crearDisputa(data: {
       p_trabajo: data.trabajo_id, p_actor: user.id, p_motivo: motivo,
     })
     if (error) throw error
-    const { data: trabajoAviso } = await supabase.from("trabajos").select("titulo").eq("id", data.trabajo_id).maybeSingle()
-    const otraParteId = user.id === disputa.cliente_id ? disputa.profesional_id : disputa.cliente_id
+    const { data: trabajoAviso } = await admin.from("trabajos").select("titulo, operador_cliente_id, operador_proveedor_id, empresa_cliente_id, empresa_proveedora_id").eq("id", data.trabajo_id).maybeSingle()
+    const actorEsCliente = (disputa.parte_actor || disputa.tipo) === "cliente"
+    const otraParteId = actorEsCliente ? trabajoAviso?.operador_proveedor_id || disputa.profesional_id : trabajoAviso?.operador_cliente_id || disputa.cliente_id
+    const otraParteEmpresa = actorEsCliente ? trabajoAviso?.empresa_proveedora_id : trabajoAviso?.empresa_cliente_id
     const { crearNotificacion } = await import("@/lib/notificaciones")
-    await crearNotificacion({
-      usuarioId: otraParteId,
+    const destinatarios = trabajoAviso ? await destinatariosOperacionEmpresa(admin, otraParteEmpresa, otraParteId) : []
+    for (const usuarioId of destinatarios) await crearNotificacion({
+      usuarioId,
       tipo: "disputa_abierta",
       titulo: data.avisoOtraParte?.titulo || "Se ha abierto una disputa",
-      metadata: { titulo_trabajo: trabajoAviso?.titulo },
+      metadata: { titulo_trabajo: trabajoAviso?.titulo, trabajo_id: data.trabajo_id, parte_destinataria: actorEsCliente ? "proveedor" : "cliente" },
       mensaje: data.avisoOtraParte?.mensaje || (disputa.escrow_id
         ? "El trabajo está en disputa. La transferencia queda bloqueada mientras Diime revisa las pruebas."
         : "Se ha abierto una mediación sobre la cancelación. No se ha realizado ningún pago."),
-      link: construirLinkNotificacion({ seccion: otraParteId === disputa.cliente_id ? "/mis-solicitudes" : "/mis-trabajos", trabajoId: data.trabajo_id, aspecto: "disputa" }),
+      link: construirLinkNotificacion({ seccion: otraParteEmpresa ? "/mi-empresa" : actorEsCliente ? "/mis-trabajos" : "/mis-solicitudes", trabajoId: data.trabajo_id, aspecto: "disputa" }),
     })
     revalidatePath("/admin/disputas")
     revalidatePath("/mis-trabajos")
     revalidatePath("/mis-solicitudes")
+    revalidatePath("/mi-empresa")
     return { data: disputa }
   } catch (error: any) {
     return { error: await textoServidor(error.message || "No se pudo abrir la disputa.") }
@@ -85,15 +93,13 @@ export async function rechazarEntrega(trabajoId: string, motivo: string) {
   const razon = motivo?.trim()
   if (!razon) return { error: await textoServidor("Explica por qué la entrega no cumple lo acordado.") }
 
-  const { data: trabajo } = await supabase
-    .from("trabajos")
-    .select("cliente_id, profesional_id, estado, titulo")
-    .eq("id", trabajoId)
-    .maybeSingle()
-
-  if (!trabajo || trabajo.cliente_id !== user.id) {
-    return { error: await textoServidor("No tienes permiso para rechazar la entrega de este trabajo.") }
-  }
+  const permiso = await validarActorTrabajoEmpresa(supabase, trabajoId, user.id, "encargos", "cliente")
+  if (permiso) return { error: await textoServidor("No tienes permiso para rechazar la entrega de este trabajo.") }
+  const admin = createAdminClient()
+  if (!admin) return { error: await textoServidor("La configuración segura del servidor no está disponible") }
+  const { data: trabajo } = await admin.from("trabajos")
+    .select("cliente_id, profesional_id, estado, titulo").eq("id", trabajoId).maybeSingle()
+  if (!trabajo) return { error: await textoServidor("No tienes permiso para rechazar la entrega de este trabajo.") }
   if (trabajo.estado !== "entregado") {
     return { error: await textoServidor("Solo puedes rechazar una entrega que el profesional haya marcado como entregada.") }
   }
@@ -113,7 +119,7 @@ export async function rechazarEntrega(trabajoId: string, motivo: string) {
 
   // Deja constancia en el historial del trabajo (el aviso al profesional ya lo
   // ha enviado crearDisputa mediante avisoOtraParte).
-  await supabase.from("actualizaciones_trabajo").insert({
+  await admin.from("actualizaciones_trabajo").insert({
     trabajo_id: trabajoId,
     usuario_id: user.id,
     tipo: "disputa",
@@ -193,8 +199,8 @@ export async function obtenerMisDisputas() {
   return { data: enriquecidas }
 }
 
-// Retirar una disputa que abrió el propio usuario, mientras siga abierta. La
-// validación (autor + estado) y la restauración del trabajo/escrow las hace la
+// Retirar una disputa de la parte contractual que representa el usuario actual.
+// La validación del operador vigente y la restauración del trabajo/escrow las hace la
 // RPC restringida diime_retirar_disputa; aquí solo avisamos a la otra parte
 // y a los admins de que ya no hay nada que revisar.
 export async function retirarDisputa(disputaId: string) {
@@ -205,22 +211,29 @@ export async function retirarDisputa(disputaId: string) {
   } = await supabase.auth.getUser()
   if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
-  // Datos para las notificaciones antes de retirarla.
-  const { data: disputa } = await supabase
-    .from("disputas")
-    .select("trabajo_id, cliente_id, profesional_id, tipo")
-    .eq("id", disputaId)
-    .maybeSingle()
-
   const admin = createAdminClient()
   if (!admin) return { error: await textoServidor("La configuración segura del servidor no está disponible") }
+  // El identificador permite comprobar el acceso sin leer las partes ni el contenido.
+  const sinPermiso = "No tienes permiso sobre este trabajo"
+  const { data: referencia } = await admin.from("disputas")
+    .select("trabajo_id").eq("id", disputaId).maybeSingle()
+  if (!referencia) return { error: await textoServidor(sinPermiso) }
+  const permisoEmpresa = await validarActorTrabajoEmpresa(supabase, referencia.trabajo_id, user.id)
+  if (permisoEmpresa) return { error: await textoServidor(sinPermiso) }
+  const { data: disputa } = await admin.from("disputas")
+    .select("trabajo_id, cliente_id, profesional_id, tipo").eq("id", disputaId).maybeSingle()
+  if (!disputa || disputa.trabajo_id !== referencia.trabajo_id || !["cliente", "proveedor"].includes(disputa.tipo)) {
+    return { error: await textoServidor(sinPermiso) }
+  }
+  const permisoParte = await validarActorTrabajoEmpresa(supabase, disputa.trabajo_id, user.id, "encargos", disputa.tipo)
+  if (permisoParte) return { error: await textoServidor("Solo la parte que abrió la disputa puede retirarla.") }
   const { data: resultado, error } = await admin.rpc("diime_retirar_disputa", { p_disputa: disputaId, p_actor: user.id })
   if (error) return { error: await textoServidor(error.message) }
   if (resultado !== "ok") {
     const motivos: Record<string, string> = {
       no_encontrada: "La disputa no existe.",
       no_abierta: "Esta disputa ya no está abierta: no se puede retirar.",
-      no_autorizado: "Solo quien abrió la disputa puede retirarla.",
+      no_autorizado: "Solo la parte que abrió la disputa puede retirarla.",
       contracargo: "Un contracargo bancario debe gestionarse en Stripe y no puede retirarse aquí.",
       liquidacion_iniciada: "Diime ya ha iniciado la resolución económica. No se puede retirar la disputa.",
       requiere_conciliacion: "Este expediente necesita conciliar su pago antes de poder retirarse.",
@@ -229,25 +242,27 @@ export async function retirarDisputa(disputaId: string) {
   }
 
   if (disputa) {
-    const { data: trabajo } = await supabase
-      .from("trabajos")
-      .select("titulo")
-      .eq("id", disputa.trabajo_id)
-      .maybeSingle()
+    const { data: trabajo } = await admin.from("trabajos")
+      .select("titulo, operador_cliente_id, operador_proveedor_id, empresa_cliente_id, empresa_proveedora_id")
+      .eq("id", disputa.trabajo_id).maybeSingle()
     const titulo = trabajo?.titulo ?? "un trabajo"
-    const otraParteId = user.id === disputa.cliente_id ? disputa.profesional_id : disputa.cliente_id
+    // La RPC ha autorizado la retirada por este lado; no volver a inferirlo del autor histórico.
+    const actorEsCliente = disputa.tipo === "cliente"
+    const otraParteId = actorEsCliente ? trabajo?.operador_proveedor_id || disputa.profesional_id : trabajo?.operador_cliente_id || disputa.cliente_id
+    const otraParteEmpresa = actorEsCliente ? trabajo?.empresa_proveedora_id : trabajo?.empresa_cliente_id
     const { crearNotificacion } = await import("@/lib/notificaciones")
-    if (otraParteId) {
+    const destinatarios = trabajo ? await destinatariosOperacionEmpresa(admin, otraParteEmpresa, otraParteId) : []
+    for (const usuarioId of destinatarios) {
       await crearNotificacion({
-        usuarioId: otraParteId,
+        usuarioId,
         tipo: "disputa_retirada",
         titulo: "Disputa retirada",
-        metadata: { titulo_trabajo: titulo },
+        metadata: { titulo_trabajo: titulo, trabajo_id: disputa.trabajo_id, parte_destinataria: actorEsCliente ? "proveedor" : "cliente" },
         mensaje: `Se ha retirado la disputa sobre "${titulo}". El trabajo continúa con normalidad.`,
-        link: construirLinkNotificacion({ seccion: otraParteId === disputa.cliente_id ? "/mis-solicitudes" : "/mis-trabajos", trabajoId: disputa.trabajo_id, aspecto: "disputa" }),
+        link: construirLinkNotificacion({ seccion: otraParteEmpresa ? "/mi-empresa" : actorEsCliente ? "/mis-trabajos" : "/mis-solicitudes", trabajoId: disputa.trabajo_id, aspecto: "disputa" }),
       })
     }
-    const { data: admins } = await supabase.from("profiles").select("id").eq("es_admin", true)
+    const { data: admins } = await admin.from("profiles").select("id").eq("es_admin", true)
     if (admins?.length) {
       await admin.from("notificaciones").insert(
         admins.map((a: { id: string }) => ({
@@ -266,6 +281,7 @@ export async function retirarDisputa(disputaId: string) {
   revalidatePath("/admin/disputas")
   revalidatePath("/mis-trabajos")
   revalidatePath("/mis-solicitudes")
+  revalidatePath("/mi-empresa")
   return { success: true }
 }
 
@@ -450,7 +466,7 @@ export async function resolverDisputa(data: {
         p_disputa: disputa.id, p_actor: auth.user.id, p_resolucion: data.resolucion, p_nota: data.nota,
       })
       if (error) throw error
-      await enviarAvisosExternos(mediacion.avisos)
+      await enviarAvisosExternos(mediacion.avisos, admin)
     } else {
       const { data: escrow, error } = await admin.from("transacciones_escrow").select("*")
         .eq("id", disputa.escrow_id).single()

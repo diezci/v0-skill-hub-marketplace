@@ -4,6 +4,7 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import PerfilProfesionalPublico from "@/components/perfil-profesional-publico"
 import { obtenerProfesionalPorId } from "@/app/actions/profiles"
+import { AfiliacionEmpresa } from "@/components/empresas/afiliacion-empresa"
 import PerfilMiembro from "@/components/empresas/perfil-miembro"
 import { esEmpresasLocal, obtenerEmpleadoEmpresa } from "@/lib/empresas/service"
 
@@ -26,6 +27,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     const result = await obtenerProfesionalPorId(id)
 
     if (!result.data) {
+      const miembro = await obtenerEmpleadoEmpresa(id)
+      if (miembro) return { title: `${miembro.perfil.nombre} - ${miembro.empresa.empresa.nombre} | Diime`, description: miembro.perfil.bio }
       return { title: t("Perfil no encontrado | Diime") }
     }
 
@@ -60,15 +63,18 @@ export default async function ProfilePage({
   // directamente la pestaña de valoraciones.
   const { valorar } = await searchParams
 
+  const afiliacion = await obtenerEmpleadoEmpresa(id)
   let result: Awaited<ReturnType<typeof obtenerProfesionalPorId>> | undefined
 
   try {
     result = await obtenerProfesionalPorId(id)
   } catch {
+    if (afiliacion) return <PerfilMiembro perfil={afiliacion.perfil} empresa={afiliacion.empresa} />
     notFound()
   }
 
   if (!result?.data) {
+    if (afiliacion) return <PerfilMiembro perfil={afiliacion.perfil} empresa={afiliacion.empresa} />
     notFound()
   }
 
@@ -138,6 +144,7 @@ export default async function ProfilePage({
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {afiliacion && <AfiliacionEmpresa empresaId={afiliacion.empresa.empresa.id} nombre={afiliacion.empresa.empresa.nombre} cargo={afiliacion.perfil.cargo} />}
       <PerfilProfesionalPublico perfil={mappedProfile} tabInicial={valorar ? "valoraciones" : "sobre"} />
     </div>
   )

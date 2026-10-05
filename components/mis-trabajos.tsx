@@ -1,5 +1,7 @@
 "use client"
 
+import { IdentidadEmpresa } from "@/components/identidad-empresa"
+
 import { useT, useIdioma } from "@/components/idioma-provider"
 import { localeDe } from "@/lib/i18n"
 
@@ -155,6 +157,8 @@ export default function MisTrabajos() {
                             <div className="flex items-start gap-3">
                               <div className="flex-1">
                                 <CardTitle className="text-xl">{trabajo.solicitud?.titulo}</CardTitle>
+                                <IdentidadEmpresa empresa={trabajo.empresa_proveedora} />
+                                <IdentidadEmpresa empresa={trabajo.empresa_cliente} />
                                 <CardDescription className="mt-1">
                                   {t(trabajo.solicitud?.categoria?.nombre || "Categoría no especificada")}
                                 </CardDescription>

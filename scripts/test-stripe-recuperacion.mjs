@@ -5,7 +5,7 @@ import ts from 'typescript'
 function load(file, dependencies) {
  const exports={}
  vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,
-  {exports,require:name=>{if(name==='server-only')return {};if(name in dependencies)return dependencies[name];throw new Error(`Unexpected dependency ${name}`)}})
+  {exports,require:name=>{if(name==='server-only')return {};if(name in dependencies)return dependencies[name];if(name==='@/lib/stripe-connect-identidad')return load('lib/stripe-connect-identidad.ts',dependencies);if(name==='@/lib/empresas/notificaciones')return load('lib/empresas/notificaciones.ts',dependencies);if(name==='@/lib/empresas/cobros')return load('lib/empresas/cobros.ts',dependencies);throw new Error(`Unexpected dependency ${name}`)}})
  return exports
 }
 function fixture(total=110) {

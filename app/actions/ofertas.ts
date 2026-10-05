@@ -5,6 +5,7 @@ import { textoServidor } from "@/lib/i18n-servidor"
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { identidadesEmpresas, validarEmpresaOperacion } from "@/lib/empresas/identidad"
 import { errorContenidoProhibido } from "@/lib/moderacion"
 import {
   calcularPagoProveedor,
@@ -25,6 +26,7 @@ import {
 // (ver obtenerSolicitudesAbiertas y scripts/047).
 
 export async function crearOferta(formData: {
+  empresa_id?: string | null
   solicitud_id: string
   precio: number
   tiempo_estimado: number
@@ -48,6 +50,9 @@ export async function crearOferta(formData: {
     return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado. Por favor inicia sesión.") }
   }
 
+  const errorEmpresa = await validarEmpresaOperacion(supabase, formData.empresa_id)
+  if (errorEmpresa) return { error: await textoServidor(errorEmpresa) }
+
   const errorModeracion = errorContenidoProhibido(
     formData.descripcion,
     formData.materiales_incluidos,
@@ -67,14 +72,14 @@ export async function crearOferta(formData: {
   // servidor porque ocultar el botón no basta.
   const { data: solicitudDeLaOferta, error: solicitudError } = await supabase
     .from("solicitudes")
-    .select("cliente_id, estado")
+    .select("cliente_id, estado, empresa_id")
     .eq("id", formData.solicitud_id)
     .maybeSingle()
 
   if (solicitudError || !solicitudDeLaOferta) {
     return { error: await textoServidor("La demanda ya no está disponible.") }
   }
-  if (solicitudDeLaOferta?.cliente_id === user.id) {
+  if (solicitudDeLaOferta?.cliente_id === user.id || (formData.empresa_id && solicitudDeLaOferta.empresa_id === formData.empresa_id)) {
     return { error: await textoServidor("No puedes enviar una oferta a tu propia demanda.") }
   }
   if (solicitudDeLaOferta.estado !== "abierta") {
@@ -105,7 +110,7 @@ export async function crearOferta(formData: {
   // el posible error de RLS. Solo una oferta viva debe bloquear una nueva puja.
   const { data: existingOffers, error: existingOffersError } = await supabase
     .from("ofertas")
-    .select("id, estado")
+    .select("id, estado, empresa_id")
     .eq("solicitud_id", formData.solicitud_id)
     .eq("profesional_id", user.id)
     .order("updated_at", { ascending: false })
@@ -113,7 +118,7 @@ export async function crearOferta(formData: {
   if (existingOffersError) return { error: await textoServidor(existingOffersError.message) }
 
   const ofertasCerradas = (existingOffers || []).filter((oferta: any) =>
-    ["retirada", "rechazada"].includes(oferta.estado),
+    ["retirada", "rechazada"].includes(oferta.estado) && (oferta.empresa_id ?? null) === (formData.empresa_id ?? null),
   )
   const existingActiveOffer = (existingOffers || []).find(
     (oferta: any) => !["retirada", "rechazada"].includes(oferta.estado),
@@ -144,6 +149,7 @@ export async function crearOferta(formData: {
 
   const ahora = new Date().toISOString()
   const camposOferta = {
+    empresa_id: formData.empresa_id || null,
     profesional_id: user.id,
     solicitud_id: formData.solicitud_id,
     precio: formData.precio,
@@ -230,6 +236,7 @@ export async function obtenerMisOfertas() {
         fecha_necesaria,
         archivos,
         categoria_id,
+        empresa_id,
         created_at,
         presupuesto_min,
         presupuesto_max
@@ -275,6 +282,8 @@ export async function obtenerMisOfertas() {
     }
   }
 
+  const empresas = await identidadesEmpresas(supabase, (data || []).flatMap((oferta: any) => [oferta.empresa_id, oferta.solicitud?.empresa_id]))
+
   // Get client info for each solicitud
   const dataWithClientes = await Promise.all(
     data.map(async (oferta: any) => {
@@ -294,16 +303,18 @@ export async function obtenerMisOfertas() {
 
           return {
             ...oferta,
+            empresa: empresas[oferta.empresa_id] || null,
             trabajo: trabajosPorOferta[oferta.id] ?? null,
             solicitud: {
               ...oferta.solicitud,
+              empresa: empresas[oferta.solicitud.empresa_id] || null,
               cliente,
               cliente_id: solicitudFull.cliente_id,
             },
           }
         }
       }
-      return { ...oferta, trabajo: trabajosPorOferta[oferta.id] ?? null }
+      return { ...oferta, empresa: empresas[oferta.empresa_id] || null, trabajo: trabajosPorOferta[oferta.id] ?? null }
     }),
   )
 

@@ -13,10 +13,9 @@ import { Shield, Lock, CheckCircle, AlertCircle, WalletCards } from "lucide-reac
 import { crearPagoEscrow, confirmarPagoEscrow } from "@/app/actions/escrow"
 import { calcularTotalCliente, formatearPrecio } from "@/lib/comisiones"
 
-const stripePromise = loadStripe(
-  (process.env.NEXT_PUBLIC_DIIME_STRIPE_PUBLISHABLE_KEY ||
-    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)!,
-)
+const stripePublicKey = process.env.NEXT_PUBLIC_DIIME_STRIPE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+const stripeDisponible = !!stripePublicKey?.startsWith("pk_")
+const stripePromise = stripeDisponible ? loadStripe(stripePublicKey!) : Promise.resolve(null)
 
 interface EscrowPaymentDialogProps {
   open: boolean
@@ -51,6 +50,7 @@ export function EscrowPaymentDialog({
   } | null>(null)
 
   const fetchClientSecret = useCallback(async () => {
+    if (!stripeDisponible) return null
     setLoading(true)
     setError(null)
     
@@ -151,6 +151,7 @@ export function EscrowPaymentDialog({
               </div>
             </div>
 
+            {!stripeDisponible && <Alert><AlertCircle className="h-4 w-4" /><AlertDescription>{t("Los pagos no están disponibles en este momento. Inténtalo más tarde.")}</AlertDescription></Alert>}
             {error && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
@@ -158,7 +159,7 @@ export function EscrowPaymentDialog({
               </Alert>
             )}
 
-            <Button onClick={fetchClientSecret} disabled={loading} className="w-full">
+            <Button onClick={fetchClientSecret} disabled={loading || !stripeDisponible} className="w-full">
               {loading ? t("Preparando pago...") : t("Continuar al Pago")}
             </Button>
           </div>

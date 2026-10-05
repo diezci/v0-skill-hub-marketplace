@@ -1,5 +1,6 @@
 "use client"
 
+import { SelectorIdentidadEmpresa } from "@/components/selector-identidad-empresa"
 import { useT } from "@/components/idioma-provider"
 
 import type React from "react"
@@ -63,6 +64,7 @@ interface Props {
 const SolicitudServicioForm = ({ embedded = false }: Props) => {
   const t = useT()
 
+  const [empresaId, setEmpresaId] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
   const router = useRouter()
@@ -111,6 +113,7 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
       const [presMin, presMax] = values.budget
       const fechaNecesaria = values.urgency === OPCION_FECHA_EXACTA ? values.neededDate : undefined
       const result = await crearSolicitud({
+        empresa_id: empresaId,
         categoria_id: values.category,
         titulo: values.title,
         descripcion: values.description,
@@ -153,6 +156,7 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
   const formContent = (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <SelectorIdentidadEmpresa value={empresaId} onChange={setEmpresaId} disabled={isSubmitting} />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             control={form.control}

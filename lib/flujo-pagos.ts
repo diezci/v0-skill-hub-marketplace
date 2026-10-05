@@ -4,17 +4,46 @@ import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
 import { crearTransferGroup, ejecutarLiquidacionStripe } from "@/lib/stripe-liquidacion"
 import { rechazarYNotificarOfertasPerdedoras } from "@/lib/ofertas-perdedoras"
+import { validarCuentaCobroContrato } from "@/lib/empresas/cobros"
+import { destinatariosOperacionEmpresa } from "@/lib/empresas/notificaciones"
 
 /** The in-app notices already committed with the money; delivery cannot undo it. */
-export async function enviarAvisosExternos(avisos?: any[]) {
+export async function enviarAvisosExternos(avisos?: any[], admin?: any) {
   if (!avisos?.length) return
   const [{ enviarAvisoPorEmail }, { enviarPushAUsuario }] = await Promise.all([
     import("@/lib/emails/enviar"), import("@/lib/push/enviar"),
   ])
-  await Promise.allSettled(avisos.flatMap((aviso) => [
-    enviarAvisoPorEmail({ usuarioId: aviso.usuario_id, tipo: aviso.tipo, titulo: aviso.titulo, mensaje: aviso.mensaje, link: aviso.link }),
-    enviarPushAUsuario(aviso.usuario_id, { tipo: aviso.tipo, titulo: aviso.titulo, cuerpo: aviso.mensaje, link: aviso.link }),
-  ]))
+  // INSERT guards the persisted notice. Recheck before external delivery too,
+  // because access may have been revoked after the financial transaction.
+  await Promise.allSettled(avisos.filter(Boolean).map(async (aviso) => {
+    let destinatarios = [aviso.usuario_id]
+    let link = aviso.link
+    const trabajoId = aviso.metadata?.trabajo_id
+    if (trabajoId) {
+      if (!admin) return
+      const { data: t, error } = await admin.from("trabajos")
+        .select("cliente_id,profesional_id,operador_cliente_id,operador_proveedor_id,empresa_cliente_id,empresa_proveedora_id")
+        .eq("id", trabajoId).maybeSingle()
+      if (error || !t) return
+      if (t.empresa_cliente_id || t.empresa_proveedora_id) {
+        const parte = aviso.metadata?.parte_destinataria
+          || ([t.cliente_id,t.operador_cliente_id].includes(aviso.usuario_id) ? "cliente"
+            : [t.profesional_id,t.operador_proveedor_id].includes(aviso.usuario_id) ? "proveedor" : null)
+        if (!parte || !["cliente","proveedor"].includes(parte)) return
+        const empresaId = parte === "cliente" ? t.empresa_cliente_id : t.empresa_proveedora_id
+        if (empresaId) {
+          const financiera = ["pago_liberado","reembolso_emitido","disputa_ganada","disputa_perdida","disputa_resuelta"].includes(aviso.tipo)
+          const operador = parte === "cliente" ? t.operador_cliente_id || t.cliente_id : t.operador_proveedor_id || t.profesional_id
+          destinatarios = await destinatariosOperacionEmpresa(admin, empresaId, operador, financiera ? "ver_cobros" : "encargos")
+          link = "/perfil-empresa"
+        }
+      }
+    }
+    await Promise.allSettled(destinatarios.flatMap((usuarioId) => [
+      enviarAvisoPorEmail({ usuarioId, tipo: aviso.tipo, titulo: aviso.titulo, mensaje: aviso.mensaje, link }),
+      enviarPushAUsuario(usuarioId, { tipo: aviso.tipo, titulo: aviso.titulo, cuerpo: aviso.mensaje, link }),
+    ]))
+  }))
 }
 
 /** Resume the durable operation using only its frozen amounts and destination. */
@@ -24,6 +53,14 @@ export async function liquidarPagoReclamado(admin: any, escrow: any) {
     throw new Error("La liquidación anterior requiere conciliar su decisión antes de continuar.")
   }
   try {
+    if (contexto.empresa_proveedora_id && Number(escrow.pago_neto_proveedor) > 0 &&
+      escrow.liquidacion_estado !== "completada" && !escrow.stripe_transfer_id) {
+      if (!contexto.destino) {
+        throw new Error("La liquidación no tiene el destinatario de empresa fijado.")
+      }
+      const cuenta = await stripe.accounts.retrieve(contexto.destino)
+      validarCuentaCobroContrato(cuenta, contexto.proveedor_cobros_usuario_id || null, contexto.empresa_proveedora_id)
+    }
     const movimientos = escrow.liquidacion_estado === "completada"
       ? {
           chargeId: escrow.stripe_charge_id,
@@ -45,6 +82,11 @@ export async function liquidarPagoReclamado(admin: any, escrow: any) {
           metadata: {
             trabajo_id: escrow.trabajo_id,
             escrow_id: escrow.id,
+            ...(contexto.empresa_proveedora_id ? {
+              empresa_proveedora_id: contexto.empresa_proveedora_id,
+              diime_proveedor_tipo: "empresa",
+              ...(contexto.proveedor_cobros_usuario_id ? { proveedor_cobros_usuario_id: contexto.proveedor_cobros_usuario_id } : {}),
+            } : {}),
             ...(contexto.disputa_id ? { disputa_id: contexto.disputa_id } : {}),
           },
         })
@@ -57,7 +99,7 @@ export async function liquidarPagoReclamado(admin: any, escrow: any) {
       p_transfer: movimientos.transferId,
     })
     if (error) throw error
-    await enviarAvisosExternos(data.avisos)
+    await enviarAvisosExternos(data.avisos, admin)
     return data
   } catch (error: any) {
     // Never restore the economic state after a partial Stripe operation. The
@@ -87,6 +129,18 @@ export async function conciliarSesionPagada(admin: any, session: Stripe.Checkout
     (session.metadata?.profesional_id && session.metadata.profesional_id !== escrow.profesional_id) ||
     session.currency !== "eur" || session.amount_total !== Math.round(Number(escrow.monto) * 100)
   ) throw new Error("La sesión de Stripe no coincide con el contrato.")
+  if (session.metadata?.proveedor_cobros_usuario_id || session.metadata?.empresa_proveedora_id) {
+    const { data: trabajo, error: trabajoError } = await admin.from("trabajos")
+      .select("profesional_id,empresa_cliente_id,empresa_proveedora_id,proveedor_cobros_usuario_id,proveedor_stripe_account_id")
+      .eq("id", escrow.trabajo_id).single()
+    if (trabajoError || !trabajo ||
+      (session.metadata.proveedor_cobros_usuario_id || null) !== (trabajo.empresa_proveedora_id ? trabajo.proveedor_cobros_usuario_id || null : trabajo.proveedor_cobros_usuario_id || trabajo.profesional_id) ||
+      session.metadata.proveedor_stripe_account_id !== trabajo.proveedor_stripe_account_id ||
+      (session.metadata.empresa_proveedora_id || null) !== (trabajo.empresa_proveedora_id || null) ||
+      (session.metadata.empresa_cliente_id || null) !== (trabajo.empresa_cliente_id || null)) {
+      throw new Error("El titular de cobros de la sesión no coincide con el contrato.")
+    }
+  }
   const intentId = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id
   if (!intentId) throw new Error("Stripe no ha devuelto el identificador del pago.")
   const intent = await stripe.paymentIntents.retrieve(intentId)
@@ -99,7 +153,7 @@ export async function conciliarSesionPagada(admin: any, session: Stripe.Checkout
     p_charge: chargeId, p_total: session.amount_total, p_moneda: session.currency,
   })
   if (confirmarError) throw confirmarError
-  await enviarAvisosExternos(resultado.avisos)
+  await enviarAvisosExternos(resultado.avisos, admin)
   if (resultado.tardio) {
     const { data: reclamada, error: claimError } = await admin.rpc("diime_reclamar_liquidacion", {
       p_escrow: escrow.id, p_actor: null, p_tipo: "pago_tardio",

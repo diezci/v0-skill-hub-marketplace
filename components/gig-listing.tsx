@@ -1,5 +1,7 @@
 "use client"
 
+import TarjetaEmpresa from "@/components/empresas/tarjeta-empresa"
+import type { EmpresaPublica } from "@/lib/empresas/types"
 import { useIdioma } from "@/components/idioma-provider"
 
 
@@ -41,12 +43,13 @@ const CATEGORIA_ID_TO_LABEL: Record<string, string> = Object.fromEntries(
 
 interface GigListingProps {
   filtros?: ProfesionalesFiltros
+  empresas?: EmpresaPublica[]
 }
 
 const FALLBACK_IMG =
   "https://images.unsplash.com/photo-1504307651254-35680f356dfd?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80"
 
-const GigListing = ({ filtros }: GigListingProps) => {
+const GigListing = ({ filtros, empresas = [] }: GigListingProps) => {
   const { t, idioma } = useIdioma()
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [sortBy, setSortBy] = useState("recommended")
@@ -123,7 +126,13 @@ const GigListing = ({ filtros }: GigListingProps) => {
   }, [])
 
   // Solo profesionales reales de la base de datos: sin tarjetas de ejemplo.
-  const todos = realGigs
+  const todos = useMemo(() => [...realGigs, ...empresas.map((datos) => ({
+    id: `empresa-${datos.empresa.id}`, empresa: datos, title: datos.empresa.nombre,
+    description: datos.empresa.descripcion, price: null, category: "Empresa",
+    habilidades: datos.empresa.servicios, provincia: datos.empresa.ubicacion,
+    rating: datos.ratingPromedio ?? (datos.resenas.length ? datos.resenas.reduce((s, r) => s + r.puntuacion, 0) / datos.resenas.length : 0),
+    freelancer: { name: datos.empresa.nombre },
+  }))], [realGigs, empresas])
 
   const filtered = useMemo(() => {
     if (!filtros) return todos
@@ -142,8 +151,10 @@ const GigListing = ({ filtros }: GigListingProps) => {
       // Precio (€/h). El tope del slider se muestra como "1.000€+", así que
       // ahí significa "sin límite": si no, un profesional con una tarifa por
       // encima del tope desaparecería del listado aun con el filtro al máximo.
-      if (g.price < filtros.precioMin) return false
-      if (filtros.precioMax < PRECIO_HORA_MAX && g.price > filtros.precioMax) return false
+      // Companies quote per project; do not invent an hourly rate.
+      if (g.price === null && (filtros.precioMin > 0 || filtros.precioMax < PRECIO_HORA_MAX)) return false
+      if (g.price !== null && g.price < filtros.precioMin) return false
+      if (g.price !== null && filtros.precioMax < PRECIO_HORA_MAX && g.price > filtros.precioMax) return false
       // Búsqueda
       if (filtros.search) {
         const q = filtros.search.toLowerCase()
@@ -155,10 +166,10 @@ const GigListing = ({ filtros }: GigListingProps) => {
 
     switch (sortBy) {
       case "price-low":
-        list = [...list].sort((a, b) => a.price - b.price)
+        list = [...list].sort((a, b) => a.price === null ? 1 : b.price === null ? -1 : a.price - b.price)
         break
       case "price-high":
-        list = [...list].sort((a, b) => b.price - a.price)
+        list = [...list].sort((a, b) => a.price === null ? 1 : b.price === null ? -1 : b.price - a.price)
         break
       case "rating":
         list = [...list].sort((a, b) => b.rating - a.rating)
@@ -233,7 +244,7 @@ const GigListing = ({ filtros }: GigListingProps) => {
         </Card>
       ) : viewMode === "grid" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map((gig) => (
+          {filtered.map((gig) => gig.empresa ? <TarjetaEmpresa key={gig.id} datos={gig.empresa} /> : (
             <Link key={gig.id} href={`/profesional/${gig.id}`}>
               <Card className="h-full overflow-hidden transition-all duration-200 hover:shadow-md hover:-translate-y-1 cursor-pointer">
                 <div className="relative h-48 overflow-hidden">
@@ -292,7 +303,7 @@ const GigListing = ({ filtros }: GigListingProps) => {
         </div>
       ) : (
         <div className="space-y-4">
-          {filtered.map((gig) => (
+          {filtered.map((gig) => gig.empresa ? <TarjetaEmpresa key={gig.id} datos={gig.empresa} /> : (
             <Link key={gig.id} href={`/profesional/${gig.id}`}>
               <Card className="overflow-hidden transition-all duration-200 hover:shadow-md cursor-pointer">
                 <div className="flex flex-col md:flex-row">

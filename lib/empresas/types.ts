@@ -30,10 +30,13 @@ export interface MiembroEmpresa {
   perfilPublico: boolean
   bio: string
   habilidades: string[]
+  fotoUrl?: string
+  tienePerfilProfesional?: boolean
 }
-export type MiembroEmpresaPublico = Pick<MiembroEmpresa, "id" | "usuarioId" | "nombre" | "cargo" | "bio" | "habilidades" | "perfilPublico">
+export type MiembroEmpresaPublico = Pick<MiembroEmpresa, "id" | "usuarioId" | "nombre" | "cargo" | "bio" | "habilidades" | "perfilPublico" | "fotoUrl" | "tienePerfilProfesional">
 export interface TrabajoEmpresa {
   id: string
+  trabajoId?: string
   empresaId: string
   titulo: string
   descripcion: string
@@ -62,6 +65,8 @@ export interface InvitacionEmpresa {
   estado: "pendiente" | "aceptada" | "revocada" | "caducada"
   expiraEn: string
   creadaEn: string
+  cargo?: string
+  perfilPublico?: boolean
 }
 export interface SolicitudVerificacionEmpresa {
   id: string
@@ -77,9 +82,44 @@ export interface SolicitudVerificacionEmpresa {
 }
 export interface ActividadEmpresa {
   id: string
+  actorUsuarioId?: string
   actorNombre: string
   accion: string
   fecha: string
+  entidadTipo?: string
+  entidadId?: string
+  detalle?: Record<string, unknown>
+}
+export interface OperacionEmpresa {
+  id: string
+  titulo: string
+  descripcion: string
+  estado: string
+  fecha: string
+  actorUsuarioId: string
+  actorNombre: string
+  precio?: number
+  solicitudId?: string
+  trabajoId?: string
+  parte?: "cliente" | "proveedor"
+  operadorUsuarioId?: string
+  operadorNombre?: string
+  progreso?: number
+  cancelacionEstado?: string | null
+  cancelacionParteSolicitante?: "cliente" | "proveedor" | null
+  cancelacionRazon?: string | null
+  disputaActual?: {
+    id: string
+    estado: string
+    motivo: string
+    resolucion?: string | null
+    resultado?: string | null
+  } | null
+}
+export interface VerificacionEmpresaAdmin extends SolicitudVerificacionEmpresa {
+  empresaId: string
+  empresaNombre: string
+  nif: string
 }
 export interface SolicitudPresupuestoEmpresa {
   id: string
@@ -104,6 +144,10 @@ export interface EmpresaPublica {
   trabajos: TrabajoEmpresa[]
   resenas: ResenaEmpresa[]
   local: boolean
+  contactoUsuarioId?: string
+  ratingPromedio?: number
+  totalResenas?: number
+  miembrosCount?: number
 }
 export interface EspacioEmpresa {
   empresa: EmpresaFicha
@@ -112,11 +156,12 @@ export interface EspacioEmpresa {
   verificacion: SolicitudVerificacionEmpresa | null
   actividad: ActividadEmpresa[]
   solicitudes: SolicitudPresupuestoEmpresa[]
+  operaciones?: { solicitudes: OperacionEmpresa[]; ofertas: OperacionEmpresa[]; trabajos: OperacionEmpresa[] }
   actor: ActorEmpresa
   miembroActual: MiembroEmpresa | null
   local: boolean
 }
-export type ResultadoEmpresa<T = void> = { data: T; error?: never } | { error: string; data?: never }
+export type ResultadoEmpresa<T = void> = { data: T; error?: never; codigo?: never } | { error: string; data?: never; codigo?: string }
 
 export const PERMISOS_EMPRESA: { clave: PermisoEmpresa; titulo: string; descripcion: string }[] = [
   { clave: "perfil", titulo: "Editar el perfil", descripcion: "Presentación, servicios y web corporativa." },

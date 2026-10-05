@@ -21,6 +21,8 @@
     "test:notificaciones": "node --no-warnings --experimental-strip-types scripts/test-filtros-notificaciones.mjs && node --no-warnings --experimental-strip-types scripts/test-preferencia-emails.mjs && node scripts/test-notificaciones-contexto.mjs && node scripts/test-notificaciones-provider.mjs && node scripts/test-centro-notificaciones-sesion.mjs && node scripts/test-navbar-notificaciones-sesion.mjs && node scripts/test-actividad-ui.mjs && node scripts/test-mensajes-lectura.mjs",
     "test:moderacion": "node --no-warnings scripts/test-moderacion.mjs",
     "test:empresas": "node scripts/test-empresas-local.mjs",
+    "test:empresas:produccion": "node scripts/test-empresa-identidad.mjs && node scripts/test-empresas-produccion.mjs && node scripts/test-empresas-cobros.mjs && node scripts/test-empresas-cancelaciones.mjs && node scripts/test-empresas-disputas.mjs && node scripts/test-empresas-notificaciones.mjs && node scripts/test-avisos-pagos-empresa.mjs && node scripts/test-auth-retorno.mjs",
+    "test:empresas:db": "node supabase/tests/empresas-equipo.test.mjs && node supabase/tests/empresas-roles.test.mjs",
     "start": "next start",
     "test:admin-pagos": "node scripts/test-admin-reembolso.mjs && node scripts/test-admin-pagos-ui.mjs",
     "test:cobros": "node scripts/test-cobros-representacion.mjs && node scripts/test-cobros-representacion-ui.mjs",

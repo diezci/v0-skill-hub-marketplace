@@ -1,6 +1,6 @@
 import { getT } from "@/lib/i18n-servidor"
 import ProfesionalesContent from "@/components/profesionales-content"
-import { esEmpresasLocal, obtenerEmpresaPublica } from "@/lib/empresas/service"
+import { esEmpresasLocal, obtenerEmpresasPublicas } from "@/lib/empresas/service"
 import TarjetaEmpresa from "@/components/empresas/tarjeta-empresa"
 
 export async function generateMetadata() {
@@ -13,7 +13,8 @@ export async function generateMetadata() {
 
 export default async function ProfesionalesPage() {
   const { t } = await getT()
-  const empresaLocal = esEmpresasLocal() ? await obtenerEmpresaPublica("reformas-garcia") : null
+  const empresas = await obtenerEmpresasPublicas()
+  const empresaLocal = esEmpresasLocal() ? empresas[0] : null
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -25,7 +26,7 @@ export default async function ProfesionalesPage() {
 
       {empresaLocal ? (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3"><TarjetaEmpresa datos={empresaLocal} /></div>
-      ) : <ProfesionalesContent />}
+      ) : <ProfesionalesContent empresas={empresas} />}
     </div>
   )
 }

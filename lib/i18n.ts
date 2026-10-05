@@ -11,6 +11,7 @@ import { EN_WORKFLOWS } from "./traducciones/workflows"
 import { EN_PAGES } from "./traducciones/pages"
 import { EN_SERVER } from "./traducciones/server"
 import { EN_DEMANDAS } from "./traducciones/demandas"
+import { EN_EMPRESAS } from "./traducciones/empresas"
 
 export type Idioma = "es" | "en"
 
@@ -206,7 +207,7 @@ const EN: Diccionario = {
   "bienvenida.pie": "The provider transfer is made only after client confirmation or dispute resolution.",
 }
 
-export const INGLES: Diccionario = { ...EN_AVISOS, ...EN_ADMIN_PAGOS, ...EN_COBROS, ...EN_REEMBOLSOS, ...EN_ACTIVIDAD, ...EN_NOTIFICACIONES, ...EN_COMMON, ...EN_ACCOUNTS, ...EN_WORKFLOWS, ...EN_PAGES, ...EN_SERVER, ...EN_DEMANDAS, ...EN }
+export const INGLES: Diccionario = { ...EN_AVISOS, ...EN_ADMIN_PAGOS, ...EN_COBROS, ...EN_REEMBOLSOS, ...EN_ACTIVIDAD, ...EN_NOTIFICACIONES, ...EN_COMMON, ...EN_ACCOUNTS, ...EN_WORKFLOWS, ...EN_PAGES, ...EN_SERVER, ...EN_DEMANDAS, ...EN_EMPRESAS, ...EN }
 const DICCIONARIOS: Record<Idioma, Diccionario> = { es: ES, en: INGLES }
 export type ParametrosTraduccion = Record<string, string | number>
 export type Traductor = (clave: string, parametros?: ParametrosTraduccion) => string

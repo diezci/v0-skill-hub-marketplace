@@ -21,6 +21,7 @@ const navItems = [
   { href: "/admin/operaciones", label: "Operaciones", icon: BellRing },
   { href: "/admin/usuarios", label: "Usuarios", icon: Users },
   { href: "/admin/verificaciones", label: "Verificaciones", icon: BadgeCheck },
+  { href: "/admin/verificaciones-empresas", label: "Empresas", icon: Briefcase },
   { href: "/admin/trabajos", label: "Trabajos y justificantes", icon: Briefcase },
   { href: "/admin/disputas", label: "Disputas", icon: Scale },
   { href: "/admin/incidencias", label: "Incidencias", icon: ShieldAlert },

@@ -59,6 +59,9 @@ import { ReportarIncidenciaDialog } from "@/components/reportar-incidencia-dialo
 interface Message {
   id: string
   remitente_id: string
+  remitente_nombre?: string
+  empresa_id?: string
+  empresa_nombre?: string
   contenido: string
   created_at: string
   leido?: boolean
@@ -68,6 +71,12 @@ interface Message {
 }
 
 interface Conversation {
+  empresarial?: boolean
+  empresa_nombre?: string
+  empresa_1_id?: string
+  empresa_2_id?: string
+  otro_usuario_id?: string
+  puede_escribir?: boolean
   id: string
   participante_1: string
   participante_2: string
@@ -230,7 +239,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
     }
 
     // Historial completo de trabajos con este usuario para el panel lateral.
-    if (enPanelAdmin) return
+    if (enPanelAdmin || conv.empresarial) return
     const otroId = currentUserId === conv.participante_1 ? conv.participante_2 : conv.participante_1
     obtenerTrabajosConUsuario(otroId).then((r) => {
       if (conversacionActual.current === conv.id) setProyectosCompartidos(r.data || [])
@@ -356,7 +365,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
   }
 
   const getOtherUserId = (conv: Conversation) =>
-    currentUserId === conv.participante_1 ? conv.participante_2 : conv.participante_1
+    conv.otro_usuario_id || (currentUserId === conv.participante_1 ? conv.participante_2 : conv.participante_1)
 
   // Subir un archivo adjunto y enviarlo como mensaje.
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -429,7 +438,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
   }
 
   const getOtherUser = (conv: Conversation) => {
-    return currentUserId === conv.participante_1 ? conv.participante2 : conv.participante1
+    return conv.participante_otro || (currentUserId === conv.participante_1 ? conv.participante2 : conv.participante1)
   }
 
   const getStatusColor = (estado?: string) => {
@@ -477,6 +486,8 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
   }
 
   const filteredConversations = conversations.filter((conv) => {
+    const empresaFiltro = searchParams?.get("empresa")
+    if (empresaFiltro && conv.empresa_1_id !== empresaFiltro && conv.empresa_2_id !== empresaFiltro) return false
     const otherUser = getOtherUser(conv)
     const name = `${otherUser?.nombre} ${otherUser?.apellido}`.toLowerCase()
     const matchesSearch =
@@ -742,7 +753,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                   <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-start gap-1.5 sm:items-center sm:gap-2">
                       <h2 className="line-clamp-2 min-w-0 flex-1 break-words text-sm font-medium leading-tight sm:truncate sm:text-base sm:leading-normal">
-                        {getOtherUser(selectedConversation)?.nombre} {getOtherUser(selectedConversation)?.apellido}
+                        {getOtherUser(selectedConversation)?.nombre} {getOtherUser(selectedConversation)?.apellido}{selectedConversation.empresarial && <Badge variant="secondary" className="ml-2">{t("Empresa")}</Badge>}
                       </h2>
                       {selectedConversation.rol_otro && (
                         <Badge 
@@ -852,6 +863,9 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                               {!isOwn && !showAvatar && <div className="w-8 shrink-0" />}
 
                               <div className={cn("max-w-[70%]", isOwn ? "items-end" : "items-start")}>
+                                {selectedConversation.empresarial && msg.remitente_nombre && (
+                                  <p className="mb-1 text-xs text-muted-foreground">{msg.remitente_nombre}{msg.empresa_id ? ` · ${msg.empresa_nombre || t("Empresa")}` : ""}</p>
+                                )}
                                 {/* Image message: abre la imagen a tamaño completo */}
                                 {msg.tipo === "imagen" && msg.archivo_url && (
                                   <a
@@ -974,7 +988,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                     type="button"
                     variant="ghost"
                     size="icon"
-                    disabled={uploading}
+                    disabled={uploading || selectedConversation.puede_escribir === false}
                     aria-label={t("Adjuntar archivo")}
                     className="shrink-0 h-10 w-10 text-muted-foreground"
                     onClick={() => fileInputRef.current?.click()}
@@ -996,7 +1010,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                           handleSendMessage()
                         }
                       }}
-                      disabled={sendingMessage}
+                      disabled={sendingMessage || selectedConversation.puede_escribir === false}
                       enterKeyHint="send"
                       style={{
                         fieldSizing: "fixed",
@@ -1011,7 +1025,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                     type="submit"
                     size="icon"
                     aria-label={t("Enviar mensaje")}
-                    disabled={!newMessage.trim() || sendingMessage}
+                    disabled={!newMessage.trim() || sendingMessage || selectedConversation.puede_escribir === false}
                     className="bg-primary hover:bg-primary/90 shrink-0 h-10 w-10 rounded-full"
                   >
                     {sendingMessage ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
@@ -1065,7 +1079,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                     </AvatarFallback>
                   </Avatar>
                   <h3 className="font-semibold text-base">
-                    {getOtherUser(selectedConversation)?.nombre} {getOtherUser(selectedConversation)?.apellido}
+                    {getOtherUser(selectedConversation)?.nombre} {getOtherUser(selectedConversation)?.apellido}{selectedConversation.empresarial && <Badge variant="secondary" className="ml-2">{t("Empresa")}</Badge>}
                   </h3>
                   {selectedConversation.rol_otro && (
                     <Badge

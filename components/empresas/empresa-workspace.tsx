@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { guardarPerfilEmpresa, invitarMiembroEmpresa, actualizarMiembroEmpresa, revocarMiembroEmpresa, cancelarInvitacionEmpresa, solicitarVerificacionEmpresa, revisarVerificacionEmpresa } from "@/app/actions/empresa-workspace"
 import { PERMISOS_EMPRESA, PERMISOS_MIEMBRO, NOMBRES_ROL_EMPRESA, type EspacioEmpresa, type MiembroEmpresa, type PermisosEmpresa, type RolEmpresa, type ResultadoEmpresa } from "@/lib/empresas/types"
+import { EmpresaWorkspaceReal } from "@/components/empresas/empresa-workspace-real"
 import { CobrosEmpresaLocal } from "@/components/empresas/cobros-empresa-local"
 
 const ESTADOS = { borrador: "Pendiente de acreditar", en_revision: "En revisión", verificada: "Representación verificada", requiere_informacion: "Necesita información" }
@@ -40,6 +41,10 @@ function PermissionFields({ permisos, onChange, limites, disabled = false }: { p
 }
 
 export function EmpresaWorkspace({ espacio }: { espacio: EspacioEmpresa }) {
+  return espacio.local ? <EmpresaWorkspaceLocal espacio={espacio} /> : <EmpresaWorkspaceReal espacio={espacio} />
+}
+
+function EmpresaWorkspaceLocal({ espacio }: { espacio: EspacioEmpresa }) {
   const t = useT()
   const { idioma } = useIdioma()
   const router = useRouter()
