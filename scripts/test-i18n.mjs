@@ -190,6 +190,17 @@ listingTree = listing.render({ filtros: searchFilters })
 assert.equal(elements(listingTree).filter(node => node.props.href === '/profesional/i18n-search-fixture').length, 1, 'Translated search results update after switching language without resetting the filters')
 console.log('i18n search OK: memoized professional search responds to language changes.')
 
+// Canonical company coverage matches any selected province without parsing legacy free text.
+const companyListing = componentHarness('components/gig-listing.tsx')
+const company = { empresa: { id: 'coverage', nombre: 'Cobertura', descripcion: '', servicios: ['Fontanería'], ubicacion: 'Madrid, Toledo', provincias: ['Madrid', 'Toledo'] }, resenas: [], trabajos: [], miembros: [] }
+for (const [provincia, expected] of [['Madrid', 1], ['Toledo', 1], ['Barcelona', 0]]) {
+  const tree = companyListing.render({ empresas: [company], filtros: { ...searchFilters, search: '', provincia } })
+  assert.equal(elements(tree).filter(node => node.props.datos?.empresa?.id === 'coverage').length, expected)
+}
+const legacyCompany = { ...company, empresa: { ...company.empresa, provincias: [], ubicacion: 'Madrid' } }
+assert.equal(elements(companyListing.render({ empresas: [legacyCompany], filtros: { ...searchFilters, search: '', provincia: 'Madrid' } })).filter(node => node.props.datos?.empresa?.id === 'coverage').length, 1)
+console.log('Company directory coverage OK: both selected provinces and exact legacy locations remain discoverable.')
+
 // Run the actual provider with controllable server-action promises. Simulated
 // Set-Cookie responses intentionally arrive after a newer client selection.
 function languageProviderHarness({ cookie = 'es', account = 'es', server = cookie || 'es' } = {}) {

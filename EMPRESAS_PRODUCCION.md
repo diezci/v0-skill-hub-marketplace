@@ -18,6 +18,11 @@ La visibilidad pública de cada miembro es opcional. El cargo público no determ
 sus permisos. Razón social e identidad fiscal permanecen separadas del nombre
 comercial editable.
 
+El perfil selecciona la cobertura desde el catálogo común de provincias y servicios,
+incluida la cobertura de toda España. El directorio filtra por cualquiera de las
+provincias elegidas. El logotipo se adjunta como PNG, JPEG o WebP de hasta 3 MB,
+con vista previa; la subida comprueba el permiso para editar el perfil.
+
 Administrar o incorporarse a una empresa no exige ficha profesional individual.
 Para enviar presupuestos, el autor sí debe completar su perfil profesional; el
 presupuesto conserva tanto su autoría como la empresa a la que representa.
@@ -98,6 +103,7 @@ Orden de migraciones:
 5. `20261005163946_empresa_chat_acceso_y_mensajes.sql`
 6. `20261005164234_empresa_stripe_independiente.sql`
 7. `20261005180450_proteger_avisos_empresa_revocacion.sql`
+8. `20261005182958_empresas_provincias_servicios_canonicos.sql`
 
 Aplicar las migraciones verificadas y publicar la aplicación desde un checkout
 que conserve los cambios ya publicados. Confirmar el commit de Vercel y probar

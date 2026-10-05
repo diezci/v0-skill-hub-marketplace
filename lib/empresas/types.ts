@@ -12,6 +12,7 @@ export interface EmpresaFicha {
   descripcion: string
   web: string
   ubicacion: string
+  provincias?: string[]
   servicios: string[]
   logoUrl?: string
   estadoVerificacion: EstadoVerificacionEmpresa

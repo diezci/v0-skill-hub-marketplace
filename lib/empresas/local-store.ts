@@ -1,6 +1,8 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto"
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises"
 import path from "node:path"
+import { CATEGORIAS_SERVICIO_NOMBRES } from "../categorias"
+import { PROVINCIAS_ES } from "../provincias"
 import { ACTORES_EMPRESA_LOCAL, crearDatosEmpresaIniciales, PERMISOS_BASE } from "./seed"
 import type { ActorEmpresa, ActividadEmpresa, EmpresaPublica, EspacioEmpresa, InvitacionEmpresa, MiembroEmpresa, MiembroEmpresaPublico, PermisoEmpresa, PermisosEmpresa, ResultadoEmpresa, RolEmpresa, SolicitudPresupuestoEmpresa, SolicitudVerificacionEmpresa } from "./types"
 
@@ -17,8 +19,22 @@ export interface EstadoEmpresaLocal extends ReturnType<typeof crearDatosEmpresaI
 
 export type InputMiembro = { nombre: string; email: string; rol: Exclude<RolEmpresa, "principal">; permisos: PermisosEmpresa }
 export type InputActualizarMiembro = { miembroId: string; rol: Exclude<RolEmpresa, "principal">; permisos: PermisosEmpresa }
-export type InputPerfilEmpresa = { nombre: string; descripcion: string; web: string; ubicacion: string; servicios: string[] }
+export type InputPerfilEmpresa = { nombre: string; descripcion: string; web: string; ubicacion: string; provincias?: string[]; servicios: string[] }
 export type InputVerificacion = { metodo: "certificado" | "documental"; representanteNombre: string; cargoLegal: string; documentoNombre: string; documento: Uint8Array; consentimiento: boolean }
+
+// The optional array distinguishes the canonical editor from older clients.
+export function validarCoberturaEmpresa(input: Pick<InputPerfilEmpresa, "provincias" | "servicios">): ResultadoEmpresa<{ provincias: string[]; servicios: string[] } | null> {
+  if (input.provincias === undefined) return { data: null }
+  if (!Array.isArray(input.provincias) || !input.provincias.length || input.provincias.length > PROVINCIAS_ES.length ||
+      !input.provincias.every((p) => typeof p === "string" && PROVINCIAS_ES.includes(p))) {
+    return { error: "Selecciona al menos una provincia válida de la lista." }
+  }
+  if (!Array.isArray(input.servicios) || !input.servicios.length || input.servicios.length > CATEGORIAS_SERVICIO_NOMBRES.length ||
+      !input.servicios.every((s) => typeof s === "string" && CATEGORIAS_SERVICIO_NOMBRES.includes(s))) {
+    return { error: "Selecciona al menos un servicio válido de la lista." }
+  }
+  return { data: { provincias: [...new Set(input.provincias)], servicios: [...new Set(input.servicios)] } }
+}
 
 const CLAVES_PERMISOS: PermisoEmpresa[] = ["perfil", "mensajes", "presupuestos", "encargos", "equipo", "ver_cobros", "gestionar_cobros"]
 const colas = (globalThis as typeof globalThis & { __diimeEmpresasColas?: Map<string, Promise<unknown>> }).__diimeEmpresasColas ??= new Map<string, Promise<unknown>>()
@@ -186,16 +202,18 @@ export class EmpresaLocalStore {
       exigirPermiso(estado, actor, "perfil")
       const nombre = texto(input.nombre, "Nombre comercial", 3, 100)
       const descripcion = texto(input.descripcion, "Descripción", 30, 1500)
-      const ubicacion = texto(input.ubicacion, "Ubicación", 3, 120)
+      const cobertura = validarCoberturaEmpresa(input)
+      asegurar(!cobertura.error, cobertura.error || "")
+      const ubicacion = cobertura.data ? cobertura.data.provincias.join(", ") : texto(input.ubicacion, "Ubicación", 3, 120)
       const web = texto(input.web, "Web corporativa", 0, 300)
       if (web) {
         let url: URL
         try { url = new URL(web) } catch { throw new ErrorEmpresa("Introduce una web válida que empiece por https://.") }
         asegurar(url.protocol === "https:" && !url.username && !url.password, "La web corporativa debe usar https://.")
       }
-      asegurar(Array.isArray(input.servicios) && input.servicios.length >= 1 && input.servicios.length <= 12, "Selecciona entre 1 y 12 servicios.")
-      const servicios = [...new Set(input.servicios.map((s) => texto(s, "Servicio", 2, 80)))]
-      Object.assign(estado.empresa, { nombre, descripcion, ubicacion, web, servicios })
+      asegurar(Array.isArray(input.servicios) && input.servicios.length >= 1 && input.servicios.length <= CATEGORIAS_SERVICIO_NOMBRES.length, "Selecciona al menos un servicio válido de la lista.")
+      const servicios = cobertura.data?.servicios || [...new Set(input.servicios.map((s) => texto(s, "Servicio", 2, 80)))]
+      Object.assign(estado.empresa, { nombre, descripcion, ubicacion, web, servicios, ...(cobertura.data ? { provincias: cobertura.data.provincias } : {}) })
       actividad(estado, actor, "Actualizó el perfil público de la empresa.")
     })
   }

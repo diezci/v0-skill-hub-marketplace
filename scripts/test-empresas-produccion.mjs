@@ -33,10 +33,12 @@ function loadModules(overrides = {}, ui = {}) {
       if (name === 'server-only') return {}
       if (name === 'react' && ui.react) return { ...React, ...ui.react }
       if (name === '@/lib/supabase/server') return { createClient: async () => client }
+      if (name === '@/lib/empresas/service') return { esEmpresasLocal: () => false }
+      if (name === 'next/cache') return { revalidatePath() {} }
       if (name === 'next/navigation') return { useRouter: () => ({ refresh() {}, push() {} }) }
       if (name === 'next/link') return { __esModule: true, default: ({ children, ...props }) => React.createElement('a', props, children) }
       if (name === '@/components/idioma-provider') return { useIdioma: () => ({ idioma: 'es' }), useT: () => (s) => s }
-      if (name.startsWith('@/app/actions/')) return new Proxy({}, { get: (_, action) => async (...args) => { ui.actions?.push({ action, args }); return { data: action === 'invitarMiembroEmpresa' ? { url: '/mi-empresa/invitaciones/prueba' } : undefined } } })
+      if (name.startsWith('@/app/actions/')) return new Proxy({}, { get: (_, action) => async (...args) => { ui.actions?.push({ action, args }); return ui.actionResult ? ui.actionResult(action, args) : { data: action === 'invitarMiembroEmpresa' ? { url: '/mi-empresa/invitaciones/prueba' } : undefined } } })
       if (name.startsWith('@/') || name.startsWith('.')) {
         const base = name.startsWith('@/') ? path.join(root, name.slice(2)) : path.resolve(path.dirname(full), name)
         const resolved = [base, `${base}.ts`, `${base}.tsx`].find((v) => existsSync(v))
@@ -118,20 +120,22 @@ test('no membership opens creation flow, directory and affiliation use public RP
   assert.equal((await api.empleadoEmpresaReal(memberId)).perfil.cargo, 'Pintor')
 })
 
-function workspaceHarness(load, espacio, component = "EmpresaWorkspaceReal") {
+function workspaceHarness(load, espacio, component = "EmpresaWorkspaceReal", options = {}) {
   let cursor = 0
   const state = []
   const tasks = []
   const actions = []
-  const runtime = loadModules({}, { actions, react: {
+  const runtime = loadModules({}, { actions, actionResult: options.actionResult, react: {
     useState(initial) {
       const index = cursor++
       if (!(index in state)) state[index] = typeof initial === 'function' ? initial() : initial
       return [state[index], value => { state[index] = typeof value === 'function' ? value(state[index]) : value }]
     },
+    useRef(initial) { const index = cursor++; if (!(index in state)) state[index] = { current: initial }; return state[index] },
+    useEffect() {},
     useTransition: () => [false, callback => { tasks.push(callback()) }],
   } })
-  const componentFile = { OperacionesEmpresa: 'operaciones-empresa', EmpresaWorkspaceReal: 'empresa-workspace-real', IncidenciasTrabajoEmpresa: 'incidencias-trabajo-empresa' }[component]
+  const componentFile = { OperacionesEmpresa: 'operaciones-empresa', EmpresaWorkspaceReal: 'empresa-workspace-real', IncidenciasTrabajoEmpresa: 'incidencias-trabajo-empresa', PerfilEmpresaEditor: 'perfil-empresa-editor' }[component]
   const Component = runtime.load(`components/empresas/${componentFile}.tsx`)[component]
   function elements(node, predicate, found = []) {
     if (node == null || typeof node !== 'object') return found
@@ -148,7 +152,7 @@ function workspaceHarness(load, espacio, component = "EmpresaWorkspaceReal") {
   }
   return {
     actions,
-    render() { cursor = 0; return Component(component === 'IncidenciasTrabajoEmpresa' ? espacio : { espacio }) },
+    render() { cursor = 0; return Component(['IncidenciasTrabajoEmpresa', 'PerfilEmpresaEditor'].includes(component) ? espacio : { espacio }) },
     all: elements, text,
     byId(tree, id) { return elements(tree, n => n.props?.id === id)[0] },
     button(tree, label) { return elements(tree, n => typeof n.props?.onClick === 'function' && text(n).trim() === label)[0] },
@@ -295,3 +299,146 @@ if (process.env.EMPRESA_RPC_FIXTURES) {
     assert.equal(companies.length, fixtures.empresas_publicas.length)
   })
 }
+
+
+test('company profile saves province and canonical service arrays without truncation or manual URL fields', async () => {
+  const { load } = loadModules()
+  const empresa = (await load('lib/empresas/production-store.ts').espacioEmpresaReal()).data.empresa
+  const provinces = load('lib/provincias.ts').PROVINCIAS_ES
+  const services = load('lib/categorias.ts').CATEGORIAS_SERVICIO_NOMBRES
+  const h = workspaceHarness(load, { empresa, puedeEditar: true }, 'PerfilEmpresaEditor')
+  let tree = h.render()
+  const selectors = h.all(tree, n => Array.isArray(n.props?.seleccionadas) && !n.props.disabled)
+  assert.equal(selectors.length, 2)
+  selectors[0].props.onChange([...provinces])
+  selectors[1].props.onChange([...services])
+  tree = h.render()
+  assert.equal(h.byId(tree, 'empresa-logo').props.type, 'file')
+  assert.equal(h.byId(tree, 'empresa-logo').props.accept, 'image/png,image/jpeg,image/webp')
+  assert.equal(h.byId(tree, 'empresa-zona'), undefined)
+  assert.doesNotMatch(h.text(tree), /Enlace al logotipo|Separa los servicios con comas/)
+  await h.all(tree, n => n.type === 'form')[0].props.onSubmit({ preventDefault() {} })
+  const saved = h.actions.find(c => c.action === 'guardarPerfilEmpresa').args[0]
+  assert.deepEqual(saved.provincias, provinces)
+  assert.deepEqual(saved.servicios, services)
+  assert.equal(saved.logoUrl, empresa.logoUrl)
+})
+
+test('company logo preview rejects invalid files and preserves edits on upload failure before a successful retry', async () => {
+  const { load } = loadModules()
+  const empresa = { ...(await load('lib/empresas/production-store.ts').espacioEmpresaReal()).data.empresa, provincias: ['Madrid'], servicios: ['Limpieza'] }
+  const h = workspaceHarness(load, { empresa, puedeEditar: true }, 'PerfilEmpresaEditor')
+  const previousFetch = globalThis.fetch
+  const create = URL.createObjectURL, revoke = URL.revokeObjectURL
+  const revoked = []
+  URL.createObjectURL = () => 'blob:logo-preview'
+  URL.revokeObjectURL = value => revoked.push(value)
+  try {
+    let tree = h.render()
+    const file = new File(['image-data'], 'logo.png', { type: 'image/png' })
+    h.byId(tree, 'empresa-logo').props.onChange({ target: { files: [new File(['svg'], 'logo.svg', { type: 'image/svg+xml' })], value: '' } })
+    assert.match(h.text(h.render()), /Elige una imagen PNG, JPG o WebP/)
+    h.byId(h.render(), 'empresa-logo').props.onChange({ target: { files: [file], value: '' } })
+    tree = h.render()
+    assert.ok(h.all(tree, n => n.props?.src === 'blob:logo-preview').length)
+    globalThis.fetch = async () => ({ ok: false, json: async () => ({ error: 'No se pudo subir el logo. Vuelve a intentarlo.' }) })
+    await h.all(tree, n => n.type === 'form')[0].props.onSubmit({ preventDefault() {} })
+    tree = h.render()
+    assert.match(h.text(tree), /No se pudo subir el logo/)
+    assert.equal(h.actions.length, 0)
+    assert.ok(h.all(tree, n => n.props?.src === 'blob:logo-preview').length)
+    let uploads = 0
+    let finishUpload
+    globalThis.fetch = async (url, options) => {
+      uploads++
+      assert.equal(url, '/api/empresas/logo')
+      assert.equal(options.body.get('empresaId'), empresa.id)
+      assert.equal(options.body.get('file').name, 'logo.png')
+      await new Promise(resolve => { finishUpload = resolve })
+      return { ok: true, json: async () => ({ url: 'https://blob.example/company-logo.png' }) }
+    }
+    const form = h.all(tree, n => n.type === 'form')[0]
+    const firstSave = form.props.onSubmit({ preventDefault() {} })
+    const duplicateSave = form.props.onSubmit({ preventDefault() {} })
+    assert.equal(uploads, 1)
+    assert.equal(h.all(h.render(), n => n.type === 'fieldset')[0].props.disabled, true)
+    finishUpload()
+    await Promise.all([firstSave, duplicateSave])
+    assert.equal(h.actions.length, 1)
+    assert.equal(h.actions[0].args[0].logoUrl, 'https://blob.example/company-logo.png')
+    assert.match(h.text(h.render()), /Perfil actualizado/)
+    assert.deepEqual(revoked, ['blob:logo-preview'])
+  } finally { globalThis.fetch = previousFetch; URL.createObjectURL = create; URL.revokeObjectURL = revoke }
+})
+
+test('company profile validates coverage before uploading, removes an existing logo, and does not save without permission', async () => {
+  const { load } = loadModules()
+  const empresa = { ...(await load('lib/empresas/production-store.ts').espacioEmpresaReal()).data.empresa, provincias: [], servicios: [] }
+  const h = workspaceHarness(load, { empresa, puedeEditar: true }, 'PerfilEmpresaEditor')
+  await h.all(h.render(), n => n.type === 'form')[0].props.onSubmit({ preventDefault() {} })
+  assert.equal(h.actions.length, 0)
+  assert.match(h.text(h.render()), /Selecciona al menos una provincia y un servicio/)
+  const filled = { ...empresa, provincias: ['Madrid', 'Toledo'], servicios: ['Limpieza', 'Montaje de muebles'] }
+  const editor = workspaceHarness(load, { empresa: filled, puedeEditar: true }, 'PerfilEmpresaEditor')
+  editor.button(editor.render(), 'Quitar logotipo').props.onClick()
+  await editor.all(editor.render(), n => n.type === 'form')[0].props.onSubmit({ preventDefault() {} })
+  assert.equal(editor.actions[0].args[0].logoUrl, '')
+  const readonly = workspaceHarness(load, { empresa: filled, puedeEditar: false }, 'PerfilEmpresaEditor')
+  const tree = readonly.render()
+  assert.equal(readonly.all(tree, n => n.type === 'fieldset')[0].props.disabled, true)
+  await readonly.all(tree, n => n.type === 'form')[0].props.onSubmit({ preventDefault() {} })
+  assert.equal(readonly.actions.length, 0)
+})
+
+test('company coverage survives workspace, public-profile and directory adapters without inferring historical locations', async () => {
+  const company = { ...sampleCompany, provincias: ['Madrid', 'Toledo'], ubicacion: 'Madrid, Toledo' }
+  const { load } = loadModules({ empresa_workspace: { ...workspace, empresa: company }, empresa_perfil_publico: { empresa: company }, empresas_publicas: [company] })
+  const api = load('lib/empresas/production-store.ts')
+  for (const value of [(await api.espacioEmpresaReal()).data.empresa, (await api.empresaPublicaReal(empresaId)).empresa, (await api.empresasPublicasReales())[0].empresa]) {
+    assert.deepEqual(value.provincias, ['Madrid', 'Toledo'])
+    assert.equal(value.ubicacion, 'Madrid, Toledo')
+  }
+  const legacy = await loadModules().load('lib/empresas/production-store.ts').empresaPublicaReal(empresaId)
+  assert.deepEqual(legacy.empresa.provincias, [])
+  assert.equal(legacy.empresa.ubicacion, 'Madrid')
+})
+
+test('profile action validates canonical choices and uses an authenticated unambiguous coverage RPC', async () => {
+  const { load, calls, setUser } = loadModules()
+  const { guardarPerfilEmpresa } = load('app/actions/empresa-workspace.ts')
+  const base = { nombre: 'Empresa prueba', descripcion: 'Descripción suficiente de la empresa', web: 'https://example.test', ubicacion: 'Texto que no es autoridad', logoUrl: 'https://example.test/logo.webp', servicios: ['Fontanería'], provincias: ['Madrid', 'Toledo', 'Madrid'] }
+  assert.equal((await guardarPerfilEmpresa(base)).error, undefined)
+  assert.equal(calls[0].name, 'empresa_editar_perfil_cobertura')
+  assert.deepEqual(calls[0].args.p_provincias, ['Madrid', 'Toledo'])
+  assert.equal(calls[0].args.p_ubicacion, 'Madrid, Toledo')
+  assert.equal(calls[0].args.p_logo, base.logoUrl)
+  for (const extra of [{ provincias: [] }, { provincias: ['Alcobendas'] }, { servicios: [] }, { servicios: ['Pintura'] }]) assert.ok((await guardarPerfilEmpresa({ ...base, ...extra })).error)
+  assert.equal(calls.length, 1, 'Invalid canonical values never reach the database')
+  const { provincias, ...legacy } = base
+  await guardarPerfilEmpresa(legacy)
+  assert.equal(calls[1].name, 'empresa_editar_perfil')
+  assert.equal(Object.hasOwn(calls[1].args, 'p_provincias'), false)
+  setUser(null)
+  assert.equal((await guardarPerfilEmpresa(base)).codigo, 'NO_AUTENTICADO')
+  assert.equal(calls.length, 2)
+})
+
+test('legacy free-text services cannot be silently discarded by saving a different profile field', async () => {
+  const { load } = loadModules()
+  const empresa = { ...(await load('lib/empresas/production-store.ts').espacioEmpresaReal()).data.empresa, provincias: ['Madrid'], servicios: ['Limpieza', 'Servicio histórico sin categoría'] }
+  const h = workspaceHarness(load, { empresa, puedeEditar: true }, 'PerfilEmpresaEditor')
+  let tree = h.render()
+  assert.match(h.text(tree), /Servicio histórico sin categoría/)
+  const selectors = h.all(tree, n => Array.isArray(n.props?.seleccionadas) && !n.props.disabled)
+  assert.deepEqual(selectors[1].props.seleccionadas, ['Limpieza'])
+  h.byId(tree, 'empresa-nombre').props.onChange({ target: { value: 'Nombre actualizado' } })
+  tree = h.render()
+  await h.all(tree, n => n.type === 'form')[0].props.onSubmit({ preventDefault() {} })
+  assert.equal(h.actions.length, 0)
+  assert.match(h.text(h.render()), /Revisa los servicios anteriores antes de guardar/)
+  const review = h.all(h.render(), n => typeof n.props?.onCheckedChange === 'function')[0]
+  review.props.onCheckedChange(true)
+  await h.all(h.render(), n => n.type === 'form')[0].props.onSubmit({ preventDefault() {} })
+  assert.equal(h.actions[0].args[0].nombre, 'Nombre actualizado')
+  assert.deepEqual(h.actions[0].args[0].servicios, ['Limpieza'])
+})

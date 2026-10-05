@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { empresaLocalStore } from "@/lib/empresas/local-store"
+import { empresaLocalStore, validarCoberturaEmpresa } from "@/lib/empresas/local-store"
 import { esEmpresasLocal, obtenerActorEmpresaLocal } from "@/lib/empresas/service"
 import type { InputActualizarMiembro, InputMiembro, InputPerfilEmpresa } from "@/lib/empresas/local-store"
 import { rpcEmpresa, verificacionReal } from "@/lib/empresas/production-store"
@@ -40,6 +40,12 @@ async function ejecutar<T>(operacion: (actor: ActorEmpresa) => Promise<Resultado
 }
 
 export async function guardarPerfilEmpresa(input: InputPerfilEmpresa & { logoUrl?: string }): Promise<ResultadoEmpresa> {
+  const cobertura = validarCoberturaEmpresa(input)
+  if (cobertura.error) return { error: cobertura.error }
+  if (!esEmpresasLocal() && cobertura.data) return ejecutarReal("empresa_editar_perfil_cobertura", {
+    p_nombre: input.nombre, p_descripcion: input.descripcion, p_ubicacion: cobertura.data.provincias.join(", "),
+    p_sitio_web: input.web, p_logo: input.logoUrl || null, p_servicios: cobertura.data.servicios, p_provincias: cobertura.data.provincias,
+  })
   if (!esEmpresasLocal()) return ejecutarReal("empresa_editar_perfil", { p_nombre: input.nombre, p_descripcion: input.descripcion, p_ubicacion: input.ubicacion, p_sitio_web: input.web, p_logo: input.logoUrl || null, p_servicios: input.servicios })
   return ejecutar((actor) => empresaLocalStore.guardarPerfil(actor, input))
 }

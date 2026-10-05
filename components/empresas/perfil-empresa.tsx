@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { localeDe } from "@/lib/i18n"
+import { PROVINCIAS_ES } from "@/lib/provincias"
 import type { EmpresaPublica, TrabajoEmpresa } from "@/lib/empresas/types"
 
 export function webPublicaSegura(web: string): string | null {
@@ -129,6 +130,7 @@ export default function PerfilEmpresa({ datos }: { datos: EmpresaPublica }) {
   const totalResenas = datos.totalResenas ?? resenas.length
   const rating = totalResenas > 0 ? (datos.ratingPromedio ?? (resenas.length ? resenas.reduce((suma, resena) => suma + resena.puntuacion, 0) / resenas.length : null)) : null
   const web = webPublicaSegura(empresa.web)
+  const zona = empresa.provincias?.length === PROVINCIAS_ES.length ? t("Toda España") : empresa.provincias?.length ? empresa.provincias.join(", ") : empresa.ubicacion
 
   return <div className="mx-auto max-w-4xl space-y-6 px-4 py-8">
     <nav aria-label={t("Navegación del perfil")} className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
@@ -140,16 +142,16 @@ export default function PerfilEmpresa({ datos }: { datos: EmpresaPublica }) {
       <div className="relative h-32 bg-gradient-to-r from-primary/20 to-primary/5 sm:h-44" />
       <CardContent className="pt-0">
         <div className="-mt-12 flex flex-col gap-4 sm:-mt-14 sm:flex-row">
-          <Avatar className="relative size-24 shrink-0 border-4 border-background shadow-lg sm:size-28"><AvatarImage src={empresa.logoUrl} alt={empresa.nombre} /><AvatarFallback className="bg-muted"><Building2 className="size-10 text-muted-foreground" /></AvatarFallback></Avatar>
+          <Avatar className="relative size-24 shrink-0 border-4 border-background shadow-lg sm:size-28"><AvatarImage src={empresa.logoUrl} alt={empresa.nombre} className="object-contain" /><AvatarFallback className="bg-muted"><Building2 className="size-10 text-muted-foreground" /></AvatarFallback></Avatar>
           <div className="min-w-0 flex-1 sm:pt-14">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="break-words text-2xl font-bold">{empresa.nombre}</h1>
               <Badge variant="secondary">{t("Empresa")}</Badge>
               {empresa.estadoVerificacion === "verificada" && <button type="button" onClick={() => setVerificacionAbierta(true)} className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Badge className="gap-1 border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"><BadgeCheck className="size-3.5" />{t("Empresa verificada")}</Badge></button>}
             </div>
-            <p className="mt-1 text-muted-foreground">{empresa.servicios.join(" · ")}</p>
+            <p className="mt-1 text-muted-foreground">{empresa.servicios.map((servicio) => t(servicio)).join(" · ")}</p>
             <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1"><MapPin className="size-4" />{empresa.ubicacion}</span>
+              <span className="flex min-w-0 items-start gap-1"><MapPin className="mt-0.5 size-4 shrink-0" /><span className="break-words">{zona}</span></span>
               {rating !== null ? <span className="flex items-center gap-1"><Star className="size-4 fill-amber-500 text-amber-500" /><strong className="text-foreground">{rating.toFixed(1)}</strong>({totalResenas} {t("valoraciones")})</span> : <span>{t("Todavía sin valoraciones")}</span>}
             </div>
           </div>
@@ -173,9 +175,9 @@ export default function PerfilEmpresa({ datos }: { datos: EmpresaPublica }) {
       <TabsContent value="empresa" className="space-y-4">
         <Card><CardContent className="space-y-6">
           <section><h2 className="mb-2 font-semibold">{t("Descripción")}</h2><p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{empresa.descripcion || t("La empresa todavía no ha añadido su presentación.")}</p></section>
-          <section><h2 className="mb-2 font-semibold">{t("Servicios")}</h2><div className="flex flex-wrap gap-2">{empresa.servicios.map((servicio) => <Badge key={servicio} variant="secondary" className="max-w-full whitespace-normal">{servicio}</Badge>)}</div></section>
+          <section><h2 className="mb-2 font-semibold">{t("Servicios")}</h2><div className="flex flex-wrap gap-2">{empresa.servicios.map((servicio) => <Badge key={servicio} variant="secondary" className="max-w-full whitespace-normal">{t(servicio)}</Badge>)}</div></section>
           <div className="grid gap-5 border-t pt-5 sm:grid-cols-2">
-            <div><h2 className="mb-2 font-semibold">{t("Zona de trabajo")}</h2><p className="flex items-start gap-2 text-sm text-muted-foreground"><MapPin className="mt-0.5 size-4 shrink-0" />{empresa.ubicacion}</p></div>
+            <div><h2 className="mb-2 font-semibold">{t("Zona de trabajo")}</h2><p className="flex items-start gap-2 text-sm text-muted-foreground"><MapPin className="mt-0.5 size-4 shrink-0" />{zona}</p></div>
             {web && <div className="min-w-0"><h2 className="mb-2 font-semibold">{t("Web corporativa")}</h2><a href={web} target="_blank" rel="noopener noreferrer" className="flex items-start gap-2 text-sm text-primary hover:underline"><Globe className="mt-0.5 size-4 shrink-0" /><span className="break-all">{new URL(web).hostname.replace(/^www\./, "")}</span><ExternalLink className="mt-0.5 size-3.5 shrink-0" /><span className="sr-only">{t("Se abre en otra pestaña")}</span></a></div>}
           </div>
         </CardContent></Card>

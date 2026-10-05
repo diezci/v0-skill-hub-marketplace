@@ -129,7 +129,7 @@ const GigListing = ({ filtros, empresas = [] }: GigListingProps) => {
   const todos = useMemo(() => [...realGigs, ...empresas.map((datos) => ({
     id: `empresa-${datos.empresa.id}`, empresa: datos, title: datos.empresa.nombre,
     description: datos.empresa.descripcion, price: null, category: "Empresa",
-    habilidades: datos.empresa.servicios, provincia: datos.empresa.ubicacion,
+    habilidades: datos.empresa.servicios, provincia: datos.empresa.ubicacion, provincias: datos.empresa.provincias || [],
     rating: datos.ratingPromedio ?? (datos.resenas.length ? datos.resenas.reduce((s, r) => s + r.puntuacion, 0) / datos.resenas.length : 0),
     freelancer: { name: datos.empresa.nombre },
   }))], [realGigs, empresas])
@@ -138,7 +138,8 @@ const GigListing = ({ filtros, empresas = [] }: GigListingProps) => {
     if (!filtros) return todos
     let list = todos.filter((g) => {
       // Provincia
-      if (filtros.provincia && g.provincia.toLowerCase() !== filtros.provincia.toLowerCase()) {
+      const provincias = "provincias" in g && g.provincias?.length ? g.provincias : [g.provincia]
+      if (filtros.provincia && !provincias.some((provincia: string) => provincia.toLowerCase() === filtros.provincia.toLowerCase())) {
         return false
       }
       // Categorías: coincidencia difusa contra título + habilidades del

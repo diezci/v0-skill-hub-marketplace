@@ -10,13 +10,15 @@ import ts from 'typescript'
 const temporal = await mkdtemp(path.join(os.tmpdir(), 'diime-empresas-test-'))
 const modulos = path.join(temporal, 'modulos')
 await mkdir(modulos)
-for (const archivo of ['types', 'seed', 'local-store']) {
+for (const archivo of ['types', 'seed', '../categorias', '../provincias', 'local-store']) {
   const fuente = await readFile(new URL(`../lib/empresas/${archivo}.ts`, import.meta.url), 'utf8')
   const salida = ts.transpileModule(fuente, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText
   await writeFile(path.join(modulos, `${archivo}.js`), salida)
 }
 const require = createRequire(import.meta.url)
 const { EmpresaLocalStore } = require(path.join(modulos, 'local-store.js'))
+const { PROVINCIAS_ES } = require(path.join(temporal, 'provincias.js'))
+const { CATEGORIAS_SERVICIO_NOMBRES } = require(path.join(temporal, 'categorias.js'))
 const { ACTORES_EMPRESA_LOCAL: actores, TODOS_PERMISOS, PERMISOS_BASE } = require(path.join(modulos, 'seed.js'))
 let contador = 0
 async function nuevo() { return new EmpresaLocalStore(path.join(temporal, `caso-${++contador}`)) }
@@ -178,6 +180,20 @@ test('solicitudes fijan proveedor y cliente, y el perfil comercial no reescribe 
   assert.equal(solicitud.empresaRazonSocial, 'Reformas García, S. L.')
   assert.equal(solicitud.clienteUsuarioId, 'cliente')
   assert.equal(solicitud.clienteNombre, 'Lucía Martín')
+})
+
+test('cobertura explícita admite todo el catálogo y rechaza valores ajenos sin reescribir el perfil', async () => {
+  const store = await nuevo()
+  const empresa = (await store.publica('reformas-garcia')).empresa
+  correcto(await store.guardarPerfil(actores.owner, { ...empresa, provincias: PROVINCIAS_ES, servicios: CATEGORIAS_SERVICIO_NOMBRES }))
+  const saved = (await store.publica('reformas-garcia')).empresa
+  assert.deepEqual(saved.provincias, PROVINCIAS_ES)
+  assert.deepEqual(saved.servicios, CATEGORIAS_SERVICIO_NOMBRES)
+  assert.equal(saved.ubicacion, PROVINCIAS_ES.join(', '))
+  assert.equal(saved.razonSocial, empresa.razonSocial)
+  error(await store.guardarPerfil(actores.owner, { ...empresa, provincias: ['Alcobendas'], servicios: ['Fontanería'] }), /provincia válida/)
+  error(await store.guardarPerfil(actores.owner, { ...empresa, provincias: ['Madrid'], servicios: ['Reformas y Construcción'] }), /servicio válido/)
+  assert.deepEqual((await store.publica('reformas-garcia')).empresa.provincias, PROVINCIAS_ES)
 })
 
 test('escrituras concurrentes preservan todas las solicitudes sin perder estado', async () => {

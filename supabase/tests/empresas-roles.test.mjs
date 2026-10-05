@@ -238,5 +238,9 @@ if (process.env.EMPRESAS_FULL_INTEGRATION!=='0') {
  const { testAvisosEmpresa }=await import('./empresa-notificaciones-scenarios.mjs')
  await testAvisosEmpresa({db,asRole,ids,one,check})
 }
+await asRole()
+await db.exec(await read('../migrations/20261005182958_empresas_provincias_servicios_canonicos.sql'))
+const { testCoberturaEmpresa } = await import('./empresa-cobertura-scenarios.mjs')
+await testCoberturaEmpresa({ db, asRole, ids, one, rpc, check, expectError })
 console.log(`OK ${assertions} comprobaciones PostgreSQL: roles reales, revisión, permisos, alcance, privacidad y continuidad.`)
 await db.close()
