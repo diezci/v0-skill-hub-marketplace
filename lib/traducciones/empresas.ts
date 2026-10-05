@@ -1,5 +1,15 @@
 // Company UI and server messages. Names, roles entered by users, bios and reviews keep their original language.
 export const EN_EMPRESAS: Record<string, string> = {
+  "Vista previa del perfil": "Preview profile",
+  "Esta vista muestra los cambios guardados. Guarda la edición antes de actualizarla.": "This view shows saved changes. Save your edits before refreshing it.",
+  "Volver a Mi empresa": "Back to My company",
+  "Vista previa privada": "Private preview",
+  "Vista previa de empresa | Diime": "Company preview | Diime",
+  "Vista previa no disponible": "Preview unavailable",
+  "No se pudo cargar la vista previa de la empresa.": "The company preview could not be loaded.",
+  "Así se muestra tu perfil publicado. Esta vista previa solo está disponible para las personas autorizadas de tu empresa.": "This is how your published profile appears. This preview is only available to authorised people in your company.",
+  "Tu empresa todavía no es pública. Aquí puedes revisar cómo se mostrará su perfil cuando esté verificada.": "Your company is not public yet. Here you can review how its profile will appear once it is verified.",
+  "Los botones de contacto están desactivados en esta vista previa.": "Contact buttons are disabled in this preview.",
   "Listo": "Done",
   "Revisa los servicios anteriores antes de guardar.": "Review the previous services before saving.",
   "Estos servicios anteriores no coinciden con la lista actual. Revisa la selección antes de guardar.": "These previous services do not match the current list. Review the selection before saving.",

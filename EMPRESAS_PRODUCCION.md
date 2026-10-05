@@ -23,6 +23,13 @@ incluida la cobertura de toda España. El directorio filtra por cualquiera de la
 provincias elegidas. El logotipo se adjunta como PNG, JPEG o WebP de hasta 3 MB,
 con vista previa; la subida comprueba el permiso para editar el perfil.
 
+El responsable principal, los administradores y los miembros con permiso de perfil
+pueden abrir `/mi-empresa/vista-previa` en otra pestaña. Muestra los datos guardados
+con el mismo componente y contenido público, incluso antes de la verificación,
+sin publicar el borrador. La base de datos vuelve a comprobar el acceso en cada
+lectura. El equipo oculto, los datos internos y las acciones de contacto quedan fuera
+de la vista previa; se conserva el estado real de verificación.
+
 Administrar o incorporarse a una empresa no exige ficha profesional individual.
 Para enviar presupuestos, el autor sí debe completar su perfil profesional; el
 presupuesto conserva tanto su autoría como la empresa a la que representa.
@@ -104,6 +111,7 @@ Orden de migraciones:
 6. `20261005164234_empresa_stripe_independiente.sql`
 7. `20261005180450_proteger_avisos_empresa_revocacion.sql`
 8. `20261005182958_empresas_provincias_servicios_canonicos.sql`
+9. `20261005192538_empresa_vista_previa_privada.sql`
 
 Aplicar las migraciones verificadas y publicar la aplicación desde un checkout
 que conserve los cambios ya publicados. Confirmar el commit de Vercel y probar

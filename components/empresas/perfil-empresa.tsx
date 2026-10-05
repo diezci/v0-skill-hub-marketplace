@@ -79,7 +79,9 @@ function ContactarEmpresa({ datos, className }: { datos: EmpresaPublica; classNa
   return <div className={className}><Button className="w-full" onClick={contactar} disabled={pending}>{pending ? <Loader2 className="size-4 animate-spin" /> : <MessageSquare className="size-4" />}{t("Contactar empresa")}</Button>{error && <p role="alert" className="mt-2 text-sm text-destructive">{t(error)}</p>}</div>
 }
 
-export function SolicitarPresupuestoEmpresa({ datos, className }: { datos: EmpresaPublica; className?: string }) {
+export function SolicitarPresupuestoEmpresa({ datos, className, vistaPrevia = false }: { datos: EmpresaPublica; className?: string; vistaPrevia?: boolean }) {
+  const t = useT()
+  if (vistaPrevia) return <Button className={className} disabled aria-describedby="empresa-vista-previa-contacto"><MessageSquare className="size-4" />{t(datos.local ? "Pedir presupuesto" : "Contactar empresa")}</Button>
   return datos.local ? <SolicitarPresupuestoEmpresaLocal datos={datos} className={className} /> : <ContactarEmpresa datos={datos} className={className} />
 }
 
@@ -122,7 +124,7 @@ function SolicitarPresupuestoEmpresaLocal({ datos, className }: { datos: Empresa
   </>
 }
 
-export default function PerfilEmpresa({ datos }: { datos: EmpresaPublica }) {
+export default function PerfilEmpresa({ datos, vistaPrevia = false }: { datos: EmpresaPublica; vistaPrevia?: boolean }) {
   const t = useT()
   const { empresa, trabajos, resenas } = datos
   const miembros = datos.miembros.filter((miembro) => miembro.perfilPublico)
@@ -157,7 +159,7 @@ export default function PerfilEmpresa({ datos }: { datos: EmpresaPublica }) {
           </div>
         </div>
         <div className="mt-5 flex flex-wrap gap-3">
-          <SolicitarPresupuestoEmpresa datos={datos} className="w-full sm:w-auto" />
+          <SolicitarPresupuestoEmpresa datos={datos} vistaPrevia={vistaPrevia} className="w-full sm:w-auto" />
           {web && <Button asChild variant="outline" className="w-full bg-transparent sm:w-auto"><a href={web} target="_blank" rel="noopener noreferrer"><Globe className="size-4" />{t("Web corporativa")}<ExternalLink className="size-3.5" /><span className="sr-only">{t("Se abre en otra pestaña")}</span></a></Button>}
         </div>
         <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{t("Proveedor del servicio: {empresa} · Te atienden las personas autorizadas de su equipo.", { empresa: empresa.razonSocial })}</p>

@@ -47,6 +47,20 @@ export const empresaPublicaReal = cache(async (id: string): Promise<EmpresaPubli
   return !error && data?.empresa ? publica(data as PublicaRow) : null
 })
 
+/** Private preview uses the current user's JWT and the same public-only DTO. */
+export async function vistaPreviaEmpresaReal(): Promise<ResultadoEmpresa<EmpresaPublica>> {
+  const supabase = await createClient()
+  if (!supabase) return { error: "Base de datos no disponible" }
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "Debes iniciar sesión", codigo: "NO_AUTENTICADO" }
+  const { data, error } = await supabase.rpc("empresa_perfil_vista_previa")
+  if (error) return error.code === "42501"
+    ? { error: "No tienes permiso para realizar esta operación de empresa", codigo: "SIN_PERMISO" }
+    : { error: "No se pudo completar la operación. Vuelve a intentarlo." }
+  if (!data?.empresa) return { error: "Todavía no formas parte de una empresa.", codigo: "SIN_EMPRESA" }
+  return { data: publica(data as PublicaRow) }
+}
+
 export async function empresasPublicasReales(): Promise<EmpresaPublica[]> {
   const supabase = await createClient()
   if (!supabase) return []

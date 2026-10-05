@@ -30,6 +30,7 @@ function loadModules(overrides = {}, ui = {}) {
     const source = readFileSync(full, 'utf8')
     const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText
     const customRequire = (name) => {
+      if (ui.mockModules && Object.hasOwn(ui.mockModules, name)) return ui.mockModules[name]
       if (name === 'server-only') return {}
       if (name === 'react' && ui.react) return { ...React, ...ui.react }
       if (name === '@/lib/supabase/server') return { createClient: async () => client }
@@ -159,6 +160,77 @@ function workspaceHarness(load, espacio, component = "EmpresaWorkspaceReal", opt
     async settle() { await Promise.all(tasks.splice(0)) },
   }
 }
+
+test('private preview links follow management permissions and preserve verified public links', async () => {
+  const { load } = loadModules()
+  const base = (await load('lib/empresas/production-store.ts').espacioEmpresaReal()).data
+  for (const [rol, perfil, allowed] of [['principal', false, true], ['administrador', false, true], ['miembro', true, true], ['miembro', false, false]]) {
+    for (const estadoVerificacion of ['borrador', 'en_revision', 'requiere_informacion', 'verificada']) {
+      const espacio = { ...base, empresa: { ...base.empresa, estadoVerificacion }, miembroActual: { ...base.miembroActual, rol, permisos: { ...base.miembroActual.permisos, perfil } } }
+      const h = workspaceHarness(load, espacio)
+      const tree = h.render()
+      const previewLinks = h.all(tree, n => n.props?.href === '/mi-empresa/vista-previa')
+      assert.equal(previewLinks.length, allowed ? 1 : 0, `${rol}/${perfil}/${estadoVerificacion}`)
+      if (allowed) {
+        assert.equal(previewLinks[0].props.target, '_blank', 'Preview must preserve unsaved edits in the original tab')
+        assert.match(previewLinks[0].props.rel, /noopener/)
+        assert.match(h.text(previewLinks[0]), /Se abre en otra pestaña/)
+      }
+      assert.equal(h.all(tree, n => n.props?.href === `/empresa/${base.empresa.id}`).length, estadoVerificacion === 'verificada' ? 1 : 0)
+    }
+  }
+})
+
+test('preview reuses the public profile, reflects verification truth and cannot start contact or quote actions', async () => {
+  const { load } = loadModules()
+  const api = load('lib/empresas/production-store.ts')
+  const datos = await api.empresaPublicaReal(empresaId)
+  const { VistaPreviaEmpresa } = load('components/empresas/vista-previa-empresa.tsx')
+  const { default: PerfilEmpresa, SolicitarPresupuestoEmpresa } = load('components/empresas/perfil-empresa.tsx')
+  for (const estadoVerificacion of ['borrador', 'en_revision', 'requiere_informacion', 'verificada']) {
+    const value = { ...datos, empresa: { ...datos.empresa, estadoVerificacion } }
+    const tree = VistaPreviaEmpresa({ datos: value })
+    const profile = React.Children.toArray(tree.props.children).find(n => n.type === PerfilEmpresa)
+    assert.ok(profile, 'The production public profile is reused')
+    assert.equal(profile.props.datos, value)
+    assert.equal(profile.props.vistaPrevia, true)
+    const html = renderToStaticMarkup(React.createElement(VistaPreviaEmpresa, { datos: value }))
+    assert.match(html, /Vista previa privada/)
+    assert.match(html, /Esta vista muestra los cambios guardados/)
+    assert.match(html, /href="\/mi-empresa"/)
+    assert.match(html, /disabled=""[^>]*aria-describedby="empresa-vista-previa-contacto"/)
+    assert.equal(html.includes('Tu empresa todavía no es pública.'), estadoVerificacion !== 'verificada')
+    assert.equal(html.includes('Empresa verificada'), estadoVerificacion === 'verificada')
+  }
+  for (const local of [true, false]) {
+    const contact = SolicitarPresupuestoEmpresa({ datos: { ...datos, local }, vistaPrevia: true })
+    assert.equal(contact.props.disabled, true)
+    assert.equal(contact.props.onClick, undefined)
+    const publicContact = SolicitarPresupuestoEmpresa({ datos: { ...datos, local } })
+    assert.notEqual(publicContact.type, contact.type, 'The normal public contact flow remains intact')
+  }
+})
+
+test('private preview route uses generic noindex metadata and redirects unauthenticated users before rendering company data', async () => {
+  let result = { codigo: 'NO_AUTENTICADO', error: 'Debes iniciar sesión' }
+  let reads = 0
+  const { load } = loadModules({}, { mockModules: {
+    '@/lib/empresas/production-store': { vistaPreviaEmpresaReal: async () => { reads++; return result } },
+    '@/lib/i18n-servidor': { getT: async () => ({ t: value => value }) },
+    'next/navigation': { redirect: url => { throw new Error(`redirect:${url}`) } },
+  } })
+  const route = load('app/mi-empresa/vista-previa/page.tsx')
+  const metadata = await route.generateMetadata()
+  assert.deepEqual(metadata.robots, { index: false, follow: false })
+  assert.equal(reads, 0, 'Metadata never fetches company data')
+  await assert.rejects(route.default(), /redirect:\/auth\/login\?next=%2Fmi-empresa%2Fvista-previa/)
+  result = { codigo: 'SIN_EMPRESA', error: 'No company' }
+  await assert.rejects(route.default(), /redirect:\/mi-empresa$/)
+  result = { codigo: 'SIN_PERMISO', error: 'No tienes permiso para realizar esta operación de empresa' }
+  const html = renderToStaticMarkup(await route.default())
+  assert.match(html, /Vista previa no disponible/)
+  assert.doesNotMatch(html, /Contactar empresa|Portfolio|Empresa de prueba/)
+})
 
 test('real owner can invite an administrator with explicit permissions and optional public visibility', async () => {
   const { load } = loadModules()
