@@ -44,6 +44,12 @@ assert.equal(traducirErrorServidor("en", "Confirma tu correo antes de vincular u
 assert.equal(traducirErrorServidor("en", "No se puede cambiar la tarifa de una oferta vinculada a un trabajo"), "The fee for an offer linked to a job cannot be changed")
 console.log("PASS chat permissions, contract fees, payments and company identity errors are faithful")
 
+// Reassignment preserves the contractual party, not the original human author.
+assert.equal(traducirErrorServidor("en", "Solo la parte que abrió la disputa puede retirarla."), "Only the party that opened the dispute can withdraw it.")
+assert.equal(traducirErrorServidor("en", "Solo la otra parte puede responder a esta cancelación."), "Only the other party can respond to this cancellation.")
+assert.equal(traducirErrorServidor("en", "Ya no tienes permiso para consultar los cobros de esta empresa."), "You no longer have permission to view this company's payments.")
+console.log("PASS company dispute, cancellation and revoked payment access errors preserve contractual permissions")
+
 for (const regla of REGLAS_MODERACION_SOLICITUDES) {
   for (const es of [
     `No se puede publicar: ${regla.motivoUsuario}.`,
