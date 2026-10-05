@@ -50,7 +50,7 @@ async function ParteFactura({
     .join(" ")
 
   return (
-    <div>
+    <div className="min-w-0 break-words">
       <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">{titulo}</p>
       {esEmpresa ? (
         <>
@@ -59,7 +59,7 @@ async function ParteFactura({
           {facturacion!.empresa_ubicacion && (
             <p className="text-muted-foreground">{facturacion!.empresa_ubicacion}</p>
           )}
-          {facturacion!.empresa_email && <p className="text-muted-foreground">{facturacion!.empresa_email}</p>}
+          {facturacion!.empresa_email && <p className="text-muted-foreground break-all">{facturacion!.empresa_email}</p>}
           {persona && (
             <p className="text-muted-foreground mt-1">
               {t("En su nombre:")}{" "}{persona}
@@ -73,7 +73,7 @@ async function ParteFactura({
           {facturacion?.persona_documento && (
             <p className="text-muted-foreground">NIF: {facturacion.persona_documento}</p>
           )}
-          {emailFallback && <p className="text-muted-foreground">{emailFallback}</p>}
+          {emailFallback && <p className="text-muted-foreground break-all">{emailFallback}</p>}
           {perfil?.ubicacion && <p className="text-muted-foreground">{perfil.ubicacion}</p>}
         </>
       )}
@@ -81,22 +81,32 @@ async function ParteFactura({
   )
 }
 
-async function DetalleIvaDiime({ importe }: { importe: number }) {
+async function DetalleIvaDiime({ importe, titulo, previsto = false, liquidacionPendiente = false }: { importe: number; titulo: string; previsto?: boolean; liquidacionPendiente?: boolean }) {
   const { t, idioma } = await getT()
-
+  // The fee is the recorded gross commission, never the service price or
+  // Checkout total. Splitting included VAT does not add anything to the charge.
   const desglose = desglosarIvaIncluido(importe)
+  const filas = [
+    [t("Base imponible"), formatearEuros(desglose.baseImponible, idioma)],
+    [t("Tipo de IVA"), `${PLATFORM_CONFIG.ivaDiimePorcentaje} %`],
+    [t("Cuota de IVA"), formatearEuros(desglose.cuotaIva, idioma)],
+    [t("Total gastos Diime (IVA incluido)"), formatearEuros(desglose.total, idioma)],
+  ]
 
   return (
-    <div className="space-y-1 bg-muted/20 px-4 py-2.5 text-xs text-muted-foreground">
-      <div className="flex justify-between gap-4">
-        <span>{t("Base imponible del servicio de Diime")}</span>
-        <span>{formatearEuros(desglose.baseImponible, idioma)}</span>
-      </div>
-      <div className="flex justify-between gap-4">
-        <span>{t("IVA de Diime (")}{PLATFORM_CONFIG.ivaDiimePorcentaje} %)</span>
-        <span>{formatearEuros(desglose.cuotaIva, idioma)}</span>
-      </div>
-    </div>
+    <section aria-label={titulo} className="space-y-2 bg-muted/20 px-4 py-3 text-sm">
+      <h3 className="font-medium">{titulo}</h3>
+      {previsto && <p className="text-xs text-muted-foreground">{t("Desglose previsto. Este pago todavía no se ha cobrado.")}</p>}
+      {liquidacionPendiente && <p className="text-xs text-muted-foreground">{t("Desglose de liquidación pendiente de confirmación.")}</p>}
+      <dl className="space-y-1.5">
+        {filas.map(([etiqueta, valor], index) => (
+          <div key={etiqueta} className={`grid grid-cols-[minmax(0,1fr)_auto] gap-4 ${index === filas.length - 1 ? "border-t pt-2 font-semibold" : "text-muted-foreground"}`}>
+            <dt>{etiqueta}</dt>
+            <dd className="whitespace-nowrap tabular-nums">{valor}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   )
 }
 
@@ -110,7 +120,7 @@ const ETIQUETA_ESTADO_PAGO: Record<string, string> = {
 }
 
 function importeRegistrado(valor: unknown): number | null {
-  if (valor === null || valor === undefined || valor === "") return null
+  if ((typeof valor !== "number" && typeof valor !== "string") || (typeof valor === "string" && !valor.trim())) return null
   const importe = Number(valor)
   return Number.isFinite(importe) && importe >= 0 ? importe : null
 }
@@ -156,13 +166,11 @@ export default async function FacturaPage({
   const { comisionCliente, totalCliente } = calcularTotalCliente(trabajo.precio_acordado || 0)
   const baseOriginal = Number(escrow?.monto_base ?? trabajo.precio_acordado ?? 0)
   const liquidacionProveedorActual = calcularPagoProveedor(baseOriginal)
-  const comisionProveedorOferta = Number(oferta?.comision_proveedor_prevista)
-  const pagoNetoProveedorOferta = Number(oferta?.pago_neto_proveedor_previsto)
+  const comisionProveedorOferta = importeRegistrado(oferta?.comision_proveedor_prevista)
+  const pagoNetoProveedorOferta = importeRegistrado(oferta?.pago_neto_proveedor_previsto)
   const liquidacionOfertaValida =
-    Number.isFinite(comisionProveedorOferta) &&
-    comisionProveedorOferta >= 0 &&
-    Number.isFinite(pagoNetoProveedorOferta) &&
-    pagoNetoProveedorOferta >= 0 &&
+    comisionProveedorOferta !== null &&
+    pagoNetoProveedorOferta !== null &&
     Math.round((comisionProveedorOferta + pagoNetoProveedorOferta) * 100) === Math.round(baseOriginal * 100)
   const comisionProveedor = liquidacionOfertaValida
     ? comisionProveedorOferta
@@ -170,11 +178,17 @@ export default async function FacturaPage({
   const pagoNeto = liquidacionOfertaValida ? pagoNetoProveedorOferta : liquidacionProveedorActual.pagoNeto
   const reembolsoCliente = Number(escrow?.monto_reembolsado ?? 0)
   const liquidacionCerrada = escrow?.liquidacion_estado === "completada" || ["completado", "reembolsado", "liberado"].includes(escrow?.estado)
-  const brutoProveedor = liquidacionCerrada
-    ? Number(escrow?.monto_bruto_proveedor ?? Math.max(baseOriginal - reembolsoCliente, 0))
-    : baseOriginal
-  const comisionProveedorReal = Number(escrow?.comision_proveedor ?? comisionProveedor)
-  const pagoNetoReal = Number(escrow?.pago_neto_proveedor ?? pagoNeto)
+  const liquidacionEnCurso = escrow?.estado === "liquidando" || escrow?.liquidacion_estado === "procesando"
+  const brutoProveedor = liquidacionEnCurso
+    ? importeRegistrado(escrow?.monto_bruto_proveedor)
+    : liquidacionCerrada
+      ? Number(escrow?.monto_bruto_proveedor ?? Math.max(baseOriginal - reembolsoCliente, 0))
+      : baseOriginal
+  const reembolsoPendiente = reembolsoCliente > 0 && !liquidacionCerrada
+  // A persisted payment with missing history cannot be reconstructed from
+  // current tariffs or from an offer. Unknown amounts remain explicitly unknown.
+  const comisionProveedorReal = escrow ? importeRegistrado(escrow.comision_proveedor) : comisionProveedor
+  const pagoNetoReal = escrow ? importeRegistrado(escrow.pago_neto_proveedor) : pagoNeto
   // Las liquidaciones históricas conservan sus importes. No se les aplica
   // la tarifa vigente ni se deduce una comisión a partir del saldo restante.
   const hayReembolsoLiquidado = liquidacionCerrada && reembolsoCliente > 0
@@ -183,12 +197,12 @@ export default async function FacturaPage({
   const reembolsoIntegro = hayReembolsoLiquidado && totalClienteOriginal !== null &&
     Math.round(reembolsoCliente * 100) === Math.round(totalClienteOriginal * 100)
   const comisionClienteRetenida = hayReembolsoLiquidado ? importeRegistrado(escrow?.comision_cliente_retenida) : null
-  const porcentajeProveedorOferta = Number(oferta?.comision_proveedor_porcentaje)
-  const minimoProveedorOferta = Number(oferta?.comision_proveedor_minima)
+  const porcentajeProveedorOferta = importeRegistrado(oferta?.comision_proveedor_porcentaje)
+  const minimoProveedorOferta = importeRegistrado(oferta?.comision_proveedor_minima)
   const mostrarTarifaProveedorOferta =
     !escrow &&
-    Number.isFinite(porcentajeProveedorOferta) &&
-    Number.isFinite(minimoProveedorOferta)
+    porcentajeProveedorOferta !== null &&
+    minimoProveedorOferta !== null
   const anio = new Date(escrow?.fecha_retencion || trabajo.created_at).getFullYear()
   const numero = `${contratado ? "JUST" : "PROP"}-${anio}-${String(trabajo.id).slice(0, 8).toUpperCase()}`
   const fechaEmision = escrow?.fecha_retencion || trabajo.created_at
@@ -197,15 +211,26 @@ export default async function FacturaPage({
     : t("Según lo acordado entre las partes")
 
   return (
-    <div className="container mx-auto px-4 pt-24 pb-16 max-w-3xl">
-      <style>{`@media print { header, footer, .no-print { display: none !important } body { background: white } }`}</style>
+    <div className="diime-justificante container mx-auto px-4 pt-24 pb-16 max-w-3xl">
+      <style>{`@media print {
+        header, footer, .no-print { display: none !important }
+        body { background: white }
+        .diime-justificante {
+          color: #111; color-scheme: light;
+          --foreground: #111; --card: #fff; --card-foreground: #111;
+          --muted: #f3f3f3; --muted-foreground: #444; --border: #d4d4d4;
+          --primary: #166534; --primary-foreground: #fff;
+        }
+        .diime-justificante section[aria-label] { break-inside: avoid }
+        .diime-justificante .diime-reembolso { color: #1e3a8a !important }
+      }`}</style>
 
       <div className="flex items-start justify-between mb-8 no-print">
         <div />
         <BotonImprimir />
       </div>
 
-      <div className="rounded-xl border bg-card p-8 md:p-10 space-y-8 print:border-0 print:p-0">
+      <div className="rounded-xl border bg-card p-4 sm:p-8 md:p-10 space-y-8 print:border-0 print:p-0">
         {/* Cabecera */}
         <div className="flex items-start justify-between border-b pb-6">
           <div>
@@ -293,23 +318,23 @@ export default async function FacturaPage({
             )}
           </div>
           <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-2">
-            <div className="flex justify-between sm:block">
+            <div className="flex flex-col gap-1 sm:block">
               <dt className="text-muted-foreground">{t("Lugar de realización / entrega")}</dt>
               <dd className="font-medium">{trabajo.ubicacion || solicitud?.ubicacion || t("A convenir")}</dd>
             </div>
-            <div className="flex justify-between sm:block">
+            <div className="flex flex-col gap-1 sm:block">
               <dt className="text-muted-foreground">{t("Plazo estimado")}</dt>
               <dd className="font-medium">{plazo}</dd>
             </div>
-            <div className="flex justify-between sm:block">
+            <div className="flex flex-col gap-1 sm:block">
               <dt className="text-muted-foreground">{t("Fecha de inicio")}</dt>
               <dd className="font-medium">{formatearFechaLarga(trabajo.fecha_inicio, idioma)}</dd>
             </div>
-            <div className="flex justify-between sm:block">
+            <div className="flex flex-col gap-1 sm:block">
               <dt className="text-muted-foreground">{t("Entrega estimada")}</dt>
               <dd className="font-medium">{formatearFechaLarga(trabajo.fecha_estimada_fin, idioma)}</dd>
             </div>
-            <div className="flex justify-between sm:block">
+            <div className="flex flex-col gap-1 sm:block">
               <dt className="text-muted-foreground">{t("Condiciones de pago")}</dt>
               <dd className="font-medium">
                 {oferta?.condiciones_pago || t("Pago único por adelantado mediante Stripe; transferencia aplazada hasta la confirmación o resolución")}
@@ -345,7 +370,7 @@ export default async function FacturaPage({
                   </span>
                   <span className="font-medium">{comisionClienteOriginal !== null ? formatearEuros(comisionClienteOriginal, idioma) : t("Desglose original no disponible")}</span>
                 </div>
-                {comisionClienteOriginal !== null && <DetalleIvaDiime importe={comisionClienteOriginal} />}
+                {comisionClienteOriginal !== null && <DetalleIvaDiime importe={comisionClienteOriginal} titulo={hayReembolsoLiquidado ? t("Gastos Diime del cliente cobrados al pagar") : t("Gastos Diime del cliente")} previsto={!contratado} />}
                 <div className="grid grid-cols-[1fr_auto] gap-4 px-4 py-3 bg-muted/40">
                   <span className="font-semibold">
                     {contratado ? t("Total pagado por el cliente") : t("Total pendiente de pago por el cliente")}
@@ -354,8 +379,8 @@ export default async function FacturaPage({
                 </div>
                 {reembolsoCliente > 0 && (
                   <>
-                    <div className="grid grid-cols-[1fr_auto] gap-4 px-4 py-2.5 text-blue-700 dark:text-blue-300">
-                      <span>{reembolsoIntegro ? t("Reembolso íntegro del pago") : t("Reembolso registrado")}</span>
+                    <div className="diime-reembolso grid grid-cols-[1fr_auto] gap-4 px-4 py-2.5 text-blue-700 dark:text-blue-300">
+                      <span>{reembolsoPendiente ? t("Reembolso previsto") : reembolsoIntegro ? t("Reembolso íntegro del pago") : t("Reembolso registrado")}</span>
                       <span className="font-medium">−{formatearEuros(reembolsoCliente, idioma)}</span>
                     </div>
                     {hayReembolsoLiquidado && (
@@ -364,11 +389,11 @@ export default async function FacturaPage({
                           <span>{t("Gastos de servicio Diime retenidos tras el reembolso")}</span>
                           <span className="font-medium">{comisionClienteRetenida !== null ? formatearEuros(comisionClienteRetenida, idioma) : t("No consta")}</span>
                         </div>
-                        {comisionClienteRetenida !== null && <DetalleIvaDiime importe={comisionClienteRetenida} />}
+                        {comisionClienteRetenida !== null && <DetalleIvaDiime importe={comisionClienteRetenida} titulo={t("Gastos Diime del cliente retenidos tras el reembolso")} />}
                       </>
                     )}
                     <div className="grid grid-cols-[1fr_auto] gap-4 px-4 py-2.5">
-                      <span className="font-semibold">{t("Coste final tras la resolución")}</span>
+                      <span className="font-semibold">{reembolsoPendiente ? t("Coste previsto tras la liquidación") : t("Coste final tras la resolución")}</span>
                       <span className="font-semibold">{totalClienteOriginal !== null ? formatearEuros(totalClienteOriginal - reembolsoCliente, idioma) : t("No consta")}</span>
                     </div>
                   </>
@@ -386,8 +411,8 @@ export default async function FacturaPage({
             <h2 className="font-semibold text-base mb-3">{t("Liquidación del profesional")}</h2>
             <div className="rounded-lg border divide-y">
               <div className="flex justify-between px-4 py-2.5">
-                <span>{reembolsoCliente > 0 ? t("Importe bruto adjudicado tras la resolución") : t("Precio del servicio")}</span>
-                <span className="font-medium">{formatearEuros(brutoProveedor, idioma)}</span>
+                <span>{liquidacionEnCurso ? t("Importe bruto previsto en la liquidación") : reembolsoCliente > 0 ? t("Importe bruto adjudicado tras la resolución") : t("Precio del servicio")}</span>
+                <span className="font-medium">{brutoProveedor !== null ? formatearEuros(brutoProveedor, idioma) : t("No consta")}</span>
               </div>
               <div className="flex justify-between px-4 py-2.5">
                 <span>
@@ -396,15 +421,15 @@ export default async function FacturaPage({
                   )}
                 </span>
                 <span className="font-medium text-destructive">
-                  −{formatearEuros(comisionProveedorReal, idioma)}
+                  {comisionProveedorReal !== null ? `−${formatearEuros(comisionProveedorReal, idioma)}` : t("No consta")}
                 </span>
               </div>
-              <DetalleIvaDiime importe={comisionProveedorReal} />
+              {comisionProveedorReal !== null && <DetalleIvaDiime importe={comisionProveedorReal} titulo={t("Gastos Diime del proveedor")} previsto={!contratado} liquidacionPendiente={liquidacionEnCurso} />}
               <div className="flex justify-between px-4 py-3 bg-muted/40">
                 <span className="font-semibold">
                   {contratado ? t("Neto a percibir por el profesional") : t("Neto previsto para el profesional")}
                 </span>
-                <span className="font-bold">{formatearEuros(pagoNetoReal, idioma)}</span>
+                <span className="font-bold">{pagoNetoReal !== null ? formatearEuros(pagoNetoReal, idioma) : t("No consta")}</span>
               </div>
             </div>
             {escrow?.fecha_liberacion && (
@@ -416,7 +441,7 @@ export default async function FacturaPage({
         )}
         {mostrarCliente && reembolsoCliente > 0 && (
           <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-3 text-xs text-muted-foreground">
-            {t("Reembolsado al cliente:")}{" "}{formatearEuros(reembolsoCliente, idioma)}{escrow.fecha_reembolso ? ` ${t("el {fecha}", { fecha: formatearFechaLarga(escrow.fecha_reembolso, idioma) })}` : ""}.
+            {reembolsoPendiente ? t("Reembolso al cliente pendiente de confirmación:") : t("Reembolsado al cliente:")}{" "}{formatearEuros(reembolsoCliente, idioma)}{escrow.fecha_reembolso ? ` ${t("el {fecha}", { fecha: formatearFechaLarga(escrow.fecha_reembolso, idioma) })}` : ""}.
             {reembolsoIntegro && (
               <> {" "}{t("Esta operación se reembolsó íntegramente.")}</>
             )}

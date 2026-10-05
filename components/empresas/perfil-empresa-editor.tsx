@@ -111,7 +111,7 @@ export function PerfilEmpresaEditor({ empresa, puedeEditar, onGuardar = guardarP
     <CardContent>
       <form onSubmit={guardar} className="space-y-5" aria-busy={guardando}>
         <fieldset disabled={bloqueado} className="min-w-0 space-y-5">
-          <div className="space-y-2"><Label htmlFor="empresa-nombre">{t("Nombre de la empresa")}</Label><Input id="empresa-nombre" required maxLength={120} value={perfil.nombre} onChange={(e) => setPerfil({ ...perfil, nombre: e.target.value })} /></div>
+          <div className="space-y-2"><Label htmlFor="empresa-nombre">{t("Nombre comercial")}</Label><Input id="empresa-nombre" required maxLength={120} value={perfil.nombre} onChange={(e) => setPerfil({ ...perfil, nombre: e.target.value })} /></div>
           <div className="space-y-2"><Label htmlFor="empresa-descripcion">{t("Descripción")}</Label><Textarea id="empresa-descripcion" className="min-h-28" maxLength={2000} value={perfil.descripcion} onChange={(e) => setPerfil({ ...perfil, descripcion: e.target.value })} /></div>
           <div className="space-y-2"><Label htmlFor="empresa-web">{t("Web corporativa")}</Label><Input id="empresa-web" type="url" placeholder="https://" maxLength={500} value={perfil.web} onChange={(e) => setPerfil({ ...perfil, web: e.target.value })} /></div>
           <div className="space-y-3">

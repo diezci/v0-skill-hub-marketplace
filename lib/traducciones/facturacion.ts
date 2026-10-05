@@ -1,0 +1,16 @@
+export const EN_FACTURACION: Record<string, string> = {
+  "Reembolso previsto": "Expected refund",
+  "Coste previsto tras la liquidación": "Expected cost after settlement",
+  "Importe bruto previsto en la liquidación": "Expected gross settlement amount",
+  "Reembolso al cliente pendiente de confirmación:": "Client refund awaiting confirmation:",
+  "Base imponible": "Taxable amount",
+  "Tipo de IVA": "VAT rate",
+  "Cuota de IVA": "VAT amount",
+  "Total gastos Diime (IVA incluido)": "Total Diime fees (including VAT)",
+  "Desglose previsto. Este pago todavía no se ha cobrado.": "Estimated breakdown. This payment has not been collected yet.",
+  "Desglose de liquidación pendiente de confirmación.": "Settlement breakdown awaiting confirmation.",
+  "Gastos Diime del cliente": "Client's Diime fees",
+  "Gastos Diime del cliente cobrados al pagar": "Client's Diime fees collected at checkout",
+  "Gastos Diime del cliente retenidos tras el reembolso": "Client's Diime fees retained after the refund",
+  "Gastos Diime del proveedor": "Provider's Diime fees",
+}
