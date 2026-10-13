@@ -132,7 +132,8 @@ export async function migrateAttachments(io, { apply = false, deletePublicOrigin
       // Conservatively protect a URL found in ANY other exposed table/column,
       // including public image fields and text/JSON references we cannot classify.
       if (await io.hasOtherReferences(legacy)) { entry.status = 'retained_public_or_other_reference'; continue }
-      await io.deleteOwnedBlob(listed)
+      if (!current.etag || current.etag.startsWith('W/')) throw Error('SOURCE_STRONG_ETAG_REQUIRED')
+      await io.deleteOwnedBlob(listed, current.etag)
       entry.status = 'migrated_original_deleted'
     } catch (error) {
       entry.status = 'error_original_retained'
@@ -229,7 +230,7 @@ async function productionAdapter(env) {
       if (Number(response.headers.get('content-length')) > MAX_BYTES) throw Error('SOURCE_TOO_LARGE')
       const reader = response.body.getReader(); const chunks = []; let length = 0
       try { while (true) { const { done, value } = await reader.read(); if (done) break; length += value.length; if (length > MAX_BYTES) { await reader.cancel(); throw Error('SOURCE_TOO_LARGE') } chunks.push(Buffer.from(value)) } } finally { reader.releaseLock() }
-      return { bytes: Buffer.concat(chunks), type: (response.headers.get('content-type') || 'application/octet-stream').split(';')[0] }
+      return { bytes: Buffer.concat(chunks), type: (response.headers.get('content-type') || 'application/octet-stream').split(';')[0], etag: response.headers.get('etag') }
     },
     uploadPrivate: (name, bytes, type) => uploadPrivateCopy(storage, name, bytes, type),
     async downloadPrivate(name) { const { data, error } = await storage.download(name); if (error || !data) throw Error('PRIVATE_DOWNLOAD_FAILED'); return Buffer.from(await data.arrayBuffer()) },
@@ -252,7 +253,11 @@ async function productionAdapter(env) {
       }
       return false
     },
-    async deleteOwnedBlob(blob) { if (!allowed.has(blob.url)) throw Error('UNTRUSTED_SOURCE'); await del(blob.url, { token }) },
+    async deleteOwnedBlob(blob, etag) {
+      if (!allowed.has(blob.url) || !ownedPublicUrl(blob.url)) throw Error('UNTRUSTED_SOURCE')
+      if (typeof etag !== 'string' || !etag || etag.startsWith('W/')) throw Error('SOURCE_STRONG_ETAG_REQUIRED')
+      await del(blob.url, { token, ifMatch: etag })
+    },
   }
 }
 

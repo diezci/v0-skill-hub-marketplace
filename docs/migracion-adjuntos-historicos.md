@@ -32,9 +32,22 @@ Validar después el acceso desde cuentas participantes y ajenas. Para retirar lo
 node --env-file=.env.local scripts/migrar-adjuntos-privados.mjs --project-ref PROJECT_REF --apply --delete-public-originals --report .build/adjuntos-retirada.json
 ```
 
-Hacer la retirada en una ventana sin escrituras de usuarios o procesos que puedan volver a introducir URLs antiguas. El script vuelve a leer original y copia privada, comprueba hash/tamaño y ausencia de referencias privadas, y examina las demás columnas de todas las tablas expuestas por la API. La base y Blob no comparten una transacción: la ventana sin escrituras evita que aparezca una nueva referencia entre la comprobación y el borrado.
+Hacer la retirada en una ventana que impida introducir las URLs antiguas. Para mantener el resto de la aplicación disponible, usar la protección SQL selectiva explicada debajo. El script vuelve a leer original y copia privada, comprueba hash/tamaño y ausencia de referencias privadas, y examina las demás columnas de todas las tablas expuestas por la API. El borrado utiliza `ifMatch` con el ETag fuerte de la última descarga verificada; si falta el ETag, es débil o cambia el original, no se borra. La base y Blob no comparten una transacción.
 
-No se borra un original usado también en `profiles.foto_perfil`, `profiles.foto_portada`, `portfolio.imagenes`, `empresas.logo_url` o cualquier otra columna. En esos casos las referencias privadas se migran, pero la URL antigua continúa siendo pública y necesita revisión individual. Una tabla/vista sin una clave de paginación identificable, una lectura incompleta o un cambio en el número de filas detiene el borrado de ese archivo conservando el original.
+No se borra un original usado también en `profiles.foto_perfil`, `profiles.foto_portada`, `portfolio.imagenes`, `empresas.logo` o cualquier otra columna. En esos casos las referencias privadas se migran, pero la URL antigua continúa siendo pública y necesita revisión individual. Una tabla/vista sin una clave de paginación identificable, una lectura incompleta o un cambio en el número de filas detiene el borrado de ese archivo conservando el original.
+
+## Ventana selectiva y fotografías públicas compartidas
+
+Los scripts de `scripts/ops/` son operaciones explícitas, no migraciones automáticas. No ejecutarlos al arrancar la aplicación. Orden obligatorio:
+
+1. Migraciones y API privada desplegadas; ejecutar la copia privada con `--apply` **sin borrar**. Confirmar metadata, SHA-256, tamaño y acceso de los participantes.
+2. Ejecutar `activar-guard-adjuntos-legacy.sql` como operador de base de datos. Obtiene las URLs de metadata verificada, sin hardcodearlas; protege todas las tablas públicas excepto metadata. Bloquea nuevas apariciones de estas URLs en cualquier columna, incluidos JSON, arrays, roles autenticados, servicio y cron. Permite reemplazos y otras escrituras normales. Transacciones con aislamiento REPEATABLE READ/SERIALIZABLE deben reintentarse en READ COMMITTED durante esta ventana. Si la instalación falla por locks o inventario vacío, su transacción revierte.
+3. Si una imagen tiene uso público intencional revisado en portfolio, preparar un manifiesto local con filas `{ "portfolioId": "UUID", "sourceHash": "SHA256 de la URL original" }`. Ejecutar primero en lectura `node --env-file=ENV scripts/ops/copiar-imagenes-publicas-legacy.mjs --project-ref PROJECT_REF --manifest MANIFEST --report REPORT`; añadir `--apply` para copiar. Exige la copia privada previa, comprueba firma PNG y SHA-256 de privado/original/público, crea una ruta pública determinista `perfiles/public/legacy-HASH.png` sin sobrescribir y cambia **solo** `portfolio.imagenes` mediante comparación y actualización del array completo. Una edición concurrente cancela el cambio; reintentar vuelve a leer. Nunca borra originales ni publica otros adjuntos. El manifiesto es una autorización específica de imágenes ya públicas, no una clasificación automática.
+4. Ejecutar `comprobar-cero-referencias-legacy.sql` y exigir éxito. Comprueba inventario no vacío, cobertura de metadata, triggers activos y cero referencias en todas las filas de todas las tablas públicas, sin paginación. **No basta la lectura paginada del migrador**: borrar e insertar filas entre páginas podría mantener el conteo y omitir una referencia. Una vez demostrado cero, el guard evita nuevas apariciones hasta terminar la retirada. No crear tablas nuevas ni desactivar triggers durante la ventana.
+5. Solo entonces ejecutar `migrar-adjuntos-privados.mjs --apply --delete-public-originals ...`. Conservar el guard activo hasta verificar inventario Blob, respuestas de las URLs antiguas, acceso privado y las imágenes públicas nuevas.
+6. Ejecutar `desactivar-guard-adjuntos-legacy.sql` y comprobar que retiró únicamente el guard operativo. No dejar la restricción temporal de aislamiento instalada indefinidamente. Un formulario antiguo que guarde después una URL pública retirada puede producir una imagen rota; ya no vuelve público el archivo borrado.
+
+Si falla cualquier comprobación antes de borrar, conservar originales, resolver o abandonar retirando el guard. Si ya hubo borrados, registrar cuáles: retirar el guard **no restaura** archivos. La reanudación verifica las copias y procesa solo lo pendiente; no volver a publicar automáticamente un original privado para hacer rollback.
 
 ## Resultados y reanudación
 
@@ -52,6 +65,8 @@ Los informes incluyen hashes de las URLs y los IDs privados, nunca las URLs orig
 ```sh
 node scripts/test-migrar-adjuntos-privados.mjs
 node scripts/test-migrar-adjuntos-adapter.mjs
+node scripts/test-copiar-imagenes-publicas-legacy.mjs
+node scripts/test-guard-adjuntos-legacy.mjs
 ```
 
-18 escenarios del motor y 8 del adaptador real con SDK/fetch inyectados. Cubren transportes falsos: modo lectura, copia y checksum, interrupciones, duplicados Storage `400`, reanudación con hash, dos flags de borrado, cambios del original, enlaces ajenos, protección de imágenes públicas, Unicode y claves compuestas. No sustituye una ejecución de inventario ni la comprobación de acceso en el entorno desplegado.
+18 escenarios del motor, 9 del adaptador real con SDK/fetch inyectados, 15 de las copias públicas y 13 grupos del guard en PostgreSQL aislado. Cubren modo lectura, copia y checksum, interrupciones, duplicados Storage `400`, reanudación con hash, dos flags de borrado, ETag condicional, cambios del original, enlaces ajenos, protección de imágenes públicas, Unicode, claves compuestas y escrituras concurrentes. No sustituyen el inventario ni la comprobación de acceso en el entorno desplegado.

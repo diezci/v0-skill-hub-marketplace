@@ -60,7 +60,7 @@ function fixture({ maxRows = 200, changeCount = false } = {}) {
         state.cursors.push(options.cursor)
         return options.cursor ? { blobs: [], hasMore: false } : { blobs: state.listed, hasMore: true, cursor: 'next-page' }
       },
-      async del() { state.mutations.push('delete') },
+      async del(url, options) { state.mutations.push('delete'); state.deletion = { url, options } },
     },
   }
   const fetch = async (url, options) => {
@@ -145,5 +145,13 @@ for (const corrupt of [false, true]) await check(`Missing original resumes only 
     assert.deepEqual(f.data.solicitudes[0].archivos, [record.url])
   }
   assert.ok(f.state.requests.every(r => r.url.endsWith('/rest/v1/')))
+})
+await check('Conditional deletion uses the strong ETag from the verified read and refuses absent/weak validators', async () => {
+  const f = fixture(), io = await f.adapter()
+  const blobs = await io.listOwnedBlobs()
+  await assert.rejects(io.deleteOwnedBlob(blobs[0]), /SOURCE_STRONG_ETAG_REQUIRED/)
+  await assert.rejects(io.deleteOwnedBlob(blobs[0], 'W/"weak"'), /SOURCE_STRONG_ETAG_REQUIRED/)
+  await io.deleteOwnedBlob(blobs[0], '"version-verified"')
+  assert.deepEqual(f.state.deletion, { url: original, options: { token: 'synthetic', ifMatch: '"version-verified"' } })
 })
 console.log(`${passed} production-adapter scenarios passed with injected SDKs/fetch; no network or real data.`)
