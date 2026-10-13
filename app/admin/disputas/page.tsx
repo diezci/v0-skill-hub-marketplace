@@ -400,15 +400,7 @@ export default function AdminDisputesPage() {
                       <p>{a.mensaje}</p>
                       {a.archivos?.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-2">
-                          {a.archivos.map((src: string, i: number) => (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              key={i}
-                              src={src || "/placeholder.svg"}
-                              alt={t("prueba")}
-                              className="h-16 w-16 rounded object-cover border"
-                            />
-                          ))}
+                          <AdjuntosLista archivos={a.archivos} />
                         </div>
                       )}
                     </div>

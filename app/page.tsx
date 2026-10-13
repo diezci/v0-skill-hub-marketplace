@@ -1,4 +1,4 @@
-import SolicitudServicioForm from "@/components/solicitud-servicio-form"
+import PublicarSolicitud from "@/components/publicar-solicitud"
 import FeaturedGigs from "@/components/featured-gigs"
 import Categories from "@/components/categories"
 import Testimonials from "@/components/testimonials"
@@ -40,7 +40,7 @@ export default async function Home() {
           </div>
 
           {/* Embedded form */}
-          <SolicitudServicioForm embedded />
+          <PublicarSolicitud />
 
         </div>
       </section>

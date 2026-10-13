@@ -26,9 +26,13 @@ export async function sincronizarBadgeApp(cantidad: number) {
 // de la cuenta anterior. El token vive solo en memoria y se renueva cada vez
 // que el sistema operativo registra la app.
 export async function desvincularPushActual() {
-  if (!tokenActual) return
-  const token = tokenActual
-  tokenActual = null
+  while (tokenActual) {
+    const token = tokenActual
+    const resultado = await eliminarDispositivoPush(token)
+    if (resultado.error) throw new Error(resultado.error)
+    // Si el sistema renovó el token durante la petición, también hay que
+    // desvincular el nuevo antes de confirmar el cierre de sesión.
+    if (tokenActual === token) tokenActual = null
+  }
   await sincronizarBadgeApp(0)
-  await eliminarDispositivoPush(token).catch(() => {})
 }

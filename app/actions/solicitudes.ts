@@ -71,7 +71,7 @@ export async function crearSolicitud(formData: {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) {
+  if (!user || user.is_anonymous) {
     return { error: await textoServidor("No autenticado. Por favor inicia sesión para publicar un proyecto.") }
   }
 
@@ -800,8 +800,11 @@ export async function obtenerSolicitudesPorUsuario() {
           .eq("trabajo_id", trabajoRow.id)
           .order("created_at", { ascending: true })
 
+        // Defensa adicional durante despliegues escalonados: nunca serializar
+        // el antiguo campo privado en la respuesta destinada al cliente.
+        const { notas_privadas_proveedor: _notasPrivadas, ...trabajoCompartido } = trabajoRow
         trabajo = {
-          ...trabajoRow,
+          ...trabajoCompartido,
           escrow: escrow || null,
           oferta: ofertaTrabajo || null,
           profesional: profProfile

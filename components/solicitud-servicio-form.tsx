@@ -4,7 +4,7 @@ import { SelectorIdentidadEmpresa } from "@/components/selector-identidad-empres
 import { useT } from "@/components/idioma-provider"
 
 import type React from "react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
@@ -30,6 +30,8 @@ import {
   URGENCIAS,
 } from "@/lib/urgencias"
 import { PROVINCIAS_ES } from "@/lib/provincias"
+import { createClient } from "@/lib/supabase/client"
+import { SolicitudServicioAcceso } from "@/components/solicitud-servicio-acceso"
 
 const crearFormSchema = (t: ReturnType<typeof useT>) => z
   .object({
@@ -59,15 +61,30 @@ const provincias = PROVINCIAS_ES.map((provincia) => ({ provincia }))
 
 interface Props {
   embedded?: boolean
+  usuarioId: string
 }
 
-const SolicitudServicioForm = ({ embedded = false }: Props) => {
+const SolicitudServicioForm = ({ embedded = false, usuarioId }: Props) => {
   const t = useT()
 
+  const [sesionVigente, setSesionVigente] = useState(true)
   const [empresaId, setEmpresaId] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
   const router = useRouter()
+
+  useEffect(() => {
+    const supabase = createClient()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_evento, session) => {
+      if (!session?.user || session.user.is_anonymous || session.user.id !== usuarioId) {
+        // Se desmontan los campos al cerrar sesión o cambiar de cuenta. Solo
+        // una nueva comprobación del servidor puede volver a abrirlos.
+        setSesionVigente(false)
+        router.refresh()
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [router, usuarioId])
 
   const formSchema = crearFormSchema(t)
   const form = useForm<z.infer<typeof formSchema>>({
@@ -96,6 +113,14 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true)
     try {
+      // La sesión puede caducar mientras se rellena el formulario: comprobarla
+      // antes de subir cualquier archivo, además del control en crearSolicitud.
+      const { data: { user }, error } = await createClient().auth.getUser()
+      if (error || !user || user.is_anonymous || user.id !== usuarioId) {
+        setSesionVigente(false)
+        router.refresh()
+        return
+      }
       const uploadResults = await Promise.all(attachedFiles.map((file) => uploadFile(file)))
       // Si falla una subida no se publica la demanda: los profesionales verían
       // una demanda sin las fotos que creías haber adjuntado.
@@ -152,6 +177,8 @@ const SolicitudServicioForm = ({ embedded = false }: Props) => {
       setIsSubmitting(false)
     }
   }
+
+  if (!sesionVigente) return <SolicitudServicioAcceso embedded={embedded} />
 
   const formContent = (
     <Form {...form}>

@@ -1,4 +1,6 @@
 export const EN_DEMANDAS: Record<string, string> = {
+  "Crea tu cuenta para publicar una solicitud": "Create your account to post a request",
+  "Regístrate o inicia sesión antes de completar el cuestionario de tu proyecto.": "Sign up or sign in before completing your project questionnaire.",
   "Filtros guardados": "Saved filters",
   "Guardar filtros": "Save filters",
   "Gestionar filtros guardados": "Manage saved filters",

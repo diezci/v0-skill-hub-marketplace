@@ -1,0 +1,28 @@
+# Local credentials, test databases and audit artifacts are never deployment inputs.
+.env*
+.build
+.build/**
+.vercel
+.vercel/**
+.git
+.git/**
+node_modules
+node_modules/**
+.next
+.next/**
+.next-empresas/**
+outputs/**
+out/**
+build/**
+*.tsbuildinfo
+*.log
+.DS_Store
+# Native packages and store assets are released separately.
+android/**
+ios/**
+store-assets/**
+*.jks
+*.keystore
+*.p12
+*.p8
+*.mobileprovision

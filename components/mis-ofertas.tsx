@@ -48,7 +48,7 @@ import { crearConversacion } from "@/app/actions/messages"
 import { uploadFile } from "@/lib/upload-helpers"
 import { PlazoNecesidad } from "@/components/plazo-necesidad"
 import { useToast } from "@/hooks/use-toast"
-import { AdjuntosLista } from "@/components/adjuntos-lista"
+import { AdjuntosLista, nombreDeAdjunto } from "@/components/adjuntos-lista"
 import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
 import { calcularPagoProveedor, formatearPrecio, PLATFORM_CONFIG } from "@/lib/comisiones"
 
@@ -557,7 +557,7 @@ function MisOfertasContenido() {
                   >
                     <FileText className="h-3.5 w-3.5" />
                     <a href={url} target="_blank" rel="noreferrer" className="hover:underline max-w-[140px] truncate">
-                      {decodeURIComponent(url.split("/").pop()?.split("?")[0] || t("Archivo {count}", { count: i + 1 }))}
+                      {nombreDeAdjunto(url, i, idioma)}
                     </a>
                     <button
                       type="button"

@@ -122,6 +122,7 @@ function preparar(opciones = {}) {
   }
 
   const dependencias = {
+    "@/lib/i18n-servidor": { textoServidor: async (texto) => texto },
     "next/cache": { revalidatePath(ruta) { revalidaciones.push(ruta); eventos.push({ tipo: "revalidacion", ruta }) } },
     "@/lib/supabase/server": { createClient: async () => opciones.sinConexion ? null : supabase },
     "@/lib/notificaciones": {

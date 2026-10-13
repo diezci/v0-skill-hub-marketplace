@@ -156,6 +156,7 @@ export async function POST(request: Request) {
         break
       }
 
+      case "refund.failed":
       case "refund.updated": {
         // Delivery can be delayed or unordered. Re-read Stripe's current state
         // and match the durable operation before changing our ledger.
@@ -169,22 +170,26 @@ export async function POST(request: Request) {
         if (!escrow.liquidacion_operacion_id ||
           refund.metadata?.liquidacion_operacion_id !== escrow.liquidacion_operacion_id ||
           paymentIntentId !== escrow.stripe_payment_intent_id ||
-          (escrow.stripe_refund_id && escrow.stripe_refund_id !== refund.id) ||
           refund.amount !== Math.round(Number(escrow.monto_reembolsado) * 100)) {
           throw new Error("El reembolso de Stripe no coincide con la operación guardada.")
+        }
+        const sustitutoAutorizado = refund.metadata?.reintento_de === escrow.stripe_refund_id &&
+          refund.metadata?.reintento_de === escrow.stripe_refund_reintento_de
+        if (escrow.stripe_refund_id && escrow.stripe_refund_id !== refund.id && !sustitutoAutorizado) {
+          // A delayed event from a terminal predecessor cannot replace the new
+          // attempt. Active mismatches still require explicit reconciliation.
+          if (refund.status === "failed" || refund.status === "canceled") break
+          throw new Error("El reembolso de Stripe no coincide con el intento autorizado.")
         }
         if (escrow.liquidacion_estado === "completada" && refund.status !== "succeeded") {
           throw new Error("Una liquidación completada tiene un reembolso no confirmado; requiere conciliación.")
         }
-        const { data: actualizado, error: actualizarError } = await supabase.from("transacciones_escrow")
-          .update({
-            stripe_refund_id: refund.id,
-            stripe_refund_status: refund.status,
-            ...(refund.status === "failed" || refund.status === "canceled"
-              ? { liquidacion_estado: "error", liquidacion_error: `El reembolso ${refund.id} terminó como ${refund.status}.` }
-              : {}),
-          }).eq("id", escrow.id).eq("liquidacion_operacion_id", escrow.liquidacion_operacion_id)
-          .select("*").single()
+        const { data: actualizado, error: actualizarError } = await supabase.rpc("diime_registrar_estado_reembolso", {
+          p_escrow: escrow.id, p_operacion: escrow.liquidacion_operacion_id,
+          p_refund: refund.id, p_estado: refund.status,
+          p_error: `El reembolso ${refund.id} terminó como ${refund.status}${refund.failure_reason ? ` (${refund.failure_reason})` : ""}.`,
+          p_reintento_de: refund.metadata?.reintento_de || null,
+        })
         if (actualizarError) throw actualizarError
         if (refund.status === "succeeded" && actualizado.liquidacion_contexto &&
           actualizado.liquidacion_estado !== "completada" && !actualizado.stripe_disputa_id) {

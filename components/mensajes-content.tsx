@@ -127,10 +127,8 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
   // así que se abre a pantalla completa desde la cabecera del chat.
   const [panelMovil, setPanelMovil] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
-  const [messageInput, setMessageInput] = useState("")
   const [loading, setLoading] = useState(true)
-  const [sending, setSending] = useState(false)
-  const [currentUserId, setCurrentUserId] = useState<string>("user-1")
+  const [currentUserId, setCurrentUserId] = useState<string>("")
   const [searchQuery, setSearchQuery] = useState("")
   const [showMobileChat, setShowMobileChat] = useState(false)
   const [activeTab, setActiveTab] = useState<"all" | "unread" | "archived">("all")
@@ -138,13 +136,23 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messageComposerRef = useRef<HTMLTextAreaElement>(null)
   const [loadingMessages, setLoadingMessages] = useState(true) // Added state for message loading
-  const [newMessage, setNewMessage] = useState("") // State for new message input
-  const [sendingMessage, setSendingMessage] = useState(false) // State for sending message indicator
+  const [borradores, setBorradores] = useState<Record<string, string>>({})
+  const [enviosPendientes, setEnviosPendientes] = useState<Record<string, boolean>>({})
+  const enviosEnCurso = useRef(new Set<string>())
+  const newMessage = selectedConversation ? borradores[selectedConversation.id] || "" : ""
+  const sendingMessage = !!(selectedConversation && enviosPendientes[selectedConversation.id])
   const searchParams = useSearchParams()
   const router = useRouter()
   const autoSelectId = useRef("")
   const conversacionActual = useRef<string | null>(null)
-  const [uploading, setUploading] = useState(false)
+  const usuarioActual = useRef<string | null>(null)
+  const versionSesion = useRef(0)
+  const versionLectura = useRef(0)
+  const versionLista = useRef(0)
+  const versionValoracion = useRef(0)
+  const [subidasPendientes, setSubidasPendientes] = useState<Record<string, boolean>>({})
+  const subidasEnCurso = useRef(new Set<string>())
+  const uploading = !!(selectedConversation && subidasPendientes[selectedConversation.id])
   // Valorar desde el chat: trabajo completado pendiente de reseña con el otro usuario.
   const [reviewTrabajo, setReviewTrabajo] = useState<{ id: string; titulo?: string } | null>(null)
   const [reviewRating, setReviewRating] = useState(5)
@@ -188,31 +196,76 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
   }, [ultimoMensajeId])
 
   useEffect(() => {
-    async function loadData() {
-      setLoading(true)
-      // Solo datos reales: sin sesión (o sin cliente supabase) la lista queda vacía.
+    let activo = true
+    let eventosSesion = 0
+    let inicializado = false
+    const aplicarUsuario = async (id: string | null) => {
+      if (!activo || (inicializado && usuarioActual.current === id)) return
+      inicializado = true
+      usuarioActual.current = id
+      const version = ++versionSesion.current
+      ++versionLectura.current
+      const lecturaLista = ++versionLista.current
+      ++versionValoracion.current
+      conversacionActual.current = null
+      autoSelectId.current = ""
+      enviosEnCurso.current.clear()
+      subidasEnCurso.current.clear()
+      setCurrentUserId(id || "")
+      setConversations([])
+      setSelectedConversation(null)
+      setMessages([])
+      setBorradores({})
+      setEnviosPendientes({})
+      setSubidasPendientes({})
+      setProyectosCompartidos([])
+      setReviewTrabajo(null)
+      setReviewComentario("")
+      setReviewSubmitting(false)
+      setShowMobileChat(false)
+      setPanelMovil(false)
+      setLoading(!!id)
+      if (!id) return
       try {
-        const supabase = createClient()
-        const {
-          data: { user },
-        } = await supabase.auth.getUser()
-        if (user) {
-          setCurrentUserId(user.id)
-          const result = await obtenerConversaciones()
-          setConversations((result.data as Conversation[]) || [])
-        } else {
-          setConversations([])
-        }
+        const result = await obtenerConversaciones()
+        if (activo && versionSesion.current === version && versionLista.current === lecturaLista) setConversations((result.data as Conversation[]) || [])
       } catch {
-        setConversations([])
+        // La lista vacía no conserva conversaciones de una sesión anterior.
+      } finally {
+        if (activo && versionSesion.current === version) setLoading(false)
       }
-      setLoading(false)
     }
-    loadData()
+    let subscription: { unsubscribe(): void } | undefined
+    try {
+      const supabase = createClient()
+      subscription = supabase.auth.onAuthStateChange((_event, session) => {
+        ++eventosSesion
+        void aplicarUsuario(session?.user.id || null)
+      }).data.subscription
+      const inicio = eventosSesion
+      void supabase.auth.getUser().then(({ data }) => {
+        if (eventosSesion === inicio) void aplicarUsuario(data.user?.id || null)
+      }).catch(() => {
+        if (eventosSesion === inicio) void aplicarUsuario(null)
+      })
+    } catch {
+      void aplicarUsuario(null)
+    }
+    return () => {
+      activo = false
+      ++versionSesion.current
+      subscription?.unsubscribe()
+    }
   }, [])
 
   const handleSelectConversation = async (conv: Conversation) => {
+    if (!usuarioActual.current || usuarioActual.current !== currentUserId) return
+    const sesion = versionSesion.current
+    const lectura = ++versionLectura.current
     conversacionActual.current = conv.id
+    ++versionValoracion.current
+    setReviewTrabajo(null)
+    setReviewSubmitting(false)
     if (searchParams?.get("c") !== conv.id) {
       autoSelectId.current = conv.id
       router.replace(`${enPanelAdmin ? "/admin/mensajes" : "/mensajes"}?c=${encodeURIComponent(conv.id)}`, { scroll: false })
@@ -224,7 +277,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
     setLoadingMessages(true) // Set loading state before fetching messages
     try {
       const result = await obtenerMensajes(conv.id)
-      if (conversacionActual.current !== conv.id) return
+      if (versionSesion.current !== sesion || versionLectura.current !== lectura || conversacionActual.current !== conv.id) return
       if (result.error) {
         toast({ title: t("Error"), description: t(result.error), variant: "destructive" })
         return
@@ -233,24 +286,28 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
       setConversations(actuales => actuales.map(actual => actual.id === conv.id ? { ...actual, unread_count: 0 } : actual))
       window.dispatchEvent(new CustomEvent("diime:notification"))
     } catch {
-      if (conversacionActual.current === conv.id) toast({ title: t("Error"), description: t("No se pudo cargar la conversación. Vuelve a intentarlo."), variant: "destructive" })
+      if (versionSesion.current === sesion && versionLectura.current === lectura && conversacionActual.current === conv.id) toast({ title: t("Error"), description: t("No se pudo cargar la conversación. Vuelve a intentarlo."), variant: "destructive" })
     } finally {
-      if (conversacionActual.current === conv.id) setLoadingMessages(false)
+      if (versionSesion.current === sesion && versionLectura.current === lectura && conversacionActual.current === conv.id) setLoadingMessages(false)
     }
 
     // Historial completo de trabajos con este usuario para el panel lateral.
     if (enPanelAdmin || conv.empresarial) return
     const otroId = currentUserId === conv.participante_1 ? conv.participante_2 : conv.participante_1
     obtenerTrabajosConUsuario(otroId).then((r) => {
-      if (conversacionActual.current === conv.id) setProyectosCompartidos(r.data || [])
-    })
+      if (versionSesion.current === sesion && conversacionActual.current === conv.id) setProyectosCompartidos(r.data || [])
+    }).catch(() => {})
   }
 
   const cerrarConversacion = () => {
+    ++versionLectura.current
+    ++versionValoracion.current
     conversacionActual.current = null
     autoSelectId.current = ""
     setSelectedConversation(null)
     setMessages([])
+    setReviewTrabajo(null)
+    setReviewSubmitting(false)
     setShowMobileChat(false)
     router.replace(enPanelAdmin ? "/admin/mensajes" : "/mensajes", { scroll: false })
   }
@@ -262,65 +319,89 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
     if (!convId) return
     let activo = true
     const id = setInterval(async () => {
-      if (document.visibilityState !== "visible") return
+      if (document.visibilityState !== "visible" || !usuarioActual.current || usuarioActual.current !== currentUserId) return
+      const sesion = versionSesion.current
+      const lectura = ++versionLectura.current
       try {
         const result = await obtenerMensajes(convId)
-        if (!activo || conversacionActual.current !== convId || result.error) return
+        if (!activo || versionSesion.current !== sesion || versionLectura.current !== lectura || conversacionActual.current !== convId || result.error) return
         if (result.data) {
           const recibidosSinLeer = result.data.some((mensaje: Message) => mensaje.remitente_id !== currentUserId && !mensaje.leido)
           setMessages(result.data as Message[])
+          setLoadingMessages(false)
           setConversations(actuales => actuales.map(actual => actual.id === convId ? { ...actual, unread_count: 0 } : actual))
           if (recibidosSinLeer) window.dispatchEvent(new CustomEvent("diime:notification"))
         }
       } catch { /* Retry at the next poll without clearing the conversation. */ }
+      finally {
+        if (activo && versionSesion.current === sesion && versionLectura.current === lectura && conversacionActual.current === convId) setLoadingMessages(false)
+      }
     }, 4000)
     return () => { activo = false; clearInterval(id) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedConversation?.id, currentUserId])
 
   useEffect(() => {
+    let activo = true
     const id = setInterval(async () => {
-      if (document.visibilityState !== "visible") return
+      if (document.visibilityState !== "visible" || !usuarioActual.current) return
+      const sesion = versionSesion.current
+      const lectura = ++versionLista.current
       try {
         const result = await obtenerConversaciones()
-        if (result.data) setConversations(result.data as Conversation[])
+        if (activo && versionSesion.current === sesion && versionLista.current === lectura && result.data) setConversations(result.data as Conversation[])
       } catch {
         // silencioso: el siguiente tick lo reintenta
       }
     }, 20000)
-    return () => clearInterval(id)
+    return () => { activo = false; clearInterval(id) }
   }, [])
 
   // "Valorar": busca un trabajo completado sin reseña con el otro usuario y
   // abre el diálogo de valoración; si no lo hay, explica por qué no se puede.
   const handleValorar = async () => {
-    if (!selectedConversation) return
-    const result = await obtenerTrabajoValorable(getOtherUserId(selectedConversation))
-    if (result.error || !result.data) {
-      toast({ title: t("No se puede valorar todavía"), description: result.error ? t(result.error) : undefined })
-      return
+    if (!selectedConversation || !usuarioActual.current || usuarioActual.current !== currentUserId) return
+    const sesion = versionSesion.current
+    const valoracion = ++versionValoracion.current
+    try {
+      const result = await obtenerTrabajoValorable(getOtherUserId(selectedConversation))
+      if (versionSesion.current !== sesion || versionValoracion.current !== valoracion) return
+      if (result.error || !result.data) {
+        toast({ title: t("No se puede valorar todavía"), description: result.error ? t(result.error) : undefined })
+        return
+      }
+      setReviewRating(5)
+      setReviewComentario("")
+      setReviewTrabajo(result.data)
+    } catch {
+      if (versionSesion.current === sesion && versionValoracion.current === valoracion) toast({ title: t("Error"), description: t("Inténtalo de nuevo en unos segundos."), variant: "destructive" })
     }
-    setReviewRating(5)
-    setReviewComentario("")
-    setReviewTrabajo(result.data)
   }
 
   const handleEnviarValoracion = async () => {
-    if (!reviewTrabajo || !selectedConversation) return
+    if (!reviewTrabajo || !selectedConversation || reviewSubmitting || !usuarioActual.current || usuarioActual.current !== currentUserId) return
+    const sesion = versionSesion.current
+    const valoracion = ++versionValoracion.current
     setReviewSubmitting(true)
-    const result = await crearResena({
-      trabajo_id: reviewTrabajo.id,
-      profesional_id: getOtherUserId(selectedConversation),
-      rating: reviewRating,
-      comentario: reviewComentario,
-    })
-    if (result.error) {
-      toast({ title: t("Error"), description: result.error ? t(result.error) : undefined, variant: "destructive" })
-    } else {
-      toast({ title: t("Valoración enviada"), description: t("Gracias por valorar a este profesional.") })
-      setReviewTrabajo(null)
+    try {
+      const result = await crearResena({
+        trabajo_id: reviewTrabajo.id,
+        profesional_id: getOtherUserId(selectedConversation),
+        rating: reviewRating,
+        comentario: reviewComentario,
+      })
+      if (versionSesion.current !== sesion || versionValoracion.current !== valoracion) return
+      if (result.error) {
+        toast({ title: t("Error"), description: t(result.error), variant: "destructive" })
+      } else {
+        toast({ title: t("Valoración enviada"), description: t("Gracias por valorar a este profesional.") })
+        setReviewTrabajo(null)
+      }
+    } catch {
+      if (versionSesion.current === sesion && versionValoracion.current === valoracion) toast({ title: t("Error"), description: t("Inténtalo de nuevo en unos segundos."), variant: "destructive" })
+    } finally {
+      if (versionSesion.current === sesion && versionValoracion.current === valoracion) setReviewSubmitting(false)
     }
-    setReviewSubmitting(false)
   }
 
   // Si llegamos con ?c=<id>, abrir esa conversación automáticamente.
@@ -349,19 +430,35 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
   }, [searchParams])
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedConversation) return
-
-    setSendingMessage(true)
-    const result = await enviarMensaje(selectedConversation.id, newMessage)
-
-    if (result.error) {
-      toast({ title: t("No se pudo enviar"), description: result.error ? t(result.error) : undefined, variant: "destructive" })
-    } else if (result.data) {
-      setMessages([...messages, result.data as Message])
+    if (!newMessage.trim() || !selectedConversation || !usuarioActual.current || usuarioActual.current !== currentUserId || selectedConversation.puede_escribir === false) return
+    const convId = selectedConversation.id
+    if (enviosEnCurso.current.has(convId)) return
+    const sesion = versionSesion.current
+    const contenido = newMessage
+    enviosEnCurso.current.add(convId)
+    setEnviosPendientes(actuales => ({ ...actuales, [convId]: true }))
+    try {
+      const result = await enviarMensaje(convId, contenido)
+      if (versionSesion.current !== sesion) return
+      if (result.error || !result.data) {
+        toast({ title: t("No se pudo enviar"), description: t(result.error || "No se pudo enviar el mensaje. Inténtalo de nuevo."), variant: "destructive" })
+        return
+      }
+      const mensaje = result.data
+      if (conversacionActual.current === convId) {
+        ++versionLectura.current
+        setMessages(actuales => actuales.some(m => m.id === mensaje.id) ? actuales : [...actuales, mensaje])
+        setLoadingMessages(false)
+      }
+      setBorradores(actuales => actuales[convId] === contenido ? { ...actuales, [convId]: "" } : actuales)
+    } catch {
+      if (versionSesion.current === sesion) toast({ title: t("No se pudo enviar"), description: t("Comprueba la conexión y vuelve a intentarlo. Tu borrador se ha conservado."), variant: "destructive" })
+    } finally {
+      if (versionSesion.current === sesion) {
+        enviosEnCurso.current.delete(convId)
+        setEnviosPendientes(actuales => ({ ...actuales, [convId]: false }))
+      }
     }
-
-    setNewMessage("")
-    setSendingMessage(false)
   }
 
   const getOtherUserId = (conv: Conversation) =>
@@ -371,29 +468,42 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = "" // permitir re-seleccionar el mismo archivo
-    if (!file || !selectedConversation) return
-    setUploading(true)
+    if (!file || !selectedConversation || !usuarioActual.current || usuarioActual.current !== currentUserId || selectedConversation.puede_escribir === false) return
+    const convId = selectedConversation.id
+    if (subidasEnCurso.current.has(convId)) return
+    const sesion = versionSesion.current
+    subidasEnCurso.current.add(convId)
+    setSubidasPendientes(actuales => ({ ...actuales, [convId]: true }))
     try {
       const formData = new FormData()
       formData.append("file", file)
       const res = await fetch("/api/upload", { method: "POST", body: formData })
       if (!res.ok) throw new Error("upload failed")
       const { url, filename, type } = await res.json()
+      if (versionSesion.current !== sesion) return
       const tipo: "imagen" | "archivo" = type?.startsWith("image/") ? "imagen" : "archivo"
-      const result = await enviarMensaje(selectedConversation.id, "", { tipo, url, nombre: filename })
-      if (result.error) {
-        toast({ title: t("Error"), description: result.error ? t(result.error) : undefined, variant: "destructive" })
-      } else if (result.data) {
-        setMessages((prev) => [...prev, result.data as Message])
+      const result = await enviarMensaje(convId, "", { tipo, url, nombre: filename })
+      if (versionSesion.current !== sesion) return
+      if (result.error || !result.data) {
+        toast({ title: t("Error"), description: t(result.error || "No se pudo enviar el mensaje. Inténtalo de nuevo."), variant: "destructive" })
+      } else if (result.data && conversacionActual.current === convId) {
+        ++versionLectura.current
+        const mensaje = result.data
+        setMessages(actuales => actuales.some(m => m.id === mensaje.id) ? actuales : [...actuales, mensaje])
+        setLoadingMessages(false)
       }
     } catch {
+      if (versionSesion.current !== sesion) return
       toast({
         title: t("No se pudo subir el archivo"),
         description: t("Inténtalo de nuevo en unos segundos."),
         variant: "destructive",
       })
     } finally {
-      setUploading(false)
+      if (versionSesion.current === sesion) {
+        subidasEnCurso.current.delete(convId)
+        setSubidasPendientes(actuales => ({ ...actuales, [convId]: false }))
+      }
     }
   }
 
@@ -989,6 +1099,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                     variant="ghost"
                     size="icon"
                     disabled={uploading || selectedConversation.puede_escribir === false}
+                    aria-busy={uploading}
                     aria-label={t("Adjuntar archivo")}
                     className="shrink-0 h-10 w-10 text-muted-foreground"
                     onClick={() => fileInputRef.current?.click()}
@@ -1003,7 +1114,11 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                       placeholder={t("Escribe un mensaje...")}
                       rows={1}
                       value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
+                      onChange={(e) => {
+                        const convId = selectedConversation.id
+                        const contenido = e.target.value
+                        setBorradores(actuales => ({ ...actuales, [convId]: contenido }))
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                           e.preventDefault()
@@ -1025,6 +1140,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                     type="submit"
                     size="icon"
                     aria-label={t("Enviar mensaje")}
+                    aria-busy={sendingMessage}
                     disabled={!newMessage.trim() || sendingMessage || selectedConversation.puede_escribir === false}
                     className="bg-primary hover:bg-primary/90 shrink-0 h-10 w-10 rounded-full"
                   >

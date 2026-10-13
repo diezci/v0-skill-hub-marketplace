@@ -353,7 +353,7 @@ export async function obtenerProfesionalesDestacados() {
       // First, get professionals
       const { data: profesionales, error: profError } = await supabase
         .from("profesionales")
-        .select("id, titulo, tarifa_por_hora, rating_promedio, total_reseñas, disponible")
+        .select('id, titulo, tarifa_por_hora, rating_promedio, "total_reseñas", disponible')
         .eq("disponible", true)
         .order("total_reseñas", { ascending: false })
         .limit(6)

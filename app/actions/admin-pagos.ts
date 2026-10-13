@@ -54,3 +54,46 @@ export async function comprobarReembolsoAdmin(escrowId: string) {
     return { error: await textoServidor("No se pudo consultar el reembolso en Stripe. Vuelve a intentarlo.") }
   }
 }
+
+/** Explicit financial recovery. The expected Refund prevents a stale click from authorizing a later failure. */
+export async function reintentarReembolsoAdmin(escrowId: string, refundEsperado: string) {
+  if (!idNotificacionValido(escrowId) || typeof refundEsperado !== "string" || !refundEsperado.trim()) return { error: "Pago no válido" }
+  const supabase = await createClient()
+  if (!supabase) return { error: "Base de datos no disponible" }
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: "No autenticado" }
+  const { data: perfil, error: perfilError } = await supabase.from("profiles").select("es_admin").eq("id", user.id).maybeSingle()
+  if (perfilError || !perfil?.es_admin) return { error: "No tienes permiso" }
+  const admin = createAdminClient()
+  if (!admin) return { error: "Base de datos no disponible" }
+  try {
+    const { data: pago, error } = await admin.from("transacciones_escrow").select("*").eq("id", escrowId).maybeSingle()
+    if (error || !pago || pago.stripe_refund_id !== refundEsperado || !pago.liquidacion_operacion_id ||
+      pago.liquidacion_estado === "completada" || pago.stripe_disputa_id) return { error: "El pago cambió o requiere conciliación. Actualiza su estado." }
+    const refund = await stripe.refunds.retrieve(pago.stripe_refund_id)
+    const intent = typeof refund.payment_intent === "string" ? refund.payment_intent : refund.payment_intent?.id
+    const chargeId = typeof refund.charge === "string" ? refund.charge : refund.charge?.id
+    if (refund.id !== refundEsperado || intent !== pago.stripe_payment_intent_id || chargeId !== pago.stripe_charge_id ||
+      refund.currency !== "eur" || refund.amount !== Math.round(Number(pago.monto_reembolsado) * 100) ||
+      (refund.metadata?.liquidacion_operacion_id && refund.metadata.liquidacion_operacion_id !== pago.liquidacion_operacion_id) ||
+      !["failed", "canceled"].includes(refund.status || "") || refund.failure_reason === "charge_for_pending_refund_disputed" ||
+      !chargeId || (await stripe.charges.retrieve(chargeId)).disputed) {
+      return { error: "El reembolso no admite otro intento. Revisa su estado y cualquier contracargo en Stripe." }
+    }
+    const { error: guardarError } = await admin.rpc("diime_registrar_estado_reembolso", {
+      p_escrow: pago.id, p_operacion: pago.liquidacion_operacion_id, p_refund: refund.id,
+      p_estado: refund.status, p_error: `Reembolso ${refund.status}: ${refund.failure_reason || "unknown"}`,
+      p_reintento_de: refund.metadata?.reintento_de || null,
+    })
+    if (guardarError) throw guardarError
+    const { data: autorizado, error: autorizarError } = await admin.rpc("diime_autorizar_reintento_reembolso", {
+      p_escrow: pago.id, p_actor: user.id, p_refund: refund.id, p_motivo: refund.failure_reason || "unknown",
+    })
+    if (autorizarError) throw autorizarError
+    const { liquidarPagoReclamado } = await import("@/lib/flujo-pagos")
+    await liquidarPagoReclamado(admin, autorizado)
+    return { success: true }
+  } catch {
+    return { error: "El intento no ha completado la liquidación. Actualiza el estado; se conserva el mismo reparto y el historial para conciliarlo." }
+  }
+}

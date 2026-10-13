@@ -108,8 +108,9 @@ export async function obtenerMisTrabajos() {
         (escrows || []).find((fila: any) => fila.estado === "pendiente") ??
         null
 
+      const { notas_privadas_proveedor: _notasPrivadas, ...trabajoCompartido } = trabajo
       return {
-        ...trabajo,
+        ...trabajoCompartido,
         empresa_cliente: empresas[trabajo.empresa_cliente_id] || null,
         empresa_proveedora: empresas[trabajo.empresa_proveedora_id] || null,
         cliente,

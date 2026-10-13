@@ -37,7 +37,8 @@ import {
 import { cn } from "@/lib/utils"
 import { DiimeLogo } from "@/components/diime-logo"
 import { createClient } from "@/lib/supabase/client"
-import { desvincularPushActual, sincronizarBadgeApp } from "@/lib/push/client"
+import { sincronizarBadgeApp } from "@/lib/push/client"
+import { cerrarSesionActual } from "@/lib/auth-logout"
 import { useResumenNotificaciones } from "@/hooks/use-notificaciones-seccion"
 import { CampanaNotificaciones } from "@/components/campana-notificaciones"
 import type { NotificacionContextual } from "@/lib/notificaciones-contexto"
@@ -70,6 +71,8 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
   const [userPhoto, setUserPhoto] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [isProfessional, setIsProfessional] = useState(false)
+  const [closingSession, setClosingSession] = useState(false)
+  const cierrePendiente = useRef(false)
   const { resumen, usuarioId } = useResumenNotificaciones()
   const notificacionesNoLeidas = resumen.noLeidas
   const mensajesNoLeidos = resumen.mensajesNoLeidos
@@ -110,9 +113,21 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
       return
     }
 
+    let activo = true
+    let revision = 0
+    let usuarioVisible: string | null = null
     const aplicarSesion = async (user: { id: string; email?: string } | null) => {
+      if (!activo) return
+      const actual = ++revision
       setIsAuthenticated(!!user)
       setUserEmail(user?.email ?? null)
+      if (usuarioVisible !== (user?.id ?? null)) {
+        setIsAdmin(false)
+        setIsProfessional(false)
+        setUserName(null)
+        setUserPhoto(null)
+      }
+      usuarioVisible = user?.id ?? null
       if (!user) {
         setIsAdmin(false)
         setIsProfessional(false)
@@ -129,6 +144,7 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
           .maybeSingle(),
         supabase.from("profesionales").select("id").eq("id", user.id).maybeSingle(),
       ])
+      if (!activo || revision !== actual) return
       setIsAdmin(!!profile?.es_admin)
       setIsProfessional(!!professional)
       const nombreCompleto = `${profile?.nombre ?? ""} ${profile?.apellido ?? ""}`.trim()
@@ -137,20 +153,21 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
     }
 
     const checkAuth = async () => {
+      const inicial = revision
       const {
         data: { session },
       } = await supabase.auth.getSession()
-      aplicarSesion(session?.user ?? null)
+      if (activo && revision === inicial) await aplicarSesion(session?.user ?? null)
     }
-    checkAuth()
+    void checkAuth().catch(() => {})
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      aplicarSesion(session?.user ?? null)
+      void aplicarSesion(session?.user ?? null).catch(() => {})
     })
 
-    return () => subscription.unsubscribe()
+    return () => { activo = false; ++revision; subscription.unsubscribe() }
   }, [actorEmpresaLocal])
 
   // Los admins solo deben ver el panel de administración. La única excepción
@@ -206,22 +223,26 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
       setIsOpen(false)
       return
     }
+    if (cierrePendiente.current) return
+    cierrePendiente.current = true
+    setClosingSession(true)
     try {
-      await desvincularPushActual()
-      const supabase = createClient()
-      await supabase.auth.signOut({ scope: "local" })
-    } catch (e) {
-      console.error("[navbar] Error al cerrar sesión:", e)
+      await cerrarSesionActual()
+      setIsAuthenticated(false)
+      setUserEmail(null)
+      setUserName(null)
+      setUserPhoto(null)
+      setIsAdmin(false)
+      setIsProfessional(false)
+      setIsOpen(false)
+      router.push("/")
+      router.refresh()
+    } catch {
+      toast({ title: t("No se pudo cerrar la sesión"), description: t("Tu sesión sigue abierta. Comprueba la conexión y vuelve a intentarlo."), variant: "destructive" })
+    } finally {
+      cierrePendiente.current = false
+      setClosingSession(false)
     }
-    setIsAuthenticated(false)
-    setUserEmail(null)
-    setUserName(null)
-    setUserPhoto(null)
-    setIsAdmin(false)
-    setIsProfessional(false)
-    setIsOpen(false)
-    router.push("/")
-    router.refresh()
   }
 
   // Iniciales para el avatar: del nombre si existe, si no del email.
@@ -380,6 +401,7 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={handleLogout}
+                    disabled={closingSession} aria-busy={closingSession}
                     className="cursor-pointer text-red-600 focus:text-red-600"
                   >
                     <LogOut className="mr-2 h-4 w-4" />
@@ -539,6 +561,7 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
                   <button
                     type="button"
                     onClick={handleLogout}
+                    disabled={closingSession} aria-busy={closingSession}
                     className="px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-500/10 flex items-center gap-3 text-left"
                   >
                     <LogOut className="h-5 w-5 shrink-0" />

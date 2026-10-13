@@ -20,7 +20,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { useState } from "react"
-import { crearReview } from "@/app/actions/reviews"
+import { crearResena, obtenerTrabajoValorable } from "@/app/actions/reviews"
 import { useToast } from "@/hooks/use-toast"
 
 interface Review {
@@ -96,22 +96,34 @@ export default function ProfileReviews({
     }
 
     setSubmitting(true)
-    const result = await crearReview({
-      profesional_id: profesionalId,
-      rating: reviewRating,
-      comentario: reviewComment,
-      proyecto_tipo: reviewProjectType,
-    })
+    try {
+      const trabajo = await obtenerTrabajoValorable(profesionalId)
+      if (!trabajo.data) {
+        toast({
+          title: t("No se puede valorar todavía"),
+          description: trabajo.error ? t(trabajo.error) : undefined,
+          variant: "destructive",
+        })
+        return
+      }
 
-    setSubmitting(false)
-
-    if (result.error) {
-      toast({
-        title: t("Error"),
-        description: result.error ? t(result.error) : undefined,
-        variant: "destructive",
+      const result = await crearResena({
+        trabajo_id: trabajo.data.id,
+        profesional_id: profesionalId,
+        rating: reviewRating,
+        comentario: reviewComment,
+        tipo_proyecto: reviewProjectType,
       })
-    } else {
+
+      if (result.error) {
+        toast({
+          title: t("Error"),
+          description: t(result.error),
+          variant: "destructive",
+        })
+        return
+      }
+
       toast({
         title: t("Reseña enviada"),
         description: t("Tu valoración ha sido publicada"),
@@ -121,6 +133,13 @@ export default function ProfileReviews({
       setReviewProjectType("")
       setReviewRating(5)
       window.location.reload()
+    } catch {
+      toast({
+        title: t("Error"),
+        variant: "destructive",
+      })
+    } finally {
+      setSubmitting(false)
     }
   }
 

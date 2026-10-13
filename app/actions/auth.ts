@@ -165,6 +165,7 @@ export async function registrarUsuario(formData: {
 
 export async function resetPassword(email: string) {
   const supabase = await createClient()
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos") }
 
   // Use NEXT_PUBLIC_SITE_URL for production, fallback to VERCEL_URL, then localhost
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
@@ -184,6 +185,7 @@ export async function resetPassword(email: string) {
 
 export async function updatePassword(newPassword: string) {
   const supabase = await createClient()
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos") }
 
   const { error } = await supabase.auth.updateUser({
     password: newPassword,
@@ -227,6 +229,7 @@ export async function confirmarMayoriaEdad() {
 
 export async function signInWithGoogle() {
   const supabase = await createClient()
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos") }
 
   // Use NEXT_PUBLIC_SITE_URL for production, fallback to VERCEL_URL, then localhost
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
@@ -338,6 +341,7 @@ export async function eliminarMiCuenta() {
 // Company management functions
 export async function obtenerEmpresa() {
   const supabase = await createClient()
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos") }
 
   const {
     data: { user },
@@ -365,6 +369,7 @@ export async function obtenerEmpresa() {
 
 export async function loginConGoogle() {
   const supabase = await createClient()
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos") }
 
   // Use NEXT_PUBLIC_SITE_URL for production, fallback to VERCEL_URL, then localhost
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
@@ -395,6 +400,7 @@ export async function loginConGoogle() {
 
 export async function obtenerMiembrosEmpresa() {
   const supabase = await createClient()
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos") }
 
   const {
     data: { user },

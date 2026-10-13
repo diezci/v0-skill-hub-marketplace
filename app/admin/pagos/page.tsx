@@ -7,7 +7,7 @@ import { useIdioma } from "@/components/idioma-provider"
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { comprobarReembolsoAdmin } from "@/app/actions/admin-pagos"
+import { comprobarReembolsoAdmin, reintentarReembolsoAdmin } from "@/app/actions/admin-pagos"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -82,6 +82,8 @@ export default function AdminPagosPage() {
   const [busqueda, setBusqueda] = useState("")
   const [detalleId, setDetalleId] = useState<string | null>(null)
   const [verificandoId, setVerificandoId] = useState<string | null>(null)
+  const [reintentando, setReintentando] = useState(false)
+  const [resultadoReintento, setResultadoReintento] = useState<{ escrowId: string; mensaje: string } | null>(null)
   const [consultaStripe, setConsultaStripe] = useState<{ escrowId: string; data?: ReembolsoStripe; error?: string } | null>(null)
   const params = useSearchParams()
   const router = useRouter()
@@ -158,6 +160,18 @@ export default function AdminPagosPage() {
       setConsultaStripe({ escrowId: id, ...resultado })
     } catch { setConsultaStripe({ escrowId: id, error: t("No se pudo comprobar el reembolso en Stripe.") }) }
     finally { setVerificandoId(actual => actual === id ? null : actual) }
+  }
+  const reintentarReembolso = async () => {
+    if (!detalle?.stripe_refund_id || reintentando) return
+    setReintentando(true)
+    setResultadoReintento(null)
+    try {
+      const resultado = await reintentarReembolsoAdmin(detalle.id, detalle.stripe_refund_id)
+      setResultadoReintento({ escrowId: detalle.id, mensaje: resultado.error || "Liquidación completada. El banco puede tardar en reflejar el reembolso." })
+      setConsultaStripe(null)
+      await cargarTransacciones()
+    } catch { setResultadoReintento({ escrowId: detalle.id, mensaje: "No se pudo completar el intento. Actualiza el estado antes de continuar." }) }
+    finally { setReintentando(false) }
   }
   const fechaHora = (fecha: string | null) => fecha ? new Intl.DateTimeFormat(localeDe(idioma), { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(fecha)) : t("No consta")
 
@@ -426,6 +440,14 @@ export default function AdminPagosPage() {
               {detalle.stripe_payment_intent_id && <Button asChild variant="outline" size="sm"><a href={`https://dashboard.stripe.com/payments/${encodeURIComponent(detalle.stripe_payment_intent_id)}`} target="_blank" rel="noopener noreferrer">{t("Abrir este pago en Stripe")}<ExternalLink className="ml-2 h-4 w-4" /></a></Button>}
               {detalle.cliente_id && <Button asChild variant="outline" size="sm"><Link href={`/admin/incidencias?usuario=${detalle.cliente_id}`}>{t("Ver incidencias del cliente")}</Link></Button>}
               {detalle.stripe_refund_id && <Button onClick={() => void comprobarReembolso(detalle.id)} disabled={verificandoId === detalle.id} size="sm">{verificandoId === detalle.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}{t("Comprobar reembolso en Stripe")}</Button>}
+              {detalle.liquidacion_estado !== "completada" && resultadoStripe?.data &&
+                ["failed", "canceled"].includes(resultadoStripe.data.estado) && resultadoStripe.data.fallo !== "charge_for_pending_refund_disputed" && (
+                <div className="space-y-2 rounded border border-amber-300 p-3">
+                  <p className="text-sm">{t("El intento anterior falló. Autoriza otro solo después de revisar la causa en Stripe. Si el banco no admite la devolución, será necesario acordar otra vía; este botón no registra pagos externos.")}</p>
+                  <Button disabled={reintentando} onClick={() => void reintentarReembolso()}>{reintentando ? t("Reintentando…") : t("Autorizar un nuevo intento de reembolso")}</Button>
+                </div>
+              )}
+              {resultadoReintento?.escrowId === detalle.id && <p role="status" className="text-sm">{t(resultadoReintento.mensaje)}</p>}
             </div>
             {resultadoStripe?.error && <p role="alert" className="rounded-lg border border-destructive/30 p-3 text-sm text-destructive">{resultadoStripe.error}</p>}
             {resultadoStripe?.data && <div role="status" className="space-y-2 rounded-lg border bg-muted/20 p-4">

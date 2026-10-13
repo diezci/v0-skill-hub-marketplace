@@ -5,7 +5,7 @@ import { useT } from "@/components/idioma-provider"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MessageCircle, Clock, MapPin, Calendar, Globe } from "lucide-react"
+import { MessageCircle, Clock, MapPin, Globe } from "lucide-react"
 import type { ProfessionalProfile } from "@/lib/profiles-data"
 import { useChatWidget } from "@/components/chat-widget"
 
@@ -48,14 +48,6 @@ export default function ProfileSidebar({ profile }: { profile: ProfessionalProfi
             <div>
               <p className="text-sm font-medium">{t("Ubicación")}</p>
               <p className="text-sm text-muted-foreground">{profile.location}</p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3">
-            <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
-            <div>
-              <p className="text-sm font-medium">{t("Miembro desde")}</p>
-              <p className="text-sm text-muted-foreground">{profile.memberSince}</p>
             </div>
           </div>
 

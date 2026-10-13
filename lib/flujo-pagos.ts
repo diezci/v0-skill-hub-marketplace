@@ -2,7 +2,7 @@ import "server-only"
 
 import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
-import { crearTransferGroup, ejecutarLiquidacionStripe } from "@/lib/stripe-liquidacion"
+import { crearTransferGroup, ejecutarLiquidacionStripe, ReembolsoStripeNoCompletado } from "@/lib/stripe-liquidacion"
 import { rechazarYNotificarOfertasPerdedoras } from "@/lib/ofertas-perdedoras"
 import { validarCuentaCobroContrato } from "@/lib/empresas/cobros"
 import { destinatariosOperacionEmpresa } from "@/lib/empresas/notificaciones"
@@ -75,6 +75,7 @@ export async function liquidarPagoReclamado(admin: any, escrow: any) {
           transferGroup: escrow.stripe_transfer_group || crearTransferGroup(escrow.trabajo_id),
           montoTotal: Number(escrow.monto),
           refundId: escrow.stripe_refund_id,
+          reintentarTrasRefundId: escrow.stripe_refund_reintento_de,
           transferId: escrow.stripe_transfer_id,
           reembolsoCliente: Number(escrow.monto_reembolsado),
           netoProveedor: Number(escrow.pago_neto_proveedor),
@@ -102,6 +103,14 @@ export async function liquidarPagoReclamado(admin: any, escrow: any) {
     await enviarAvisosExternos(data.avisos, admin)
     return data
   } catch (error: any) {
+    if (error instanceof ReembolsoStripeNoCompletado) {
+      const { error: guardarError } = await admin.rpc("diime_registrar_estado_reembolso", {
+        p_escrow: escrow.id, p_operacion: escrow.liquidacion_operacion_id,
+        p_refund: error.refund.id, p_estado: error.refund.status,
+        p_error: error.message, p_reintento_de: error.refund.metadata?.reintento_de || null,
+      })
+      if (guardarError) throw guardarError
+    }
     // Never restore the economic state after a partial Stripe operation. The
     // same claim must resume; a dispute/withdrawal cannot steal this payment.
     await admin.from("transacciones_escrow")

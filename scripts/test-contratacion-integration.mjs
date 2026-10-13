@@ -151,7 +151,18 @@ try {
     await denied(pro,"update trabajos set estado='completado' where id=$1",[job.id])
   })
   await test("La planificación del calendario sigue disponible solo para el proveedor", async () => {
-    await actor(pro,"update trabajos set horas_estimadas=12,horas_registradas=8,notas_privadas_proveedor='Pendiente revisión',prioridad='alta' where id=$1",[job.id])
+    const privacidadActual = (await db.query("select to_regprocedure('public.actualizar_planificacion_trabajo(uuid,jsonb)') is not null as disponible")).rows[0].disponible
+    if (privacidadActual) {
+      await actor(pro,"select actualizar_planificacion_trabajo($1,$2)",[job.id,JSON.stringify({horas_estimadas:12,horas_registradas:8,notas_privadas_proveedor:'Pendiente revisión',prioridad:'alta'})])
+      const notas = await actor(pro,"select * from notas_trabajos_proveedor($1)",[[job.id]])
+      assert.equal(notas.rows[0].notas_privadas_proveedor,'Pendiente revisión')
+      assert.equal((await actor(client,"select notas_privadas_proveedor from trabajos where id=$1",[job.id])).rows[0].notas_privadas_proveedor,null)
+    } else {
+      // El runner histórico de septiembre conserva su esquema original.
+      // test-privacidad-workflow.mjs exige y verifica la protección actual.
+      const anterior = await actor(pro,"update trabajos set horas_estimadas=12,horas_registradas=8,notas_privadas_proveedor='Pendiente revisión',prioridad='alta' where id=$1 returning horas_registradas",[job.id])
+      assert.equal(Number(anterior.rows[0].horas_registradas),8)
+    }
     await denied(client,"update trabajos set horas_registradas=999 where id=$1",[job.id])
   })
   await test("Proveedor a nombre de empresa contrata con su identidad; otro miembro no obtiene permisos", async () => {

@@ -17,6 +17,10 @@ const schema=JSON.parse(await fs.readFile(new URL('./fixtures/workflow-schema-20
 const grants=JSON.parse(await fs.readFile(new URL('./fixtures/workflow-grants-20260909.json',import.meta.url),'utf8'));
 const conn={host:'127.0.0.1',port,user:'postgres',password:'workflow-local-only'};
 const migrationFiles=['051_presupuesto_avisos_profesionales.sql','052_snapshot_comision_ofertas.sql',...(await fs.readdir(path.join(root,'supabase/migrations'))).filter(f=>/^\d{14}_/.test(f)).sort()];
+if (process.env.DIIME_REMOTE_MIGRATION_DIR) {
+  const dir = path.resolve(process.env.DIIME_REMOTE_MIGRATION_DIR);
+  migrationFiles.push(...(await fs.readdir(dir)).filter(f => /^\d{14}_.*\.sql$/.test(f)).sort().map(f => path.join(dir, f)));
+}
 async function restore(name,withMigrations) {
   await server.createDatabase(name);
   const db=new pg.Client({...conn,database:name});await db.connect();
@@ -43,7 +47,7 @@ async function restore(name,withMigrations) {
     for(const p of schema.policies)await db.query(`CREATE POLICY ${quote(p.policyname)} ON public.${quote(p.tablename)} AS ${p.permissive} FOR ${p.cmd} TO ${p.roles.map(quote).join(',')}${p.qual?' USING ('+p.qual+')':''}${p.with_check?' WITH CHECK ('+p.with_check+')':''}`);
     for(const g of grants.tables)await db.query(`GRANT ${g.privilege} ON public.${quote(g.table)} TO ${g.role==='PUBLIC'?'PUBLIC':quote(g.role)}`);
     for(const g of grants.columns)await db.query(`GRANT ${g.privilege} (${quote(g.column)}) ON public.${quote(g.table)} TO ${g.role==='PUBLIC'?'PUBLIC':quote(g.role)}`);
-    if(withMigrations)for(const name of migrationFiles){await db.query('BEGIN');try{await db.query(await fs.readFile(path.join(root,'supabase/migrations',name),'utf8'));await db.query('COMMIT')}catch(e){await db.query('ROLLBACK');throw new Error(`${name}: ${e.message}`,{cause:e})}}
+    if(withMigrations)for(const name of migrationFiles){await db.query('BEGIN');try{await db.query(await fs.readFile(path.isAbsolute(name) ? name : path.join(root,'supabase/migrations',name),'utf8'));await db.query('COMMIT')}catch(e){await db.query('ROLLBACK');throw new Error(`${name}: ${e.message}`,{cause:e})}}
   }finally{await db.end();}
 }
 
@@ -250,6 +254,10 @@ try {
   checks.push('aprobación compitiendo con cambio de empresa nunca deja insignia de la representación anterior');
   const removedCompany = (await actor('borradoEmpresa',linkSql,['Empresa eliminable local','BLOCALDELETE','33333333Z','Gerente'])).rows[0].id;
   await request('borradoEmpresa'); await review('borradoEmpresa','verificado');
+  // La membresía incorporada después de esta prueba impide borrar la empresa.
+  // Retiramos únicamente la relación de esta fixture antes de ejercitar SET NULL.
+  await db.query('delete from public.empresa_miembros where empresa_id=$1',[removedCompany]);
+  await db.query('delete from public.empresa_actividad where empresa_id=$1',[removedCompany]);
   await db.query('delete from public.empresas where id=$1',[removedCompany]);
   await invariant('borradoEmpresa','retirada',false);
   assert.equal((await snapshot('borradoEmpresa')).empresa_actual,null);
@@ -264,6 +272,10 @@ try {
   assert.ok(permissions.rows.filter(r => r.nspname === 'public').every(r => !r.prosecdef));
   assert.deepEqual(await fingerprint(),before);
   checks.push('RPC públicos invoker, sin acceso anónimo; tablas económicas y avisos intactos');
+  if (process.env.DIIME_EMPRESA_EXTRA_SCENARIOS) {
+    const { run } = await import(process.env.DIIME_EMPRESA_EXTRA_SCENARIOS);
+    await run({ db, actor, ids, connection, migrationFiles });
+  }
   const evidence = {resultado:'correcto',pruebas:checks.length,postgres:17,migraciones:migrationFiles,checks};
   await fs.writeFile(path.join(root,'.build','verification-integration-results.json'),JSON.stringify(evidence,null,2));
   console.log(JSON.stringify(evidence,null,2));

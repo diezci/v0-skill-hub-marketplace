@@ -1,7 +1,8 @@
-export async function uploadFile(file: File): Promise<{ url: string; filename: string } | null> {
+export async function uploadFile(file: File, options?: { purpose: "imagen_publica" }): Promise<{ url: string; filename: string } | null> {
   try {
     const formData = new FormData()
     formData.append("file", file)
+    if (options?.purpose) formData.append("purpose", options.purpose)
 
     const response = await fetch("/api/upload", {
       method: "POST",

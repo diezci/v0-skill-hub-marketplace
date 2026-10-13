@@ -15,6 +15,7 @@
     "dev": "next dev",
     "dev:empresas": "DIIME_EMPRESAS_LOCAL=1 next dev --hostname 127.0.0.1 --port 3200",
     "lint": "eslint .",
+    "typecheck": "next typegen && tsc --noEmit",
     "ops:create-review-accounts": "node --no-warnings scripts/create-review-accounts.mjs",
     "test:i18n": "node scripts/test-i18n.mjs && node --no-warnings scripts/test-i18n-errores.mjs && node scripts/test-i18n-notificaciones.mjs && node scripts/test-offline-worker.mjs",
     "test:comisiones": "node --no-warnings --experimental-strip-types scripts/test-comisiones.mjs",
@@ -27,7 +28,8 @@
     "start": "next start",
     "test:admin-pagos": "node scripts/test-admin-reembolso.mjs && node scripts/test-admin-pagos-ui.mjs",
     "test:cobros": "node scripts/test-cobros-representacion.mjs && node scripts/test-cobros-representacion-ui.mjs",
-    "test:reembolsos": "node scripts/test-stripe-recuperacion.mjs && node scripts/test-reembolsos-ui.mjs"
+    "test:reembolsos": "node scripts/test-stripe-recuperacion.mjs && node scripts/test-reembolsos-ui.mjs && node scripts/test-reembolso-terminal.mjs && node scripts/test-reintento-reembolso-admin.mjs && node scripts/test-reembolso-webhooks.mjs",
+    "test:workflow:prioritarios": "node scripts/test-privacidad-workflow.mjs && node scripts/test-archivos-privados-db.mjs && node scripts/test-archivos-privados.mjs && node scripts/test-sesion-chat.mjs && node scripts/test-adjuntos-lista.mjs && npm run test:reembolsos && node scripts/test-pagos-recovery-integration.mjs && node scripts/test-migrar-adjuntos-privados.mjs && node scripts/test-migrar-adjuntos-adapter.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",

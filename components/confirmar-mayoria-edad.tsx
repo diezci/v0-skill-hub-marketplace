@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { createClient } from "@/lib/supabase/client"
-import { desvincularPushActual } from "@/lib/push/client"
+import { cerrarSesionActual } from "@/lib/auth-logout"
 
 export function ConfirmarMayoriaEdad() {
   const t = useT()
@@ -63,10 +63,17 @@ export function ConfirmarMayoriaEdad() {
   }
 
   const salir = async () => {
+    if (guardando) return
     setGuardando(true)
-    await desvincularPushActual()
-    await createClient().auth.signOut({ scope: "local" })
-    window.location.assign("/")
+    setError(null)
+    try {
+      await cerrarSesionActual()
+      window.location.assign("/")
+    } catch {
+      setError(t("No se pudo cerrar la sesión. Comprueba la conexión y vuelve a intentarlo."))
+    } finally {
+      setGuardando(false)
+    }
   }
 
   return (
@@ -112,7 +119,7 @@ export function ConfirmarMayoriaEdad() {
         {error && <p className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{t(error)}</p>}
 
         <DialogFooter>
-          <Button variant="outline" onClick={salir} disabled={guardando}>
+          <Button variant="outline" onClick={salir} disabled={guardando} aria-busy={guardando}>
             {t("Cerrar sesión")}
           </Button>
           <Button onClick={guardar} disabled={!confirmado || guardando}>

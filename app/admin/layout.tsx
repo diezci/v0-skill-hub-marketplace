@@ -6,7 +6,8 @@ import { useEffect, useMemo, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
-import { desvincularPushActual } from "@/lib/push/client"
+import { cerrarSesionActual } from "@/lib/auth-logout"
+import { useToast } from "@/hooks/use-toast"
 import { Loader2, Users, Scale, CreditCard, LayoutDashboard, LogOut, ChevronRight, ShieldAlert, MessageSquare, Briefcase, Bell, BellRing, BadgeCheck, ExternalLink, WalletCards } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -42,6 +43,8 @@ function AdminLayoutContenido({ children }: { children: React.ReactNode }) {
 
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
   const [adminName, setAdminName] = useState("")
+  const [closingSession, setClosingSession] = useState(false)
+  const { toast } = useToast()
   // Pendientes de revisión visibles desde cualquier sección de administración.
   const [pendientes, setPendientes] = useState<Record<string, number>>({})
   const router = useRouter()
@@ -111,9 +114,16 @@ function AdminLayoutContenido({ children }: { children: React.ReactNode }) {
   }, [isAdmin, pathname, supabase])
 
   const handleLogout = async () => {
-    await desvincularPushActual()
-    await supabase.auth.signOut()
-    router.push("/")
+    if (closingSession) return
+    setClosingSession(true)
+    try {
+      await cerrarSesionActual("global")
+      router.push("/")
+    } catch {
+      toast({ title: t("No se pudo cerrar la sesión"), description: t("Tu sesión sigue abierta. Comprueba la conexión y vuelve a intentarlo."), variant: "destructive" })
+    } finally {
+      setClosingSession(false)
+    }
   }
 
   if (isAdmin === null) {
@@ -205,6 +215,7 @@ function AdminLayoutContenido({ children }: { children: React.ReactNode }) {
             size="sm"
             className="shrink-0 md:w-full justify-start gap-2"
             onClick={handleLogout}
+            disabled={closingSession} aria-busy={closingSession}
           >
             <LogOut className="h-4 w-4" />
             {t("Cerrar sesión")}</Button>

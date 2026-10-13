@@ -61,7 +61,7 @@ import {
 } from "@/components/ui/dialog"
 import { uploadFile } from "@/lib/upload-helpers"
 import { createClient } from "@/lib/supabase/client"
-import { desvincularPushActual } from "@/lib/push/client"
+import { cerrarSesionActual } from "@/lib/auth-logout"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { RangoPrecio } from "@/components/rango-precio"
@@ -306,7 +306,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     if (!file) return
 
     setUploadingPortfolioImg(true)
-    const result = await uploadFile(file)
+    const result = await uploadFile(file, { purpose: "imagen_publica" })
     setUploadingPortfolioImg(false)
 
     if (result) {
@@ -521,12 +521,17 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
   }
 
   const handleLogout = async () => {
+    if (loggingOut) return
     setLoggingOut(true)
-    await desvincularPushActual()
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push("/")
-    router.refresh()
+    try {
+      await cerrarSesionActual("global")
+      router.push("/")
+      router.refresh()
+    } catch {
+      toast({ title: t("No se pudo cerrar la sesión"), description: t("Tu sesión sigue abierta. Comprueba la conexión y vuelve a intentarlo."), variant: "destructive" })
+    } finally {
+      setLoggingOut(false)
+    }
   }
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -534,7 +539,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     if (!file) return
 
     setIsUploading(true)
-    const result = await uploadFile(file)
+    const result = await uploadFile(file, { purpose: "imagen_publica" })
     setIsUploading(false)
 
     if (result) {
@@ -557,7 +562,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     if (!file) return
 
     setIsUploading(true)
-    const result = await uploadFile(file)
+    const result = await uploadFile(file, { purpose: "imagen_publica" })
     setIsUploading(false)
 
     if (result) {
@@ -860,7 +865,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                           <Button
                             variant="outline"
                             onClick={handleLogout}
-                            disabled={loggingOut}
+                            disabled={loggingOut} aria-busy={loggingOut}
                             className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 bg-transparent"
                           >
                             {loggingOut ? (

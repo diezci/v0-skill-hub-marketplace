@@ -14,6 +14,7 @@ export async function crearResena(data: {
   tipo_proyecto?: string
 }) {
   const supabase = await createClient()
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos") }
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
@@ -23,72 +24,23 @@ export async function crearResena(data: {
   const errorModeracion = errorContenidoProhibido(data.comentario, data.tipo_proyecto)
   if (errorModeracion) return { error: await textoServidor(errorModeracion) }
 
-  // Verify user is the client of this trabajo
-  const { data: trabajo } = await supabase
-    .from("trabajos")
-    .select("cliente_id, estado, titulo")
-    .eq("id", data.trabajo_id)
-    .single()
-
-  if (!trabajo || trabajo.cliente_id !== user.id) {
-    return { error: await textoServidor("No tienes permiso para dejar una resena en este trabajo") }
+  if (!Number.isInteger(data.rating) || data.rating < 1 || data.rating > 5 || !data.comentario?.trim()) {
+    return { error: await textoServidor("Indica una puntuación entera entre 1 y 5 y un comentario") }
   }
 
-  if (trabajo.estado !== "completado") {
-    return { error: await textoServidor("Solo puedes dejar resena en trabajos completados") }
-  }
+  // La base de datos valida el operador vigente y el profesional contratado.
+  // Reseña, vínculo y reputación se confirman o revierten juntos, incluso ante
+  // un reintento simultáneo o una escritura directa a la tabla.
+  const { data: resena, error } = await supabase.rpc("crear_resena_trabajo", {
+    p_trabajo_id: data.trabajo_id,
+    p_profesional_id: data.profesional_id,
+    p_rating: data.rating,
+    p_comentario: data.comentario.trim(),
+    p_tipo_proyecto: data.tipo_proyecto?.trim() || null,
+  })
 
-  // Check if review already exists
-  const { data: existing } = await supabase
-    .from("reseñas")
-    .select("id")
-    .eq("trabajo_id", data.trabajo_id)
-    .eq("autor_id", user.id)
-    .single()
-
-  if (existing) {
-    return { error: await textoServidor("Ya has dejado una resena para este trabajo") }
-  }
-
-  const { data: resena, error } = await supabase
-    .from("reseñas")
-    .insert({
-      trabajo_id: data.trabajo_id,
-      profesional_id: data.profesional_id,
-      autor_id: user.id,
-      rating: data.rating,
-      comentario: data.comentario,
-      tipo_proyecto: data.tipo_proyecto || trabajo.titulo,
-    })
-    .select()
-    .single()
-
-  if (error) {
-    return { error: await textoServidor(error.message) }
-  }
-
-  // Update trabajo with review id
-  await supabase
-    .from("trabajos")
-    .update({ review_cliente_id: resena.id })
-    .eq("id", data.trabajo_id)
-
-  // Recalculate professional's average rating
-  const { data: allReviews } = await supabase
-    .from("reseñas")
-    .select("rating")
-    .eq("profesional_id", data.profesional_id)
-
-  if (allReviews && allReviews.length > 0) {
-    const avgRating = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length
-    await supabase
-      .from("profesionales")
-      .update({
-        rating_promedio: Math.round(avgRating * 10) / 10,
-        total_reseñas: allReviews.length,
-      })
-      .eq("id", data.profesional_id)
-  }
+  if (error) return { error: await textoServidor(error.message) }
+  if (!resena?.id) return { error: await textoServidor("No se pudo guardar la reseña. Inténtalo de nuevo.") }
 
   revalidatePath("/mis-solicitudes")
   revalidatePath(`/profesional/${data.profesional_id}`)
@@ -100,19 +52,19 @@ export async function crearResena(data: {
 // el botón "Valorar" del chat.
 export async function obtenerTrabajoValorable(profesionalId: string) {
   const supabase = await createClient()
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos") }
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
-  const { data: trabajos } = await supabase
-    .from("trabajos")
-    .select("id, titulo, review_cliente_id, estado")
-    .eq("cliente_id", user.id)
-    .eq("profesional_id", profesionalId)
-    .eq("estado", "completado")
-    .order("created_at", { ascending: false })
+  // Incluye al operador actual de un contrato empresarial y excluye al
+  // autor original cuando su acceso se ha revocado.
+  const { data: trabajos, error } = await supabase.rpc("trabajos_valorables_profesional", {
+    p_profesional_id: profesionalId,
+  })
+  if (error) return { error: await textoServidor(error.message) }
 
-  const sinResena = (trabajos || []).find((t) => !t.review_cliente_id)
+  const sinResena = (trabajos || []).find((t: { id: string; titulo: string; review_cliente_id: string | null; estado: string }) => !t.review_cliente_id)
   if (sinResena) return { data: sinResena }
 
   if ((trabajos || []).length > 0) {
@@ -123,6 +75,7 @@ export async function obtenerTrabajoValorable(profesionalId: string) {
 
 export async function obtenerResenasProfesional(profesionalId: string) {
   const supabase = await createClient()
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos"), data: [] }
 
   const { data: resenas, error } = await supabase
     .from("reseñas")

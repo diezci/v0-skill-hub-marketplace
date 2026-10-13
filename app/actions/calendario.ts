@@ -63,7 +63,6 @@ export async function obtenerTrabajosCalendario(): Promise<{
       fecha_fin,
       horas_estimadas,
       horas_registradas,
-      notas_privadas_proveedor,
       prioridad,
       cliente:cliente_id (
         id,
@@ -84,9 +83,21 @@ export async function obtenerTrabajosCalendario(): Promise<{
     return { data: [], error: await textoServidor(error.message) }
   }
 
-  // `as unknown as`: los embeds (cliente, solicitud) llegan tipados como array
-  // desde PostgREST aunque sean uno a uno, así que el cast directo no compila.
-  return { data: data as unknown as TrabajoCalendario[] }
+  const notasPorTrabajo = new Map<string, string>()
+  for (let inicio = 0; inicio < (data || []).length; inicio += 500) {
+    const { data: notas, error: errorNotas } = await supabase.rpc("notas_trabajos_proveedor", {
+      p_trabajo_ids: (data || []).slice(inicio, inicio + 500).map((trabajo) => trabajo.id),
+    })
+    if (errorNotas) return { data: [], error: await textoServidor(errorNotas.message) }
+    for (const nota of (notas || []) as { trabajo_id: string; notas_privadas_proveedor: string }[]) {
+      notasPorTrabajo.set(nota.trabajo_id, nota.notas_privadas_proveedor)
+    }
+  }
+  // Las notas nunca se leen de la fila contractual visible para el cliente.
+  return { data: (data || []).map((trabajo) => ({
+    ...trabajo,
+    notas_privadas_proveedor: notasPorTrabajo.get(trabajo.id) ?? null,
+  })) as unknown as TrabajoCalendario[] }
 }
 
 export async function actualizarEstimacionTrabajo(
@@ -113,21 +124,10 @@ export async function actualizarEstimacionTrabajo(
     return { codigo: "NO_AUTENTICADO", success: false, error: await textoServidor("No autenticado") }
   }
 
-  // Verify ownership
-  const { data: trabajo } = await supabase
-    .from("trabajos")
-    .select("profesional_id")
-    .eq("id", trabajoId)
-    .single()
-
-  if (!trabajo || trabajo.profesional_id !== user.id) {
-    return { success: false, error: await textoServidor("No tienes permiso para editar este trabajo") }
-  }
-
-  const { error } = await supabase
-    .from("trabajos")
-    .update(datos)
-    .eq("id", trabajoId)
+  const { error } = await supabase.rpc("actualizar_planificacion_trabajo", {
+    p_trabajo_id: trabajoId,
+    p_datos: datos,
+  })
 
   if (error) {
     return { success: false, error: await textoServidor(error.message) }

@@ -13,6 +13,7 @@ export type IncidenciaEstado = "abierta" | "en_revision" | "resuelta" | "cerrada
 // La otra parte del trabajo se sugiere como usuario reportado.
 export async function obtenerTrabajosParaIncidencia() {
   const supabase = await createClient()
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos"), data: [] }
 
   const {
     data: { user },
@@ -46,6 +47,7 @@ export async function crearIncidencia(data: {
   usuario_reportado?: string | null
 }) {
   const supabase = await createClient()
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos") }
 
   const {
     data: { user },
@@ -82,6 +84,7 @@ export async function crearIncidencia(data: {
 // trabajo relacionado. Para el panel de incidencias de cliente/proveedor.
 export async function obtenerMisIncidencias() {
   const supabase = await createClient()
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos"), data: [] }
 
   const {
     data: { user },
@@ -155,6 +158,7 @@ async function esAdmin(supabase: any, userId: string): Promise<boolean> {
 
 export async function obtenerIncidencias() {
   const supabase = await createClient()
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos") }
 
   const {
     data: { user },
@@ -220,6 +224,7 @@ export async function actualizarIncidencia(
   }>,
 ) {
   const supabase = await createClient()
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos") }
 
   const {
     data: { user },

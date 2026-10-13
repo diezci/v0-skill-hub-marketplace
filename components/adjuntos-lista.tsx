@@ -3,7 +3,8 @@
 import { useIdioma } from "@/components/idioma-provider"
 import { FileText, ImageIcon } from "lucide-react"
 
-const ES_IMAGEN = /\.(png|jpe?g|gif|webp|avif)(\?|$)/i
+const ES_IMAGEN = /\.(png|jpe?g|gif|webp|avif)$/i
+const RUTA_PRIVADA = /^\/api\/archivos\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 // Vercel Blob sube los ficheros con addRandomSuffix, que añade 30 caracteres
 // aleatorios antes de la extensión ("presupuesto-eWbfxAvt...QvW.pdf"). Sin
@@ -12,7 +13,13 @@ const SUFIJO_BLOB = /-[A-Za-z0-9]{30}(?=\.[^.]+$)/
 
 export function nombreDeAdjunto(url: string, indice: number, idioma: "es" | "en" = "es"): string {
   try {
-    const base = decodeURIComponent(url.split("/").pop()?.split("?")[0] || "")
+    const enlace = new URL(url, "https://diime.invalid")
+    // El nombre sirve solo para presentar el enlace. El servidor autoriza la
+    // descarga por su identificador y devuelve el tipo y el nombre guardados.
+    if (RUTA_PRIVADA.test(enlace.pathname)) {
+      return enlace.searchParams.get("nombre")?.trim() || `${idioma === "en" ? "File" : "Archivo"} ${indice + 1}`
+    }
+    const base = decodeURIComponent(enlace.pathname.split("/").pop() || "")
     const limpio = base.replace(SUFIJO_BLOB, "").trim()
     return limpio || `${idioma === "en" ? "File" : "Archivo"} ${indice + 1}`
   } catch {
@@ -36,7 +43,7 @@ export function AdjuntosLista({ archivos }: { archivos: string[] }) {
     <div className="flex flex-wrap gap-2">
       {archivos.map((url, i) => {
         const nombre = nombreDeAdjunto(url, i, idioma)
-        const esImagen = ES_IMAGEN.test(url)
+        const esImagen = ES_IMAGEN.test(nombre)
 
         return (
           <a
