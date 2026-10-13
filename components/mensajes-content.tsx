@@ -143,7 +143,11 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
   const sendingMessage = !!(selectedConversation && enviosPendientes[selectedConversation.id])
   const searchParams = useSearchParams()
   const router = useRouter()
+  // Último destino aplicado desde la URL. Un clic no lo cambia hasta que
+  // router.replace termina: mientras tanto la URL anterior no debe reabrirse.
   const autoSelectId = useRef("")
+  const navegacionConversacion = useRef<{ destino: string; anteriores: Set<string>; origen: typeof searchParams } | null>(null)
+  const [versionHistorial, setVersionHistorial] = useState(0)
   const conversacionActual = useRef<string | null>(null)
   const usuarioActual = useRef<string | null>(null)
   const versionSesion = useRef(0)
@@ -196,6 +200,16 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
   }, [ultimoMensajeId])
 
   useEffect(() => {
+    const seguirHistorial = () => {
+      navegacionConversacion.current = null
+      autoSelectId.current = ""
+      setVersionHistorial(version => version + 1)
+    }
+    window.addEventListener("popstate", seguirHistorial)
+    return () => window.removeEventListener("popstate", seguirHistorial)
+  }, [])
+
+  useEffect(() => {
     let activo = true
     let eventosSesion = 0
     let inicializado = false
@@ -209,6 +223,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
       ++versionValoracion.current
       conversacionActual.current = null
       autoSelectId.current = ""
+      navegacionConversacion.current = null
       enviosEnCurso.current.clear()
       subidasEnCurso.current.clear()
       setCurrentUserId(id || "")
@@ -258,6 +273,19 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
     }
   }, [])
 
+  const actualizarUrlConversacion = (destino: string) => {
+    const actual = searchParams?.get("c") || ""
+    const pendiente = navegacionConversacion.current
+    if (pendiente?.destino === destino || (!pendiente && actual === destino)) return
+    navegacionConversacion.current = {
+      destino,
+      origen: searchParams,
+      anteriores: new Set([actual, ...(pendiente?.anteriores || []), ...(pendiente ? [pendiente.destino] : [])]),
+    }
+    const ruta = enPanelAdmin ? "/admin/mensajes" : "/mensajes"
+    router.replace(destino ? `${ruta}?c=${encodeURIComponent(destino)}` : ruta, { scroll: false })
+  }
+
   const handleSelectConversation = async (conv: Conversation) => {
     if (!usuarioActual.current || usuarioActual.current !== currentUserId) return
     const sesion = versionSesion.current
@@ -266,10 +294,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
     ++versionValoracion.current
     setReviewTrabajo(null)
     setReviewSubmitting(false)
-    if (searchParams?.get("c") !== conv.id) {
-      autoSelectId.current = conv.id
-      router.replace(`${enPanelAdmin ? "/admin/mensajes" : "/mensajes"}?c=${encodeURIComponent(conv.id)}`, { scroll: false })
-    }
+    actualizarUrlConversacion(conv.id)
     setSelectedConversation(conv)
     setShowMobileChat(true)
     setMessages([])
@@ -299,17 +324,20 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
     }).catch(() => {})
   }
 
-  const cerrarConversacion = () => {
+  const limpiarConversacion = () => {
     ++versionLectura.current
     ++versionValoracion.current
     conversacionActual.current = null
-    autoSelectId.current = ""
     setSelectedConversation(null)
     setMessages([])
     setReviewTrabajo(null)
     setReviewSubmitting(false)
     setShowMobileChat(false)
-    router.replace(enPanelAdmin ? "/admin/mensajes" : "/mensajes", { scroll: false })
+  }
+
+  const cerrarConversacion = () => {
+    limpiarConversacion()
+    actualizarUrlConversacion("")
   }
 
   // Chat en vivo: refrescar la conversación abierta cada pocos segundos (y la
@@ -407,17 +435,26 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
   // Si llegamos con ?c=<id>, abrir esa conversación automáticamente.
   useEffect(() => {
     const convId = searchParams?.get("c") || ""
-    if (!convId) { autoSelectId.current = ""; return }
+    const pendiente = navegacionConversacion.current
+    if (pendiente?.origen === searchParams) return
+    if (pendiente && convId !== pendiente.destino && pendiente.anteriores.has(convId)) return
+    navegacionConversacion.current = null
+    if (!convId) {
+      autoSelectId.current = ""
+      if (conversacionActual.current) limpiarConversacion()
+      return
+    }
     if (autoSelectId.current === convId || loading) return
     const target = conversations.find((c) => String(c.id) === convId)
     if (target) {
       autoSelectId.current = convId
+      if (conversacionActual.current === convId) return
       setActiveTab("all")
       setSearchQuery("")
       void handleSelectConversation(target)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversations, loading, searchParams])
+  }, [conversations, loading, searchParams, versionHistorial])
 
   useEffect(() => {
     if (searchParams?.get("filtro") !== "no-leidos") return

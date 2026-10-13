@@ -49,6 +49,10 @@ Los scripts de `scripts/ops/` son operaciones explícitas, no migraciones autom�
 
 Si falla cualquier comprobación antes de borrar, conservar originales, resolver o abandonar retirando el guard. Si ya hubo borrados, registrar cuáles: retirar el guard **no restaura** archivos. La reanudación verifica las copias y procesa solo lo pendiente; no volver a publicar automáticamente un original privado para hacer rollback.
 
+El trigger de integridad del portfolio exige un propietario autenticado incluso al actualizar imágenes mediante `service_role`. Si las copias públicas se verifican pero la actualización devuelve `PORTFOLIO_UPDATE_FAILED`, usar `preparar-referencias-portfolio-legacy.mjs` para generar SQL desde las copias existentes y el manifiesto revisado. El generador es de solo lectura. El SQL mantiene todos los triggers activos, bloquea cada fila, compara el snapshot, aplica los claims del propietario únicamente dentro de la transacción y los restaura. Si un trigger modifica cualquier otro campo salvo `updated_at`, revierte la operación completa. Revisar el SQL antes de ejecutarlo como operador; si se pierde la respuesta, leer el estado y regenerar, sin repetir un snapshot antiguo.
+
+Después del borrado, `verificar-adjuntos-migrados.mjs --project-ref PROJECT_REF --manifest MANIFEST --expected-legacy-count N --report REPORT` comprueba las copias privadas por hash/tamaño, originales ausentes en el inventario y con HTTP 404, y las imágenes públicas revisadas con HTTP 200 y bytes idénticos. Es de solo lectura; no sustituye la comprobación SQL completa ni las pruebas HTTP con usuarios.
+
 ## Resultados y reanudación
 
 - `references_migrated_original_retained`: copia verificada y referencias cambiadas; falta retirar el original si corresponde.
@@ -56,7 +60,7 @@ Si falla cualquier comprobación antes de borrar, conservar originales, resolver
 - `retained_public_or_other_reference` / `retained_private_references_remain`: el original permanece; revisar referencias antes de repetir.
 - `already_migrated_source_not_listed` / `references_migrated_source_not_listed`: el original no figura en el inventario; la copia se comprobó contra el hash y tamaño guardados y se conciliaron las referencias. Esto no demuestra que el original se haya borrado: también puede indicar otro almacén/token.
 - `skipped_not_owned_or_missing` / `skipped_size`: no se toca el archivo; requiere revisión.
-- `error_original_retained`: la operación se detuvo sin solicitar borrado; código de salida 1. Si la fuente no está listada y falta su hash guardado, no se presupone que la copia sea correcta.
+- `error_original_retained`: hubo un error; código de salida 1. Antes de solicitar DELETE se conserva el original, pero si se pierde la respuesta del borrado su resultado es ambiguo: confirmar mediante inventario y HTTP. Si la fuente no está listada y falta su hash guardado, no se presupone que la copia sea correcta.
 
 Los informes incluyen hashes de las URLs y los IDs privados, nunca las URLs originales, credenciales o contenidos. Guardarlos en un directorio controlado. Repetir la misma orden es seguro: las filas con `legacy_url` siguen siendo candidatas aunque ya no queden referencias antiguas.
 
@@ -67,6 +71,8 @@ node scripts/test-migrar-adjuntos-privados.mjs
 node scripts/test-migrar-adjuntos-adapter.mjs
 node scripts/test-copiar-imagenes-publicas-legacy.mjs
 node scripts/test-guard-adjuntos-legacy.mjs
+node scripts/test-referencias-portfolio-legacy.mjs
+node scripts/test-verificar-adjuntos-migrados.mjs
 ```
 
-18 escenarios del motor, 9 del adaptador real con SDK/fetch inyectados, 15 de las copias públicas y 13 grupos del guard en PostgreSQL aislado. Cubren modo lectura, copia y checksum, interrupciones, duplicados Storage `400`, reanudación con hash, dos flags de borrado, ETag condicional, cambios del original, enlaces ajenos, protección de imágenes públicas, Unicode, claves compuestas y escrituras concurrentes. No sustituyen el inventario ni la comprobación de acceso en el entorno desplegado.
+18 escenarios del motor, 9 del adaptador real con SDK/fetch inyectados, 15 de las copias públicas, 13 grupos del guard en PostgreSQL aislado, 8 del SQL de portfolio con el trigger real y 15 del verificador posterior. Cubren modo lectura, copia y checksum, interrupciones, duplicados Storage `400`, reanudación con hash, dos flags de borrado, ETag condicional, cambios del original, enlaces ajenos, protección de imágenes públicas, Unicode, claves compuestas y escrituras concurrentes. No sustituyen el inventario ni la comprobación de acceso en el entorno desplegado.

@@ -80,7 +80,7 @@ await test('Push: renovación durante desvinculación elimina ambos tokens', asy
 const jsx = (type, props) => ({ type, props })
 const walk = node => Array.isArray(node) ? node.flatMap(walk) : node && typeof node === 'object' ? [node, ...walk(node.props?.children)] : []
 function chatFixture() {
-  const slots = [], effects = [], intervals = new Map(), toasts = [], sends = [], paths = []
+  const slots = [], effects = [], intervals = new Map(), toasts = [], sends = [], paths = [], windowListeners = new Map()
   let cursor = 0, dirty = false, tree, authChange, mounted = true, account = 'user-A', intervalId = 0
   const conv = id => ({ id, participante_1: account, participante_2: 'other-' + id, participante_otro: { nombre: 'Chat', apellido: id }, puede_escribir: true })
   let readMessages = async id => ({ data: [{ id: 'history-' + id, remitente_id: 'other', contenido: 'History ' + id, created_at: '2026-10-12T10:00:00Z' }] })
@@ -105,8 +105,9 @@ function chatFixture() {
     '@/app/actions/trabajos': { obtenerTrabajosConUsuario: async () => ({ data: [] }) },
     '@/hooks/use-toast': { useToast: () => ({ toast: x => toasts.push(x) }) }, '@/lib/utils': { cn: () => '' },
   }, { has: () => true, get: (o, k) => k in o ? o[k] : ui })
-  const search = new URLSearchParams(), router = { replace: p => paths.push(p), push: p => paths.push(p) }, t = x => x
-  const runtime = load('components/mensajes-content.tsx', deps, { window: { dispatchEvent() {} }, document: { visibilityState: 'visible' }, CustomEvent: class {},
+  let search = new URLSearchParams()
+  const router = { replace: p => paths.push(p), push: p => paths.push(p) }, t = x => x
+  const runtime = load('components/mensajes-content.tsx', deps, { window: { dispatchEvent() {}, addEventListener: (event, fn) => windowListeners.set(event, fn), removeEventListener: event => windowListeners.delete(event) }, document: { visibilityState: 'visible' }, CustomEvent: class {},
     setInterval: (fn, ms) => { const id = ++intervalId; intervals.set(id, { fn, ms }); return id }, clearInterval: id => intervals.delete(id),
     fetch: async (url, opts) => { if (url === '/api/upload') return upload(opts); const body = JSON.parse(opts.body); sends.push(body); return { json: async () => send(body) } },
   }, src => src.replace('  const formatTime =', '  globalThis.__chat = { handleSendMessage, handleSelectConversation, handleFileChange, handleValorar, handleEnviarValoracion, reviewTrabajo, reviewSubmitting, cerrarConversacion, newMessage, borradores, sendingMessage, uploading, currentUserId, messages, conversations, selectedConversation, versionSesion, versionLectura };\n  const formatTime ='))
@@ -117,11 +118,79 @@ function chatFixture() {
     draft(text) { const input = walk(tree).find(n => n.type === 'Textarea' && n.props['aria-label'] === 'Escribe un mensaje'); assert.ok(input); input.props.onChange({ target: { value: text } }); render() },
     setReadReview(fn) { readReview = fn }, setWriteReview(fn) { writeReview = fn },
     setSend(fn) { send = fn }, setRead(fn) { readMessages = fn }, setList(fn) { readList = fn }, setGetUser(fn) { getUser = fn }, setUpload(fn) { upload = fn },
+    navigate(query, { popstate = false } = {}) { if (popstate) windowListeners.get('popstate')?.(); const next = new URLSearchParams(query); if (next.toString() !== search.toString()) search = next; render() },
     changeUser(id) { account = id; authChange(id ? 'SIGNED_IN' : 'SIGNED_OUT', id ? { user: { id } } : null) },
     poll(ms) { return [...intervals.values()].find(i => i.ms === ms)?.fn() },
     unmount() { mounted = false; slots.forEach(s => s?.cleanup?.()) },
   }; return f
 }
+await test('Chat: URL intermedia A no vence clic B iniciado desde URL sin conversación', async () => {
+  const f = chatFixture(); await f.mount(); await f.select('A'); await f.flush(); f.draft('Borrador A')
+  await f.select('B'); await f.flush(); f.draft('Borrador B')
+  f.navigate('c=A'); await f.flush(); await f.poll(20000); await f.flush()
+  assert.equal(f.state.selectedConversation.id, 'B'); assert.equal(f.state.newMessage, 'Borrador B')
+  await f.state.handleSendMessage(); await f.flush()
+  assert.equal(f.sends.at(-1).conversacionId, 'B'); assert.equal(f.sends.at(-1).contenido, 'Borrador B'); assert.equal(f.state.borradores.A, 'Borrador A')
+  f.navigate('c=B'); await f.flush(); assert.equal(f.state.selectedConversation.id, 'B')
+  f.navigate('c=A', { popstate: true }); await f.flush(); assert.equal(f.state.selectedConversation.id, 'A'); assert.equal(f.state.newMessage, 'Borrador A'); f.unmount()
+})
+await test('Chat: atrás durante navegación pendiente prima sobre el clic', async () => {
+  const f = chatFixture(); await f.mount(); f.navigate('c=A'); await f.flush(); await f.select('B'); await f.flush()
+  f.navigate('c=A', { popstate: true }); await f.flush(); assert.equal(f.state.selectedConversation.id, 'A'); f.unmount()
+})
+await test('Chat: atrás a URL vacía cierra e invalida lecturas sin perder borrador para adelante', async () => {
+  const f = chatFixture(), old = deferred(); await f.mount(); f.navigate('c=A'); await f.flush(); f.draft('Borrador A')
+  f.setRead(() => old.promise); const pending = f.poll(4000)
+  f.navigate('', { popstate: true }); await f.flush(); assert.equal(f.state.selectedConversation, null); assert.equal(f.state.messages.length, 0)
+  old.resolve({ data: [{ id: 'late-A', created_at: '2026-10-12' }] }); await pending; await f.flush()
+  assert.equal(f.state.selectedConversation, null); assert.equal(f.state.messages.length, 0)
+  f.setRead(async () => ({ data: [{ id: 'latest-A', created_at: '2026-10-12' }] }))
+  f.navigate('c=A', { popstate: true }); await f.flush(); assert.equal(f.state.selectedConversation.id, 'A'); assert.equal(f.state.newMessage, 'Borrador A'); f.unmount()
+})
+await test('Chat: cerrar antes de confirmar URL intermedia mantiene el panel cerrado', async () => {
+  const f = chatFixture(); await f.mount(); await f.select('A'); await f.flush(); f.state.cerrarConversacion(); await f.flush()
+  f.navigate('c=A'); await f.flush(); await f.poll(20000); await f.flush(); assert.equal(f.state.selectedConversation, null)
+  f.navigate(''); await f.flush(); f.navigate('c=A', { popstate: true }); await f.flush(); assert.equal(f.state.selectedConversation.id, 'A'); f.unmount()
+})
+await test('Chat: volver al destino URL actual cancela un clic intermedio pendiente', async () => {
+  const f = chatFixture(); await f.mount(); f.navigate('c=A'); await f.flush(); await f.select('B'); await f.flush(); await f.select('A'); await f.flush()
+  assert.equal(f.paths.at(-1), '/mensajes?c=A')
+  f.navigate('c=B'); await f.flush(); assert.equal(f.state.selectedConversation.id, 'A')
+  f.navigate('c=A'); await f.flush(); assert.equal(f.state.selectedConversation.id, 'A'); f.unmount()
+})
+for (const refresh of ['messages', 'conversation-list']) await test('Chat: URL anterior no reabre A mientras B carga por ' + refresh, async () => {
+  const f = chatFixture(), readB = deferred()
+  await f.mount(); f.navigate('c=A'); await f.flush(); f.draft('Borrador A')
+  f.setRead(id => id === 'B' ? readB.promise : Promise.resolve({ data: [{ id: 'history-A', created_at: '2026-10-12' }] }))
+  const pending = f.select('B'); await f.flush()
+  assert.equal(f.state.selectedConversation.id, 'B'); assert.equal(f.state.newMessage, '')
+  f.draft('Borrador B')
+  if (refresh === 'conversation-list') { await f.poll(20000); await f.flush() }
+  readB.resolve({ data: [{ id: 'history-B', created_at: '2026-10-12' }] }); await pending; await f.flush()
+  assert.equal(f.state.selectedConversation.id, 'B'); assert.equal(f.state.newMessage, 'Borrador B')
+  assert.equal(f.state.borradores.A, 'Borrador A'); assert.deepEqual(Array.from(f.state.messages, x => x.id), ['history-B'])
+  f.navigate('c=B'); await f.flush(); assert.equal(f.state.selectedConversation.id, 'B')
+  f.navigate('c=A'); await f.flush(); assert.equal(f.state.selectedConversation.id, 'A'); assert.equal(f.state.newMessage, 'Borrador A')
+  f.navigate('c=B'); await f.flush(); assert.equal(f.state.selectedConversation.id, 'B'); assert.equal(f.state.newMessage, 'Borrador B'); f.unmount()
+})
+await test('Chat: cerrar mantiene panel vacío mientras URL anterior espera y lista refresca', async () => {
+  const f = chatFixture(); await f.mount(); f.navigate('c=A'); await f.flush()
+  f.state.cerrarConversacion(); await f.flush(); await f.poll(20000); await f.flush(); assert.equal(f.state.selectedConversation, null)
+  f.navigate(''); await f.flush(); f.navigate('c=A'); await f.flush(); assert.equal(f.state.selectedConversation.id, 'A'); f.unmount()
+})
+await test('Chat: lectura A tardía no vence selección B con URL A pendiente', async () => {
+  const f = chatFixture(), readA = deferred(); await f.mount()
+  f.setRead(id => id === 'A' ? readA.promise : Promise.resolve({ data: [{ id: 'latest-B', created_at: '2026-10-12' }] }))
+  f.navigate('c=A'); await f.flush(); await f.select('B'); await f.flush()
+  readA.resolve({ data: [{ id: 'obsolete-A', created_at: '2026-10-12' }] }); await f.flush()
+  assert.equal(f.state.selectedConversation.id, 'B'); assert.deepEqual(Array.from(f.state.messages, x => x.id), ['latest-B']); f.unmount()
+})
+await test('Chat: deep link espera lista y se reaplica tras cambio de sesión', async () => {
+  const f = chatFixture(), list = deferred(); f.setList(() => list.promise); await f.mount(); f.navigate('c=A'); await f.flush()
+  list.resolve({ data: [{ id: 'A', participante_1: 'user-A', participante_2: 'other-A', participante_otro: { nombre: 'A' } }] }); await f.flush()
+  assert.equal(f.state.selectedConversation.id, 'A'); f.draft('Privado sesión A')
+  f.changeUser('user-B'); await f.flush(); assert.equal(f.state.currentUserId, 'user-B'); assert.equal(f.state.selectedConversation.id, 'A'); assert.equal(f.state.newMessage, ''); f.unmount()
+})
 for (const kind of ['error', 'network']) await test('Chat: ' + kind + ' mantiene borrador y habilita reintento', async () => {
   const f = chatFixture(); await f.mount(); await f.select('A'); await f.flush(); f.draft('No perder'); f.setSend(async () => { if (kind === 'network') throw Error('Failed to fetch'); return { error: 'Servicio no disponible' } })
   await f.state.handleSendMessage(); await f.flush(); assert.equal(f.state.newMessage, 'No perder'); assert.equal(f.state.sendingMessage, false); assert.equal(f.toasts.length, 1)
