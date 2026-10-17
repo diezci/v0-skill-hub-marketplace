@@ -20,22 +20,9 @@ export async function obtenerTrabajosParaIncidencia() {
   } = await supabase.auth.getUser()
   if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado"), data: [] }
 
-  const { data, error } = await supabase
-    .from("trabajos")
-    .select("id, titulo, estado, cliente_id, profesional_id, created_at")
-    .or(`cliente_id.eq.${user.id},profesional_id.eq.${user.id}`)
-    .order("created_at", { ascending: false })
-
+  const { data, error } = await supabase.rpc("trabajos_para_incidencia")
   if (error) return { error: await textoServidor(error.message), data: [] }
-
-  const trabajos = (data || []).map((t: any) => ({
-    id: t.id,
-    titulo: t.titulo,
-    estado: t.estado,
-    // El otro participante del trabajo, para reportarlo si procede.
-    otra_parte_id: t.cliente_id === user.id ? t.profesional_id : t.cliente_id,
-  }))
-  return { data: trabajos }
+  return { data: data || [] }
 }
 
 export async function crearIncidencia(data: {
@@ -235,39 +222,17 @@ export async function actualizarIncidencia(
     return { error: await textoServidor("No tienes permiso") }
   }
 
-  const cierra = cambios.estado === "resuelta" || cambios.estado === "cerrada"
-
-  const update: Record<string, any> = { ...cambios }
-  if (cierra) {
-    update.resuelto_por = user.id
-    update.fecha_resolucion = new Date().toISOString()
-  }
-
-  const { data: incidencia, error } = await supabase
-    .from("incidencias")
-    .update(update)
-    .eq("id", id)
-    .select("id, asunto, estado, reportado_por, notas_admin")
-    .maybeSingle()
+  const { data: resultado, error } = await supabase.rpc("gestionar_incidencia", {
+    p_id: id,
+    p_cambios: cambios,
+  })
   if (error) return { error: await textoServidor(error.message) }
 
-  // Solo se avisa a quien la reportó: el usuario reportado nunca supo de la
-  // incidencia y `obtenerMisIncidencias` filtra por `reportado_por`, así que un
-  // aviso le llevaría a un panel donde no aparece.
-  if (cierra && incidencia?.reportado_por) {
-    const resuelta = cambios.estado === "resuelta"
-    const nota = incidencia.notas_admin?.trim()
-    const { crearNotificacion } = await import("@/lib/notificaciones")
-    await crearNotificacion({
-      usuarioId: incidencia.reportado_por,
-      tipo: "incidencia_resuelta",
-      titulo: resuelta ? "Incidencia resuelta" : "Incidencia cerrada",
-      mensaje: `Tu incidencia "${incidencia.asunto}" se ha marcado como ${
-        resuelta ? "resuelta" : "cerrada"
-      }.${nota ? ` Respuesta del equipo: ${nota}` : ""}`,
-      link: `/incidencias?incidencia=${encodeURIComponent(id)}&aspecto=incidencia_resuelta`,
-      metadata: { incidencia_id: id, titulo_trabajo: incidencia.asunto },
-    })
+  // La RPC guarda resolución y aviso juntos. Solo el cierre que realmente
+  // cambió el estado devuelve un aviso nuevo para correo y push.
+  if (resultado?.aviso_id) {
+    const { enviarNotificacionGuardada } = await import("@/lib/notificaciones")
+    await enviarNotificacionGuardada(resultado.aviso_id)
   }
 
   revalidatePath("/admin/incidencias")

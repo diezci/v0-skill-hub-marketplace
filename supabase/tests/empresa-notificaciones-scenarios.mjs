@@ -7,7 +7,7 @@ export async function testAvisosEmpresa({db,asRole,ids,one,check}) {
   }
   let notice=await notify(ids.member)
   check(notice?.usuario_id===ids.owner,'Revoked original provider never receives persisted company notice; principal receives it')
-  check(notice.link==='/perfil-empresa' && notice.metadata.parte_destinataria==='proveedor','Redirected notice retains company contractual side')
+  check(notice.link===`/mi-empresa?trabajo=${ids.job}&aspecto=cancelacion_solicitada` && notice.metadata.parte_destinataria==='proveedor','Redirected notice retains company contractual side')
   check((await one("select count(*)::int n from notificaciones where usuario_id=$1 and titulo='Aviso sintético'",[ids.member])).n===0,'Revoked staff notice was not inserted at any point')
   notice=await notify(ids.worker2)
   check(notice?.usuario_id===ids.owner,'Assigned operator without work permission falls back to active principal')

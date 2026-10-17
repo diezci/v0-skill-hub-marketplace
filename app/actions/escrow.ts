@@ -75,7 +75,13 @@ export async function crearPagoEscrow(data: {
   }
 
   if (trabajo.estado !== "pendiente_pago" || trabajo.pago_bloqueado || trabajo.cancelacion_estado === "pendiente") {
-    return { error: await textoServidor("Este trabajo ya ha sido pagado") }
+    return {
+      codigo: "CHECKOUT_CERRADO",
+      error: await textoServidor(trabajo.estado !== "pendiente_pago"
+        ? "Esta contratación ya no está pendiente de pago. Consulta el contrato para ver su estado actual."
+        : "El pago no está disponible mientras se revisa la cancelación o la disputa de este trabajo."),
+      hrefContrato: `/trabajos/${trabajo.id}/factura`,
+    }
   }
 
   if (!trabajo.oferta_id || !trabajo.solicitud_id) {
@@ -483,18 +489,21 @@ export async function liberarFondosEscrow(trabajoId: string) {
 }
 
 /** Accept, close Checkout links, refund if necessary and close atomically. */
-export async function reembolsarPorCancelacion(trabajoId: string) {
+export async function reembolsarPorCancelacion(trabajoId: string, revisionEsperada?: string | null) {
   const supabase = await createClient()
   if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos.") }
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
+  if (!revisionEsperada || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(revisionEsperada)) {
+    return { error: await textoServidor("La cancelación ha cambiado. Actualiza la página y revisa la solicitud antes de responder.") }
+  }
   const permisoError = await validarActorTrabajoEmpresa(supabase, trabajoId, user.id, "gestionar_cobros")
   if (permisoError) return { error: await textoServidor(permisoError) }
   const admin = createAdminClient()
   if (!admin) return { error: await textoServidor("La configuración segura del servidor no está disponible.") }
   try {
-    const { error: bloqueoError } = await admin.rpc("diime_bloquear_checkout", {
-      p_trabajo: trabajoId, p_actor: user.id, p_cancelacion: true,
+    const { error: bloqueoError } = await admin.rpc("diime_responder_cancelacion_versionada", {
+      p_trabajo: trabajoId, p_actor: user.id, p_revision: revisionEsperada, p_aceptar: true,
     })
     if (bloqueoError) throw bloqueoError
     await cerrarCheckoutsPendientes(admin, trabajoId)

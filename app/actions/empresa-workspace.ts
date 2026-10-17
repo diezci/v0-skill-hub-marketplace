@@ -103,10 +103,10 @@ export async function solicitarVerificacionEmpresa(formData: FormData): Promise<
     })
   })
 }
-export async function revisarVerificacionEmpresa(input: { decision: "verificada" | "requiere_informacion"; nota: string; empresaId?: string }): Promise<ResultadoEmpresa> {
+export async function revisarVerificacionEmpresa(input: { decision: "verificada" | "requiere_informacion"; nota: string; empresaId?: string; verificacionId?: string }): Promise<ResultadoEmpresa> {
   if (!esEmpresasLocal()) {
     if (!input.empresaId) return { error: "Selecciona la empresa que deseas revisar." }
-    const resultado = await ejecutarReal<void>("empresa_revisar_verificacion", { p_empresa_id: input.empresaId, p_decision: input.decision, p_nota: input.nota })
+    const resultado = await ejecutarReal<void>("empresa_revisar_verificacion", { p_empresa_id: input.empresaId, p_decision: input.decision, p_nota: input.nota, p_verificacion_id: input.verificacionId || null })
     if (!resultado.error) revalidatePath("/admin/verificaciones-empresas")
     return resultado
   }
@@ -117,6 +117,17 @@ export async function obtenerVerificacionesEmpresas(): Promise<ResultadoEmpresa<
   const resultado = await rpcEmpresa<(Parameters<typeof verificacionReal>[0] & { empresa_id: string; empresa_nombre: string; cif: string })[]>("empresa_verificaciones_listar")
   if (resultado.error) return { error: resultado.error }
   return { data: (resultado.data || []).map((row) => ({ ...verificacionReal(row), empresaId: row.empresa_id, empresaNombre: row.empresa_nombre, nif: row.cif })) }
+}
+
+// La consola global de Diime aplica siempre la autorización real de plataforma.
+export async function retirarVerificacionEmpresa(input: { empresaId: string; verificacionId: string; motivo: string }): Promise<ResultadoEmpresa> {
+  if (!input.empresaId || !input.verificacionId) return { error: "Selecciona el expediente que deseas retirar." }
+  const resultado = await ejecutarReal<string>("empresa_retirar_verificacion", {
+    p_empresa_id: input.empresaId, p_verificacion_id: input.verificacionId, p_motivo: input.motivo,
+  })
+  if (resultado.error) return { error: resultado.error }
+  revalidatePath("/admin/verificaciones-empresas")
+  return { data: undefined }
 }
 
 export async function descargarVerificacionEmpresa(empresaId: string): Promise<ResultadoEmpresa<{ nombre: string; base64: string }>> {

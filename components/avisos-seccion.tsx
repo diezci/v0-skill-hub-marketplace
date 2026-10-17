@@ -13,6 +13,7 @@ import { useNotificacionesSeccion } from "@/hooks/use-notificaciones-seccion"
 const SECCIONES: Record<string, string> = {
   "/demandas": "Solicitudes de terceros", "/mis-solicitudes": "Mis Solicitudes", "/mis-ofertas": "Mis Pujas",
   "/mis-trabajos": "Gestión de proyectos", "/mi-perfil": "Mi perfil", "/incidencias": "Incidencias", "/mensajes": "Mensajes",
+  "/mi-empresa": "Mi empresa", "/admin/verificaciones-empresas": "Verificación de empresas",
   "/admin/mensajes": "Soporte", "/admin/incidencias": "Incidencias", "/admin/disputas": "Disputas",
   "/admin/verificaciones": "Verificaciones", "/admin/pagos": "Pagos", "/admin/trabajos": "Trabajos y justificantes",
   "/admin/usuarios": "Usuarios", "/admin/operaciones": "Operaciones",

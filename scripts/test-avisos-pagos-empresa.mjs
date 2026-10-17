@@ -22,7 +22,7 @@ let n=0
 async function test(name,run){await run();n++;console.log(`PASS ${name}`)}
 await test('Company payout emails and push go only to authorized current recipients',async()=>{
  const f=fixture();await f.send([notice],f.admin)
- assert.deepEqual(f.calls.filter(x=>x[0]!=='recipients'),[['email','principal','/perfil-empresa'],['push','principal','/perfil-empresa']]);assert.equal(f.calls[0][3],'ver_cobros')
+ assert.deepEqual(f.calls.filter(x=>x[0]!=='recipients'),[['email','principal','/mi-empresa?trabajo=job'],['push','principal','/mi-empresa?trabajo=job']]);assert.equal(f.calls[0][3],'ver_cobros')
 })
 await test('Operational paid notice uses work scope without granting financial visibility',async()=>{
  const f=fixture();await f.send([{...notice,tipo:'pago_recibido'}],f.admin);assert.equal(f.calls[0][3],'encargos')

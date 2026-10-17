@@ -26,6 +26,7 @@ export function linkInternoNotificacion(link?: string | null): string | null {
   if (!link || !link.startsWith("/") || link.startsWith("//") || /[\\\s\u0000-\u001f]/.test(link)) return null
   try {
     const url = new URL(link, "https://www.diime.es")
+    if (url.pathname === "/perfil-empresa") url.pathname = "/mi-empresa"
     return url.origin === "https://www.diime.es" ? `${url.pathname}${url.search}${url.hash}` : null
   } catch { return null }
 }

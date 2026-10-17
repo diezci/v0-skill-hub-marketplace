@@ -29,123 +29,45 @@ export async function registrarEventoOperativo(params: {
   }
 }
 
-function asegurarConsulta(nombre: string, resultado: { error: { message?: string } | null }) {
-  if (resultado.error) throw new Error(`${nombre}: ${resultado.error.message || "consulta fallida"}`)
+export const CATEGORIAS_OPERATIVAS = ["eventos", "webhooksError", "webhooksAtascados", "liquidacionesError", "liquidacionesAtascadas", "disputasVencidas", "incidenciasCriticas", "solicitudesSinOferta"] as const
+export type CategoriaOperativa = typeof CATEGORIAS_OPERATIVAS[number]
+type FilaOperativa = { id: string; [campo: string]: unknown }
+
+function consultaOperativa(admin: NonNullable<ReturnType<typeof createAdminClient>>, categoria: CategoriaOperativa, ahora: number) {
+  const haceQuinceMinutos = new Date(ahora - 15 * 60 * 1000).toISOString()
+  const haceCuatroHoras = new Date(ahora - 4 * 60 * 60 * 1000).toISOString()
+  const haceVeinticuatroHoras = new Date(ahora - 24 * 60 * 60 * 1000).toISOString()
+  // Exact count is independent of page length; the ID is a deterministic tie-breaker.
+  switch (categoria) {
+    case "eventos": return admin.from("eventos_operativos").select("id, area, severidad, codigo, clave, mensaje, contexto, ocurrencias, ultimo_evento_at", { count: "exact" }).eq("estado", "abierto").order("ultimo_evento_at", { ascending: false }).order("id")
+    case "webhooksError": return admin.from("stripe_eventos_webhook").select("id, tipo, intentos, ultimo_error, ultimo_intento_at", { count: "exact" }).eq("estado", "error").order("ultimo_intento_at", { ascending: false }).order("id")
+    case "webhooksAtascados": return admin.from("stripe_eventos_webhook").select("id, tipo, intentos, ultimo_intento_at", { count: "exact" }).eq("estado", "procesando").lt("ultimo_intento_at", haceQuinceMinutos).order("ultimo_intento_at").order("id")
+    case "liquidacionesError": return admin.from("transacciones_escrow").select("id, trabajo_id, estado, liquidacion_estado, liquidacion_error, updated_at", { count: "exact" }).eq("liquidacion_estado", "error").order("updated_at", { ascending: false }).order("id")
+    case "liquidacionesAtascadas": return admin.from("transacciones_escrow").select("id, trabajo_id, estado, liquidacion_estado, updated_at", { count: "exact" }).eq("liquidacion_estado", "procesando").lt("updated_at", haceQuinceMinutos).order("updated_at").order("id")
+    case "disputasVencidas": return admin.from("disputas").select("id, trabajo_id, tipo, estado, created_at, responsable_id, asignada_at, responsable:profiles!disputas_responsable_id_fkey(nombre, apellido, es_admin)", { count: "exact" }).in("estado", ["abierta", "en_revision"]).lt("created_at", haceVeinticuatroHoras).order("created_at").order("id")
+    case "incidenciasCriticas": return admin.from("incidencias").select("id, categoria, prioridad, estado, created_at", { count: "exact" }).eq("prioridad", "critica").in("estado", ["abierta", "en_revision"]).order("created_at").order("id")
+    case "solicitudesSinOferta": return admin.from("solicitudes").select("id, titulo, ubicacion, total_ofertas, created_at", { count: "exact" }).eq("estado", "abierta").eq("total_ofertas", 0).ilike("ubicacion", "%Madrid%").lt("created_at", haceCuatroHoras).order("created_at").order("id")
+  }
+}
+
+export async function obtenerDetalleOperativo(categoria: CategoriaOperativa, desde = 0, ahora = Date.now()) {
+  const admin = createAdminClient()
+  if (!admin) throw new Error("Supabase service role no está configurado.")
+  const resultado = await consultaOperativa(admin, categoria, ahora).range(desde, desde + 24)
+  if (resultado.error) throw new Error(`${categoria}: ${resultado.error.message || "consulta fallida"}`)
+  // A missing count is an unavailable observation, never an all-clear.
+  if (resultado.count == null) throw new Error(`${categoria}: no se pudo contar el total.`)
+  return { filas: (resultado.data || []) as FilaOperativa[], total: resultado.count }
 }
 
 export async function obtenerResumenOperativo() {
-  const admin = createAdminClient()
-  if (!admin) throw new Error("Supabase service role no está configurado.")
-
-  const haceQuinceMinutos = new Date(Date.now() - 15 * 60 * 1000).toISOString()
-  const haceCuatroHoras = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
-  const haceVeinticuatroHoras = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-
-  const [
-    eventos,
-    webhooksError,
-    webhooksAtascados,
-    liquidacionesError,
-    liquidacionesAtascadas,
-    disputasVencidas,
-    incidenciasCriticas,
-    solicitudesSinOferta,
-  ] = await Promise.all([
-    admin
-      .from("eventos_operativos")
-      .select("id, area, severidad, codigo, clave, mensaje, contexto, ocurrencias, ultimo_evento_at")
-      .eq("estado", "abierto")
-      .order("ultimo_evento_at", { ascending: false })
-      .limit(50),
-    admin
-      .from("stripe_eventos_webhook")
-      .select("id, tipo, intentos, ultimo_error, ultimo_intento_at")
-      .eq("estado", "error")
-      .order("ultimo_intento_at", { ascending: false })
-      .limit(25),
-    admin
-      .from("stripe_eventos_webhook")
-      .select("id, tipo, intentos, ultimo_intento_at")
-      .eq("estado", "procesando")
-      .lt("ultimo_intento_at", haceQuinceMinutos)
-      .order("ultimo_intento_at", { ascending: true })
-      .limit(25),
-    admin
-      .from("transacciones_escrow")
-      .select("id, trabajo_id, estado, liquidacion_estado, liquidacion_error, updated_at")
-      .eq("liquidacion_estado", "error")
-      .order("updated_at", { ascending: false })
-      .limit(25),
-    admin
-      .from("transacciones_escrow")
-      .select("id, trabajo_id, estado, liquidacion_estado, updated_at")
-      .eq("liquidacion_estado", "procesando")
-      .lt("updated_at", haceQuinceMinutos)
-      .order("updated_at", { ascending: true })
-      .limit(25),
-    admin
-      .from("disputas")
-      .select("id, trabajo_id, tipo, created_at")
-      .eq("estado", "abierta")
-      .lt("created_at", haceVeinticuatroHoras)
-      .order("created_at", { ascending: true })
-      .limit(25),
-    admin
-      .from("incidencias")
-      .select("id, categoria, prioridad, estado, created_at")
-      .eq("prioridad", "critica")
-      .in("estado", ["abierta", "en_revision"])
-      .order("created_at", { ascending: true })
-      .limit(25),
-    admin
-      .from("solicitudes")
-      .select("id, titulo, ubicacion, total_ofertas, created_at")
-      .eq("estado", "abierta")
-      .eq("total_ofertas", 0)
-      .ilike("ubicacion", "%Madrid%")
-      .lt("created_at", haceCuatroHoras)
-      .order("created_at", { ascending: true })
-      .limit(25),
-  ])
-
-  for (const [nombre, resultado] of [
-    ["eventos operativos", eventos],
-    ["webhooks fallidos", webhooksError],
-    ["webhooks atascados", webhooksAtascados],
-    ["liquidaciones fallidas", liquidacionesError],
-    ["liquidaciones atascadas", liquidacionesAtascadas],
-    ["disputas vencidas", disputasVencidas],
-    ["incidencias críticas", incidenciasCriticas],
-    ["solicitudes sin oferta", solicitudesSinOferta],
-  ] as const) asegurarConsulta(nombre, resultado)
-
-  const detalle = {
-    eventos: eventos.data || [],
-    webhooksError: webhooksError.data || [],
-    webhooksAtascados: webhooksAtascados.data || [],
-    liquidacionesError: liquidacionesError.data || [],
-    liquidacionesAtascadas: liquidacionesAtascadas.data || [],
-    disputasVencidas: disputasVencidas.data || [],
-    incidenciasCriticas: incidenciasCriticas.data || [],
-    solicitudesSinOferta: solicitudesSinOferta.data || [],
-  }
-  const totales = Object.fromEntries(Object.entries(detalle).map(([clave, filas]) => [clave, filas.length]))
-  const alertasTecnicas =
-    totales.eventos +
-    totales.webhooksError +
-    totales.webhooksAtascados +
-    totales.liquidacionesError +
-    totales.liquidacionesAtascadas
+  const ahora = Date.now()
+  const resultados = await Promise.all(CATEGORIAS_OPERATIVAS.map(categoria => obtenerDetalleOperativo(categoria, 0, ahora)))
+  const detalle = Object.fromEntries(CATEGORIAS_OPERATIVAS.map((categoria, i) => [categoria, resultados[i].filas])) as Record<CategoriaOperativa, FilaOperativa[]>
+  const totales = Object.fromEntries(CATEGORIAS_OPERATIVAS.map((categoria, i) => [categoria, resultados[i].total])) as Record<CategoriaOperativa, number>
+  const alertasTecnicas = totales.eventos + totales.webhooksError + totales.webhooksAtascados + totales.liquidacionesError + totales.liquidacionesAtascadas
   const alertasOperacion = totales.disputasVencidas + totales.incidenciasCriticas + totales.solicitudesSinOferta
-
-  return {
-    generadoAt: new Date().toISOString(),
-    alertasTecnicas,
-    alertasOperacion,
-    total: alertasTecnicas + alertasOperacion,
-    totales,
-    detalle,
-  }
+  return { generadoAt: new Date(ahora).toISOString(), alertasTecnicas, alertasOperacion, total: alertasTecnicas + alertasOperacion, totales, detalle }
 }
 
 export async function enviarAlertaOperativaDiaria() {

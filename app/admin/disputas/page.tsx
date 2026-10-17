@@ -29,7 +29,7 @@ import {
   FileText,
   ExternalLink,
 } from "lucide-react"
-import { obtenerDisputas, obtenerDetalleDisputa, resolverDisputa } from "@/app/actions/disputes"
+import { obtenerDisputas, obtenerDetalleDisputa, resolverDisputa, asignarmeDisputa } from "@/app/actions/disputes"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { formatearFecha } from "@/lib/utils"
@@ -60,11 +60,14 @@ export default function AdminDisputesPage() {
   const [nota, setNota] = useState("")
   const [montoParcial, setMontoParcial] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [asignando, setAsignando] = useState(false)
   const { toast } = useToast()
   const router = useRouter()
 
   useEffect(() => {
     cargarDisputas()
+    const id = new URLSearchParams(window.location.search).get("disputa")
+    if (id) abrirDetalle(id)
   }, [])
 
   const cargarDisputas = async () => {
@@ -124,6 +127,20 @@ export default function AdminDisputesPage() {
       cargarDisputas()
     }
     setIsSubmitting(false)
+  }
+
+  const cambiarResponsable = async (asignar: boolean) => {
+    if (!detalle) return
+    setAsignando(true)
+    try {
+      const resultado = await asignarmeDisputa(detalle.disputa.id, asignar)
+      if (resultado.error) toast({ title: t("Error"), description: resultado.error, variant: "destructive" })
+      // Una carrera con otro administrador debe mostrar quién ganó realmente.
+      await abrirDetalle(detalle.disputa.id)
+      await cargarDisputas()
+    } finally {
+      setAsignando(false)
+    }
   }
 
   const disputasAbiertas = disputas.filter((d) => ["abierta", "en_revision"].includes(d.estado))
@@ -194,9 +211,25 @@ export default function AdminDisputesPage() {
                   : "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
               }
             >
-              {["abierta", "en_revision"].includes(disputa.estado) ? t("Abierta") : t("Resuelta")}
+              {disputa.estado === "en_revision" ? t("En revisión") : disputa.estado === "abierta" ? t("Abierta") : t("Resuelta")}
             </Badge>
           </div>
+
+          <Card>
+            <CardContent className="pt-6 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-medium">{t("Responsable de revisión")}</p>
+                <p>{detalle.responsable ? `${detalle.responsable.nombre || ""} ${detalle.responsable.apellido || ""}`.trim() : t("Sin asignar")}
+                  {detalle.responsable && !detalle.responsable.es_admin && ` · ${t("Ya no es administrador")}`}</p>
+                {disputa.asignada_at && <p className="text-xs text-muted-foreground">{t("Asignada el")}{" "}{fechaHora(disputa.asignada_at, idioma)}</p>}
+              </div>
+              {["abierta", "en_revision"].includes(disputa.estado) && (
+                disputa.responsable_id === detalle.actor_id
+                  ? <Button variant="outline" disabled={asignando} onClick={() => cambiarResponsable(false)}>{t("Dejar de encargarme")}</Button>
+                  : (!detalle.responsable || !detalle.responsable.es_admin) && <Button disabled={asignando} onClick={() => cambiarResponsable(true)}>{t("Encargarme de esta disputa")}</Button>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Partes + escrow */}
           <div className="grid md:grid-cols-3 gap-4">
@@ -572,6 +605,7 @@ export default function AdminDisputesPage() {
                 {d.trabajo?.precio_acordado} €
               </p>
               <p className="text-xs text-muted-foreground">{formatearFecha(d.created_at, idioma)}</p>
+              <p className="text-xs text-muted-foreground">{t("Responsable de revisión")}: {d.responsable ? `${d.responsable.nombre || ""} ${d.responsable.apellido || ""}`.trim() : t("Sin asignar")}{d.responsable && !d.responsable.es_admin && ` · ${t("Ya no es administrador")}`}</p>
             </div>
             <Button onClick={() => abrirDetalle(d.id)} disabled={loadingDetalle}>
               {["abierta", "en_revision"].includes(d.estado) ? t("Revisar y resolver") : t("Ver detalle")}

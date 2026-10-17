@@ -22,6 +22,7 @@ function load(path, dependencies) {
 const walk = (node) => Array.isArray(node) ? node.flatMap(walk)
   : !node || typeof node !== "object" ? [] : [node, ...walk(node.props?.children)]
 const user = { id: "synthetic-registered", is_anonymous: false }
+const drafts = load("lib/borrador-solicitud.ts", { zod: z, "@/lib/precios": { PRECIO_MAX: 100000 } })
 
 test("server excludes the questionnaire for visitors, anonymous users and invalid sessions", async () => {
   for (const result of [
@@ -76,6 +77,7 @@ function fixture() {
   const states = [], effects = [], cleanups = [], calls = { uploads: [], writes: [], refreshes: 0, pushes: [] }
   let cursor = 0, mounted = false, callback, authResult = { data: { user }, error: null }
   const hooks = {
+    useRef(initial) { const index = cursor++; if (!(index in states)) states[index] = { current: initial }; return states[index] },
     useState(initial) {
       const index = cursor++
       if (!(index in states)) states[index] = initial
@@ -88,12 +90,15 @@ function fixture() {
     onAuthStateChange: (fn) => { callback = fn; return { data: { subscription: { unsubscribe: () => { callback = null } } } } },
   } }
   const controls = (names) => Object.fromEntries(names.map((name) => [name, name]))
+  let formValues = { category: "", title: "", description: "", location: "", budget: [0, 100000], urgency: "", neededDate: "" }
+  const form = { handleSubmit: (fn) => fn, control: {}, reset: (value) => { if (value) formValues = value }, getValues: () => formValues, watch: () => ({ unsubscribe() {} }) }
   const { default: Component } = load("components/solicitud-servicio-form.tsx", {
     react: hooks, "react/jsx-runtime": jsx, zod: z,
     "@/components/selector-identidad-empresa": { SelectorIdentidadEmpresa: "Identity" },
     "@/components/idioma-provider": { useT: () => (key) => key },
     "@hookform/resolvers/zod": { zodResolver: () => ({}) },
-    "react-hook-form": { useForm: () => ({ handleSubmit: (fn) => fn, control: {}, reset: () => {} }) },
+    "react-hook-form": { useForm: () => form },
+    "@/lib/borrador-solicitud": drafts,
     "@/components/ui/button": controls(["Button"]),
     "@/components/ui/form": controls(["Form", "FormControl", "FormField", "FormItem", "FormLabel", "FormMessage"]),
     "@/components/ui/input": controls(["Input"]), "@/components/ui/textarea": controls(["Textarea"]),
@@ -114,7 +119,7 @@ function fixture() {
   })
   return {
     calls,
-    render() { cursor = 0; const element = Component({ embedded: true, usuarioId: user.id }); effects.splice(0).forEach((effect) => cleanups.push(effect())); mounted = true; return element },
+    render() { cursor = 0; let element = Component({ embedded: true, usuarioId: user.id }); effects.splice(0).forEach((effect) => cleanups.push(effect())); const wasMounted = mounted; mounted = true; if (!wasMounted) { cursor = 0; element = Component({ embedded: true, usuarioId: user.id }) }; return element },
     emit(session) { callback("SIGNED_IN", session) },
     setAuth(result) { authResult = result },
     cleanup() { cleanups.forEach((cleanup) => cleanup?.()); assert.equal(callback, null) },

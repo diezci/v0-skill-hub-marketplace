@@ -340,7 +340,7 @@ export default function DemandasServicios() {
       } = await supabase.auth.getUser()
       if (!user) {
         toast({ title: t("Inicia sesión"), description: t("Necesitas una cuenta para escribir al cliente.") })
-        router.push("/auth/login")
+        router.push(`/auth/login?next=${encodeURIComponent(`/demandas?solicitud=${demanda.id}`)}`)
         return
       }
       if (user.id === demanda.cliente_id) {
@@ -364,11 +364,20 @@ export default function DemandasServicios() {
     }
   }
 
-  const handleEnviarOferta = (demanda: Demanda) => {
-    setDemandaSeleccionada(demanda)
-    // La aceptación de gastos es por oferta: se pide de nuevo cada vez.
-    setAceptaGastos(false)
-    setDialogAbierto(true)
+  const handleEnviarOferta = async (demanda: Demanda) => {
+    try {
+      const { data: { user } } = await createClient().auth.getUser()
+      if (!user) {
+        router.push(`/auth/login?next=${encodeURIComponent(`/demandas?solicitud=${demanda.id}`)}`)
+        return
+      }
+      setDemandaSeleccionada(demanda)
+      // La aceptación de gastos es por oferta: se pide de nuevo cada vez.
+      setAceptaGastos(false)
+      setDialogAbierto(true)
+    } catch {
+      toast({ title: t("Error"), description: t("No se pudo comprobar tu sesión. Inténtalo de nuevo."), variant: "destructive" })
+    }
   }
 
   const handleSubmitOferta = async (e: React.FormEvent) => {
@@ -988,8 +997,9 @@ export default function DemandasServicios() {
             <SelectorIdentidadEmpresa value={empresaId} onChange={setEmpresaId} disabled={isSubmitting} />
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>{t("Precio propuesto (€)")}</Label>
+                <Label htmlFor="oferta-precio">{t("Precio propuesto (€)")}</Label>
                 <Input
+                  id="oferta-precio"
                   type="number"
                   min={1}
                   step="0.01"
@@ -1000,9 +1010,10 @@ export default function DemandasServicios() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>{t("Tiempo estimado")}</Label>
+                <Label htmlFor="oferta-duracion">{t("Tiempo estimado")}</Label>
                 <div className="flex gap-2">
                   <Input
+                    id="oferta-duracion"
                     type="number"
                     min={1}
                     step={1}
@@ -1016,7 +1027,7 @@ export default function DemandasServicios() {
                     value={formData.unidadTiempo}
                     onValueChange={(v) => setFormData({ ...formData, unidadTiempo: v })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger aria-label={t("Unidad de tiempo")}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1030,9 +1041,9 @@ export default function DemandasServicios() {
             </div>
 
             <div className="space-y-2">
-              <Label>{t("Incluye materiales")}</Label>
+              <Label htmlFor="oferta-materiales">{t("Incluye materiales")}</Label>
               <Select value={formData.materiales} onValueChange={(v) => setFormData({ ...formData, materiales: v })}>
-                <SelectTrigger>
+                <SelectTrigger id="oferta-materiales">
                   <SelectValue placeholder={t("Seleccionar")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -1044,8 +1055,9 @@ export default function DemandasServicios() {
             </div>
 
             <div className="space-y-2">
-              <Label>{t("Descripción de tu propuesta")}</Label>
+              <Label htmlFor="oferta-descripcion">{t("Descripción de tu propuesta")}</Label>
               <Textarea
+                id="oferta-descripcion"
                 value={formData.descripcion}
                 onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
                 placeholder={t("Describe tu experiencia, cómo abordarías el trabajo, disponibilidad...")}
@@ -1055,12 +1067,12 @@ export default function DemandasServicios() {
             </div>
 
             <div className="space-y-2">
-              <Label>{t("Archivos adjuntos (opcional)")}</Label>
+              <Label htmlFor="file-upload">{t("Archivos adjuntos (opcional)")}</Label>
               <div className="flex flex-wrap gap-2">
                 {attachedFiles.map((file, i) => (
                   <Badge key={i} variant="secondary" className="gap-1">
                     {file.name}
-                    <button type="button" onClick={() => setAttachedFiles(attachedFiles.filter((_, j) => j !== i))}>
+                    <button type="button" aria-label={`${t("Quitar archivo")}: ${file.name}`} onClick={() => setAttachedFiles(attachedFiles.filter((_, j) => j !== i))}>
                       <X className="h-3 w-3" />
                     </button>
                   </Badge>

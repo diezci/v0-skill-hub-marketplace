@@ -52,6 +52,10 @@ await db.exec(`
  create policy trabajos_update on public.trabajos for update to authenticated using(auth.uid() in (cliente_id,profesional_id));
 `)
 await db.exec(await read('./fixtures/empresas-workflow-baseline.sql'))
+// The historical fixture contains the private RPC but omits its public wrapper.
+const contractMigration = await read('../migrations/20260909191220_contratacion_atomica_y_guardas_workflow.sql')
+const contractWrapperEnd = 'grant execute on function public.aceptar_oferta_y_crear_trabajo(uuid,uuid,uuid,timestamptz) to authenticated;'
+await db.exec(contractMigration.slice(contractMigration.indexOf('create or replace function public.aceptar_oferta_y_crear_trabajo'), contractMigration.indexOf(contractWrapperEnd) + contractWrapperEnd.length))
 await db.exec(await read('./fixtures/empresas-financial-baseline.sql'))
 await db.exec(`
  grant execute on function public.vincular_mi_empresa(text,text,text,text,text,text,text) to authenticated;
@@ -72,6 +76,8 @@ await db.exec(await read('../migrations/20260921221953_empresas_equipo_identidad
 await db.exec(await read('../migrations/20260921222030_empresa_liquidacion_destino.sql'))
 await db.exec(await read('../migrations/20260921223402_empresa_facturacion_snapshot.sql'))
 await db.exec(await read('../migrations/20261005163655_empresas_roles_operaciones_verificacion.sql'))
+await db.exec(await read('../migrations/20261014010000_empresa_revision_vigente.sql'))
+await db.exec(await read('../migrations/20261014011000_empresa_continuidad_solicitudes.sql'))
 const all={perfil:true,mensajes:true,presupuestos:true,encargos:true,equipo:true,ver_cobros:true,gestionar_cobros:true}
 const operational={perfil:false,mensajes:true,presupuestos:true,encargos:true,equipo:false,ver_cobros:false,gestionar_cobros:false}
 const invite = (email,role='miembro',perms=operational,visible=false) => rpc('empresa_crear_invitacion',[email,'Cargo de prueba',role,JSON.stringify(perms),visible])
@@ -101,12 +107,17 @@ await expectError(()=>rpc('empresa_verificaciones_listar'),/No tienes permiso/,'
 await asRole('authenticated',ids.platformAdmin)
 check((await rpc('empresa_verificaciones_listar'))[0].empresa_id===ids.company,'Administrador Diime lista expedientes')
 check((await rpc('empresa_verificacion_documento',[ids.company])).nombre==='test.pdf','Administrador Diime accede a documento privado')
-await rpc('empresa_revisar_verificacion',[ids.company,'requiere_informacion','Falta poder actualizado'])
+const expedienteAnterior=(await rpc('empresa_verificaciones_listar')).find(x=>x.empresa_id===ids.company).id
+await expectError(()=>rpc('empresa_revisar_verificacion',[ids.company,'verificada','Sin expediente']),/solicitud ha cambiado/,'Pantalla antigua sin expediente se rechaza')
+await rpc('empresa_revisar_verificacion',[ids.company,'requiere_informacion','Falta poder actualizado',expedienteAnterior])
 await asRole('authenticated',ids.owner)
 check((await rpc('empresa_workspace')).verificacion.nota_revision==='Falta poder actualizado','Principal recibe motivo de revisión')
 await rpc('empresa_solicitar_verificacion',['documental','Titular','Administrador','poder.pdf',Buffer.from('%PDF-new').toString('base64'),true])
 await asRole('authenticated',ids.platformAdmin)
-await rpc('empresa_revisar_verificacion',[ids.company,'verificada','Identidad y poder comprobados con documentación de prueba'])
+await expectError(()=>rpc('empresa_revisar_verificacion',[ids.company,'verificada','Documento anterior',expedienteAnterior]),/solicitud ha cambiado/,'Reenvío distinto no se aprueba desde pantalla antigua')
+const expedienteActual=(await rpc('empresa_verificaciones_listar')).find(x=>x.empresa_id===ids.company).id
+check(expedienteActual!==expedienteAnterior,'Nuevo envío tiene otro expediente')
+await rpc('empresa_revisar_verificacion',[ids.company,'verificada','Identidad y poder comprobados con documentación de prueba',expedienteActual])
 await asRole('anon')
 check((await rpc('empresa_perfil_publico',[ids.company])).miembros.length===0,'Empresa aprobada publica solo miembros que aceptan visibilidad')
 await expectError(()=>db.query('select documento from diime_private.empresa_verificaciones'),/permission denied/,'Documento privado fuera del Data API')
@@ -235,6 +246,7 @@ if (process.env.EMPRESAS_FULL_INTEGRATION!=='0') {
  await testStripeEmpresa({db,asRole,ids,expectError,one,rpc,check})
  await asRole()
  await db.exec(await read('../migrations/20261005180450_proteger_avisos_empresa_revocacion.sql'))
+ await db.exec(await read('../migrations/20261014152829_reparar_enlaces_operaciones_empresa.sql'))
  const { testAvisosEmpresa }=await import('./empresa-notificaciones-scenarios.mjs')
  await testAvisosEmpresa({db,asRole,ids,one,check})
 }
@@ -246,5 +258,7 @@ await asRole()
 await db.exec(await read('../migrations/20261005192538_empresa_vista_previa_privada.sql'))
 const { testVistaPreviaEmpresa } = await import('./empresa-preview-scenarios.mjs')
 await testVistaPreviaEmpresa({ db, asRole, ids, one, rpc, check, expectError })
+const { testContinuidadSolicitudesEmpresa } = await import('./empresa-continuidad-scenarios.mjs')
+await testContinuidadSolicitudesEmpresa({ db, asRole, ids, one, rpc, check, expectError })
 console.log(`OK ${assertions} comprobaciones PostgreSQL: roles reales, revisión, permisos, alcance, privacidad y continuidad.`)
 await db.close()

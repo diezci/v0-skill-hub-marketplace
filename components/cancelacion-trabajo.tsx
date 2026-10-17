@@ -40,6 +40,7 @@ interface CancelacionTrabajoProps {
     cancelacion_estado?: string | null
     cancelacion_solicitada_por?: string | null
     cancelacion_razon?: string | null
+    cancelacion_revision?: string | null
     cancelacion_adjuntos_solicitante?: string[] | null
     cancelacion_respuesta_razon?: string | null
     cancelacion_adjuntos_respuesta?: string[] | null
@@ -66,6 +67,7 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
   const [userId, setUserId] = useState<string | null>(null)
   const [openSolicitar, setOpenSolicitar] = useState(false)
   const [openRechazar, setOpenRechazar] = useState(false)
+  const [revisionRespuesta, setRevisionRespuesta] = useState<string | null>(null)
   const [openEditar, setOpenEditar] = useState(false)
   const [openRetirar, setOpenRetirar] = useState(false)
   const [razon, setRazon] = useState("")
@@ -177,7 +179,7 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
     setSubmitting(true)
     try {
       const adjuntos = aceptar ? [] : await subirAdjuntos(archivosRespuesta)
-      const res = await responderCancelacion(trabajo.id, aceptar, aceptar ? "" : razonRespuesta.trim(), adjuntos)
+      const res = await responderCancelacion(trabajo.id, aceptar, aceptar ? "" : razonRespuesta.trim(), adjuntos, aceptar ? trabajo.cancelacion_revision : revisionRespuesta)
       if (res.error) {
         toast({ title: t("Error"), description: t(res.error), variant: "destructive" })
       } else {
@@ -397,7 +399,7 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
               variant="outline"
               className="h-auto min-h-8 w-full whitespace-normal bg-transparent py-2 sm:w-auto sm:whitespace-nowrap"
               disabled={submitting}
-              onClick={() => setOpenRechazar(true)}
+              onClick={() => { setRevisionRespuesta(trabajo.cancelacion_revision ?? null); setOpenRechazar(true) }}
             >
               <XCircle className="mr-1 h-4 w-4 shrink-0" />{t("Rechazar")}</Button>
           </div>

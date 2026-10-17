@@ -32,10 +32,10 @@ export async function enviarAvisosExternos(avisos?: any[], admin?: any) {
         if (!parte || !["cliente","proveedor"].includes(parte)) return
         const empresaId = parte === "cliente" ? t.empresa_cliente_id : t.empresa_proveedora_id
         if (empresaId) {
-          const financiera = ["pago_liberado","reembolso_emitido","disputa_ganada","disputa_perdida","disputa_resuelta"].includes(aviso.tipo)
+          const financiera = ["pago_liberado","reembolso_emitido","reembolso_fallido","disputa_ganada","disputa_perdida","disputa_resuelta"].includes(aviso.tipo)
           const operador = parte === "cliente" ? t.operador_cliente_id || t.cliente_id : t.operador_proveedor_id || t.profesional_id
           destinatarios = await destinatariosOperacionEmpresa(admin, empresaId, operador, financiera ? "ver_cobros" : "encargos")
-          link = "/perfil-empresa"
+          link = `/mi-empresa?trabajo=${encodeURIComponent(trabajoId)}`
         }
       }
     }

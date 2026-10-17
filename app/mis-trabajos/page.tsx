@@ -70,6 +70,7 @@ import {
 } from "@/components/ui/dialog"
 import { createClient } from "@/lib/supabase/client"
 import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
+import { AvisoLiquidacionPago } from "@/components/aviso-liquidacion-pago"
 import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
 import MisDisputas from "@/components/mis-disputas"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
@@ -618,6 +619,8 @@ function MisTrabajosPageContenido() {
                 </div>
                 <Slider
                   value={[newProgress]}
+                  thumbLabels={[t("Progreso actual")]}
+                  thumbValueTexts={[`${newProgress}%`]}
                   onValueChange={(v) => setNewProgress(v[0])}
                   max={100}
                   step={5}
@@ -630,8 +633,9 @@ function MisTrabajosPageContenido() {
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">{t("Mensaje para el cliente (opcional)")}</label>
+                <label htmlFor="mensaje-progreso" className="text-sm font-medium">{t("Mensaje para el cliente (opcional)")}</label>
                 <Textarea
+                  id="mensaje-progreso"
                   placeholder={t("Describe los avances realizados...")}
                   value={updateMessage}
                   onChange={(e) => setUpdateMessage(e.target.value)}
@@ -677,8 +681,9 @@ function MisTrabajosPageContenido() {
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">{t("Mensaje de entrega (opcional)")}</label>
+                <label htmlFor="mensaje-entrega" className="text-sm font-medium">{t("Mensaje de entrega (opcional)")}</label>
                 <Textarea
+                  id="mensaje-entrega"
                   placeholder={t("Añade detalles sobre la entrega, instrucciones de uso, etc.")}
                   value={deliveryMessage}
                   onChange={(e) => setDeliveryMessage(e.target.value)}
@@ -740,7 +745,7 @@ function TrabajoCard({
   // Estados reales del escrow: "fondos_retenidos" (pagado, en custodia) y
   // "completado" (pago liberado al proveedor).
   const escrowEstado = trabajo.transaccion_escrow?.estado
-  const isPaid = escrowEstado === "fondos_retenidos" || escrowEstado === "completado"
+  const isPaid = ["retenido", "fondos_retenidos", "liquidando", "liberado", "completado"].includes(escrowEstado)
   const isPaymentReleased = escrowEstado === "completado"
   const pagoNeto = Number(
     trabajo.transaccion_escrow?.pago_neto_proveedor ?? calcularPagoProveedor(trabajo.precio_acordado || 0).pagoNeto,
@@ -797,7 +802,7 @@ function TrabajoCard({
               </EnlacePerfil>
               <Badge className={`${config?.color} text-white`}>
                 <Icon className="h-3 w-3 mr-1" />
-                {t(config?.label || "")}
+                {t(escrowEstado === "liquidando" ? "Liquidación pendiente" : config?.label || "")}
               </Badge>
             </div>
 
@@ -857,6 +862,7 @@ function TrabajoCard({
 
             {/* Payment Status for Provider */}
             <div className="mt-4 pt-4 border-t">
+              <AvisoLiquidacionPago escrow={trabajo.transaccion_escrow} parte="proveedor" />
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {isPaid ? (
@@ -932,7 +938,7 @@ function TrabajoCard({
                   <CancelacionTrabajo trabajo={trabajo} onChange={onRefresh} variante="boton" />
                 </div>
               )}
-              {showPendingConfirmation && (
+              {showPendingConfirmation && escrowEstado !== "liquidando" && (
                 <div className="text-center py-4">
                   <Clock className="h-8 w-8 mx-auto text-purple-500 mb-2 animate-pulse" />
                   <p className="text-sm text-muted-foreground">
@@ -953,7 +959,7 @@ function TrabajoCard({
                 <MessageSquare className="h-4 w-4 mr-2" />
                 {t("Contactar Cliente")}</Button>
               {/* El proveedor puede abrir disputa cuando ya entregó y el cliente no confirma. */}
-              {trabajo.estado === "entregado" && (
+              {trabajo.estado === "entregado" && escrowEstado !== "liquidando" && (
                 <AbrirDisputaDialog
                   trabajoId={trabajo.id}
                   rol="proveedor"

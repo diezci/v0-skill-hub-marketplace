@@ -162,10 +162,13 @@ test('subir PDF no verifica: identidad y autorización obligatorias; solo Diime 
   error(await store.revisarVerificacion(actores.owner, { decision: 'verificada', nota: 'Quiero aprobar mi propia solicitud.' }), /equipo Diime/)
   error(await store.invitar(actores.owner, invitacion()), /verificación/)
   error(await store.solicitarPresupuesto(actores.cliente, presupuesto), /verificación/)
-  correcto(await store.revisarVerificacion(actores.admin, { decision: 'requiere_informacion', nota: 'Adjunta un documento de representación actualizado.' }))
+  const previo = correcto(await store.espacio(actores.admin)).verificacion.id
+  error(await store.revisarVerificacion(actores.admin, { decision: 'verificada', nota: 'Falta el expediente.' }), /solicitud ha cambiado/)
+  correcto(await store.revisarVerificacion(actores.admin, { decision: 'requiere_informacion', nota: 'Adjunta un documento de representación actualizado.', verificacionId: previo }))
   assert.equal((await store.publica('reformas-garcia')).empresa.estadoVerificacion, 'requiere_informacion')
   correcto(await store.solicitarVerificacion(actores.owner, documento))
-  correcto(await store.revisarVerificacion(actores.admin, { decision: 'verificada', nota: 'Documentación ficticia comprobada en esta prueba.' }))
+  error(await store.revisarVerificacion(actores.admin, { decision: 'verificada', nota: 'Pantalla anterior.', verificacionId: previo }), /solicitud ha cambiado/)
+  correcto(await store.revisarVerificacion(actores.admin, { decision: 'verificada', nota: 'Documentación ficticia comprobada en esta prueba.', verificacionId: correcto(await store.espacio(actores.admin)).verificacion.id }))
   assert.equal((await store.publica('reformas-garcia')).empresa.estadoVerificacion, 'verificada')
 })
 

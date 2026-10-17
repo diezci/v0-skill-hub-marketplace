@@ -457,6 +457,18 @@ export async function crearConversacion(params: {
   const { data: bloqueada } = await supabase.rpc("interaccion_bloqueada_con", { p_otro: params.otroUsuarioId })
   if (bloqueada) return { error: await textoServidor("No puedes iniciar una conversación con este usuario.") }
 
+  async function devolverConversacion<T extends { id: string }>(conversacion: T) {
+    // Cada apertura puede traer su propio mensaje. Guardarlo también al
+    // reutilizar el chat evita perder el segundo mensaje en aperturas simultáneas.
+    if (params.mensajeInicial) {
+      const envio = await enviarMensaje(conversacion.id, params.mensajeInicial)
+      if (envio.error) return envio
+    }
+    revalidatePath("/mensajes")
+    revalidatePath("/admin/mensajes")
+    return { data: conversacion }
+  }
+
   // Reutilizar cualquier conversación existente entre ambos usuarios (en
   // cualquier dirección). Existe una constraint UNIQUE (participante_1,
   // participante_2), así que no debemos crear duplicados.
@@ -485,14 +497,14 @@ export async function crearConversacion(params: {
           console.warn(
             `[chat] contexto_rpc_no_disponible conversation=${existingConv.id.slice(0, 8)} code=${vinculoError.code ?? "unknown"}`,
           )
-          return { data: existingConv }
+          return devolverConversacion(existingConv)
         }
         return { error: await textoServidor("No se pudo vincular el chat con esta demanda.") }
       }
       const conversacionVinculada = Array.isArray(vinculada) ? vinculada[0] : vinculada
-      if (conversacionVinculada) return { data: conversacionVinculada }
+      if (conversacionVinculada) return devolverConversacion(conversacionVinculada)
     }
-    return { data: existingConv }
+    return devolverConversacion(existingConv)
   }
 
   // Orden canónico: dos aperturas simultáneas (A→B y B→A) intentan insertar
@@ -507,8 +519,6 @@ export async function crearConversacion(params: {
       participante_2: participante2,
       solicitud_id: solicitudIdValidada,
       trabajo_id: params.trabajoId,
-      ultimo_mensaje: params.mensajeInicial,
-      fecha_ultimo_mensaje: params.mensajeInicial ? new Date().toISOString() : null,
     })
     .select()
     .single()
@@ -538,50 +548,20 @@ export async function crearConversacion(params: {
               console.warn(
                 `[chat] contexto_rpc_no_disponible conversation=${creadaEnParalelo.id.slice(0, 8)} code=${vinculoError.code ?? "unknown"}`,
               )
-              return { data: creadaEnParalelo }
+              return devolverConversacion(creadaEnParalelo)
             }
             return { error: await textoServidor("No se pudo vincular el chat con esta demanda.") }
           }
           const conversacionVinculada = Array.isArray(vinculada) ? vinculada[0] : vinculada
-          if (conversacionVinculada) return { data: conversacionVinculada }
+          if (conversacionVinculada) return devolverConversacion(conversacionVinculada)
         }
-        return { data: creadaEnParalelo }
+        return devolverConversacion(creadaEnParalelo)
       }
     }
     return { error: await textoServidor(error.message) }
   }
 
-  // Send initial message if provided
-  if (params.mensajeInicial) {
-    await supabase.from("mensajes").insert({
-      conversacion_id: conv.id,
-      remitente_id: user.id,
-      contenido: params.mensajeInicial,
-      leido: false,
-    })
-
-    const { data: remitente } = await supabase
-      .from("profiles")
-      .select("nombre, apellido")
-      .eq("id", user.id)
-      .maybeSingle()
-    const { data: destinatario } = await supabase
-      .from("profiles")
-      .select("es_admin")
-      .eq("id", params.otroUsuarioId)
-      .maybeSingle()
-    await enviarPushAUsuario(params.otroUsuarioId, {
-      titulo: `${remitente?.nombre ?? ""} ${remitente?.apellido ?? ""}`.trim() || "Nuevo mensaje",
-      cuerpo: params.mensajeInicial.slice(0, 160),
-      link: destinatario?.es_admin ? `/admin/mensajes?c=${conv.id}` : `/mensajes?c=${conv.id}`,
-      conversacionId: conv.id,
-      tipo: "mensaje",
-    })
-  }
-
-  revalidatePath("/mensajes")
-  revalidatePath("/admin/mensajes")
-  return { data: conv }
+  return devolverConversacion(conv)
 }
 
 export async function crearConversacionAdmin(otroUsuarioId: string) {

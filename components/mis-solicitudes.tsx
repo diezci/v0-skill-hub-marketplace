@@ -34,6 +34,7 @@ import { crearResena } from "@/app/actions/reviews"
 import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
 import MisDisputas from "@/components/mis-disputas"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
+import { AvisoLiquidacionPago } from "@/components/aviso-liquidacion-pago"
 import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
 import { EnlacePerfil } from "@/components/enlace-perfil"
 import { PlazoNecesidad } from "@/components/plazo-necesidad"
@@ -92,6 +93,7 @@ function MisSolicitudesContenido() {
   const [reviewHover, setReviewHover] = useState(0)
   const [rejectReason, setRejectReason] = useState("")
   const [actionLoading, setActionLoading] = useState(false)
+  const [errorConfirmacion, setErrorConfirmacion] = useState<string | null>(null)
   const [editSolicitud, setEditSolicitud] = useState<any>(null)
   const [editForm, setEditForm] = useState({
     categoria: "",
@@ -112,6 +114,7 @@ function MisSolicitudesContenido() {
   const router = useRouter()
 
   const refrescarSolicitudes = async () => {
+    window.dispatchEvent(new CustomEvent("diime:notification"))
     // Las cancelaciones modifican el trabajo, no solo la demanda. Refrescar
     // ambas colecciones hace visibles al instante los motivos y adjuntos sin
     // esperar al sondeo periódico de 15 segundos.
@@ -283,30 +286,24 @@ function MisSolicitudesContenido() {
 
   const handleConfirmarTrabajo = async (trabajo: any) => {
     setActionLoading(true)
-    const result = await confirmarTrabajoCompletado(trabajo.id)
-
-    if (result.error) {
-      toast({
-        title: t("Error"),
-        description: t(result.error),
-        variant: "destructive",
-      })
-      setActionLoading(false)
-    } else {
-      toast({
-        title: t("Trabajo confirmado"),
-        description: t("El pago ha sido liberado al profesional."),
-      })
+    setErrorConfirmacion(null)
+    try {
+      const result = await confirmarTrabajoCompletado(trabajo.id)
+      if (result.error) {
+        setErrorConfirmacion("No se pudo completar la liquidación. El trabajo sigue abierto y no tienes que volver a pagar.")
+        // La operación puede haberse fijado antes del error externo. Recargar
+        // conserva su estado y ofrece continuar el mismo pago tras corregirlo.
+        await refrescarSolicitudes()
+        return
+      }
+      toast({ title: t("Trabajo confirmado"), description: t("El pago ha sido liberado al profesional.") })
       setShowConfirmDialog(false)
-      setActionLoading(false)
-
-      // Recargar antes de nada: sin esto el trabajo seguía apareciendo en "Por
-      // Confirmar" y el Historial marcaba 0, aunque en la base de datos ya
-      // estuviera completado. Solo se arreglaba recargando la página a mano.
       await refrescarSolicitudes()
-
-      // Show review dialog
       setShowReviewDialog(true)
+    } catch {
+      setErrorConfirmacion("No se pudo comprobar la liquidación. Actualiza la página antes de continuar; no vuelvas a pagar.")
+    } finally {
+      setActionLoading(false)
     }
   }
 
@@ -352,15 +349,27 @@ function MisSolicitudesContenido() {
   }
 
   const handleSubmitReview = async () => {
-    if (!selectedTrabajo) return
+    if (!selectedTrabajo || actionLoading) return
     setActionLoading(true)
 
-    const result = await crearResena({
-      trabajo_id: selectedTrabajo.id,
-      profesional_id: selectedTrabajo.profesional_id,
-      rating: reviewRating,
-      comentario: reviewComentario,
-    })
+    let result: Awaited<ReturnType<typeof crearResena>>
+    try {
+      result = await crearResena({
+        trabajo_id: selectedTrabajo.id,
+        profesional_id: selectedTrabajo.profesional_id,
+        rating: reviewRating,
+        comentario: reviewComentario,
+      })
+    } catch {
+      toast({
+        title: t("Error"),
+        description: t("Inténtalo de nuevo en unos segundos."),
+        variant: "destructive",
+      })
+      return
+    } finally {
+      setActionLoading(false)
+    }
 
     if (result.error) {
       toast({
@@ -368,24 +377,32 @@ function MisSolicitudesContenido() {
         description: t(result.error),
         variant: "destructive",
       })
-    } else {
-      toast({
-        title: t("Valoración enviada"),
-        description: t("Gracias por tu valoración. Ayuda a otros clientes a elegir mejor."),
-      })
+      return
     }
 
+    toast({
+      title: t("Valoración enviada"),
+      description: t("Gracias por tu valoración. Ayuda a otros clientes a elegir mejor."),
+    })
+    setTrabajos((actuales) => actuales.map((trabajo) =>
+      trabajo.id === selectedTrabajo.id ? { ...trabajo, review_cliente_id: result.data.id } : trabajo,
+    ))
     setShowReviewDialog(false)
     setSelectedTrabajo(null)
     setReviewRating(5)
     setReviewComentario("")
-    setActionLoading(false)
 
-    // Refresh
-    const refreshResult = await obtenerSolicitudesPorUsuario()
-    if (refreshResult.data) setSolicitudes(refreshResult.data)
-    const trabajosResult = await obtenerMisTrabajos()
-    if (trabajosResult.data) setTrabajos(trabajosResult.data)
+    // A failed refresh must not turn a persisted review into an apparent failure.
+    const [solicitudesResult, trabajosResult] = await Promise.allSettled([
+      obtenerSolicitudesPorUsuario(),
+      obtenerMisTrabajos(),
+    ])
+    if (solicitudesResult.status === "fulfilled" && solicitudesResult.value.data) {
+      setSolicitudes(solicitudesResult.value.data)
+    }
+    if (trabajosResult.status === "fulfilled" && trabajosResult.value.data) {
+      setTrabajos(trabajosResult.value.data)
+    }
   }
 
   const calcularDiasRestantes = (fechaFin: string) => {
@@ -834,7 +851,9 @@ function MisSolicitudesContenido() {
                 ? calcularDiasRestantes(trabajo.fecha_estimada_fin)
                 : null
               const esEntregado = trabajo?.estado === "entregado"
-              const pagado = trabajo?.escrow?.estado === "fondos_retenidos"
+              const liquidando = trabajo?.escrow?.estado === "liquidando"
+              const confirmacionFijada = liquidando && trabajo?.escrow?.confirmacion_en_curso
+              const pagado = ["retenido", "fondos_retenidos", "liquidando"].includes(trabajo?.escrow?.estado)
 
               return (
                 <Card
@@ -849,7 +868,7 @@ function MisSolicitudesContenido() {
                           <CardTitle className="max-w-full break-words text-xl">{solicitud.titulo}</CardTitle>
                           {esEntregado && (
                             <Badge className="max-w-full whitespace-normal bg-purple-500 text-left leading-tight sm:whitespace-nowrap sm:text-center sm:leading-normal">
-                              <Package className="mr-1 h-3 w-3 shrink-0" />{t("Pendiente de Confirmación")}</Badge>
+                              <Package className="mr-1 h-3 w-3 shrink-0" />{t(confirmacionFijada ? "Liquidación pendiente" : "Pendiente de Confirmación")}</Badge>
                           )}
                         </div>
                         <CardDescription className="break-words">{t(solicitud.categoria?.nombre || "")}</CardDescription>
@@ -881,6 +900,7 @@ function MisSolicitudesContenido() {
                   </CardHeader>
                   <CardContent className="min-w-0 space-y-6 px-4 sm:px-6">
                     <AvisosTarjeta avisos={avisosSolicitud(solicitud)} onMarcarLeidas={marcarLeidas} />
+                    <AvisoLiquidacionPago escrow={trabajo?.escrow} parte="cliente" />
                     {/* Professional Info */}
                     <div className="flex min-w-0 flex-col items-stretch gap-4 rounded-lg bg-muted/50 p-4 sm:flex-row sm:items-center">
                       <div className="flex min-w-0 items-center gap-4 sm:flex-1">
@@ -1053,39 +1073,43 @@ function MisSolicitudesContenido() {
                         <div className="flex min-w-0 items-start gap-3">
                           <Package className="mt-0.5 h-5 w-5 shrink-0 text-purple-500" />
                           <div className="min-w-0 flex-1">
-                            <p className="break-words font-semibold">{t("El profesional ha marcado el trabajo como entregado")}</p>
-                            <p className="break-words text-sm text-muted-foreground">{t("Revisa el trabajo realizado y confirma su finalización para liberar el pago.")}</p>
+                            <p className="break-words font-semibold">{t(confirmacionFijada ? "Entrega confirmada; liquidación pendiente" : "El profesional ha marcado el trabajo como entregado")}</p>
+                            <p className="break-words text-sm text-muted-foreground">{t(confirmacionFijada ? "La confirmación ya está registrada. Continúa la misma liquidación cuando se haya resuelto la incidencia." : "Revisa el trabajo realizado y confirma su finalización para liberar el pago.")}</p>
                           </div>
                         </div>
                         <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
-                          <AlertDialog open={showConfirmDialog && selectedTrabajo?.id === trabajo?.id} onOpenChange={setShowConfirmDialog}>
+                          <AlertDialog open={showConfirmDialog && selectedTrabajo?.id === trabajo?.id} onOpenChange={(open) => { if (!actionLoading) setShowConfirmDialog(open) }}>
                             <Button
+                              disabled={actionLoading || (liquidando && !confirmacionFijada)}
                               className="h-auto min-h-9 w-full whitespace-normal py-2 sm:h-9 sm:flex-1 sm:whitespace-nowrap"
                               onClick={() => {
                                 setSelectedTrabajo(trabajo)
+                                setErrorConfirmacion(null)
                                 setShowConfirmDialog(true)
                               }}
                             >
-                              <CheckCircle2 className="h-4 w-4 mr-1" />{t("Confirmar y Liberar Pago")}</Button>
+                              <CheckCircle2 className="h-4 w-4 mr-1" />{t(confirmacionFijada ? "Reintentar liquidación" : "Confirmar y Liberar Pago")}</Button>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>{t("Confirmar finalización del trabajo")}</AlertDialogTitle>
+                                <AlertDialogTitle>{t(confirmacionFijada ? "Continuar la liquidación pendiente" : "Confirmar finalización del trabajo")}</AlertDialogTitle>
                                 {/* Se habla del importe que SALE DE LA CUSTODIA, no de
                                     lo que acaba cobrando el profesional: lo que Diime
                                     le descuenta a él es cosa entre Diime y él, y el
                                     cliente no tiene por qué saberlo. Por eso "se
                                     libera" y no "el profesional recibirá". */}
-                                <AlertDialogDescription>{t("Al confirmar se libera el pago de")}{" "}
-                                  {formatearPrecioEuros(trabajo?.precio_acordado, idioma)}{" "}{t("pendiente de liquidación y el trabajo queda cerrado. Esta acción no se puede deshacer. ¿Confirmas que el trabajo se ha completado satisfactoriamente?")}</AlertDialogDescription>
+                                <AlertDialogDescription>{confirmacionFijada ? t("Se reintentará la operación ya registrada, con los mismos importes. No se realizará un nuevo cobro al cliente.") : <>{t("Al confirmar se libera el pago de")}{" "}
+                                  {formatearPrecioEuros(trabajo?.precio_acordado, idioma)}{" "}{t("pendiente de liquidación y el trabajo queda cerrado. Esta acción no se puede deshacer. ¿Confirmas que el trabajo se ha completado satisfactoriamente?")}</>}</AlertDialogDescription>
                               </AlertDialogHeader>
+                              {errorConfirmacion && <p role="alert" className="text-sm text-destructive">{t(errorConfirmacion)}</p>}
                               <AlertDialogFooter>
-                                <AlertDialogCancel>{t("Cancelar")}</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleConfirmarTrabajo(trabajo)}>{t("Sí, confirmar y pagar")}</AlertDialogAction>
+                                <AlertDialogCancel disabled={actionLoading}>{t("Cancelar")}</AlertDialogCancel>
+                                <AlertDialogAction disabled={actionLoading} onClick={(event) => { event.preventDefault(); void handleConfirmarTrabajo(trabajo) }}>{t(actionLoading ? "Procesando…" : confirmacionFijada ? "Reintentar liquidación" : "Sí, confirmar y pagar")}</AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
                           <Button
                             variant="outline"
+                            disabled={actionLoading || liquidando}
                             className="h-auto min-h-9 w-full whitespace-normal bg-transparent py-2 text-destructive border-destructive/50 hover:bg-destructive/10 sm:h-9 sm:w-auto sm:shrink-0 sm:whitespace-nowrap"
                             onClick={() => {
                               setSelectedTrabajo(trabajo)
@@ -1184,7 +1208,7 @@ function MisSolicitudesContenido() {
       </Tabs>
 
       {/* Review Dialog */}
-      <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
+      <Dialog open={showReviewDialog} onOpenChange={(open) => { if (!actionLoading) setShowReviewDialog(open) }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{t("Valorar al profesional")}</DialogTitle>
@@ -1199,6 +1223,9 @@ function MisSolicitudesContenido() {
                   <button
                     key={star}
                     type="button"
+                    aria-label={`${t("Puntuación")}: ${star}/5`}
+                    aria-pressed={reviewRating === star}
+                    disabled={actionLoading}
                     onMouseEnter={() => setReviewHover(star)}
                     onMouseLeave={() => setReviewHover(0)}
                     onClick={() => setReviewRating(star)}
@@ -1225,8 +1252,10 @@ function MisSolicitudesContenido() {
 
             {/* Comment */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">{t("Comentario")}</label>
+              <label htmlFor="solicitud-review-comentario" className="text-sm font-medium">{t("Comentario")}</label>
               <Textarea
+                id="solicitud-review-comentario"
+                disabled={actionLoading}
                 placeholder={t("Describe tu experiencia con este profesional...")}
                 value={reviewComentario}
                 onChange={(e) => setReviewComentario(e.target.value)}
@@ -1235,7 +1264,7 @@ function MisSolicitudesContenido() {
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" className="bg-transparent" onClick={() => {
+            <Button variant="outline" className="bg-transparent" disabled={actionLoading} onClick={() => {
               setShowReviewDialog(false)
               setSelectedTrabajo(null)
               setReviewRating(5)

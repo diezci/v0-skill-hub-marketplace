@@ -80,11 +80,12 @@ test('workspace derives titular privileges and retains real activity actor and e
 
 test('workspace adapts cancellation side and the scoped dispute without adding personal fields', async () => {
   const incident = { id: 'dispute', estado: 'en_revision', motivo: 'Motivo compartido', resolucion: null, resultado: null }
-  const { load } = loadModules({ empresa_workspace: { ...workspace, operaciones: { solicitudes: [], ofertas: [], trabajos: [{ id: 'work', titulo: 'Servicio empresa', estado: 'en_disputa', fecha: '2026-10-05', actor_usuario_id: memberId, actor_nombre: 'Luis', parte: 'proveedor', cancelacion_estado: 'pendiente', cancelacion_parte_solicitante: 'cliente', cancelacion_razon: 'Motivo compartido', disputa_actual: incident }] } } })
+  const { load } = loadModules({ empresa_workspace: { ...workspace, operaciones: { solicitudes: [], ofertas: [], trabajos: [{ id: 'work', titulo: 'Servicio empresa', estado: 'en_disputa', fecha: '2026-10-05', actor_usuario_id: memberId, actor_nombre: 'Luis', parte: 'proveedor', cancelacion_estado: 'pendiente', cancelacion_parte_solicitante: 'cliente', cancelacion_razon: 'Motivo compartido', cancelacion_revision:'11111111-2222-3333-4444-555555555555', disputa_actual: incident }] } } })
   const op = (await load('lib/empresas/production-store.ts').espacioEmpresaReal()).data.operaciones.trabajos[0]
   assert.equal(op.cancelacionParteSolicitante, 'cliente')
   assert.equal(op.cancelacionEstado, 'pendiente')
   assert.equal(op.cancelacionRazon, 'Motivo compartido')
+  assert.equal(op.cancelacionRevision,'11111111-2222-3333-4444-555555555555')
   assert.deepEqual(op.disputaActual, incident)
   assert.equal(Object.hasOwn(op, 'notas_privadas_proveedor'), false)
 })
@@ -306,7 +307,7 @@ test('company operations filter by original actor or current operator and reserv
 
 test('delegated company incidents require job permission and preserve the requesting contractual side', async () => {
   const { load } = loadModules()
-  const base = { trabajoId: 'job', titulo: 'Servicio de empresa', estado: 'en_progreso', parte: 'cliente', puedeGestionar: true, puedeAceptarCancelacion: false }
+  const base = { cancelacionRevision:'11111111-2222-3333-4444-555555555555', trabajoId: 'job', titulo: 'Servicio de empresa', estado: 'en_progreso', parte: 'cliente', puedeGestionar: true, puedeAceptarCancelacion: false }
   const delegate = workspaceHarness(load, base, 'IncidenciasTrabajoEmpresa')
   let tree = delegate.render()
   assert.ok(delegate.button(tree, 'Solicitar cancelación'))
@@ -325,14 +326,16 @@ test('delegated company incidents require job permission and preserve the reques
   tree = otherRequest.render()
   assert.equal(otherRequest.button(tree, 'Aceptar cancelación'), undefined)
   assert.ok(otherRequest.button(tree, 'Rechazar cancelación'))
-  const finance = workspaceHarness(load, { ...base, cancelacionEstado: 'pendiente', cancelacionParteSolicitante: 'proveedor', puedeAceptarCancelacion: true }, 'IncidenciasTrabajoEmpresa')
+  const financeProps = { ...base, cancelacionEstado: 'pendiente', cancelacionParteSolicitante: 'proveedor', puedeAceptarCancelacion: true }
+  const finance = workspaceHarness(load, financeProps, 'IncidenciasTrabajoEmpresa')
   tree = finance.render()
   finance.button(tree, 'Aceptar cancelación').props.onClick()
   assert.equal(finance.actions.length, 0, 'opening confirmation must not cancel the job')
+  financeProps.cancelacionRevision='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' // Background refresh must not silently update consent.
   tree = finance.render()
   finance.all(tree, n => n.type === 'form')[0].props.onSubmit({ preventDefault() {} })
   await finance.settle()
-  assert.deepEqual(finance.actions.find(c => c.action === 'responderCancelacion').args, ['job', true, ''])
+  assert.deepEqual(finance.actions.find(c => c.action === 'responderCancelacion').args, ['job', true, '', [], '11111111-2222-3333-4444-555555555555'])
   const readonly = workspaceHarness(load, { ...base, puedeGestionar: false, puedeAceptarCancelacion: true }, 'IncidenciasTrabajoEmpresa')
   assert.equal(readonly.render(), null)
 })

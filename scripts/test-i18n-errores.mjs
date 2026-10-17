@@ -21,6 +21,9 @@ const { REGLAS_MODERACION_SOLICITUDES, errorSolicitudNoPublicable, errorContenid
 const excepciones = new Set()
 for (const dir of ["scripts", "supabase/migrations"]) {
   for (const file of fs.readdirSync(dir).filter((name) => name.endsWith(".sql"))) {
+    // Rollback verification templates raise internal QA assertions, not errors
+    // reachable from a product RPC or shown to an end user.
+    if (file.endsWith(".template.sql")) continue
     const source = fs.readFileSync(path.join(dir, file), "utf8")
     for (const match of source.matchAll(/raise\s+exception\s+'((?:''|[^'])*)'/gi)) {
       excepciones.add(match[1].replaceAll("''", "'"))

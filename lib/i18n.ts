@@ -140,6 +140,7 @@ const EN: Diccionario = {
   "Este trabajo ya tiene una reseña": "This job already has a review",
   "Indica una puntuación entera entre 1 y 5": "Enter a whole-number rating between 1 and 5",
   "La reputación se calcula a partir de reseñas verificadas": "Reputation is calculated from verified reviews",
+  "Los proyectos completados se calculan a partir de los contratos": "Completed projects are calculated from contracts",
   "No puedes publicar este trabajo en tu portfolio": "You cannot publish this job in your portfolio",
   "Ese trabajo no está disponible para el portfolio": "That job is not available for the portfolio",
   "La demanda original no está disponible": "The original request is unavailable",

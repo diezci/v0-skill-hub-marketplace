@@ -3,7 +3,7 @@
 import { useT, useIdioma } from "@/components/idioma-provider"
 import { localeDe } from "@/lib/i18n"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { cn, formatearPrecioEuros, formatearRangoPortfolio } from "@/lib/utils"
@@ -67,6 +67,7 @@ import Link from "next/link"
 import { RangoPrecio } from "@/components/rango-precio"
 import { PRECIO_MAX } from "@/lib/precios"
 import { SolicitudVerificacionProfesional } from "@/components/solicitud-verificacion-profesional"
+import { almacenBorradorPortfolio, borrarBorradorPortfolio, guardarBorradorPortfolio, leerBorradorPortfolio } from "@/lib/borrador-portfolio"
 
 const provincias = [
   { provincia: "Álava", codigo: "01" },
@@ -199,6 +200,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
   // Portfolio: el alta/baja vive aquí porque /mi-perfil es el único editor de perfil.
   const [profesionalId, setProfesionalId] = useState<string | null>(null)
   const [showPortfolioDialog, setShowPortfolioDialog] = useState(false)
+  const [pestanaPerfil, setPestanaPerfil] = useState("sobre-mi")
   const [editingPortfolioId, setEditingPortfolioId] = useState<string | null>(null)
   const [savingPortfolio, setSavingPortfolio] = useState(false)
   const [uploadingPortfolioImg, setUploadingPortfolioImg] = useState(false)
@@ -219,6 +221,50 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     contexto_proveedor: "",
   }
   const [newPortfolioItem, setNewPortfolioItem] = useState(PORTFOLIO_VACIO)
+  const [propietarioBorrador, setPropietarioBorrador] = useState<string | null>(null)
+  const [borradorPortfolioRecuperado, setBorradorPortfolioRecuperado] = useState(false)
+  const versionPortfolio = useRef(0)
+  const renovarFormularioPortfolio = () => {
+    versionPortfolio.current += 1
+    setUploadingPortfolioImg(false)
+    setLoadingTrabajosDiime(false)
+    setShowTrabajosDiime(false)
+  }
+  const cambiarDialogoPortfolio = (open: boolean) => {
+    if (savingPortfolio) return
+    if (!open && profesionalId) {
+      borrarBorradorPortfolio(almacenBorradorPortfolio(), profesionalId)
+      setBorradorPortfolioRecuperado(false)
+    }
+    renovarFormularioPortfolio()
+    setShowPortfolioDialog(open)
+  }
+  useEffect(() => () => { versionPortfolio.current += 1 }, [])
+
+  useEffect(() => {
+    if (!profesionalId) return
+    const borrador = leerBorradorPortfolio(almacenBorradorPortfolio(), profesionalId)
+    if (borrador) {
+      setNewPortfolioItem(borrador.valores)
+      setEditingPortfolioId(borrador.itemId)
+      setBorradorPortfolioRecuperado(true)
+      setPestanaPerfil("portfolio")
+      setShowPortfolioDialog(true)
+    } else {
+      setNewPortfolioItem(PORTFOLIO_VACIO)
+      setEditingPortfolioId(null)
+      setBorradorPortfolioRecuperado(false)
+      setShowPortfolioDialog(false)
+    }
+    setPropietarioBorrador(profesionalId)
+  }, [profesionalId])
+
+  useEffect(() => {
+    if (!profesionalId || propietarioBorrador !== profesionalId || !showPortfolioDialog) return
+    guardarBorradorPortfolio(almacenBorradorPortfolio(), {
+      usuarioId: profesionalId, itemId: editingPortfolioId, valores: newPortfolioItem,
+    })
+  }, [profesionalId, propietarioBorrador, showPortfolioDialog, editingPortfolioId, newPortfolioItem])
 
   useEffect(() => {
     async function cargarPerfil() {
@@ -302,11 +348,15 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
   }
 
   const handlePortfolioImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+    const file = e.currentTarget.files?.[0]
+    // Selecting the same file again must trigger change after a failed upload.
+    e.currentTarget.value = ""
     if (!file) return
 
+    const version = versionPortfolio.current
     setUploadingPortfolioImg(true)
     const result = await uploadFile(file, { purpose: "imagen_publica" })
+    if (versionPortfolio.current !== version) return
     setUploadingPortfolioImg(false)
 
     if (result) {
@@ -326,11 +376,23 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
       return
     }
 
+    if (savingPortfolio || uploadingPortfolioImg) return
+    const version = versionPortfolio.current
     setSavingPortfolio(true)
-    const result = editingPortfolioId
-      ? await actualizarItemPortfolio(editingPortfolioId, newPortfolioItem)
-      : await crearItemPortfolio(newPortfolioItem)
-    setSavingPortfolio(false)
+    let result: Awaited<ReturnType<typeof crearItemPortfolio>>
+    try {
+      result = editingPortfolioId
+        ? await actualizarItemPortfolio(editingPortfolioId, newPortfolioItem)
+        : await crearItemPortfolio(newPortfolioItem)
+    } catch {
+      if (versionPortfolio.current === version) {
+        toast({ title: t("Error"), description: t("Inténtalo de nuevo en unos segundos."), variant: "destructive" })
+      }
+      return
+    } finally {
+      if (versionPortfolio.current === version) setSavingPortfolio(false)
+    }
+    if (versionPortfolio.current !== version) return
 
     if (result.error) {
       toast({ title: t("Error"), description: result.error ? t(result.error) : undefined, variant: "destructive" })
@@ -341,13 +403,18 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
       title: editingPortfolioId ? t("Proyecto actualizado") : t("Proyecto añadido"),
       description: t("Ya aparece en tu portfolio."),
     })
+    renovarFormularioPortfolio()
+    if (profesionalId) borrarBorradorPortfolio(almacenBorradorPortfolio(), profesionalId)
+    setBorradorPortfolioRecuperado(false)
     setShowPortfolioDialog(false)
+    setPestanaPerfil("portfolio")
     setNewPortfolioItem(PORTFOLIO_VACIO)
     setEditingPortfolioId(null)
     if (profesionalId) await cargarPortfolio(profesionalId)
   }
 
   const handleEditPortfolio = (item: any) => {
+    renovarFormularioPortfolio()
     setEditingPortfolioId(item.id)
     setNewPortfolioItem({
       titulo: item.titulo || "",
@@ -367,9 +434,20 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
   const cargarTrabajosDiime = async () => {
     setShowTrabajosDiime(true)
     if (trabajosDiime.length > 0) return
+    const version = versionPortfolio.current
     setLoadingTrabajosDiime(true)
-    const result = await obtenerTrabajosCompletadosParaPortfolio()
-    setLoadingTrabajosDiime(false)
+    let result: Awaited<ReturnType<typeof obtenerTrabajosCompletadosParaPortfolio>>
+    try {
+      result = await obtenerTrabajosCompletadosParaPortfolio()
+    } catch {
+      if (versionPortfolio.current === version) {
+        toast({ title: t("Error"), description: t("Inténtalo de nuevo en unos segundos."), variant: "destructive" })
+      }
+      return
+    } finally {
+      if (versionPortfolio.current === version) setLoadingTrabajosDiime(false)
+    }
+    if (versionPortfolio.current !== version) return
     if (result.error) {
       toast({ title: t("No se pudieron cargar tus trabajos"), description: result.error ? t(result.error) : undefined, variant: "destructive" })
       return
@@ -378,6 +456,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
   }
 
   const seleccionarTrabajoDiime = (trabajo: any) => {
+    renovarFormularioPortfolio()
     const archivos = Array.isArray(trabajo.oferta?.archivos) ? trabajo.oferta.archivos : []
     const solicitud = trabajo.solicitud || {}
     setNewPortfolioItem({
@@ -396,17 +475,21 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
   }
 
   const handleDeletePortfolio = async (itemId: string) => {
+    if (deletingPortfolioId) return
     setDeletingPortfolioId(itemId)
-    const result = await eliminarItemPortfolio(itemId)
-    setDeletingPortfolioId(null)
-
-    if (result.error) {
-      toast({ title: t("Error"), description: result.error ? t(result.error) : undefined, variant: "destructive" })
-      return
+    try {
+      const result = await eliminarItemPortfolio(itemId)
+      if (result.error) {
+        toast({ title: t("Error"), description: t(result.error), variant: "destructive" })
+        return
+      }
+      toast({ title: t("Proyecto eliminado"), description: t("Se ha quitado de tu portfolio.") })
+      if (profesionalId) await cargarPortfolio(profesionalId)
+    } catch {
+      toast({ title: t("Error"), description: t("Inténtalo de nuevo en unos segundos."), variant: "destructive" })
+    } finally {
+      setDeletingPortfolioId(null)
     }
-
-    toast({ title: t("Proyecto eliminado"), description: t("Se ha quitado de tu portfolio.") })
-    if (profesionalId) await cargarPortfolio(profesionalId)
   }
 
   const handleSave = async () => {
@@ -816,7 +899,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                       </div>
                       <div className="flex items-center gap-1">
                         <Briefcase className="h-4 w-4" />
-                        <span>{editData.proyectos_completados} {t("proyectos")}</span>
+                        <span>{t(editData.proyectos_completados === 1 ? "{cantidad} proyecto" : "{cantidad} proyectos", { cantidad: editData.proyectos_completados })}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Clock className="h-4 w-4" />
@@ -910,7 +993,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 px-4 md:px-0">
         {/* Left Column - Main Info */}
         <div className="lg:col-span-2 space-y-6">
-          <Tabs defaultValue="sobre-mi" className="w-full">
+          <Tabs value={pestanaPerfil} onValueChange={setPestanaPerfil} className="w-full">
             <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
               <TabsTrigger
                 value="sobre-mi"
@@ -1241,6 +1324,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                     size="sm"
                     className="gap-2"
                     onClick={() => {
+                      renovarFormularioPortfolio()
                       setEditingPortfolioId(null)
                       setNewPortfolioItem(PORTFOLIO_VACIO)
                       setShowTrabajosDiime(false)
@@ -1302,10 +1386,12 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                     </div>
                     <CardContent className="p-4">
                       <h4 className="font-semibold">{item.titulo}</h4>
-                      {item.trabajo_id && (
+                      {item.trabajo_id ? (
                         <Badge className="mt-2 gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                           <BadgeCheck className="h-3.5 w-3.5" /> {t("Verificado por Diime")}
                         </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="mt-2">{t("Proyecto externo")}</Badge>
                       )}
                       <p className="text-sm text-muted-foreground">{item.descripcion}</p>
                       {item.contexto_proveedor && (
@@ -1443,7 +1529,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
         </div>
       </div>
 
-      <Dialog open={showPortfolioDialog} onOpenChange={setShowPortfolioDialog}>
+      <Dialog open={showPortfolioDialog} onOpenChange={cambiarDialogoPortfolio}>
         <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingPortfolioId ? t("Editar proyecto del portfolio") : t("Añadir proyecto al portfolio")}</DialogTitle>
@@ -1452,7 +1538,12 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
+          <fieldset disabled={savingPortfolio} className="space-y-4 py-2">
+            {borradorPortfolioRecuperado && (
+              <p role="status" className="rounded-md bg-muted p-3 text-sm">
+                {t("Hemos recuperado tu borrador. Revisa los datos y vuelve a adjuntar cualquier archivo cuya subida no hubiera terminado.")}
+              </p>
+            )}
             {!editingPortfolioId && (
               <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1497,6 +1588,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
               <Label htmlFor="pf-titulo">{newPortfolioItem.trabajo_id ? t("Título de la demanda") : t("Título del proyecto *")}</Label>
               <Input
                 id="pf-titulo"
+                maxLength={500}
                 value={newPortfolioItem.titulo}
                 onChange={(e) => setNewPortfolioItem({ ...newPortfolioItem, titulo: e.target.value })}
                 placeholder={t("Ej: Reforma integral de cocina")}
@@ -1508,6 +1600,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
               <Label htmlFor="pf-descripcion">{newPortfolioItem.trabajo_id ? t("Descripción de la demanda") : t("Descripción *")}</Label>
               <Textarea
                 id="pf-descripcion"
+                maxLength={20000}
                 rows={3}
                 value={newPortfolioItem.descripcion}
                 onChange={(e) => setNewPortfolioItem({ ...newPortfolioItem, descripcion: e.target.value })}
@@ -1524,6 +1617,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 <Label htmlFor="pf-contexto">{t("Tu aporte al trabajo")}</Label>
                 <Textarea
                   id="pf-contexto"
+                  maxLength={20000}
                   rows={3}
                   value={newPortfolioItem.contexto_proveedor}
                   onChange={(e) => setNewPortfolioItem({ ...newPortfolioItem, contexto_proveedor: e.target.value })}
@@ -1632,14 +1726,14 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 placeholder="5000"
               />
             </div>
-          </div>
+          </fieldset>
 
           <DialogFooter>
             <Button
               variant="outline"
               className="bg-transparent"
               onClick={() => {
-                setShowPortfolioDialog(false)
+                cambiarDialogoPortfolio(false)
                 setEditingPortfolioId(null)
               }}
               disabled={savingPortfolio}

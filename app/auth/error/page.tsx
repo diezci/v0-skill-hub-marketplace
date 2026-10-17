@@ -3,9 +3,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { destinoAuthSeguro } from "@/lib/auth-redirect"
 
-export default async function AuthErrorPage() {
+export default async function AuthErrorPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const { t } = await getT()
+  const next = encodeURIComponent(destinoAuthSeguro((await searchParams).next))
   return (
     <div className="flex min-h-screen w-full items-center justify-center p-6">
       <div className="w-full max-w-md">
@@ -19,14 +21,14 @@ export default async function AuthErrorPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-lg bg-red-50 p-4 text-sm text-red-800">
-              {t("Por favor intenta nuevamente o contacta al soporte si el problema persiste.")}
+              {t("El enlace no es válido, ha caducado o ya se ha utilizado. Inicia sesión o solicita un nuevo enlace de recuperación.")}
             </div>
             <div className="flex gap-2">
               <Button asChild variant="outline" className="flex-1 bg-transparent">
-                <Link href="/auth/registro">{t("Registro")}</Link>
+                <Link href="/auth/recuperar-contrasena">{t("Recuperar contraseña")}</Link>
               </Button>
               <Button asChild className="flex-1">
-                <Link href="/auth/login">{t("Iniciar Sesión")}</Link>
+                <Link href={`/auth/login?next=${next}`}>{t("Iniciar Sesión")}</Link>
               </Button>
             </div>
           </CardContent>

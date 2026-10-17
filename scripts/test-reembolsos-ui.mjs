@@ -29,6 +29,7 @@ function cargar(ruta, dependencias) {
     module: modulo, exports: modulo.exports, console, Date, Intl, process: { env: {} },
     require(nombre) {
       if (nombre === "react/jsx-runtime") return jsx
+      if (nombre === "next/link") return { default: "Link" }
       if (nombre === "@/lib/comisiones") return comisiones
       if (nombre in dependencias) return dependencias[nombre]
       if (nombre === "lucide-react" || nombre.startsWith("@/components/ui/") || ["@/components/boton-imprimir", "@/components/adjuntos-lista", "@/components/diime-logo"].includes(nombre)) return ui
@@ -65,6 +66,12 @@ assert.match(texto(tree), /Reembolso registrado−20,00/)
 assert.match(texto(tree), /Coste final tras la resolución2,00/)
 assert.match(texto(tree), /Gastos de servicio del cliente retenidos por Diime: 2,00/)
 assert.doesNotMatch(texto(tree), /Esta operación se reembolsó íntegramente/)
+casos++
+
+tree = await justificante({ estado: "liquidando", liquidacion_estado: "error", stripe_refund_status: "failed", fecha_reembolso: null })
+assert.match(texto(tree), /La liquidación necesita atención/)
+assert.match(texto(tree), /Reembolso previsto/)
+assert.doesNotMatch(texto(tree), /Reembolso registrado|Reembolsado al cliente|Coste final tras la resolución/)
 casos++
 
 for (const tipo of ["cancelacion", "pago_tardio"]) {
@@ -119,7 +126,7 @@ casos++
 
 for (const idioma of ["es", "en"]) {
   const t = (clave, params) => traducir(idioma, clave, params)
-  const estados = ["ready", null, "cs_secret_fixture", "cs_fixture", { precioBase: 20, comisionCliente: 2, totalCliente: 22 }]
+  const estados = ["ready", null, null, "cs_secret_fixture", "cs_fixture", { precioBase: 20, comisionCliente: 2, totalCliente: 22 }]
   let cursor = 0
   const pagina = cargar("app/pago/[trabajoId]/page.tsx", {
     react: { useState: () => [estados[cursor++], () => {}], useEffect() {}, useCallback: fn => fn },
@@ -135,11 +142,46 @@ for (const idioma of ["es", "en"]) {
   casos++
 }
 
+// Un checkout cerrado conserva el destino del contrato sin renderizar otro cobro.
+for (const idioma of ["es", "en"]) {
+  const estados = ["closed", "Esta contratación ya no está pendiente de pago. Consulta el contrato para ver su estado actual.", "/trabajos/fixture/factura", null, null, null]
+  let cursor = 0
+  const pagina = cargar("app/pago/[trabajoId]/page.tsx", {
+    react: { useState: () => [estados[cursor++], () => {}], useEffect() {}, useCallback: fn => fn },
+    "@/components/idioma-provider": { useT: () => (key, params) => traducir(idioma, key, params), useIdioma: () => ({ idioma }) },
+    "next/navigation": { useParams: () => ({ trabajoId: "fixture" }), useRouter: () => ({}) },
+    "@stripe/stripe-js": { loadStripe: () => null }, "@stripe/react-stripe-js": ui,
+    "@/app/actions/escrow": { crearPagoEscrow() { throw Error("No debe crear pago") } },
+  })
+  tree = pagina.default()
+  assert.equal(nodos(tree).some(n => n.type === "EmbeddedCheckoutProvider"), false)
+  assert.equal(nodos(tree).find(n => n.type === "Link")?.props.href, "/trabajos/fixture/factura")
+  assert.match(texto(tree), idioma === "es" ? /Consulta el estado del contrato/ : /Check the contract status/)
+  assert.doesNotMatch(texto(tree), /Error en el pago|Payment error/)
+  casos++
+}
+
+for (const idioma of ["es", "en"]) for (const parte of ["cliente", "proveedor"]) {
+  const { AvisoLiquidacionPago } = cargar("components/aviso-liquidacion-pago.tsx", {
+    "@/components/idioma-provider": { useT: () => (key, params) => traducir(idioma, key, params) },
+  })
+  assert.equal(AvisoLiquidacionPago({ escrow: { estado: "completado" }, parte }), null)
+  tree = AvisoLiquidacionPago({ escrow: { estado: "liquidando", liquidacion_estado: "error", confirmacion_en_curso: true }, parte })
+  assert.equal(tree.props.role, "alert")
+  assert.match(texto(tree), idioma === "es" ? /La liquidación necesita atención/ : /The settlement needs attention/)
+  if (parte === "cliente") assert.match(texto(tree), idioma === "es" ? /no tienes que volver a pagar/ : /do not need to pay again/)
+  else assert.match(texto(tree), idioma === "es" ? /no se ha confirmado tu cobro/ : /your payment has not been confirmed/)
+  tree = AvisoLiquidacionPago({ escrow: { estado: "liquidando", liquidacion_estado: "procesando" }, parte })
+  assert.equal(tree.props.role, "status")
+  assert.doesNotMatch(texto(tree), /reintentar|retry/)
+  casos++
+}
+
 // La confirmación solo conoce {ok}: no debe convertir un reintento histórico
 // en una afirmación de comisión retenida ni de reembolso íntegro.
 const avisos = [], llamadas = []
 let cursor = 0
-const estados = ["cliente", false, false, false, false, "", "", "", [], [], [], [], false]
+const estados = ["cliente", false, false, null, false, false, "", "", "", [], [], [], [], false]
 const cancelacion = cargar("components/cancelacion-trabajo.tsx", {
   react: { useState: () => [estados[cursor++], () => {}], useEffect() {} },
   "@/components/idioma-provider": { useT: () => (clave, params) => traducir("es", clave, params), useIdioma: () => ({ idioma: "es" }) },
@@ -150,12 +192,12 @@ const cancelacion = cargar("components/cancelacion-trabajo.tsx", {
   "@/lib/upload-helpers": { uploadFile() { throw Error("No debe subir archivos") } },
   "@/app/actions/trabajos": { responderCancelacion: async (...args) => { llamadas.push(args); return { data: { ok: true } } } },
 })
-tree = cancelacion.CancelacionTrabajo({ trabajo: { id: "fixture", estado: "en_progreso", cliente_id: "cliente", profesional_id: "profesional", cancelacion_estado: "pendiente", cancelacion_solicitada_por: "profesional" } })
+tree = cancelacion.CancelacionTrabajo({ trabajo: { id: "fixture", cancelacion_revision: "11111111-2222-3333-4444-555555555555", estado: "en_progreso", cliente_id: "cliente", profesional_id: "profesional", cancelacion_estado: "pendiente", cancelacion_solicitada_por: "profesional" } })
 assert.match(texto(tree), /Diime conserva los gastos de servicio del cliente cobrados al pagar/)
 const aceptar = nodos(tree).find(n => n.type === "Button" && texto(n) === "Aceptar cancelación")
 assert.ok(aceptar)
 await aceptar.props.onClick()
-assert.deepEqual(JSON.parse(JSON.stringify(llamadas)), [["fixture", true, "", []]])
+assert.deepEqual(JSON.parse(JSON.stringify(llamadas)), [["fixture", true, "", [], "11111111-2222-3333-4444-555555555555"]])
 assert.match(avisos[0].description, /Consulta el justificante/)
 assert.doesNotMatch(avisos[0].description, /íntegramente|conserva|retenidos/)
 casos++

@@ -299,6 +299,12 @@ export async function obtenerDisputas() {
 
   if (error) return { error: await textoServidor(error.message) }
 
+  const idsResponsables = [...new Set((disputas || []).map((d: any) => d.responsable_id).filter(Boolean))]
+  const responsables = idsResponsables.length
+    ? await supabase.from("profiles").select("id, nombre, apellido, es_admin").in("id", idsResponsables)
+    : { data: [], error: null }
+  if (responsables.error) return { error: await textoServidor(responsables.error.message) }
+
   // Enriquecer con trabajo y nombres de las partes.
   const enriquecidas = await Promise.all(
     (disputas || []).map(async (d: any) => {
@@ -317,11 +323,23 @@ export async function obtenerDisputas() {
         .select("nombre, apellido, foto_perfil")
         .eq("id", d.profesional_id)
         .maybeSingle()
-      return { ...d, trabajo, cliente, profesional }
+      return { ...d, trabajo, cliente, profesional, responsable: responsables.data?.find((p: any) => p.id === d.responsable_id) || null }
     }),
   )
 
   return { data: enriquecidas }
+}
+
+export async function asignarmeDisputa(disputaId: string, asignar = true) {
+  const supabase = await createClient()
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos.") }
+  const auth = await requireAdmin(supabase)
+  if ("error" in auth) return { codigo: auth.codigo, error: await textoServidor(auth.error) }
+  const { error } = await supabase.rpc("diime_asignarme_disputa", { p_disputa: disputaId, p_asignar: asignar })
+  if (error) return { error: await textoServidor(error.message) }
+  revalidatePath("/admin/disputas")
+  revalidatePath("/admin/operaciones")
+  return { success: true }
 }
 
 // Detalle completo de una disputa para que el empleado pueda resolverla:
@@ -339,6 +357,11 @@ export async function obtenerDetalleDisputa(disputaId: string) {
     .maybeSingle()
   if (error) return { error: await textoServidor(error.message) }
   if (!disputa) return { error: await textoServidor("Disputa no encontrada") }
+
+  const { data: responsable, error: responsableError } = disputa.responsable_id
+    ? await supabase.from("profiles").select("id, nombre, apellido, es_admin").eq("id", disputa.responsable_id).maybeSingle()
+    : { data: null, error: null }
+  if (responsableError) return { error: await textoServidor(responsableError.message) }
 
   const { data: trabajo } = await supabase
     .from("trabajos")
@@ -419,6 +442,8 @@ export async function obtenerDetalleDisputa(disputaId: string) {
   return {
     data: {
       disputa,
+      responsable,
+      actor_id: auth.user.id,
       trabajo,
       cliente,
       profesional,

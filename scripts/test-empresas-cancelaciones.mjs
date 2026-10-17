@@ -3,7 +3,8 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import vm from 'node:vm'
 import ts from 'typescript'
-const job={ id:'job',solicitud_id:'request',oferta_id:'offer',cliente_id:'original-buyer',profesional_id:'original-provider',empresa_cliente_id:'buyer-company',empresa_proveedora_id:'provider-company',operador_cliente_id:'buyer-operator',operador_proveedor_id:'provider-operator',estado:'en_progreso',titulo:'Trabajo',cancelacion_estado:'pendiente',cancelacion_solicitada_por:'former-buyer',cancelacion_parte_solicitante:'cliente' }
+const revision='11111111-2222-3333-4444-555555555555'
+const job={cancelacion_revision:revision, id:'job',solicitud_id:'request',oferta_id:'offer',cliente_id:'original-buyer',profesional_id:'original-provider',empresa_cliente_id:'buyer-company',empresa_proveedora_id:'provider-company',operador_cliente_id:'buyer-operator',operador_proveedor_id:'provider-operator',estado:'en_progreso',titulo:'Trabajo',cancelacion_estado:'pendiente',cancelacion_solicitada_por:'former-buyer',cancelacion_parte_solicitante:'cliente' }
 function scenario({user={id:'buyer-operator'},denied=false,denySide=false}={}) {
  const calls=[]
  const session={auth:{getUser:async()=>({data:{user}})}}
@@ -12,7 +13,7 @@ function scenario({user={id:'buyer-operator'},denied=false,denySide=false}={}) {
    rpc:async(name,args)=>{calls.push(['rpc',name,args]);return{data:{...job,parte_actor:'cliente',stripe_account_id:'must-not-return'}}},
  }
  const deps={
-  '@/lib/notificaciones-contexto':{construirLinkNotificacion:()=>'/test'},
+  '@/lib/notificaciones-contexto':{construirLinkNotificacion:(p)=>{calls.push(['link-context',p]);return p.seccion}},
   '@/lib/i18n-servidor':{textoServidor:async t=>t},
   '@/lib/supabase/server':{createClient:async()=>session},
   '@/lib/supabase/admin':{createAdminClient:()=>{calls.push(['admin']);return admin}},
@@ -20,7 +21,7 @@ function scenario({user={id:'buyer-operator'},denied=false,denySide=false}={}) {
   '@/lib/empresas/notificaciones':{destinatariosOperacionEmpresa:async(_s,_e,operator)=>[operator]},
   '@/lib/notificaciones':{crearNotificacion:async n=>calls.push(['notification',n])},
   'next/cache':{revalidatePath(){}},
-  './escrow':{reembolsarPorCancelacion:async id=>{calls.push(['refund',id]);return{reutilizado:false}}},
+  './escrow':{reembolsarPorCancelacion:async (id,revision)=>{calls.push(['refund',id,revision]);return{reutilizado:false}}},
   '@/lib/flujo-pagos':{cerrarCheckoutsPendientes:async()=>calls.push(['close-checkouts'])},
  }
  const module={exports:{}}
@@ -39,20 +40,22 @@ await test('Request/edit/withdraw use actual actor, scoped RPC, and return no co
  for(const [action,operation]of [['solicitarCancelacion','solicitar'],['editarSolicitudCancelacion','editar'],['retirarSolicitudCancelacion','retirar']]){
   const f=scenario();const r=await f.actions[action]('job','Motivo',['https://example.test/file.pdf']);assert.equal(JSON.stringify(r),'{"data":{"ok":true}}')
   const rpc=f.calls.find(c=>c[0]==='rpc');assert.equal(rpc[1],'diime_gestionar_solicitud_cancelacion');assert.equal(rpc[2].p_actor,'buyer-operator');assert.equal(rpc[2].p_accion,operation)
-  assert.equal(f.calls[0][0],'guard');assert.equal(f.calls.find(c=>c[0]==='notification')[1].usuarioId,'provider-operator');assert.equal(f.calls.find(c=>c[0]==='notification')[1].link,'/perfil-empresa')
+  assert.equal(f.calls.find(c=>c[0]==='link-context')[1].trabajoId,'job');assert.equal(f.calls[0][0],'guard');assert.equal(f.calls.find(c=>c[0]==='notification')[1].usuarioId,'provider-operator');assert.equal(f.calls.find(c=>c[0]==='notification')[1].link,'/mi-empresa')
  }
 })
 await test('Response denies an actor of the requesting side before financial/dispute mutations',async()=>{
- for(const accept of [true,false]){const f=scenario({denySide:true});assert.ok((await f.actions.responderCancelacion('job',accept,'Motivo')).error);assert.ok(!f.calls.some(c=>['rpc','refund'].includes(c[0])))}
+ for(const accept of [true,false]){const f=scenario({denySide:true});assert.ok((await f.actions.responderCancelacion('job',accept,'Motivo',[],revision)).error);assert.ok(!f.calls.some(c=>['rpc','refund'].includes(c[0])))}
 })
 await test('Acceptance requires finance permission on opposite contractual side and delegates refund',async()=>{
- const f=scenario({user:{id:'provider-operator'}});assert.ok((await f.actions.responderCancelacion('job',true)).data)
- const guards=f.calls.filter(c=>c[0]==='guard');assert.ok(guards.every(c=>c[3]==='gestionar_cobros'));assert.equal(guards[1][4],'proveedor');assert.ok(f.calls.some(c=>c[0]==='refund'))
+ const f=scenario({user:{id:'provider-operator'}});assert.ok((await f.actions.responderCancelacion('job',true,'',[],revision)).data)
+ const guards=f.calls.filter(c=>c[0]==='guard');assert.ok(guards.every(c=>c[3]==='gestionar_cobros'));assert.equal(guards[1][4],'proveedor');assert.equal(f.calls.find(c=>c[0]==='refund')[2],revision)
  assert.equal(f.calls.find(c=>c[0]==='notification')[1].usuarioId,'buyer-operator')
 })
 await test('Rejection requires work permission and keeps actual responding actor in dispute RPC',async()=>{
- const f=scenario({user:{id:'provider-operator'}});assert.ok((await f.actions.responderCancelacion('job',false,'No estoy de acuerdo')).data)
+ const f=scenario({user:{id:'provider-operator'}});assert.ok((await f.actions.responderCancelacion('job',false,'No estoy de acuerdo',[],revision)).data)
  assert.ok(f.calls.filter(c=>c[0]==='guard').every(c=>c[3]==='encargos'))
+ const gate=f.calls.find(c=>c[0]==='rpc'&&c[1]==='diime_responder_cancelacion_versionada');assert.equal(gate[2].p_revision,revision);assert.equal(gate[2].p_aceptar,false)
  const dispute=f.calls.find(c=>c[0]==='rpc'&&c[1]==='diime_abrir_disputa');assert.equal(dispute[2].p_actor,'provider-operator');assert.equal(dispute[2].p_rechazo_cancelacion,true)
 })
+await test('Missing revision is denied before privileged reads',async()=>{const f=scenario();assert.match((await f.actions.responderCancelacion('job',true)).error,/ha cambiado/);assert.ok(!f.calls.some(c=>c[0]==='admin'))})
 console.log(`${count} cancellation server-action boundary scenarios passed.`)

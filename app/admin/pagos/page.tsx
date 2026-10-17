@@ -67,6 +67,11 @@ const eur = (v: number | null | undefined, idioma: Idioma) => new Intl.NumberFor
 // al cliente nunca puede aparecer como comisión de la plataforma.
 const comisionDe = (t: Transaccion) =>
   t.retencion_plataforma ?? Math.max(0, (t.comision_cliente ?? 0) + (t.comision_proveedor ?? 0))
+// The fixed settlement amount is an intention, not proof of a refund. A partial
+// refund can succeed while the provider transfer is still awaiting recovery.
+const reembolsoProcesado = (p: Transaccion) => Boolean(
+  p.stripe_refund_id && p.stripe_refund_status === "succeeded" && Number(p.monto_reembolsado) > 0,
+)
 const ESTADOS_REEMBOLSO: Record<string, string> = {
   succeeded: "Reembolso procesado por Stripe", pending: "Reembolso pendiente en Stripe",
   requires_action: "Reembolso requiere revisión", failed: "Reembolso fallido", canceled: "Reembolso cancelado",
@@ -175,8 +180,13 @@ export default function AdminPagosPage() {
   }
   const fechaHora = (fecha: string | null) => fecha ? new Intl.DateTimeFormat(localeDe(idioma), { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(fecha)) : t("No consta")
 
-  const getEstadoBadge = (estado: string) => {
-    switch (estado) {
+  const getEstadoBadge = (pago: Transaccion) => {
+    if (pago.liquidacion_estado === "error") return (
+      <Badge className="bg-red-500/10 text-red-600 border-red-500/30">
+        <AlertCircle className="h-3 w-3 mr-1" />{t("La liquidación necesita atención")}
+      </Badge>
+    )
+    switch (pago.estado) {
       case "fondos_retenidos":
       case "retenido":
         return (
@@ -219,7 +229,7 @@ export default function AdminPagosPage() {
       case "cancelado":
         return <Badge variant="outline">{t("Cancelado")}</Badge>
       default:
-        return <Badge variant="secondary">{estado}</Badge>
+        return <Badge variant="secondary">{pago.estado}</Badge>
     }
   }
 
@@ -230,7 +240,7 @@ export default function AdminPagosPage() {
       .some(valor => valor?.toLocaleLowerCase(idioma).includes(termino))))
   const retenidas = filtradas.filter(p => ["fondos_retenidos", "retenido"].includes(p.estado))
   const liberadas = filtradas.filter(p => ["completado", "liberado"].includes(p.estado))
-  const reembolsadas = filtradas.filter(p => p.estado === "reembolsado")
+  const reembolsadas = filtradas.filter(reembolsoProcesado)
   const disputadas = filtradas.filter(p => p.estado === "disputa")
 
   const totalRetenido = retenidas.reduce((sum, t) => sum + (t.monto ?? 0), 0)
@@ -238,7 +248,7 @@ export default function AdminPagosPage() {
   const totalComisiones = filtradas
     .filter((t) => t.estado === "completado" || t.estado === "reembolsado")
     .reduce((sum, t) => sum + comisionDe(t), 0)
-  const totalReembolsado = filtradas.reduce((sum, t) => sum + (t.monto_reembolsado ?? 0), 0)
+  const totalReembolsado = reembolsadas.reduce((sum, t) => sum + Number(t.monto_reembolsado ?? 0), 0)
 
   const nombre = (p?: { nombre: string | null; apellido: string | null } | null) =>
     p ? `${p.nombre ?? ""} ${p.apellido ?? ""}`.trim() || "-" : "-"
@@ -251,7 +261,7 @@ export default function AdminPagosPage() {
           <TableHead>{t("Cliente")}</TableHead>
           <TableHead>{t("Profesional")}</TableHead>
           <TableHead className="text-right">{t("Monto")}</TableHead>
-          <TableHead className="text-right">{t("Reembolso registrado")}</TableHead>
+          <TableHead className="text-right">{t("Reembolso")}</TableHead>
           <TableHead>{t("Estado")}</TableHead>
           <TableHead>{t("Fecha")}</TableHead>
           <TableHead><span className="sr-only">{t("Detalle")}</span></TableHead>
@@ -273,8 +283,13 @@ export default function AdminPagosPage() {
               <TableCell>{transaccion.cliente_id ? <Link href={`/admin/usuarios/${transaccion.cliente_id}`} className="hover:underline">{nombre(transaccion.cliente)}</Link> : nombre(transaccion.cliente)}</TableCell>
               <TableCell>{transaccion.profesional_id ? <Link href={`/admin/usuarios/${transaccion.profesional_id}`} className="hover:underline">{nombre(transaccion.profesional)}</Link> : nombre(transaccion.profesional)}</TableCell>
               <TableCell className="text-right font-medium">{eur(transaccion.monto, idioma)}</TableCell>
-              <TableCell className="text-right">{transaccion.monto_reembolsado == null ? "—" : eur(transaccion.monto_reembolsado, idioma)}</TableCell>
-              <TableCell>{getEstadoBadge(transaccion.estado)}</TableCell>
+              <TableCell className="text-right">
+                {transaccion.monto_reembolsado == null ? "—" : eur(transaccion.monto_reembolsado, idioma)}
+                {Number(transaccion.monto_reembolsado) > 0 && <p className="text-xs text-muted-foreground">
+                  {t(reembolsoProcesado(transaccion) ? "Reembolso procesado por Stripe" : ESTADOS_REEMBOLSO[transaccion.stripe_refund_status || ""] || "Reembolso previsto")}
+                </p>}
+              </TableCell>
+              <TableCell>{getEstadoBadge(transaccion)}</TableCell>
               <TableCell className="text-muted-foreground text-sm">
                 {formatearFecha(transaccion.created_at, idioma)}
               </TableCell>
@@ -358,7 +373,7 @@ export default function AdminPagosPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <ArrowDownRight className="h-4 w-4 text-blue-500" />
-              {t("Reembolso registrado")}</CardTitle>
+              {t("Reembolsos procesados por Stripe")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-blue-600">{eur(totalReembolsado, idioma)}</p>
@@ -416,7 +431,7 @@ export default function AdminPagosPage() {
             <DialogDescription>{t("Importes y estado registrados para esta transacción.")}</DialogDescription>
           </DialogHeader>
           {detalle && <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">{getEstadoBadge(detalle.estado)}<span className="break-all text-xs text-muted-foreground">{detalle.id}</span></div>
+            <div className="flex flex-wrap items-center gap-2">{getEstadoBadge(detalle)}<span className="break-all text-xs text-muted-foreground">{detalle.id}</span></div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-lg bg-muted/40 p-3"><p className="text-xs text-muted-foreground">{t("Cliente")}</p><p className="mt-1 font-medium">{detalle.cliente_id ? <Link href={`/admin/usuarios/${detalle.cliente_id}`} className="hover:underline">{nombre(detalle.cliente)}</Link> : nombre(detalle.cliente)}</p></div>
               <div className="rounded-lg bg-muted/40 p-3"><p className="text-xs text-muted-foreground">{t("Profesional")}</p><p className="mt-1 font-medium">{detalle.profesional_id ? <Link href={`/admin/usuarios/${detalle.profesional_id}`} className="hover:underline">{nombre(detalle.profesional)}</Link> : nombre(detalle.profesional)}</p></div>
@@ -424,7 +439,7 @@ export default function AdminPagosPage() {
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
               {[
                 ["Pago original", eur(detalle.monto, idioma)],
-                ["Reembolso registrado", detalle.monto_reembolsado == null ? t("No consta") : eur(detalle.monto_reembolsado, idioma)],
+                [reembolsoProcesado(detalle) ? "Reembolso registrado" : "Reembolso previsto", detalle.monto_reembolsado == null ? t("No consta") : eur(detalle.monto_reembolsado, idioma)],
                 ["Comisiones de Diime", eur(comisionDe(detalle), idioma)],
                 ["Neto del profesional", eur(detalle.pago_neto_proveedor, idioma)],
                 ["Fecha del reembolso registrado", fechaHora(detalle.fecha_reembolso)],
@@ -440,7 +455,7 @@ export default function AdminPagosPage() {
               {detalle.stripe_payment_intent_id && <Button asChild variant="outline" size="sm"><a href={`https://dashboard.stripe.com/payments/${encodeURIComponent(detalle.stripe_payment_intent_id)}`} target="_blank" rel="noopener noreferrer">{t("Abrir este pago en Stripe")}<ExternalLink className="ml-2 h-4 w-4" /></a></Button>}
               {detalle.cliente_id && <Button asChild variant="outline" size="sm"><Link href={`/admin/incidencias?usuario=${detalle.cliente_id}`}>{t("Ver incidencias del cliente")}</Link></Button>}
               {detalle.stripe_refund_id && <Button onClick={() => void comprobarReembolso(detalle.id)} disabled={verificandoId === detalle.id} size="sm">{verificandoId === detalle.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}{t("Comprobar reembolso en Stripe")}</Button>}
-              {detalle.liquidacion_estado !== "completada" && resultadoStripe?.data &&
+              {resultadoStripe?.data &&
                 ["failed", "canceled"].includes(resultadoStripe.data.estado) && resultadoStripe.data.fallo !== "charge_for_pending_refund_disputed" && (
                 <div className="space-y-2 rounded border border-amber-300 p-3">
                   <p className="text-sm">{t("El intento anterior falló. Autoriza otro solo después de revisar la causa en Stripe. Si el banco no admite la devolución, será necesario acordar otra vía; este botón no registra pagos externos.")}</p>

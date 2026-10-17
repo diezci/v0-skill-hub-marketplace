@@ -2,7 +2,7 @@
 
 import { useT } from "@/components/idioma-provider"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useId } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -51,6 +51,7 @@ export function ReportarIncidenciaDialog({
   descripcionPlaceholder = "Cuéntanos qué ha ocurrido, cuándo y con qué usuarios o trabajo está relacionado...",
 }: ReportarIncidenciaDialogProps) {
   const t = useT()
+  const fieldId = useId()
 
   const [open, setOpen] = useState(false)
   const [asunto, setAsunto] = useState(asuntoInicial)
@@ -96,6 +97,7 @@ export function ReportarIncidenciaDialog({
         title: t("Incidencia reportada"),
         description: t("Nuestro equipo la revisará lo antes posible."),
       })
+      window.dispatchEvent(new Event("diime:incidencia-creada"))
       setOpen(false)
       setAsunto(asuntoInicial)
       setDescripcion("")
@@ -128,12 +130,12 @@ export function ReportarIncidenciaDialog({
               uno. Los reportes generales se guardan con trabajo_id nulo. */}
           {!trabajoId && (
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">{t("Trabajo relacionado (opcional)")}</label>
+              <label htmlFor={`${fieldId}-trabajo`} className="text-sm font-medium">{t("Trabajo relacionado (opcional)")}</label>
               {trabajos.length === 0 ? (
                 <p className="text-sm text-muted-foreground rounded-md border border-dashed p-3">{t("Puedes enviar un reporte general aunque todavía no tengas trabajos contratados.")}</p>
               ) : (
                 <Select value={trabajoSel} onValueChange={setTrabajoSel}>
-                  <SelectTrigger>
+                  <SelectTrigger id={`${fieldId}-trabajo`}>
                     <SelectValue placeholder={t("Sin trabajo relacionado")} />
                   </SelectTrigger>
                   <SelectContent>
@@ -150,8 +152,9 @@ export function ReportarIncidenciaDialog({
           )}
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">{t("Asunto")}</label>
+            <label htmlFor={`${fieldId}-asunto`} className="text-sm font-medium">{t("Asunto")}</label>
             <Input
+              id={`${fieldId}-asunto`}
               placeholder={t("Resumen breve del problema")}
               value={asunto}
               onChange={(e) => setAsunto(e.target.value)}
@@ -161,9 +164,9 @@ export function ReportarIncidenciaDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">{t("Categoría")}</label>
+              <label htmlFor={`${fieldId}-categoria`} className="text-sm font-medium">{t("Categoría")}</label>
               <Select value={categoria} onValueChange={(v) => setCategoria(v as IncidenciaCategoria)}>
-                <SelectTrigger>
+                <SelectTrigger id={`${fieldId}-categoria`}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -177,9 +180,9 @@ export function ReportarIncidenciaDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">{t("Prioridad")}</label>
+              <label htmlFor={`${fieldId}-prioridad`} className="text-sm font-medium">{t("Prioridad")}</label>
               <Select value={prioridad} onValueChange={(v) => setPrioridad(v as IncidenciaPrioridad)}>
-                <SelectTrigger>
+                <SelectTrigger id={`${fieldId}-prioridad`}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -193,8 +196,9 @@ export function ReportarIncidenciaDialog({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">{t("Descripción")}</label>
+            <label htmlFor={`${fieldId}-descripcion`} className="text-sm font-medium">{t("Descripción")}</label>
             <Textarea
+              id={`${fieldId}-descripcion`}
               placeholder={t(descripcionPlaceholder)}
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}

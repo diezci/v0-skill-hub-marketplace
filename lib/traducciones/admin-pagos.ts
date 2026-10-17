@@ -1,4 +1,5 @@
 export const EN_ADMIN_PAGOS: Record<string, string> = {
+  "Reembolso": "Refund",
   "Pagos y cobros": "Payments and payouts",
   "Consulta cada pago, el reembolso registrado y su estado en Stripe.": "Review each payment, its recorded refund and its status in Stripe.",
   "Reembolso registrado": "Recorded refund",

@@ -1,8 +1,21 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async redirects() {
+    // Preserve query parameters in historical company emails and push links.
+    return [{ source: "/perfil-empresa", destination: "/mi-empresa", permanent: false }]
+  },
   // La revisión local de empresas conserva su compilación separada del trabajo habitual.
   distDir: process.env.DIIME_EMPRESAS_LOCAL === "1" && process.env.NODE_ENV !== "production" ? ".next-empresas" : ".next",
-  experimental: { serverActions: { bodySizeLimit: "6mb" } },
+  experimental: {
+    serverActions: { bodySizeLimit: "6mb" },
+    // El multipart añade cabeceras al archivo permitido de 10 MiB.
+    // Este límite del proxy no modifica el límite de payload del hosting.
+    proxyClientMaxBodySize: "12mb",
+    // El recorrido E2E local abre muchas rutas y no necesita conservar la caché.
+    ...(process.env.DIIME_E2E_LOCAL === "1" && process.env.NODE_ENV === "development"
+      ? { turbopackFileSystemCacheForDev: false, turbopackMemoryLimit: 2 * 1024 ** 3 }
+      : {}),
+  },
   // Vercel asigna un identificador único por despliegue para Skew Protection.
   // Un SHA puede generar varios despliegues (preview, producción o reintentos).
   // La navegación inferior de la app ocupa esa esquina; el indicador de

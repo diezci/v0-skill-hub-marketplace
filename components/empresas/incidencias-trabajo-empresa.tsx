@@ -22,6 +22,7 @@ export interface IncidenciasTrabajoEmpresaProps {
   cancelacionEstado?: string | null
   cancelacionParteSolicitante?: "cliente" | "proveedor" | null
   cancelacionRazon?: string | null
+  cancelacionRevision?: string | null
 }
 
 type AccionIncidencia = "solicitar" | "rechazar_entrega" | "aceptar_cancelacion" | "rechazar_cancelacion"
@@ -38,11 +39,12 @@ const DESCRIPCIONES: Record<AccionIncidencia, string> = {
   rechazar_cancelacion: "Explica por qué te opones. Se abrirá una disputa para que Diime revise los argumentos de ambas partes.",
 }
 
-export function IncidenciasTrabajoEmpresa({ trabajoId, titulo, estado, parte, puedeGestionar, puedeAceptarCancelacion, cancelacionEstado, cancelacionParteSolicitante, cancelacionRazon }: IncidenciasTrabajoEmpresaProps) {
+export function IncidenciasTrabajoEmpresa({ trabajoId, titulo, estado, parte, puedeGestionar, puedeAceptarCancelacion, cancelacionEstado, cancelacionParteSolicitante, cancelacionRazon, cancelacionRevision }: IncidenciasTrabajoEmpresaProps) {
   const t = useT()
   const router = useRouter()
   const [accion, setAccion] = useState<AccionIncidencia | null>(null)
   const [razon, setRazon] = useState("")
+  const [revisionRespuesta, setRevisionRespuesta] = useState<string | null>(null)
   const [error, setError] = useState("")
   const [mensaje, setMensaje] = useState("")
   const [pending, startTransition] = useTransition()
@@ -51,7 +53,7 @@ export function IncidenciasTrabajoEmpresa({ trabajoId, titulo, estado, parte, pu
   const contraparte = !!cancelacionParteSolicitante && cancelacionParteSolicitante !== parte
   const puedeSolicitar = !pendiente && ["pendiente_pago", "en_progreso"].includes(estado)
 
-  function abrir(siguiente: AccionIncidencia) { setAccion(siguiente); setRazon(""); setError(""); setMensaje("") }
+  function abrir(siguiente: AccionIncidencia) { setRevisionRespuesta(cancelacionRevision ?? null); setAccion(siguiente); setRazon(""); setError(""); setMensaje("") }
   function enviar(event: FormEvent) {
     event.preventDefault()
     if (!accion || (accion !== "aceptar_cancelacion" && !razon.trim())) return
@@ -61,7 +63,7 @@ export function IncidenciasTrabajoEmpresa({ trabajoId, titulo, estado, parte, pu
       try {
         const result = accion === "solicitar" ? await solicitarCancelacion(trabajoId, razon.trim())
           : accion === "rechazar_entrega" ? await rechazarEntrega(trabajoId, razon.trim())
-          : await responderCancelacion(trabajoId, accion === "aceptar_cancelacion", razon.trim())
+          : await responderCancelacion(trabajoId, accion === "aceptar_cancelacion", razon.trim(), [], revisionRespuesta)
         if (result.error) { setError(result.error); return }
         setMensaje(accion === "solicitar" ? "Cancelación solicitada. La otra parte podrá responder."
           : accion === "aceptar_cancelacion" ? "Cancelación aceptada. El estado del trabajo se ha actualizado."

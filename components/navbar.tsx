@@ -43,6 +43,7 @@ import { useResumenNotificaciones } from "@/hooks/use-notificaciones-seccion"
 import { CampanaNotificaciones } from "@/components/campana-notificaciones"
 import type { NotificacionContextual } from "@/lib/notificaciones-contexto"
 import { CelebracionNotificacion } from "@/components/celebracion-notificacion"
+import { celebracionVigente } from "@/lib/celebraciones-vigentes"
 import { useToast } from "@/hooks/use-toast"
 import { ToastAction } from "@/components/ui/toast"
 import { ResumenCobrosMenu } from "@/components/resumen-cobros-menu"
@@ -78,6 +79,7 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
   const mensajesNoLeidos = resumen.mensajesNoLeidos
   const porSeccion = resumen.porSeccion
   const [celebracion, setCelebracion] = useState<{ usuarioId: string; notificacion: NotificacionContextual } | null>(null)
+  const revisionCelebracion = useRef(0)
   const pathname = usePathname()
   const router = useRouter()
   const { toast } = useToast()
@@ -194,6 +196,17 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
   useEffect(() => { setCelebracion(null) }, [usuarioId])
 
   useEffect(() => {
+    // A local workflow change can invalidate an overlay already mounted behind
+    // a dialog. Discard it immediately, including any older pending lookup.
+    const invalidarCelebracion = () => {
+      revisionCelebracion.current += 1
+      setCelebracion(null)
+    }
+    window.addEventListener("diime:notification", invalidarCelebracion)
+    return () => window.removeEventListener("diime:notification", invalidarCelebracion)
+  }, [])
+
+  useEffect(() => {
     if (actorEmpresaLocal || !isAuthenticated || isAdmin || !usuarioId) return
     void sincronizarBadgeApp(resumen.noLeidas + resumen.mensajesNoLeidos)
     const um = resumen.ultimoMensajeNoLeido
@@ -207,14 +220,29 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
       } catch {}
     }
     const candidatas = resumen.notificaciones.filter(n => TIPOS_CELEBRABLES.includes(n.tipo) && Date.now() - new Date(n.created_at).getTime() < 48 * 60 * 60 * 1000)
+    let vigente = true
+    const revision = revisionCelebracion.current
+    if (!candidatas.length) setCelebracion(null)
     if (candidatas.length) {
-      try {
+      void (async () => {
+        // RLS still authorizes the job. A cancelled job, revoked membership or
+        // unresolved settlement must never produce a stale full-screen CTA.
+        const ids = [...new Set(candidatas.map(n => n.trabajo_id).filter((id): id is string => Boolean(id)))]
+        if (!ids.length) return
+        const supabase = createClient()
+        if (!supabase) return
+        const { data: trabajos, error } = await supabase.from("trabajos")
+          .select("id,estado,transacciones_escrow(estado,liquidacion_estado)").in("id", ids)
+        if (!vigente || revision !== revisionCelebracion.current) return
+        if (error || !trabajos) { setCelebracion(null); return }
+        setCelebracion(actual => actual && celebracionVigente(actual.notificacion.tipo, trabajos.find(t => t.id === actual.notificacion.trabajo_id)) ? actual : null)
         const almacenadas = JSON.parse(localStorage.getItem(CELEBRADAS_KEY) || "[]")
         const celebradas: string[] = Array.isArray(almacenadas) ? almacenadas : []
-        const nueva = candidatas.find(n => !celebradas.includes(n.id))
+        const nueva = candidatas.find(n => !celebradas.includes(n.id) && celebracionVigente(n.tipo, trabajos.find(t => t.id === n.trabajo_id)))
         if (nueva) { localStorage.setItem(CELEBRADAS_KEY, JSON.stringify([...celebradas, nueva.id].slice(-50))); setCelebracion({ usuarioId, notificacion: nueva }) }
-      } catch {}
+      })().catch(() => {})
     }
+    return () => { vigente = false }
   }, [resumen, usuarioId, isAuthenticated, isAdmin, pathname, t, actorEmpresaLocal, toast, router])
 
   const handleLogout = async () => {

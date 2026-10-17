@@ -89,6 +89,7 @@ export async function obtenerProfesionalPorId(id: string) {
   return {
     data: {
       ...profesional,
+      proyectos_completados: profesional.total_trabajos ?? 0,
       // La verificación pertenece al perfil público. Se expone también arriba
       // para mantener la forma de datos que consume la página profesional.
       verificado: !!profesional.perfil?.verificado,
@@ -327,6 +328,7 @@ export async function obtenerPerfilActual() {
   // Normalize años_experiencia to anos_experiencia for frontend compatibility
   const normalizedProfesional = profesional ? {
     ...profesional,
+    proyectos_completados: profesional.total_trabajos ?? 0,
     anos_experiencia: profesional["años_experiencia"] ?? profesional.anos_experiencia ?? 0,
   } : null
 

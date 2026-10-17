@@ -13,6 +13,7 @@ function cargar(ruta, dependencias) {
     require(nombre) {
       if (nombre in dependencias) return dependencias[nombre]
       if (nombre === "@/lib/i18n-servidor") return { textoServidor: async texto => texto, idiomaActual: async () => "es" }
+      if (nombre === "@/lib/auth-redirect") return cargar("lib/auth-redirect.ts", {})
       if (nombre === "@/lib/notificaciones-contexto") return cargar("lib/notificaciones-contexto.ts", {})
       if (nombre === "@/lib/stripe-connect-identidad") return cargar("lib/stripe-connect-identidad.ts", {})
       throw new Error(`Dependencia sin simular: ${nombre}`)
@@ -59,6 +60,7 @@ for (const [actor, destino, configurado, esperado] of [[null, "otro", true, fals
     "@/lib/supabase/admin": { createAdminClient: () => configurado ? admin : null },
     "@/lib/push/enviar": { enviarPushAUsuario: async () => {} },
     "@/lib/emails/enviar": { enviarAvisoPorEmail: async () => {} },
+    "@/lib/empresas/notificaciones": { destinatariosOperacionEmpresa: async () => [] },
   })
   await escritor.crearNotificacion({ usuarioId: destino, tipo: "prueba", titulo: "Prueba" })
   assert.equal(admin.llamadas.some(([op]) => op === "insert"), esperado)
@@ -119,9 +121,9 @@ for (const empresa of [null, "empresa-1"]) {
     profiles: { id: "yo", nombre: "Ana", apellido: "Prueba", empresa_id: empresa },
     profesionales: { id: "yo", stripe_account_id: null },
   } })
-  const admin = cliente({ tablas: { empresas: { nombre: "Empresa Prueba" } } })
+  const admin = cliente({ rpc: { data: "acct_yo" } })
   const creadas = []
-  const cuenta = { id: "acct_yo", metadata: { diime_profesional_id: "yo" }, capabilities: {}, details_submitted: false }
+  const cuenta = { id: "acct_yo", business_type: "individual", metadata: { diime_profesional_id: "yo" }, capabilities: {}, details_submitted: false }
   const acciones = cargar("app/actions/stripe-connect.ts", {
     "@/lib/supabase/server": { createClient: async () => sesion },
     "@/lib/supabase/admin": { createAdminClient: () => admin },
@@ -132,9 +134,9 @@ for (const empresa of [null, "empresa-1"]) {
     } },
   })
   assert.ok((await acciones.crearEnlaceOnboardingStripe()).data)
-  assert.equal(creadas[0].business_type, empresa ? "company" : "individual")
-  assert.equal(creadas[0].business_profile.name, empresa ? "Empresa Prueba" : "Ana Prueba")
-  assert.equal(admin.llamadas.filter(([op]) => op === "update").length, 1)
+  assert.equal(creadas[0].business_type, "individual", "Membership does not change personal legal identity")
+  assert.equal(creadas[0].business_profile.name, "Ana Prueba")
+  assert.equal(admin.llamadas.filter(([op, name]) => op === "rpc" && name === "registrar_cuenta_stripe_personal").length, 1)
   assert.equal(sesion.llamadas.some(([op]) => op === "update"), false)
 }
 {
@@ -155,14 +157,18 @@ for (const empresa of [null, "empresa-1"]) {
   assert.equal(enlaces, 0)
 }
 
-// Una cuenta personal anterior no habilita nuevos cobros al representar empresa.
+// La pertenencia empresarial no cambia la cuenta personal. La identidad
+// empresarial tiene su propia cuenta y metadatos, separados del profesional.
 {
-  const { errorIdentidadCuentaStripe } = cargar("lib/stripe-connect-identidad.ts", {})
-  const metadata = { diime_profesional_id: "yo" }
-  assert.ok(errorIdentidadCuentaStripe({ metadata, business_type: "individual", details_submitted: true }, { id: "yo", empresa_id: "empresa-1" }))
-  assert.ok(errorIdentidadCuentaStripe({ metadata, business_type: "company", details_submitted: true }, { id: "yo", empresa_id: null }))
-  assert.ok(errorIdentidadCuentaStripe({ metadata: { ...metadata, diime_empresa_id: "otra" }, business_type: "company" }, { id: "yo", empresa_id: "empresa-1" }))
-  assert.equal(errorIdentidadCuentaStripe({ metadata: { ...metadata, diime_empresa_id: "empresa-1" }, business_type: "company" }, { id: "yo", empresa_id: "empresa-1" }), null)
+  const { errorIdentidadCuentaStripe, errorIdentidadCuentaStripeEmpresa } = cargar("lib/stripe-connect-identidad.ts", {})
+  const personal = { metadata: { diime_profesional_id: "yo" }, business_type: "individual", details_submitted: true }
+  assert.equal(errorIdentidadCuentaStripe(personal, { id: "yo", empresa_id: "empresa-1" }), null)
+  assert.ok(errorIdentidadCuentaStripe({ ...personal, business_type: "company" }, { id: "yo" }))
+  assert.ok(errorIdentidadCuentaStripe({ ...personal, metadata: { ...personal.metadata, diime_empresa_id: "empresa-1" } }, { id: "yo" }))
+  assert.ok(errorIdentidadCuentaStripeEmpresa(personal, "empresa-1"))
+  const empresarial = { metadata: { diime_empresa_id: "empresa-1", diime_proveedor_tipo: "empresa" }, business_type: "company" }
+  assert.equal(errorIdentidadCuentaStripeEmpresa(empresarial, "empresa-1"), null)
+  assert.ok(errorIdentidadCuentaStripeEmpresa(empresarial, "otra"))
 }
 
 // El alta sin sesión no intenta asociar empresas saltándose la confirmación.

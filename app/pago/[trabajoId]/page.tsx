@@ -4,6 +4,7 @@ import { useT, useIdioma } from "@/components/idioma-provider"
 
 import { useState, useEffect, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
+import Link from "next/link"
 import { loadStripe } from "@stripe/stripe-js"
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js"
 import { crearPagoEscrow, confirmarPagoEscrow } from "@/app/actions/escrow"
@@ -27,8 +28,9 @@ export default function PagoPage() {
   const router = useRouter()
   const trabajoId = params.trabajoId as string
 
-  const [status, setStatus] = useState<"loading" | "ready" | "confirming" | "complete" | "error">("loading")
+  const [status, setStatus] = useState<"loading" | "ready" | "confirming" | "complete" | "closed" | "error">("loading")
   const [error, setError] = useState<string | null>(null)
+  const [hrefContrato, setHrefContrato] = useState<string | null>(null)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [desglose, setDesglose] = useState<{
@@ -40,8 +42,18 @@ export default function PagoPage() {
   } | null>(null)
 
   useEffect(() => {
+    let vigente = true
     async function initCheckout() {
       const result = await crearPagoEscrow({ trabajo_id: trabajoId })
+      if (!vigente) return
+
+      if (result.codigo === "CHECKOUT_CERRADO" && result.hrefContrato) {
+        setError(result.error)
+        setHrefContrato(result.hrefContrato)
+        setClientSecret(null)
+        setStatus("closed")
+        return
+      }
 
       if (result.error) {
         setError(result.error)
@@ -61,6 +73,7 @@ export default function PagoPage() {
     }
 
     initCheckout()
+    return () => { vigente = false }
   }, [trabajoId])
 
   const handleComplete = useCallback(async () => {
@@ -88,6 +101,21 @@ export default function PagoPage() {
       router.push("/mis-solicitudes")
     }, 3000)
   }, [router, sessionId, t])
+
+  if (status === "closed") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-6 text-center">
+            <ShieldCheck className="h-12 w-12 text-primary mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">{t("Consulta el estado del contrato")}</h2>
+            <p className="text-muted-foreground mb-4">{t(error || "")}</p>
+            {hrefContrato && <Button asChild><Link href={hrefContrato}>{t("Ver contrato")}</Link></Button>}
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   if (status === "error") {
     return (

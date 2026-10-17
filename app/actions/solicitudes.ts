@@ -766,7 +766,7 @@ export async function obtenerSolicitudesPorUsuario() {
       if (trabajoRow) {
         const { data: escrow } = await supabase
           .from("transacciones_escrow")
-          .select("id, estado, monto")
+          .select("id, estado, monto, liquidacion_estado, liquidacion_contexto")
           .eq("trabajo_id", trabajoRow.id)
           .order("created_at", { ascending: false })
           .limit(1)
@@ -805,7 +805,7 @@ export async function obtenerSolicitudesPorUsuario() {
         const { notas_privadas_proveedor: _notasPrivadas, ...trabajoCompartido } = trabajoRow
         trabajo = {
           ...trabajoCompartido,
-          escrow: escrow || null,
+          escrow: escrow ? { id: escrow.id, estado: escrow.estado, monto: escrow.monto, liquidacion_estado: escrow.liquidacion_estado, confirmacion_en_curso: escrow.liquidacion_contexto?.tipo === "confirmacion" } : null,
           oferta: ofertaTrabajo || null,
           profesional: profProfile
             ? { ...profProfile, rating: profDatos?.rating_promedio ?? null }

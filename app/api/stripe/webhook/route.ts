@@ -181,9 +181,9 @@ export async function POST(request: Request) {
           if (refund.status === "failed" || refund.status === "canceled") break
           throw new Error("El reembolso de Stripe no coincide con el intento autorizado.")
         }
-        if (escrow.liquidacion_estado === "completada" && refund.status !== "succeeded") {
-          throw new Error("Una liquidación completada tiene un reembolso no confirmado; requiere conciliación.")
-        }
+        // A terminal failure can arrive after Stripe initially accepted this
+        // Refund. The locked RPC reopens only the financial settlement, keeps
+        // its frozen decision and ignores events for replaced attempts.
         const { data: actualizado, error: actualizarError } = await supabase.rpc("diime_registrar_estado_reembolso", {
           p_escrow: escrow.id, p_operacion: escrow.liquidacion_operacion_id,
           p_refund: refund.id, p_estado: refund.status,

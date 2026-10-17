@@ -4,6 +4,7 @@ import { useT, useIdioma } from "@/components/idioma-provider"
 
 import type React from "react"
 import { useState, useCallback } from "react"
+import Link from "next/link"
 import { loadStripe } from "@stripe/stripe-js"
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
@@ -42,6 +43,7 @@ export function EscrowPaymentDialog({
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [hrefContrato, setHrefContrato] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [desglose, setDesglose] = useState<{
     precioBase: number
@@ -53,11 +55,13 @@ export function EscrowPaymentDialog({
     if (!stripeDisponible) return null
     setLoading(true)
     setError(null)
+    setHrefContrato(null)
     
     const result = await crearPagoEscrow({ trabajo_id: trabajoId })
     
     if (result.error) {
       setError(result.error)
+      if (result.codigo === "CHECKOUT_CERRADO") setHrefContrato(result.hrefContrato || null)
       setLoading(false)
       return null
     }
@@ -95,7 +99,14 @@ export function EscrowPaymentDialog({
           <DialogDescription>{t("Los fondos se retienen de forma segura hasta que confirmes que el trabajo esta completo")}</DialogDescription>
         </DialogHeader>
 
-        {success ? (
+        {hrefContrato ? (
+          <div className="space-y-4 py-8 text-center">
+            <Shield className="mx-auto h-12 w-12 text-primary" />
+            <h3 className="text-xl font-semibold">{t("Consulta el estado del contrato")}</h3>
+            <p className="text-muted-foreground">{t(error || "")}</p>
+            <Button asChild><Link href={hrefContrato}>{t("Ver contrato")}</Link></Button>
+          </div>
+        ) : success ? (
           <div className="space-y-4 py-8 text-center">
             <CheckCircle className="mx-auto h-16 w-16 text-green-500" />
             <h3 className="text-xl font-semibold">{t("Pago Exitoso")}</h3>

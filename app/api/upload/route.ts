@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
     const id = randomUUID()
     let url: string
     if (imagenPublica) {
+      if (!process.env.BLOB_READ_WRITE_TOKEN) return NextResponse.json({ error: "Publicación de imágenes no disponible. Inténtalo más tarde." }, { status: 503 })
       // Solo imágenes destinadas explícitamente al perfil/portfolio público.
       const blob = await put(`perfiles/${user.id}/${id}.${validacion.extension}`, file, {
         access: "public", addRandomSuffix: true, contentType: validacion.tipo,

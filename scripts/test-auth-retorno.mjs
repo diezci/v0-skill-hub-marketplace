@@ -66,5 +66,26 @@ test('callback returns to the invitation after exchanging the code, always on th
   assert.equal(result.href, `https://www.diime.es${invitation}`)
   const rejected = await GET(new Request('https://www.diime.es/auth/callback?next=%2F%5Cevil.example'))
   assert.equal(rejected.origin, 'https://www.diime.es')
-  assert.equal(rejected.pathname, '/')
+  assert.equal(rejected.pathname, '/auth/error')
+  assert.equal(rejected.searchParams.get('next'), '/')
+})
+
+test('failed, expired, reused and missing auth codes show recovery and retain only a safe destination', async () => {
+  for (const authResult of [
+    { data: { user: null }, error: { message: 'expired' } },
+    { data: { user: null }, error: null },
+  ]) {
+    let profileWrites = 0
+    const client = { auth: { exchangeCodeForSession: async () => authResult }, from: () => { profileWrites++; throw new Error('profile must not be accessed') } }
+    const { GET } = transpilar('app/auth/callback/route.ts', { '@/lib/auth-redirect': helper, '@/lib/supabase/server': { createClient: async () => client }, 'next/server': { NextResponse: { redirect: (url) => url } } })
+    for (const next of ['/mis-solicitudes?trabajo=qa#detalle', '//evil.example', '/\\evil.example']) {
+      for (const code of ['', '&code=invalid', '&error=access_denied']) {
+        const result = await GET(new Request(`https://www.diime.es/auth/callback?next=${encodeURIComponent(next)}${code}`))
+        assert.equal(result.pathname, '/auth/error')
+        assert.equal(result.origin, 'https://www.diime.es')
+        assert.equal(result.searchParams.get('next'), helper.destinoAuthSeguro(next))
+      }
+    }
+    assert.equal(profileWrites, 0)
+  }
 })

@@ -1,3 +1,4 @@
+export type OperacionInicialEmpresa = { tipo: "solicitudes" | "ofertas" | "trabajos"; id: string }
 export type RolEmpresa = "principal" | "administrador" | "miembro"
 export type EstadoVerificacionEmpresa = "borrador" | "en_revision" | "verificada" | "requiere_informacion"
 export type PermisoEmpresa = "perfil" | "mensajes" | "presupuestos" | "encargos" | "equipo" | "ver_cobros" | "gestionar_cobros"
@@ -109,6 +110,7 @@ export interface OperacionEmpresa {
   cancelacionEstado?: string | null
   cancelacionParteSolicitante?: "cliente" | "proveedor" | null
   cancelacionRazon?: string | null
+  cancelacionRevision?: string | null
   disputaActual?: {
     id: string
     estado: string

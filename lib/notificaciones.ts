@@ -45,10 +45,31 @@ export async function crearNotificacion(params: {
   // El correo y el push deben respetar el destinatario que realmente se guardó.
   if (error || !aviso || aviso.usuario_id === user.id) return
   if (aviso.metadata?.empresa_id) {
-    const financiero = ["pago_liberado", "reembolso_emitido", "disputa_ganada", "disputa_perdida", "disputa_resuelta"].includes(aviso.tipo)
+    const financiero = ["pago_liberado", "reembolso_emitido", "reembolso_fallido", "disputa_ganada", "disputa_perdida", "disputa_resuelta"].includes(aviso.tipo)
     const destinatarios = await destinatariosOperacionEmpresa(admin, aviso.metadata.empresa_id, aviso.usuario_id, financiero ? "ver_cobros" : "encargos")
     if (!destinatarios.includes(aviso.usuario_id)) return
   }
+  await enviarAvisoExterno(aviso)
+}
+
+// Avisos creados dentro de una transacción de base de datos: no insertar otra
+// fila al enviar sus canales externos. Solo lo llama código interno autorizado.
+export async function enviarNotificacionGuardada(avisoId: string) {
+  const supabase = await createClient()
+  if (!supabase) return
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  const admin = createAdminClient()
+  if (!admin) return
+  const { data: aviso, error } = await admin.from("notificaciones")
+    .select("usuario_id, tipo, titulo, mensaje, link, metadata").eq("id", avisoId).maybeSingle()
+  if (error || !aviso || aviso.usuario_id === user.id) return
+  await enviarAvisoExterno(aviso)
+}
+
+async function enviarAvisoExterno(aviso: {
+  usuario_id: string; tipo: string; titulo: string; mensaje: string; link: string | null
+}) {
   const guardado = { usuarioId: aviso.usuario_id, tipo: aviso.tipo, titulo: aviso.titulo, mensaje: aviso.mensaje, link: aviso.link }
 
   // El mismo aviso, por correo, si es de los que lo merecen. Va aquí porque es

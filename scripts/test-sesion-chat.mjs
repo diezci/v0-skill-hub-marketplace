@@ -79,10 +79,10 @@ await test('Push: renovación durante desvinculación elimina ambos tokens', asy
 })
 const jsx = (type, props) => ({ type, props })
 const walk = node => Array.isArray(node) ? node.flatMap(walk) : node && typeof node === 'object' ? [node, ...walk(node.props?.children)] : []
-function chatFixture() {
+function chatFixture({ conversation = {}, enPanelAdmin = false } = {}) {
   const slots = [], effects = [], intervals = new Map(), toasts = [], sends = [], paths = [], windowListeners = new Map()
   let cursor = 0, dirty = false, tree, authChange, mounted = true, account = 'user-A', intervalId = 0
-  const conv = id => ({ id, participante_1: account, participante_2: 'other-' + id, participante_otro: { nombre: 'Chat', apellido: id }, puede_escribir: true })
+  const conv = id => ({ id, participante_1: account, participante_2: 'other-' + id, participante_otro: { nombre: 'Chat', apellido: id }, puede_escribir: true, ...conversation })
   let readMessages = async id => ({ data: [{ id: 'history-' + id, remitente_id: 'other', contenido: 'History ' + id, created_at: '2026-10-12T10:00:00Z' }] })
   let readList = async () => ({ data: [conv('A'), conv('B')] })
   let getUser = async () => ({ data: { user: { id: account } } })
@@ -103,6 +103,7 @@ function chatFixture() {
     '@/app/actions/messages': { obtenerConversaciones: () => readList(), obtenerMensajes: id => readMessages(id) },
     '@/app/actions/reviews': { obtenerTrabajoValorable: (...args) => readReview(...args), crearResena: (...args) => writeReview(...args) },
     '@/app/actions/trabajos': { obtenerTrabajosConUsuario: async () => ({ data: [] }) },
+    '@/lib/upload-helpers': { subirArchivoPrivado: async file => { const response = await upload(file); if (!response.ok) throw Error('upload failed'); return response.json() } },
     '@/hooks/use-toast': { useToast: () => ({ toast: x => toasts.push(x) }) }, '@/lib/utils': { cn: () => '' },
   }, { has: () => true, get: (o, k) => k in o ? o[k] : ui })
   let search = new URLSearchParams()
@@ -111,10 +112,11 @@ function chatFixture() {
     setInterval: (fn, ms) => { const id = ++intervalId; intervals.set(id, { fn, ms }); return id }, clearInterval: id => intervals.delete(id),
     fetch: async (url, opts) => { if (url === '/api/upload') return upload(opts); const body = JSON.parse(opts.body); sends.push(body); return { json: async () => send(body) } },
   }, src => src.replace('  const formatTime =', '  globalThis.__chat = { handleSendMessage, handleSelectConversation, handleFileChange, handleValorar, handleEnviarValoracion, reviewTrabajo, reviewSubmitting, cerrarConversacion, newMessage, borradores, sendingMessage, uploading, currentUserId, messages, conversations, selectedConversation, versionSesion, versionLectura };\n  const formatTime ='))
-  const render = () => { if (!mounted) return; cursor = 0; dirty = false; tree = runtime.value.default({}); effects.splice(0).forEach(f => f()) }
+  const render = () => { if (!mounted) return; cursor = 0; dirty = false; tree = runtime.value.default({ enPanelAdmin }); effects.splice(0).forEach(f => f()) }
   const flush = async () => { for (let i = 0; i < 16; i++) { await Promise.resolve(); if (dirty) render() } }
   const f = { sends, toasts, paths, get state() { return runtime.context.__chat }, async mount() { render(); await flush() }, flush,
     async select(id) { const p = f.state.handleSelectConversation(conv(id)); await flush(); return p },
+    openProject() { const button = walk(tree).find(n => n.type === 'Button' && n.props.children === 'Ver detalles del proyecto'); assert.ok(button); button.props.onClick(); },
     draft(text) { const input = walk(tree).find(n => n.type === 'Textarea' && n.props['aria-label'] === 'Escribe un mensaje'); assert.ok(input); input.props.onChange({ target: { value: text } }); render() },
     setReadReview(fn) { readReview = fn }, setWriteReview(fn) { writeReview = fn },
     setSend(fn) { send = fn }, setRead(fn) { readMessages = fn }, setList(fn) { readList = fn }, setGetUser(fn) { getUser = fn }, setUpload(fn) { upload = fn },
@@ -243,6 +245,20 @@ await test('Chat: valoración enviada por cuenta anterior no afecta a la cuenta 
 })
 await test('Chat: respuesta vacía al adjuntar informa error y habilita reintento', async () => {
   const f = chatFixture(); await f.mount(); await f.select('A'); await f.flush(); f.setSend(async () => ({})); await f.state.handleFileChange({ target: { files: [new File(['pdf'], 'fixture.pdf')], value: '' } }); await f.flush(); assert.equal(f.state.uploading, false); assert.equal(f.toasts.length, 1); f.unmount()
+})
+for (const [name, conversation, enPanelAdmin, expected] of [
+  ['proveedor con oferta sin contrato', { mi_rol: 'proveedor', solicitud_id: 'request-A' }, false, '/demandas?solicitud=request-A'],
+  ['cliente con solicitud', { mi_rol: 'cliente', solicitud_id: 'request-A' }, false, '/mis-solicitudes?solicitud=request-A'],
+  ['proveedor con contrato', { mi_rol: 'proveedor', solicitud_id: 'request-A', trabajo_id: 'job-A' }, false, '/mis-trabajos?solicitud=request-A&trabajo=job-A'],
+  ['cliente con contrato', { mi_rol: 'cliente', solicitud_id: 'request-A', trabajo_id: 'job-A' }, false, '/mis-solicitudes?solicitud=request-A&trabajo=job-A'],
+  ['operador actual de empresa proveedora', { mi_rol: 'proveedor', empresarial: true, empresa_2_id: 'company-P', solicitud_id: 'request-A', trabajo_id: 'job-A' }, false, '/mi-empresa?solicitud=request-A&trabajo=job-A'],
+  ['operador actual de empresa cliente', { mi_rol: 'cliente', empresarial: true, empresa_1_id: 'company-C', solicitud_id: 'request-A', trabajo_id: 'job-A' }, false, '/mi-empresa?solicitud=request-A&trabajo=job-A'],
+  ['cliente particular frente a empresa proveedora', { mi_rol: 'cliente', empresarial: true, empresa_2_id: 'company-P', solicitud_id: 'request-A', trabajo_id: 'job-A' }, false, '/mis-solicitudes?solicitud=request-A&trabajo=job-A'],
+  ['proveedor particular frente a empresa cliente', { mi_rol: 'proveedor', empresarial: true, empresa_1_id: 'company-C', solicitud_id: 'request-A', trabajo_id: 'job-A' }, false, '/mis-trabajos?solicitud=request-A&trabajo=job-A'],
+  ['administrador con contrato', { solicitud_id: 'request-A', trabajo_id: 'job-A' }, true, '/admin/trabajos?solicitud=request-A&trabajo=job-A'],
+  ['administrador con demanda sin contrato', { solicitud_id: 'request-A' }, true, '/demandas?solicitud=request-A'],
+]) await test('Chat: detalles conserva contexto para ' + name, async () => {
+  const f = chatFixture({ conversation: { ...conversation, proyecto: { titulo: 'Proyecto de prueba', estado: 'abierta' } }, enPanelAdmin }); await f.mount(); await f.select('A'); await f.flush(); f.openProject(); assert.equal(f.paths.at(-1), expected); f.unmount()
 })
 fs.writeFileSync(output + '/regression-results.json', JSON.stringify({ scope: 'Componentes/handlers y Supabase Auth SDK reales; React, storage y transporte controlados. No E2E, no red externa ni producción.', results }, null, 2))
 console.log(JSON.stringify({ checks: results.length, pass: results.filter(x => x.status === 'pass').length, fail: results.filter(x => x.status === 'fail').length }))

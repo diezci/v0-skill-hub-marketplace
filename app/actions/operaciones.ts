@@ -5,7 +5,7 @@ import { textoServidor } from "@/lib/i18n-servidor"
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { obtenerResumenOperativo } from "@/lib/operaciones"
+import { CATEGORIAS_OPERATIVAS, obtenerDetalleOperativo, obtenerResumenOperativo, type CategoriaOperativa } from "@/lib/operaciones"
 
 export type ResumenOperativo = Awaited<ReturnType<typeof obtenerResumenOperativo>>
 
@@ -44,4 +44,18 @@ export async function resolverEventoOperativo(eventoId: string) {
   if (error) return { error: await textoServidor(error.message) }
   revalidatePath("/admin/operaciones")
   return { success: true }
+}
+
+// The category is a whitelist, not an arbitrary privileged table name.
+export async function obtenerPaginaOperativa(categoria: CategoriaOperativa, desde: number) {
+  const permiso = await exigirAdmin()
+  if (!permiso.ok) return { ok: false as const, error: await textoServidor(permiso.error) }
+  if (!CATEGORIAS_OPERATIVAS.includes(categoria) || !Number.isSafeInteger(desde) || desde < 0 || desde > 2147483622) {
+    return { ok: false as const, error: await textoServidor("Paginación no válida.") }
+  }
+  try {
+    return { ok: true as const, data: await obtenerDetalleOperativo(categoria, desde) }
+  } catch (error) {
+    return { ok: false as const, error: await textoServidor(error instanceof Error ? error.message : "No se pudo obtener el estado operativo.") }
+  }
 }

@@ -73,6 +73,9 @@ function MisIncidenciasContenido() {
 
   useEffect(() => {
     cargar()
+    const actualizar = () => { void cargar() }
+    window.addEventListener("diime:incidencia-creada", actualizar)
+    return () => window.removeEventListener("diime:incidencia-creada", actualizar)
   }, [])
 
   const handleRetirar = async () => {

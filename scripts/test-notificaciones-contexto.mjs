@@ -134,6 +134,16 @@ await comprobar("Los enlaces externos, javascript y escapes no se navegan", () =
   }
 })
 
+await comprobar("El aviso empresarial histórico abre la ruta vigente y conserva la operación exacta", () => {
+  const n = contexto.contextualizarNotificacion(aviso(1, { tipo: "trabajo_entregado", link: `/perfil-empresa?trabajo=${TRABAJO}#entrega`, metadata: { solicitud_id: SOLICITUD } }))
+  const url = new URL(n.link, "https://www.diime.es")
+  assert.equal(n.seccion, "/mi-empresa")
+  assert.equal(url.pathname, "/mi-empresa")
+  assert.equal(url.searchParams.get("trabajo"), TRABAJO)
+  assert.equal(url.searchParams.get("solicitud"), SOLICITUD)
+  assert.equal(url.hash, "#entrega")
+})
+
 await comprobar("Los avisos financieros enlazan trabajo, solicitud, oferta y aspecto exactos", () => {
   for (const tipo of ["pago_recibido", "pago_liberado", "reembolso_emitido", "disputa_ganada", "entrega_retrasada"]) {
     const link = contexto.construirLinkNotificacion({ seccion: "/mis-trabajos", trabajoId: TRABAJO, solicitudId: SOLICITUD, ofertaId: OFERTA, aspecto: tipo })

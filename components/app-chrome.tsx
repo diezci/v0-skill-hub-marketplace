@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import { NotificacionesProvider } from "@/hooks/use-notificaciones-seccion"
 import { AvisosSeccion } from "@/components/avisos-seccion"
@@ -15,14 +15,34 @@ import { ConfirmarMayoriaEdad } from "@/components/confirmar-mayoria-edad"
 import { EntornoEmpresasLocal } from "@/components/empresas/entorno-local"
 import type { ActorEmpresa } from "@/lib/empresas/types"
 import { useViewportAdaptable } from "@/hooks/use-viewport-adaptable"
+import { createClient } from "@/lib/supabase/client"
+import { useT } from "@/components/idioma-provider"
 
 // El panel de administración (/admin) tiene su propio layout completo con barra
 // lateral. Allí no mostramos el navbar/footer/chat público ni el padding del
 // navbar, para que el admin tenga una experiencia exclusivamente de administración.
 export function AppChrome({ children, actorEmpresaLocal }: { children: React.ReactNode; actorEmpresaLocal?: ActorEmpresa | null }) {
   useViewportAdaptable()
+  const t = useT()
   const pathname = usePathname()
   const esMensajes = pathname?.startsWith("/mensajes") ?? false
+  const [sesionCerrada, setSesionCerrada] = useState(false)
+
+  useEffect(() => {
+    if (actorEmpresaLocal) return
+    try {
+      const { data } = createClient().auth.onAuthStateChange((evento) => {
+        // SIGNED_OUT se emite cuando el SDK ha eliminado la sesión. Un fallo
+        // de logout no lo emite: en ese caso se conserva la vista para reintentar.
+        if (evento === "SIGNED_OUT") setSesionCerrada(true)
+      })
+      return () => data.subscription.unsubscribe()
+    } catch { /* Una página pública puede funcionar sin Supabase configurado. */ }
+  }, [actorEmpresaLocal])
+
+  useEffect(() => {
+    if (sesionCerrada) window.location.replace("/")
+  }, [sesionCerrada])
 
   // El chat es una vista de aplicación, no una página larga. Marcamos el
   // documento para bloquear el scroll exterior y dejar que solo se desplacen
@@ -41,6 +61,10 @@ export function AppChrome({ children, actorEmpresaLocal }: { children: React.Rea
       delete document.documentElement.dataset.messagesView
     }
   }, [esMensajes])
+
+  // Desmontar primero impide que una respuesta tardía o la caché de navegación
+  // mantengan tarjetas privadas mientras se carga la página pública.
+  if (sesionCerrada) return <main role="status" className="flex min-h-screen items-center justify-center">{t("Sesión cerrada")}</main>
 
   if (pathname?.startsWith("/admin")) {
     return <main className="min-h-screen">{children}</main>

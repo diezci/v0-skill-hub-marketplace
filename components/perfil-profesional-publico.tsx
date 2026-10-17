@@ -321,10 +321,12 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
                           <Eye className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
                         </div>
                         <div className="mt-2 flex flex-wrap gap-2">
-                          {p.trabajo_id && (
+                          {p.trabajo_id ? (
                             <Badge className="gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                               <BadgeCheck className="h-3.5 w-3.5" /> {t("Verificado por Diime")}
                             </Badge>
+                          ) : (
+                            <Badge variant="secondary">{t("Proyecto externo")}</Badge>
                           )}
                           {p.categoria && <Badge variant="secondary">{p.categoria}</Badge>}
                         </div>
@@ -420,10 +422,12 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
               <div className="space-y-5 p-5 sm:p-6">
                 <DialogHeader className="pr-8">
                   <div className="flex flex-wrap gap-2">
-                    {proyectoSeleccionado.trabajo_id && (
+                    {proyectoSeleccionado.trabajo_id ? (
                       <Badge className="gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                         <BadgeCheck className="h-3.5 w-3.5" /> {t("Trabajo verificado por Diime")}
                       </Badge>
+                    ) : (
+                      <Badge variant="secondary">{t("Proyecto externo")}</Badge>
                     )}
                     {proyectoSeleccionado.categoria && (
                       <Badge variant="secondary">{proyectoSeleccionado.categoria}</Badge>

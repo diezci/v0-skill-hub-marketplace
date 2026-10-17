@@ -69,7 +69,7 @@ export async function reintentarReembolsoAdmin(escrowId: string, refundEsperado:
   try {
     const { data: pago, error } = await admin.from("transacciones_escrow").select("*").eq("id", escrowId).maybeSingle()
     if (error || !pago || pago.stripe_refund_id !== refundEsperado || !pago.liquidacion_operacion_id ||
-      pago.liquidacion_estado === "completada" || pago.stripe_disputa_id) return { error: "El pago cambió o requiere conciliación. Actualiza su estado." }
+      pago.stripe_disputa_id) return { error: "El pago cambió o requiere conciliación. Actualiza su estado." }
     const refund = await stripe.refunds.retrieve(pago.stripe_refund_id)
     const intent = typeof refund.payment_intent === "string" ? refund.payment_intent : refund.payment_intent?.id
     const chargeId = typeof refund.charge === "string" ? refund.charge : refund.charge?.id

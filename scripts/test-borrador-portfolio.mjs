@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+import * as z from 'zod';
+const exports={};
+new Function('require','exports',ts.transpileModule(fs.readFileSync('lib/borrador-portfolio.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(name=>{if(name==='zod')return z;throw Error(name)},exports);
+const {guardarBorradorPortfolio:save,leerBorradorPortfolio:read,borrarBorradorPortfolio:clear,almacenBorradorPortfolio:storage}=exports;
+const a='00000000-0000-4000-8000-000000000001',b='00000000-0000-4000-8000-000000000002',job='00000000-0000-4000-8000-000000000003';
+const entries=new Map(),store={getItem:k=>entries.get(k)??null,setItem:(k,v)=>entries.set(k,v),removeItem:k=>entries.delete(k)};
+const draft={usuarioId:a,itemId:b,valores:{titulo:'Trabajo propio',descripcion:'Texto del cliente',imagen_url:'https://example.test/foto.png',categoria:'Electricidad',fecha_completado:'2026-10-14',ubicacion:'Madrid',duracion:'2 días',presupuesto:'123.45',trabajo_id:job,contexto_proveedor:'Mi aporte separado'}};
+assert.ok(save(store,draft,1000));assert.deepEqual(read(store,a,1001).valores,draft.valores);assert.equal(read(store,a,1001).itemId,b);assert.equal(read(store,b,1001),null);
+const key=entries.keys().next().value,raw=entries.get(key);
+for(const value of ['{',JSON.stringify({...JSON.parse(raw),usuarioId:b}),JSON.stringify({...JSON.parse(raw),guardadoAt:2000}),JSON.stringify({...JSON.parse(raw),itemId:'forged'}),JSON.stringify({...JSON.parse(raw),valores:{...draft.valores,trabajo_id:'forged'}})]){entries.set(key,value);assert.equal(read(store,a,1001),null);assert.equal(entries.has(key),false);}
+entries.set(key,raw);assert.equal(read(store,a,1000+86400000),null);
+save(store,draft,1000);clear(store,b);assert.ok(read(store,a,1001));clear(store,a);assert.equal(entries.size,0);
+save(store,draft,1000);assert.ok(save(store,{usuarioId:a,itemId:null,valores:Object.fromEntries(Object.keys(draft.valores).map(k=>[k,'']))},1001));assert.equal(entries.size,0);
+const denied={getItem(){throw Error('denied')},setItem(){throw Error('quota')},removeItem(){throw Error('denied')}};
+assert.equal(save(null,draft),false);assert.equal(read(null,a),null);assert.equal(save(denied,draft),false);assert.equal(read(denied,a),null);clear(denied,a);
+Object.defineProperty(globalThis,'window',{configurable:true,value:{get sessionStorage(){throw Error('SecurityError')}}});assert.equal(storage(),null);delete globalThis.window;
+console.log('PASS portfolio draft: owner isolation, editing/link identity, budget/image/context retention, expiry, corrupt data, cancellation and blocked storage');

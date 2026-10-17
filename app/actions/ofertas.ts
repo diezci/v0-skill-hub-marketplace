@@ -53,6 +53,10 @@ export async function crearOferta(formData: {
   const errorEmpresa = await validarEmpresaOperacion(supabase, formData.empresa_id)
   if (errorEmpresa) return { error: await textoServidor(errorEmpresa) }
 
+  if (typeof formData.descripcion !== "string" || !formData.descripcion.trim()) {
+    return { error: await textoServidor("La descripción de la oferta no puede estar vacía.") }
+  }
+
   const errorModeracion = errorContenidoProhibido(
     formData.descripcion,
     formData.materiales_incluidos,
@@ -155,7 +159,7 @@ export async function crearOferta(formData: {
     precio: formData.precio,
     tiempo_estimado: formData.tiempo_estimado,
     unidad_tiempo: formData.unidad_tiempo,
-    descripcion: formData.descripcion,
+    descripcion: formData.descripcion.trim(),
     materiales_incluidos: formData.materiales_incluidos,
     condiciones_pago: formData.condiciones_pago,
     notas: formData.notas,
@@ -261,6 +265,7 @@ export async function obtenerMisOfertas() {
     cancelacion_estado: string | null
     cancelacion_solicitada_por: string | null
     cancelacion_razon: string | null
+    cancelacion_revision: string | null
     cancelacion_adjuntos_solicitante: string[]
     cancelacion_respuesta_razon: string | null
     cancelacion_adjuntos_respuesta: string[]
@@ -269,7 +274,7 @@ export async function obtenerMisOfertas() {
   if (idsAceptadas.length > 0) {
     const { data: trabajosDeOfertas, error: trabajosError } = await supabase
       .from("trabajos")
-      .select("id, estado, oferta_id, cliente_id, profesional_id, cancelacion_estado, cancelacion_solicitada_por, cancelacion_razon, cancelacion_adjuntos_solicitante, cancelacion_respuesta_razon, cancelacion_adjuntos_respuesta")
+      .select("id, estado, oferta_id, cliente_id, profesional_id, cancelacion_estado, cancelacion_solicitada_por, cancelacion_razon, cancelacion_revision, cancelacion_adjuntos_solicitante, cancelacion_respuesta_razon, cancelacion_adjuntos_respuesta")
       .in("oferta_id", idsAceptadas)
       .order("created_at", { ascending: false })
     if (trabajosError) return { error: await textoServidor("No se pudo consultar el estado de tus contratos. Inténtalo de nuevo.") }
@@ -344,6 +349,13 @@ export async function actualizarOferta(
   } = await supabase.auth.getUser()
   if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
+  if (
+    campos.descripcion !== undefined &&
+    (typeof campos.descripcion !== "string" || !campos.descripcion.trim())
+  ) {
+    return { error: await textoServidor("La descripción de la oferta no puede estar vacía.") }
+  }
+
   const errorModeracion = errorContenidoProhibido(campos.descripcion)
   if (errorModeracion) return { error: await textoServidor(errorModeracion) }
 
@@ -403,7 +415,7 @@ export async function actualizarOferta(
       precio: campos.precio,
       tiempo_estimado: campos.tiempo_estimado,
       unidad_tiempo: campos.unidad_tiempo,
-      descripcion: campos.descripcion,
+      descripcion: campos.descripcion?.trim(),
       ...(requiereAceptarGastos ? {
         comision_proveedor_porcentaje: porcentajeAceptado,
         comision_proveedor_minima: minimoAceptado,
@@ -566,19 +578,19 @@ export async function aceptarOferta(ofertaId: string) {
   }
 
   // Get oferta details
-  const { data: oferta, error: ofertaError } = await supabase
+  const { data: ofertaPersonal } = await supabase
     .from("ofertas")
     .select("*, solicitud:solicitudes(*)")
     .eq("id", ofertaId)
     .single()
 
-  if (ofertaError || !oferta) {
-    return { error: await textoServidor("Oferta no encontrada") }
-  }
-
-  // Verify user is the client of this solicitud
-  if (oferta.solicitud?.cliente_id !== user.id) {
-    return { error: await textoServidor("No tienes permiso para aceptar esta oferta") }
+  let oferta = ofertaPersonal
+  if (!oferta || oferta.solicitud?.cliente_id !== user.id) {
+    // A current company manager can continue the original author's request.
+    // The projection is narrowly authorized; the contract RPC rechecks under lock.
+    const { data, error } = await supabase.rpc("empresa_oferta_para_contratar", { p_oferta_id: ofertaId })
+    if (error || !data) return { error: await textoServidor("No tienes permiso para aceptar esta oferta") }
+    oferta = data
   }
 
   // Import and call crearTrabajo

@@ -143,6 +143,8 @@ function recortarEscrowSegunRol(escrow: any, esElCliente: boolean) {
     id: escrow.id,
     trabajo_id: escrow.trabajo_id,
     estado: escrow.estado,
+    liquidacion_estado: escrow.liquidacion_estado,
+    confirmacion_en_curso: escrow.liquidacion_contexto?.tipo === "confirmacion",
     monto_base: escrow.monto_base,
     fecha_retencion: escrow.fecha_retencion,
     fecha_liberacion: escrow.fecha_liberacion,
@@ -253,8 +255,8 @@ async function destinatarioCancelacion(admin: any, trabajo: any, parte: ParteCan
   return {
     usuarios: await destinatariosOperacionEmpresa(admin, empresa, esCliente ? trabajo.operador_cliente_id || trabajo.cliente_id : trabajo.operador_proveedor_id || trabajo.profesional_id),
     metadata: { trabajo_id: trabajo.id, titulo_trabajo: trabajo.titulo, parte_destinataria: parte },
-    link: empresa ? "/perfil-empresa" : construirLinkNotificacion({
-      seccion: esCliente ? "/mis-solicitudes" : trabajo.estado === "pendiente_pago" ? "/mis-ofertas" : "/mis-trabajos",
+    link: construirLinkNotificacion({
+      seccion: empresa ? "/mi-empresa" : esCliente ? "/mis-solicitudes" : trabajo.estado === "pendiente_pago" ? "/mis-ofertas" : "/mis-trabajos",
       solicitudId: trabajo.solicitud_id, trabajoId: trabajo.id, ofertaId: trabajo.oferta_id, aspecto: "cancelacion",
     }),
   }
@@ -295,7 +297,7 @@ async function gestionarSolicitudCancelacion(trabajoId: string, accion: "solicit
   })
   revalidatePath("/mis-solicitudes")
   revalidatePath("/mis-trabajos")
-  revalidatePath("/perfil-empresa")
+  revalidatePath("/mi-empresa")
   revalidatePath("/mensajes")
   return { data: { ok: true } }
 }
@@ -319,6 +321,7 @@ export async function responderCancelacion(
   aceptar: boolean,
   razonRespuesta = "",
   archivosAdjuntos: string[] = [],
+  revisionEsperada?: string | null,
 ) {
   const supabase = await createClient()
   if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
@@ -327,13 +330,17 @@ export async function responderCancelacion(
   } = await supabase.auth.getUser()
   if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
 
+  if (!revisionEsperada || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(revisionEsperada)) {
+    return { error: await textoServidor("La cancelación ha cambiado. Actualiza la página y revisa la solicitud antes de responder.") }
+  }
+
   const permiso = aceptar ? "gestionar_cobros" : "encargos"
   const permisoEmpresa = await validarActorTrabajoEmpresa(supabase, trabajoId, user.id, permiso)
   if (permisoEmpresa) return { error: await textoServidor(permisoEmpresa) }
   const admin = createAdminClient()
   if (!admin) return { error: await textoServidor("La configuración segura del servidor no está disponible.") }
   const { data: trabajo } = await admin.from("trabajos")
-    .select("id, solicitud_id, oferta_id, cliente_id, profesional_id, empresa_cliente_id, empresa_proveedora_id, operador_cliente_id, operador_proveedor_id, estado, cancelacion_estado, cancelacion_solicitada_por, cancelacion_parte_solicitante, cancelacion_razon, titulo")
+    .select("id, solicitud_id, oferta_id, cliente_id, profesional_id, empresa_cliente_id, empresa_proveedora_id, operador_cliente_id, operador_proveedor_id, estado, cancelacion_estado, cancelacion_solicitada_por, cancelacion_parte_solicitante, cancelacion_razon, cancelacion_revision, titulo")
     .eq("id", trabajoId).maybeSingle()
   if (!trabajo) return { error: await textoServidor("No tienes permiso sobre este trabajo") }
   if (trabajo.cancelacion_estado !== "pendiente") return { error: await textoServidor("No hay ninguna solicitud de cancelación pendiente.") }
@@ -354,7 +361,7 @@ export async function responderCancelacion(
     // La liquidación fija el reembolso y los gastos retenidos. Los reintentos
     // conservan siempre los importes originales, incluso en casos históricos.
     const { reembolsarPorCancelacion } = await import("./escrow")
-    const reembolsoResult = await reembolsarPorCancelacion(trabajoId)
+    const reembolsoResult = await reembolsarPorCancelacion(trabajoId, revisionEsperada)
     if (reembolsoResult.error) {
       return { error: await textoServidor(`No se pudo emitir el reembolso al cliente: ${reembolsoResult.error}`) }
     }
@@ -369,8 +376,8 @@ export async function responderCancelacion(
   } else {
     try {
       const { cerrarCheckoutsPendientes } = await import("@/lib/flujo-pagos")
-      const { error: bloqueoError } = await admin.rpc("diime_bloquear_checkout", {
-        p_trabajo: trabajoId, p_actor: user.id, p_rechazo_cancelacion: true,
+      const { error: bloqueoError } = await admin.rpc("diime_responder_cancelacion_versionada", {
+        p_trabajo: trabajoId, p_actor: user.id, p_revision: revisionEsperada, p_aceptar: false,
       })
       if (bloqueoError) throw bloqueoError
       await cerrarCheckoutsPendientes(admin, trabajoId)
@@ -408,7 +415,7 @@ export async function responderCancelacion(
 
   revalidatePath("/mis-solicitudes")
   revalidatePath("/mis-trabajos")
-  revalidatePath("/perfil-empresa")
+  revalidatePath("/mi-empresa")
   revalidatePath("/mensajes")
   revalidatePath("/admin/disputas")
   return { data: { ok: true } }
@@ -445,33 +452,18 @@ export async function actualizarProgresoTrabajo(trabajoId: string, progreso: num
     return { error: await textoServidor("Solo puedes actualizar el progreso de un trabajo pagado y en curso, sin cancelación pendiente.") }
   }
 
-  const updates: any = {
-    progreso,
-    updated_at: new Date().toISOString(),
-  }
-
-  const { data, error } = await supabase
-    .from("trabajos")
-    .update(updates)
-    .eq("id", trabajoId)
-    .eq("estado", "en_progreso")
-    .or("cancelacion_estado.is.null,cancelacion_estado.neq.pendiente")
-    .select()
-    .single()
+  const { data, error } = await supabase.rpc("actualizar_progreso_con_historial", {
+    p_trabajo_id: trabajoId,
+    p_progreso: progreso,
+    p_mensaje: mensaje || null,
+  })
 
   if (error) {
     return { error: await textoServidor(error.message) }
   }
 
-  // Create progress update record if message provided
-  if (mensaje) {
-    await supabase.from("actualizaciones_trabajo").insert({
-      trabajo_id: trabajoId,
-      usuario_id: user.id,
-      tipo: "progreso",
-      mensaje,
-      progreso,
-    })
+  if (!data) {
+    return { error: await textoServidor("El estado del trabajo ha cambiado. Actualiza la página antes de continuar.") }
   }
 
   // Avisar al cliente del avance.
@@ -487,7 +479,7 @@ export async function actualizarProgresoTrabajo(trabajoId: string, progreso: num
       titulo: `Progreso actualizado: ${Math.min(100, Math.max(0, progreso))}%`,
       metadata: { titulo_trabajo: data?.titulo, trabajo_id: trabajoId, parte_destinataria: "cliente" },
       mensaje: mensaje || `El profesional ha actualizado el progreso de "${data?.titulo ?? "tu trabajo"}".`,
-      link: data?.empresa_cliente_id ? "/perfil-empresa" : construirLinkNotificacion({ seccion: "/mis-solicitudes", solicitudId: data?.solicitud_id, trabajoId, aspecto: "progreso" }),
+      link: construirLinkNotificacion({ seccion: data?.empresa_cliente_id ? "/mi-empresa" : "/mis-solicitudes", solicitudId: data?.solicitud_id, trabajoId, aspecto: "progreso" }),
     })
   }
 
@@ -524,19 +516,10 @@ export async function marcarTrabajoEntregado(trabajoId: string, mensaje?: string
     return { error: await textoServidor("Hay una cancelación pendiente. Debe resolverse antes de entregar el trabajo.") }
   }
 
-  const { data, error } = await supabase
-    .from("trabajos")
-    .update({
-      estado: "entregado",
-      progreso: 100,
-      fecha_entrega: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", trabajoId)
-    .eq("estado", "en_progreso")
-    .or("cancelacion_estado.is.null,cancelacion_estado.neq.pendiente")
-    .select()
-    .maybeSingle()
+  const { data, error } = await supabase.rpc("entregar_trabajo_con_historial", {
+    p_trabajo_id: trabajoId,
+    p_mensaje: mensaje || null,
+  })
 
   if (error) {
     return { error: await textoServidor(error.message) }
@@ -544,15 +527,6 @@ export async function marcarTrabajoEntregado(trabajoId: string, mensaje?: string
   if (!data) {
     return { error: await textoServidor("El estado del trabajo ha cambiado. Actualiza la página antes de continuar.") }
   }
-
-  // Create delivery update record
-  await supabase.from("actualizaciones_trabajo").insert({
-    trabajo_id: trabajoId,
-    usuario_id: user.id,
-    tipo: "entrega",
-    mensaje: mensaje || "El trabajo ha sido entregado y está pendiente de confirmación del cliente.",
-    progreso: 100,
-  })
 
   // Avisar al cliente: debe revisar y confirmar (o rechazar) la entrega.
   // El aviso nombra el trabajo y al profesional que lo entrega.
@@ -574,7 +548,7 @@ export async function marcarTrabajoEntregado(trabajoId: string, mensaje?: string
       titulo: `Entrega: ${trabajo.titulo ?? "tu trabajo"}`,
       metadata: { titulo_trabajo: trabajo.titulo, trabajo_id: trabajoId, parte_destinataria: "cliente" },
       mensaje: `${nombrePro} te ha entregado "${trabajo.titulo ?? "tu trabajo"}". Revísalo y confirma la finalización para liberar el pago.`,
-      link: data?.empresa_cliente_id ? "/perfil-empresa" : construirLinkNotificacion({ seccion: "/mis-solicitudes", solicitudId: data?.solicitud_id, trabajoId, aspecto: "entrega" }),
+      link: construirLinkNotificacion({ seccion: data?.empresa_cliente_id ? "/mi-empresa" : "/mis-solicitudes", solicitudId: data?.solicitud_id, trabajoId, aspecto: "entrega" }),
     })
   }
 

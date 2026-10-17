@@ -256,6 +256,11 @@ export default async function FacturaPage({
           </div>
         </div>
 
+        {escrow?.liquidacion_estado === "error" && <div role="alert" className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          <p className="font-medium">{t("La liquidación necesita atención")}</p>
+          <p>{t("Contacta con Diime para revisar la liquidación pendiente.")}</p>
+        </div>}
+
         {/* Si una parte actúa por una empresa se identifica también a su representante. */}
         <div className="grid sm:grid-cols-2 gap-4 text-sm">
           <ParteFactura

@@ -333,10 +333,11 @@ export class EmpresaLocalStore {
       return { contenido: new Uint8Array(await readFile(path.join(this.directorio, "documentos", documento.archivo))), nombre: solicitud.documentoNombre }
     })
   }
-  async revisarVerificacion(actor: ActorEmpresa, input: { decision: "verificada" | "requiere_informacion"; nota: string }): Promise<ResultadoEmpresa> {
+  async revisarVerificacion(actor: ActorEmpresa, input: { decision: "verificada" | "requiere_informacion"; nota: string; verificacionId?: string }): Promise<ResultadoEmpresa> {
     return this.operar(actor, (estado) => {
       asegurar(actor.plataformaAdmin, "La revisión corresponde al equipo Diime; el representante no puede aprobar su propia solicitud.")
       asegurar(estado.verificacion?.estado === "en_revision", "No hay una solicitud pendiente de revisión.")
+      asegurar(input.verificacionId === estado.verificacion.id, "La solicitud ha cambiado. Actualiza la lista y revisa el expediente vigente")
       asegurar(input.decision === "verificada" || input.decision === "requiere_informacion", "La decisión no es válida.")
       const nota = texto(input.nota, "Nota de revisión", 8, 1000)
       Object.assign(estado.verificacion, { estado: input.decision, notaRevision: nota, revisadaEn: new Date().toISOString() })

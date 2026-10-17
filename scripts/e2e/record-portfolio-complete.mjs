@@ -1,0 +1,22 @@
+import fs from'node:fs';import assert from'node:assert/strict';import{localFixture}from'./local-client-fixtures.mjs';
+const f=await localFixture('eur'),run='QA portfolio 1791997229837',file=f.dir+'/root-continuation-events.jsonl';
+const read=p=>JSON.parse(fs.readFileSync(f.dir+'/'+p));
+try{
+ const expiry=read('portfolio-api-expiry.json');assert.ok(expiry.checks.every(c=>c.pass));
+ const images=read('portfolio-browser-images-verified.json');assert.equal(images.results.length,8);assert.ok(images.results.every(i=>i.status===200&&i.matchesSource));
+ const boundaries=read('portfolio-boundaries-1791998093638.json');assert.equal(boundaries.checks.length,8);assert.ok(boundaries.checks.every(c=>c.assertions.every(a=>a.pass)));
+ for(const alias of ['PP','PE_TITULAR','PE_ADMIN','PE_MIEMBRO']){
+  const log=fs.readFileSync(file,'utf8').trim().split('\n').map(s=>JSON.parse(s));
+  const published=read('portfolio-'+alias+'-expiry-published.json').items.filter(x=>x.titulo===run+' '+alias+' sesión recuperada');assert.equal(published.length,1);assert.equal(Number(published[0].presupuesto),243.78);assert.equal(published[0].duracion,'3 días');assert.equal(published[0].descripcion,'Este borrador debe conservarse cuando caduque la sesión.');assert.equal(published[0].profesional_id,f.m.users[alias].id);
+  assert.ok(expiry.checks.find(c=>c.alias===alias&&c.pass&&c.unchanged));
+  const restored=fs.readFileSync(f.dir+'/browser/portfolio-'+alias+'-expiry-recovered.txt','utf8');assert.ok(restored.includes('Hemos recuperado tu borrador'));assert.ok(restored.includes(published[0].titulo));assert.ok(restored.includes('3 días'));assert.match(restored,/243[.,]78/);
+  const wrong=fs.readFileSync(f.dir+'/browser/portfolio-'+alias+'-expiry-other-account.txt','utf8');assert.ok(!wrong.includes(published[0].titulo));
+  const redirected=fs.readFileSync(f.dir+'/browser/portfolio-'+alias+'-expiry-fixed-redirect.txt','utf8');assert.ok(redirected.includes('Description: Entrar'));assert.ok(!redirected.includes('Título del proyecto'));
+  const reloaded=fs.readFileSync(f.dir+'/browser/portfolio-'+alias+'-expiry-published-reload.txt','utf8');assert.ok(reloaded.includes(published[0].titulo));assert.ok(!reloaded.includes('Hemos recuperado tu borrador'));
+  if(alias==='PP'){const late=read('portfolio-late-upload-fixed-ui.json');assert.ok(late.noImage&&late.uploadEnabled);}else{const late=read('portfolio-'+alias+'-late-ui.json');assert.ok(late.wrongImageAbsent&&late.fileInputEnabled);assert.equal(read('portfolio-'+alias+'-late-completed.json')[0].estado,'confirmado_publico');}
+  for(const caseId of ['T-163','T-164','T-165']){
+   const nominal=log.find(e=>e.eventId==='root-portfolio-nominal-'+caseId+'-'+alias);assert.ok(nominal?.status==='pass');const eventId='root-portfolio-complete-'+caseId+'-'+alias;if(log.some(e=>e.eventId===eventId))continue;
+   fs.appendFileSync(file,JSON.stringify({eventId,at:new Date().toISOString(),caseId,roleKey:f.m.users[alias].roleKey,level:'browser_e2e',scope:'full',status:'pass',assertions:[...nominal.assertions,{name:'Real expired session closes UI; own draft survives, other identity cannot restore it, recovery publishes once and clears it',pass:true},{name:'Real late upload finishes in dedicated QA Blob store without contaminating the next draft',pass:true},{name:'Actual expired Auth and foreign/incomplete job attacks through server actions and PostgREST leave data unchanged',pass:true}],evidence:[...nominal.evidence,...['fixed-draft','fixed-redirect','other-account','recovered','published-reload'].map(s=>({layer:'browser',path:'browser/portfolio-'+alias+'-expiry-'+s+'.txt'})),{layer:'db',path:'portfolio-'+alias+'-expiry-published.json'},{layer:'api',path:'portfolio-api-expiry.json'},{layer:'api',path:'portfolio-boundaries-1791998093638.json'},{layer:'api',path:'portfolio-browser-images-verified.json'},{layer:'browser',path:alias==='PP'?'portfolio-late-upload-fixed-ui.json':'portfolio-'+alias+'-late-ui.json'},{layer:'db',path:alias==='PP'?'portfolio-late-upload-completed-db.json':'portfolio-'+alias+'-late-completed.json'}],limitations:['Local app with real local Auth/PostgreSQL, Stripe TEST completed-job fixtures and dedicated QA Blob store.','Unlink and malicious-ID/expired-session variants use actual HTTP/REST; their public UI result is observed in the browser.','SQL injected only two-second upload delay; payment completion itself was already performed through browser/Stripe TEST.']})+'\n');console.log('PASS complete browser',caseId,alias);
+  }
+ }
+}finally{await f.db.end();}

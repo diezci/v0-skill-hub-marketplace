@@ -2,6 +2,7 @@
 
 import { useT, useIdioma } from "@/components/idioma-provider"
 import { localeDe } from "@/lib/i18n"
+import { subirArchivoPrivado } from "@/lib/upload-helpers"
 
 import { useState, useEffect, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
@@ -73,8 +74,8 @@ interface Message {
 interface Conversation {
   empresarial?: boolean
   empresa_nombre?: string
-  empresa_1_id?: string
-  empresa_2_id?: string
+  empresa_1_id?: string | null
+  empresa_2_id?: string | null
   otro_usuario_id?: string
   puede_escribir?: boolean
   id: string
@@ -512,11 +513,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
     subidasEnCurso.current.add(convId)
     setSubidasPendientes(actuales => ({ ...actuales, [convId]: true }))
     try {
-      const formData = new FormData()
-      formData.append("file", file)
-      const res = await fetch("/api/upload", { method: "POST", body: formData })
-      if (!res.ok) throw new Error("upload failed")
-      const { url, filename, type } = await res.json()
+      const { url, filename, type } = await subirArchivoPrivado(file)
       if (versionSesion.current !== sesion) return
       const tipo: "imagen" | "archivo" = type?.startsWith("image/") ? "imagen" : "archivo"
       const result = await enviarMensaje(convId, "", { tipo, url, nombre: filename })
@@ -529,11 +526,11 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
         setMessages(actuales => actuales.some(m => m.id === mensaje.id) ? actuales : [...actuales, mensaje])
         setLoadingMessages(false)
       }
-    } catch {
+    } catch (error) {
       if (versionSesion.current !== sesion) return
       toast({
         title: t("No se pudo subir el archivo"),
-        description: t("Inténtalo de nuevo en unos segundos."),
+        description: t(error instanceof Error ? error.message : "Inténtalo de nuevo en unos segundos."),
         variant: "destructive",
       })
     } finally {
@@ -542,6 +539,25 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
         setSubidasPendientes(actuales => ({ ...actuales, [convId]: false }))
       }
     }
+  }
+
+  const handleVerProyecto = () => {
+    if (!selectedConversation) return
+    const { trabajo_id, solicitud_id, mi_rol, empresarial, empresa_1_id, empresa_2_id } = selectedConversation
+    const empresaPropia = empresarial && (mi_rol === "cliente" ? empresa_1_id : empresa_2_id)
+    // Una oferta todavía no es un contrato: volver a su demanda conserva el
+    // contexto del contacto. Los contratos siguen abriendo su sección de trabajo.
+    const seccion = enPanelAdmin
+      ? trabajo_id ? "/admin/trabajos" : "/demandas"
+      : empresaPropia
+        ? "/mi-empresa"
+        : mi_rol === "proveedor"
+          ? trabajo_id ? "/mis-trabajos" : "/demandas"
+          : "/mis-solicitudes"
+    const params = new URLSearchParams()
+    if (solicitud_id) params.set("solicitud", solicitud_id)
+    if (trabajo_id) params.set("trabajo", trabajo_id)
+    router.push(`${seccion}${params.size ? `?${params}` : ""}`)
   }
 
   const formatTime = (dateString?: string) => {
@@ -1393,15 +1409,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                       <Button
                         size="sm"
                         className="w-full text-xs h-8"
-                        onClick={() =>
-                          router.push(
-                            enPanelAdmin
-                              ? "/admin/trabajos"
-                              : selectedConversation.mi_rol === "proveedor"
-                                ? "/mis-trabajos"
-                                : "/mis-solicitudes",
-                          )
-                        }
+                        onClick={handleVerProyecto}
                       >
                         {t("Ver detalles del proyecto")}
                       </Button>
@@ -1526,6 +1534,8 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                   <button
                     key={star}
                     type="button"
+                    aria-label={`${t("Puntuación")}: ${star}/5`}
+                    aria-pressed={reviewRating === star}
                     onMouseEnter={() => setReviewHover(star)}
                     onMouseLeave={() => setReviewHover(0)}
                     onClick={() => setReviewRating(star)}
@@ -1544,8 +1554,9 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">{t("Comentario")}</label>
+              <label htmlFor="chat-review-comentario" className="text-sm font-medium">{t("Comentario")}</label>
               <Textarea
+                id="chat-review-comentario"
                 placeholder={t("Describe tu experiencia con este profesional...")}
                 value={reviewComentario}
                 onChange={(e) => setReviewComentario(e.target.value)}

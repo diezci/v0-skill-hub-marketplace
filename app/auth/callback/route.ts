@@ -7,11 +7,20 @@ export async function GET(request: Request) {
   const code = requestUrl.searchParams.get("code")
   const requested = requestUrl.searchParams.get("next")
   const destination = destinoAuthSeguro(requested)
+  const authError = (reason: string) => {
+    const url = new URL("/auth/error", request.url)
+    url.searchParams.set("error", reason)
+    url.searchParams.set("next", destination)
+    return NextResponse.redirect(url)
+  }
+
+  if (!code || requestUrl.searchParams.has("error")) return authError("callback")
 
   if (code) {
     const supabase = await createClient()
-    if (!supabase) return NextResponse.redirect(new URL("/auth/error?error=config", request.url))
+    if (!supabase) return authError("config")
     const { data: sessionData, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
+    if (sessionError || !sessionData.user) return authError("callback")
 
     if (sessionData.user && !sessionError) {
       const aceptaTerminos = requestUrl.searchParams.get("terms") === "1"

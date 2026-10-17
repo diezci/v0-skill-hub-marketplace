@@ -28,24 +28,38 @@ export async function registrarUsuario(formData: {
   aceptaTerminos: boolean
   confirmaMayoriaEdad: boolean
 }) {
-  const supabase = await createClient()
-  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos") }
-  if (!formData.aceptaTerminos) {
+  // Server actions can be called without the browser's form validation.
+  if (!formData || typeof formData !== "object") {
+    return { error: await textoServidor("Revisa los datos del registro.") }
+  }
+  if (formData.aceptaTerminos !== true) {
     return { error: await textoServidor("Debes aceptar los Términos y las Normas de la comunidad.") }
   }
-  if (!formData.confirmaMayoriaEdad) {
+  if (formData.confirmaMayoriaEdad !== true) {
     return { error: await textoServidor("Para crear una cuenta debes confirmar que tienes 18 años o más.") }
   }
-
+  const texto = (valor: unknown) => typeof valor === "string" ? valor.trim() : ""
+  if (formData.tipoEntidad !== "particular" && formData.tipoEntidad !== "empresa") {
+    return { error: await textoServidor("Selecciona un tipo de registro válido.") }
+  }
+  if (!texto(formData.nombre) || !texto(formData.apellido)) {
+    return { error: await textoServidor("Indica tu nombre y apellidos.") }
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(texto(formData.email))) {
+    return { error: await textoServidor("Email inválido") }
+  }
+  if (typeof formData.password !== "string" || formData.password.length < 6) {
+    return { error: await textoServidor("La contraseña debe tener al menos 6 caracteres") }
+  }
   if (formData.tokenInvitacion) return { error: await textoServidor("Las invitaciones de empresa se aceptan desde el enlace individual enviado por el titular.") }
 
   const registroEmpresa = formData.tipoEntidad === "empresa" ? {
-    nombreEmpresa: formData.nombreEmpresa?.trim(),
-    cif: formData.documento?.trim().toUpperCase(),
-    documentoPersonal: formData.documentoPersonal?.trim() || "",
-    cargoEmpresa: formData.cargoEmpresa,
-    telefono: formData.telefono,
-    ubicacion: formData.ubicacion,
+    nombreEmpresa: texto(formData.nombreEmpresa),
+    cif: texto(formData.documento).toUpperCase(),
+    documentoPersonal: texto(formData.documentoPersonal),
+    cargoEmpresa: texto(formData.cargoEmpresa),
+    telefono: texto(formData.telefono),
+    ubicacion: texto(formData.ubicacion),
   } : null
   if (registroEmpresa && !registroEmpresa.documentoPersonal) {
     return { error: await textoServidor("Indica tu DNI/NIE como persona que representa a la empresa") }
@@ -53,7 +67,21 @@ export async function registrarUsuario(formData: {
   if (registroEmpresa && (!registroEmpresa.nombreEmpresa || !registroEmpresa.cif)) {
     return { error: await textoServidor("Indica el nombre y CIF de tu empresa o utiliza una invitación") }
   }
-  const documentoDeLaPersona = registroEmpresa?.documentoPersonal || formData.documento || null
+  const documentoDeLaPersona = registroEmpresa?.documentoPersonal || texto(formData.documento)
+  if (!documentoDeLaPersona) {
+    return { error: await textoServidor("Indica tu DNI/NIE.") }
+  }
+  formData = {
+    ...formData,
+    email: texto(formData.email),
+    nombre: texto(formData.nombre),
+    apellido: texto(formData.apellido),
+    telefono: texto(formData.telefono),
+    ubicacion: texto(formData.ubicacion),
+    cargoEmpresa: texto(formData.cargoEmpresa),
+  }
+  const supabase = await createClient()
+  if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos") }
 
   const aceptacionLegal = new Date().toISOString()
 

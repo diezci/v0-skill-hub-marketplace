@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { enviarAlertaOperativaDiaria } from "@/lib/operaciones"
+import { limpiarSubidasPendientes } from "@/lib/archivos-servidor"
 
 export const dynamic = "force-dynamic"
 
@@ -11,9 +12,11 @@ export async function GET(request: Request) {
   }
 
   try {
+    const subidas = await limpiarSubidasPendientes()
     const resultado = await enviarAlertaOperativaDiaria()
     return NextResponse.json({
       ok: true,
+      subidas,
       enviado: resultado.enviado,
       motivo: resultado.enviado ? undefined : resultado.motivo,
       total: resultado.resumen.total,

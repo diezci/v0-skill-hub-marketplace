@@ -1,0 +1,13 @@
+import fs from'node:fs';import path from'node:path';import assert from'node:assert/strict';import{parseEnv}from'node:util';import{createClient}from'@supabase/supabase-js';import{actionClient,requireLoopback}from'./http-action-client.mjs'
+export function pagosContext(cohort=''){
+ assert.match(cohort,/^[a-z0-9-]*$/)
+ const suffix=cohort?`-${cohort}`:''
+ const dir=path.resolve('.build/e2e-20261014'),env=parseEnv(fs.readFileSync(path.join(dir,'.env.supabase-local'),'utf8')),fixture=JSON.parse(fs.readFileSync(path.join(dir,`fixture-manifest${suffix}.json`))),credentials=JSON.parse(fs.readFileSync(path.join(dir,`local-credentials${suffix}.json`)));requireLoopback(env.NEXT_PUBLIC_SUPABASE_URL)
+ const admin=createClient(env.NEXT_PUBLIC_SUPABASE_URL,env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false}}),clients=new Map()
+ async function client(alias){if(clients.has(alias))return clients.get(alias);const user=credentials.users[alias],c=actionClient({baseUrl:env.NEXT_PUBLIC_SITE_URL,supabaseUrl:env.NEXT_PUBLIC_SUPABASE_URL,anonKey:env.NEXT_PUBLIC_SUPABASE_ANON_KEY});assert.equal(await c.login(user.email,user.password),user.id);for(const route of ['/publicar','/demandas','/mis-solicitudes','/mis-trabajos','/admin/disputas'])await c.request(route);clients.set(alias,c);return c}
+ async function call(alias,name,args){return(await(await client(alias)).call(name,args,{route:'/mis-solicitudes'})).value}
+ function ok(value,label){assert.ok(!value?.error,`${label}: ${value?.error}`);return value?.data??value}
+ async function row(table,id){const r=await admin.from(table).select('*').eq('id',id).single();if(r.error)throw r.error;return r.data}
+ async function createJob({ca='CP2',pa='PP',label='mediación',price=100}){const ce=ca.startsWith('CE_')?fixture.companies.cliente.id:null,pe=pa.startsWith('PE_')?fixture.companies.proveedor.id:null;const solicitud=ok(await call(ca,'crearSolicitud',[{empresa_id:ce,titulo:`QA ${label} ${Date.now()}`,descripcion:'Necesito revisar los enchufes y comprobar la instalación eléctrica de una habitación.',categoria_id:'Electricidad',ubicacion:'Madrid',urgencia:'media',presupuesto_min:price,presupuesto_max:price}]),'crearSolicitud');const oferta=ok(await call(pa,'crearOferta',[{empresa_id:pe,solicitud_id:solicitud.id,precio:price,tiempo_estimado:1,unidad_tiempo:'dias',descripcion:'Revisión de los enchufes y comprobación de la instalación según el alcance solicitado.',acepta_gastos:true}]),'crearOferta');const trabajo=ok(await call(ca,'aceptarOferta',[oferta.id]),'aceptarOferta');return {ca,pa,solicitudId:solicitud.id,ofertaId:oferta.id,trabajoId:trabajo.id}}
+ return{dir,env,fixture,credentials,admin,client,call,ok,row,createJob}
+}

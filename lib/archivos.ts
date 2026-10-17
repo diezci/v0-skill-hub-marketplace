@@ -12,11 +12,20 @@ const TIPOS: Record<string, string> = {
 
 type ArchivoValidado = { error: string } | { tipo: string; nombre: string; extension: string }
 
-export async function validarArchivo(file: File, imagenPublica = false): Promise<ArchivoValidado> {
-  const extension = file.name.split(".").pop()?.toLowerCase() || ""
+export function validarMetadatosArchivo(nombreArchivo: string, bytesArchivo: number, imagenPublica = false): ArchivoValidado {
+  const extension = nombreArchivo.split(".").pop()?.toLowerCase() || ""
   const tipo = TIPOS[extension]
   if (!tipo || (imagenPublica && !tipo.startsWith("image/"))) return { error: "Tipo de archivo no permitido." }
-  if (file.size === 0 || file.size > MAX_ARCHIVO_BYTES) return { error: "El archivo debe ocupar entre 1 byte y 10 MB." }
+  if (!Number.isSafeInteger(bytesArchivo) || bytesArchivo < 1 || bytesArchivo > MAX_ARCHIVO_BYTES) return { error: "El archivo debe ocupar entre 1 byte y 10 MB." }
+  const limpio = nombreArchivo.replace(/[\r\n\x00-\x1f\\/]/g, "_")
+  const nombre = limpio.length > 180 ? `${limpio.slice(0, 179 - extension.length)}.${extension}` : limpio
+  return { tipo, nombre, extension }
+}
+
+export async function validarArchivo(file: File, imagenPublica = false): Promise<ArchivoValidado> {
+  const metadata = validarMetadatosArchivo(file.name, file.size, imagenPublica)
+  if ("error" in metadata) return metadata
+  const { tipo, extension } = metadata
   const bytes = new Uint8Array(await file.slice(0, 512).arrayBuffer())
   const starts = (...prefix: number[]) => prefix.every((v, i) => bytes[i] === v)
   const ascii = (start: number, end: number) => String.fromCharCode(...bytes.slice(start, end))
@@ -30,6 +39,5 @@ export async function validarArchivo(file: File, imagenPublica = false): Promise
     : ["doc", "xls"].includes(extension) ? starts(208, 207, 17, 224, 161, 177, 26, 225)
     : !bytes.includes(0)
   if (!valido) return { error: "El contenido del archivo no corresponde a su formato." }
-  const nombre = file.name.replace(/[\r\n\x00-\x1f\\/]/g, "_").slice(0, 180) || `archivo.${extension}`
-  return { tipo, nombre, extension }
+  return metadata
 }

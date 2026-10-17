@@ -17,7 +17,7 @@ const original = {
 const otra = { ...original, id: uuid(2), trabajo_id: uuid(12), cliente_id: uuid(22), trabajo: { titulo: "Otro servicio" }, cliente: { nombre: "Otra", apellido: "cuenta" } }
 const exitoStripe = { id: "re_fixture_22", estado: "succeeded", importe: 22, moneda: "eur", creadoEn: "2026-09-18T11:30:00.000Z", referencia: "ARN-REFERENCIA-PRUEBA", referenciaTipo: "arn", referenciaEstado: "available", fallo: null, modoReal: true }
 
-function harness({ parametros = "", respuesta = { data: exitoStripe } } = {}) {
+function harness({ parametros = "", respuesta = { data: exitoStripe }, pagos = [original, otra] } = {}) {
   let cursor = 0
   const estados = [], llamadas = []
   const hooks = {
@@ -48,7 +48,7 @@ function harness({ parametros = "", respuesta = { data: exitoStripe } } = {}) {
       return ui
     },
   })
-  estados[0] = [original, otra]
+  estados[0] = pagos
   estados[1] = false
   return { render() { cursor = 0; return module.exports.default() }, llamadas }
 }
@@ -110,3 +110,38 @@ assert.match(texto(filtrado), /Reparación aire acondicionado/)
 assert.doesNotMatch(texto(filtrado), /Otro servicio/)
 console.log("PASS Búsqueda por nombre completo encuentra el pago de Pedro sin mezclar otras cuentas")
 console.log("3 pruebas UI de pagos completadas, con fixtures y sin red ni movimientos de dinero.")
+
+// La consulta autorizada puede descubrir un fallo posterior al cierre local.
+for (const estado of ["failed", "canceled", "succeeded", "pending"]) {
+  const h = harness({ respuesta: { data: { ...exitoStripe, estado } } })
+  let tree = h.render()
+  boton(tree, "Ver detalle").props.onClick()
+  tree = h.render()
+  boton(tree, "Comprobar reembolso en Stripe").props.onClick()
+  await tick()
+  tree = h.render()
+  assert.equal(Boolean(boton(tree, "Autorizar un nuevo intento de reembolso")), ["failed", "canceled"].includes(estado))
+}
+console.log("PASS Fallo tardío en Stripe permite recuperación explícita aunque el estado local estuviera completado")
+
+// The captured UI showed 240 EUR refunded despite a failed 100 EUR attempt.
+// Count actual succeeded refunds (including partial ones), not planned splits.
+const pagos = [
+  { ...original, monto_reembolsado: 100 },
+  { ...original, id: uuid(3), estado: "liquidando", liquidacion_estado: "error", monto_reembolsado: 40 },
+  { ...original, id: uuid(4), estado: "liquidando", liquidacion_estado: "error", stripe_refund_status: "failed", monto_reembolsado: 100, fecha_reembolso: null },
+  { ...original, id: uuid(5), estado: "liquidando", stripe_refund_status: "pending", monto_reembolsado: 20 },
+  { ...original, id: uuid(6), stripe_refund_status: null, stripe_refund_id: null, monto_reembolsado: 30 },
+]
+const resumen = harness({ pagos }).render()
+const tarjeta = nodos(resumen).find(n => n.type === "Card" && texto(n).startsWith("Reembolsos procesados por Stripe"))
+assert.match(texto(tarjeta), /140,00/)
+assert.match(texto(tarjeta), /2\s+reembolsos/)
+assert.doesNotMatch(texto(tarjeta), /240,00|290,00/)
+assert.match(texto(resumen), /La liquidación necesita atención/)
+const fallo = harness({ pagos: [pagos[2]] })
+boton(fallo.render(), "Ver detalle").props.onClick()
+const detalleFallido = nodos(fallo.render()).find(n => n.type === "Dialog")
+assert.match(texto(detalleFallido), /Reembolso previsto100,00/)
+assert.doesNotMatch(texto(detalleFallido), /Reembolso registrado100,00|Moviendo fondos/)
+console.log("PASS Totales excluyen fallidos/pendientes/sin evidencia e incluyen reembolso parcial confirmado; detalle fallido muestra importe previsto")

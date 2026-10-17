@@ -4,7 +4,7 @@ import { SelectorIdentidadEmpresa } from "@/components/selector-identidad-empres
 import { useT } from "@/components/idioma-provider"
 
 import type React from "react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
@@ -32,6 +32,7 @@ import {
 import { PROVINCIAS_ES } from "@/lib/provincias"
 import { createClient } from "@/lib/supabase/client"
 import { SolicitudServicioAcceso } from "@/components/solicitud-servicio-acceso"
+import { almacenBorradorSolicitud, borrarBorradorSolicitud, guardarBorradorSolicitud, leerBorradorSolicitud } from "@/lib/borrador-solicitud"
 
 const crearFormSchema = (t: ReturnType<typeof useT>) => z
   .object({
@@ -71,6 +72,10 @@ const SolicitudServicioForm = ({ embedded = false, usuarioId }: Props) => {
   const [empresaId, setEmpresaId] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
+  const [borradorPreparado, setBorradorPreparado] = useState(false)
+  const [borradorRecuperado, setBorradorRecuperado] = useState(false)
+  const [adjuntosPendientes, setAdjuntosPendientes] = useState<string[]>([])
+  const publicado = useRef(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -100,9 +105,45 @@ const SolicitudServicioForm = ({ embedded = false, usuarioId }: Props) => {
     },
   })
 
+  useEffect(() => {
+    // Solo se monta tras validar la sesión en el servidor. La clave incluye
+    // al propietario: otra cuenta nunca recupera ni publica este borrador.
+    const borrador = leerBorradorSolicitud(almacenBorradorSolicitud(), usuarioId)
+    if (borrador) {
+      form.reset(borrador.valores)
+      setEmpresaId(borrador.empresaId)
+      setAdjuntosPendientes(borrador.adjuntos)
+      setBorradorRecuperado(true)
+    }
+    setBorradorPreparado(true)
+  }, [form, usuarioId])
+
+  useEffect(() => {
+    if (!borradorPreparado || publicado.current) return
+    const guardar = () => {
+      if (publicado.current) return
+      guardarBorradorSolicitud(almacenBorradorSolicitud(), {
+        usuarioId, valores: form.getValues(), empresaId,
+        adjuntos: [...adjuntosPendientes, ...attachedFiles.map(file => file.name)],
+      })
+    }
+    guardar()
+    const subscription = form.watch(guardar)
+    return () => subscription.unsubscribe()
+  }, [form, usuarioId, empresaId, attachedFiles, adjuntosPendientes, borradorPreparado])
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      setAttachedFiles((prev) => [...prev, ...Array.from(e.target.files!)])
+      const nuevos = Array.from(e.target.files)
+      setAttachedFiles((prev) => [...prev, ...nuevos])
+      setAdjuntosPendientes((prev) => {
+        const pendientes = [...prev]
+        for (const file of nuevos) {
+          const index = pendientes.indexOf(file.name)
+          if (index >= 0) pendientes.splice(index, 1)
+        }
+        return pendientes
+      })
     }
   }
 
@@ -111,6 +152,9 @@ const SolicitudServicioForm = ({ embedded = false, usuarioId }: Props) => {
   }
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    // Los File no sobreviven a una navegación. Nunca publicar silenciosamente
+    // sin los adjuntos que el usuario había seleccionado.
+    if (!borradorPreparado || adjuntosPendientes.length) return
     setIsSubmitting(true)
     try {
       // La sesión puede caducar mientras se rellena el formulario: comprobarla
@@ -160,6 +204,9 @@ const SolicitudServicioForm = ({ embedded = false, usuarioId }: Props) => {
 
       if (result.error) throw new Error(result.error)
 
+      publicado.current = true
+      borrarBorradorSolicitud(almacenBorradorSolicitud(), usuarioId)
+
       toast({
         title: t("¡Proyecto publicado!"),
         description: t("Los profesionales ya pueden ver tu solicitud y enviarte ofertas."),
@@ -179,10 +226,20 @@ const SolicitudServicioForm = ({ embedded = false, usuarioId }: Props) => {
   }
 
   if (!sesionVigente) return <SolicitudServicioAcceso embedded={embedded} />
+  // Mount Radix selects only after reset has restored their initial values.
+  // Mounting an empty select first can emit an empty native change and erase
+  // the restored province/date mode during hydration.
+  if (!borradorPreparado) return <p role="status" className="p-6 text-center text-muted-foreground">{t("Preparando el cuestionario…")}</p>
 
   const formContent = (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {borradorRecuperado && <p role="status" className="text-sm text-muted-foreground">{t("Borrador recuperado. Revísalo antes de publicar.")}</p>}
+        {adjuntosPendientes.length > 0 && <div role="alert" className="space-y-2 rounded-lg border p-3 text-sm">
+          <p>{t("Vuelve a adjuntar los archivos del borrador o descártalos para continuar.")}</p>
+          <ul>{adjuntosPendientes.map((nombre, i) => <li key={i}>{nombre}</li>)}</ul>
+          <Button type="button" variant="outline" onClick={() => setAdjuntosPendientes([])}>{t("Descartar adjuntos anteriores")}</Button>
+        </div>}
         <SelectorIdentidadEmpresa value={empresaId} onChange={setEmpresaId} disabled={isSubmitting} />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
@@ -211,7 +268,7 @@ const SolicitudServicioForm = ({ embedded = false, usuarioId }: Props) => {
               <FormItem>
                 <FormLabel className="flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-emerald-500" />{t("Provincia donde se realizará el servicio")}</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder={t("Provincia de realización del servicio")} />
@@ -286,7 +343,7 @@ const SolicitudServicioForm = ({ embedded = false, usuarioId }: Props) => {
               <FormItem>
                 <FormLabel className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-emerald-500" />{t("¿Cuándo necesitas el trabajo?")}</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder={t("¿Cuándo lo necesitas?")} />
@@ -361,7 +418,7 @@ const SolicitudServicioForm = ({ embedded = false, usuarioId }: Props) => {
           )}
         </div>
 
-        <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700" size="lg" disabled={isSubmitting}>
+        <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700" size="lg" disabled={isSubmitting || !borradorPreparado || adjuntosPendientes.length > 0}>
           {isSubmitting ? (
             t("Publicando...")
           ) : (

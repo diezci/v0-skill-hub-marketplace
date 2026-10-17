@@ -1,4 +1,6 @@
 export const EN_AVISOS: Record<string, string> = {
+  "El reembolso necesita revisión": "The refund needs review",
+  "Stripe ha comunicado que el reembolso no se ha completado. Diime debe revisar la devolución; no tienes que volver a pagar.": "Stripe has reported that the refund was not completed. Diime must review the refund; you do not need to pay again.",
   "Notificaciones pendientes: {count}": "Unread notifications: {count}",
   "Novedades de esta sección": "Updates in this section",
   "Cada aviso indica qué ha cambiado. Ábrelo o márcalo como visto cuando lo hayas revisado.": "Each notice explains what has changed. Open it or mark it as seen when you have reviewed it.",
@@ -26,6 +28,7 @@ export const EN_AVISOS: Record<string, string> = {
   "Incidencia": "Support issue",
   "Actualización": "Update",
   "Cargar más": "Load more",
+  "Sin resolver durante más de 24 horas.": "Unresolved for more than 24 hours.",
   "Mensajes pendientes de soporte": "Unread support messages",
   "Mensajes sin leer": "Unread messages",
   "Abrir conversación": "Open conversation",
