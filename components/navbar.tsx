@@ -301,8 +301,6 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
     },
     { name: "Mensajes", path: "/mensajes", icon: MessageSquare, shortName: "Mensajes" },
   ]
-  if (actorEmpresaLocal) navLinks.push({ name: "Mi empresa", path: "/mi-empresa", icon: Building2, shortName: "Mi empresa" })
-
   // Badge de cada sección: sus notificaciones sin leer (en Mensajes, además,
   // los mensajes de chat sin leer).
   const badgeDe = (path: string) =>
