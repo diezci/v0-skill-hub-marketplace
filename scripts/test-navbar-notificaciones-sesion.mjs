@@ -55,6 +55,7 @@ const visible = () => walk(tree).filter(node => node.type === 'CelebracionNotifi
 function render(runEffects = true) { dirty = false; cursor = 0; tree = module.exports.default(); if (runEffects) effects.splice(0).forEach(effect => effect()) }
 async function flush() { for (let i = 0; i < 8; i++) { await Promise.resolve(); if (dirty) render() } }
 render(); authChange('SIGNED_IN', { user: { id: 'A' } }); await flush()
+assert.equal(walk(tree).some(node => node.type === 'CampanaNotificaciones'), false, 'The public navbar has no notification bell in either its desktop or mobile branch')
 assert.deepEqual(visible(), ['aviso-A'])
 estadoTrabajo = 'completado'
 listeners.get('diime:notification')()

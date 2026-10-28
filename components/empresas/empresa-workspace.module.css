@@ -1,0 +1,51 @@
+.workspace {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 4%, var(--background)), var(--background) 680px);
+  min-height: 70vh;
+}
+
+.workspace [data-slot="card"] {
+  border-radius: 1.25rem;
+  box-shadow: 0 3px 16px rgb(0 0 0 / 2%);
+}
+
+.hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  color: #f2faf5;
+  background: linear-gradient(115deg, #123c2b, #18553a 70%, #216a47);
+}
+
+.hero::after {
+  position: absolute;
+  z-index: -1;
+  inset: -140px -80px auto auto;
+  width: 420px;
+  height: 420px;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 50%;
+  box-shadow: 0 0 0 48px rgb(255 255 255 / 3%), 0 0 0 96px rgb(255 255 255 / 3%);
+  content: "";
+  pointer-events: none;
+}
+
+.navigation {
+  scrollbar-width: thin;
+}
+
+.navigation [data-state="active"] {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 9%, var(--background));
+  border-color: color-mix(in srgb, var(--primary) 18%, transparent);
+  box-shadow: none;
+}
+
+.navigation [data-state="inactive"]:hover {
+  background: var(--muted);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .navigation button {
+    transition: background-color 160ms, color 160ms;
+  }
+}

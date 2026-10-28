@@ -40,7 +40,6 @@ import { createClient } from "@/lib/supabase/client"
 import { sincronizarBadgeApp } from "@/lib/push/client"
 import { cerrarSesionActual } from "@/lib/auth-logout"
 import { useResumenNotificaciones } from "@/hooks/use-notificaciones-seccion"
-import { CampanaNotificaciones } from "@/components/campana-notificaciones"
 import type { NotificacionContextual } from "@/lib/notificaciones-contexto"
 import { CelebracionNotificacion } from "@/components/celebracion-notificacion"
 import { celebracionVigente } from "@/lib/celebraciones-vigentes"
@@ -362,7 +361,6 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
           </nav>
 
           <div className="hidden xl:flex shrink-0 items-center gap-1 2xl:gap-2">
-            {isAuthenticated && !actorEmpresaLocal && <CampanaNotificaciones />}
             {!isAuthenticated && <SelectorIdioma compacto />}
             <ThemeToggle />
             {isAuthenticated ? (

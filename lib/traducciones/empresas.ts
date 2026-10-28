@@ -1,5 +1,14 @@
 // Company UI and server messages. Names, roles entered by users, bios and reviews keep their original language.
 export const EN_EMPRESAS: Record<string, string> = {
+  "Gestiona tu perfil, tu equipo y tus operaciones.": "Manage your profile, team and operations.",
+  "Miembros activos": "Active members",
+  "Provincias": "Provinces",
+  "Identidad visual": "Visual identity",
+  "Cobertura y servicios": "Coverage and services",
+  "Tu empresa, en un solo lugar.": "Your company, all in one place.",
+  "Completa el perfil": "Complete your profile",
+  "Acredita la representación": "Verify your representation",
+  "Invita a tu equipo": "Invite your team",
   "Operación abierta desde un aviso": "Operation opened from a notification",
   "Ver todas las operaciones": "View all operations",
   "Acredita la empresa antes de iniciar nuevas operaciones en su nombre.": "Verify the company before starting new operations on its behalf.",
