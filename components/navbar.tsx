@@ -453,7 +453,6 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
           </div>
 
           <div className="flex xl:hidden items-center gap-2">
-            {isAuthenticated && !actorEmpresaLocal && <CampanaNotificaciones />}
             {!isAuthenticated && <SelectorIdioma compacto />}
             <ThemeToggle />
             {isAuthenticated ? (
