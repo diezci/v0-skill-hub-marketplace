@@ -24,7 +24,8 @@ provincias elegidas. El logotipo se adjunta como PNG, JPEG o WebP de hasta 3 MB,
 con vista previa; la subida comprueba el permiso para editar el perfil.
 
 El responsable principal, los administradores y los miembros con permiso de perfil
-pueden abrir `/mi-empresa/vista-previa` en otra pestaña. Muestra los datos guardados
+pueden abrir `/mi-empresa/vista-previa` dentro de la app, con navegación de vuelta a
+Mi empresa. Muestra los datos guardados
 con el mismo componente y contenido público, incluso antes de la verificación,
 sin publicar el borrador. La base de datos vuelve a comprobar el acceso en cada
 lectura. El equipo oculto, los datos internos y las acciones de contacto quedan fuera
