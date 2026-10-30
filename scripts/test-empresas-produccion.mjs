@@ -31,6 +31,7 @@ function loadModules(overrides = {}, ui = {}) {
     const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText
     const customRequire = (name) => {
       if (ui.mockModules && Object.hasOwn(ui.mockModules, name)) return ui.mockModules[name]
+      if (name.endsWith('.module.css')) return { __esModule: true, default: new Proxy({}, { get: (_, key) => String(key) }) }
       if (name === 'server-only') return {}
       if (name === 'react' && ui.react) return { ...React, ...ui.react }
       if (name === '@/lib/supabase/server') return { createClient: async () => client }
@@ -173,9 +174,8 @@ test('private preview links follow management permissions and preserve verified 
       const previewLinks = h.all(tree, n => n.props?.href === '/mi-empresa/vista-previa')
       assert.equal(previewLinks.length, allowed ? 1 : 0, `${rol}/${perfil}/${estadoVerificacion}`)
       if (allowed) {
-        assert.equal(previewLinks[0].props.target, '_blank', 'Preview must preserve unsaved edits in the original tab')
-        assert.match(previewLinks[0].props.rel, /noopener/)
-        assert.match(h.text(previewLinks[0]), /Se abre en otra pestaña/)
+        assert.equal(previewLinks[0].props.target, undefined, 'Preview must stay inside the app instead of opening a new window')
+        assert.doesNotMatch(h.text(previewLinks[0]), /Se abre en otra pestaña/)
       }
       assert.equal(h.all(tree, n => n.props?.href === `/empresa/${base.empresa.id}`).length, estadoVerificacion === 'verificada' ? 1 : 0)
     }
