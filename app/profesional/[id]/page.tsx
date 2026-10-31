@@ -103,6 +103,8 @@ export default async function ProfilePage({
     verificado: profile.verificado || false,
     cuenta_eliminada: profile.perfil?.cuenta_eliminada || null,
     habilidades: profile.habilidades || [],
+    categorias_interes: profile.categorias_interes || [],
+    provincias_cobertura: profile.provincias_cobertura || [],
     certificaciones: profile.certificaciones || [],
     idiomas: profile.idiomas || [],
     portfolio: (profile.portfolio || []).map((item: any) => ({

@@ -3,6 +3,7 @@
 import { useT, useIdioma } from "@/components/idioma-provider"
 import { localeDe } from "@/lib/i18n"
 import { formatearPrecioEuros } from "@/lib/utils"
+import { PROVINCIAS_ES } from "@/lib/provincias"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
@@ -96,6 +97,9 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
     window.location.href = `tel:${String(perfil.telefono).replace(/\s+/g, "")}`
   }
   const habilidades: string[] = Array.isArray(perfil.habilidades) ? perfil.habilidades : []
+  const servicios: string[] = Array.isArray(perfil.categorias_interes) ? perfil.categorias_interes : []
+  const provinciasCobertura: string[] = Array.isArray(perfil.provincias_cobertura) ? perfil.provincias_cobertura : []
+  const cubreTodaEspana = PROVINCIAS_ES.every((provincia) => provinciasCobertura.includes(provincia))
   const certificaciones: string[] = Array.isArray(perfil.certificaciones) ? perfil.certificaciones : []
   const idiomas: string[] = Array.isArray(perfil.idiomas) ? perfil.idiomas : []
   const reviews: any[] = Array.isArray(perfil.reviews) ? perfil.reviews : []
@@ -248,6 +252,38 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
                   <p className="text-muted-foreground text-sm leading-relaxed">{perfil.bio}</p>
                 </div>
               )}
+
+              <div>
+                <h3 className="font-semibold mb-2">{t("Servicios")}</h3>
+                {servicios.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {servicios.map((servicio) => (
+                      <Badge key={servicio} variant="secondary" className="max-w-full whitespace-normal break-words">{t(servicio)}</Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-sm">{t("No especificado")}</p>
+                )}
+              </div>
+
+              <div>
+                <h3 className="font-semibold mb-2 flex items-center gap-2">
+                  <MapPin className="h-4 w-4" /> {t("Zona de trabajo")}
+                </h3>
+                {provinciasCobertura.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {cubreTodaEspana ? (
+                      <Badge variant="secondary">{t("Toda España")}</Badge>
+                    ) : (
+                      provinciasCobertura.map((provincia) => (
+                        <Badge key={provincia} variant="secondary">{provincia}</Badge>
+                      ))
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-sm">{t("No especificado")}</p>
+                )}
+              </div>
 
               {habilidades.length > 0 && (
                 <div>

@@ -1037,6 +1037,48 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 </CardContent>
               </Card>
 
+              {/* Servicios y zona de trabajo */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">
+                    {t("Servicios")}
+                    {isEditing && <span className="text-destructive ml-1">*</span>}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {!isEditing && editData.categorias_interes.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">{t("Todavía no has elegido servicios.")}</p>
+                  ) : (
+                    <SelectorCategorias
+                      seleccionadas={editData.categorias_interes}
+                      onChange={(v) => setEditData({ ...editData, categorias_interes: v })}
+                      disabled={!isEditing}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <MapPin className="h-5 w-5 text-primary" />
+                    {t("Zona de trabajo")}
+                    {isEditing && <span className="text-destructive">*</span>}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {!isEditing && editData.provincias_cobertura.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">{t("Todavía no has elegido provincias.")}</p>
+                  ) : (
+                    <SelectorProvincias
+                      seleccionadas={editData.provincias_cobertura}
+                      onChange={(v) => setEditData({ ...editData, provincias_cobertura: v })}
+                      disabled={!isEditing}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+
               {/* Professional Info */}
               {isEditing && (
                 <Card>
@@ -1097,7 +1139,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 </CardContent>
               </Card>
 
-              {/* Servicio, zona y presupuesto: filtros de los avisos de demandas */}
+              {/* Presupuesto y avisos para los servicios y la zona del perfil */}
               <Card className={sinCobertura ? "border-amber-500/50" : undefined}>
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
@@ -1119,38 +1161,6 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                       </p>
                     </div>
                   )}
-
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">
-                      {t("Servicios que ofreces")}
-                      {isEditing && <span className="text-destructive ml-1">*</span>}
-                    </p>
-                    {!isEditing && editData.categorias_interes.length === 0 ? (
-                      <p className="text-muted-foreground text-sm">{t("Todavía no has elegido servicios.")}</p>
-                    ) : (
-                      <SelectorCategorias
-                        seleccionadas={editData.categorias_interes}
-                        onChange={(v) => setEditData({ ...editData, categorias_interes: v })}
-                        disabled={!isEditing}
-                      />
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">
-                      {t("Provincias que cubres")}
-                      {isEditing && <span className="text-destructive ml-1">*</span>}
-                    </p>
-                    {!isEditing && editData.provincias_cobertura.length === 0 ? (
-                      <p className="text-muted-foreground text-sm">{t("Todavía no has elegido provincias.")}</p>
-                    ) : (
-                      <SelectorProvincias
-                        seleccionadas={editData.provincias_cobertura}
-                        onChange={(v) => setEditData({ ...editData, provincias_cobertura: v })}
-                        disabled={!isEditing}
-                      />
-                    )}
-                  </div>
 
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
