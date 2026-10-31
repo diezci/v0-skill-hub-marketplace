@@ -152,7 +152,7 @@ function AdminLayoutContenido({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Navigation */}
-        <nav aria-label={t("Administración")} className="flex gap-1 overflow-x-auto p-3 md:flex-col md:flex-1 md:p-4">
+        <nav aria-label={t("Administración")} className="relative flex gap-1 overflow-x-auto p-3 md:flex-col md:flex-1 md:p-4">
           {navItems.map((item) => {
             const isActive = pathname === item.href || 
               (item.href !== "/admin" && pathname?.startsWith(item.href))

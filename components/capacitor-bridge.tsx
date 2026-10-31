@@ -132,7 +132,9 @@ export function CapacitorBridge() {
 
     const preparar = async () => {
       const [, , estado] = await Promise.all([
-        Keyboard.setResizeMode({ mode: KeyboardResize.Body }).catch(() => {}),
+        // El viewport debe encogerse con el teclado, también para las vistas
+        // fijas de chat. Redimensionar solo el body deja esos controles debajo.
+        Keyboard.setResizeMode({ mode: KeyboardResize.Native }).catch(() => {}),
         actualizarBarras(),
         Network.getStatus().catch(() => null),
       ])
@@ -214,7 +216,14 @@ export function CapacitorBridge() {
           "stripe_connect",
           callbackUrl.pathname.endsWith("/refresh") ? "refresh" : "return",
         )
-        window.location.assign(`${pagina.pathname}${pagina.search}${pagina.hash}`)
+        const destinoInterno = `${pagina.pathname}${pagina.search}${pagina.hash}`
+        // A cold WebView can receive the return before it has a valid session.
+        // Preserve the object through login instead of opening a protected SSR
+        // document anonymously and falling into the native offline page.
+        const sesion = await supabase.auth.getUser().catch(() => ({ data: { user: null } }))
+        window.location.assign(sesion.data.user
+          ? destinoInterno
+          : `/auth/login?next=${encodeURIComponent(destinoInterno)}`)
         return
       }
 

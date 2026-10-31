@@ -10,7 +10,7 @@ export async function usuarioParaSubida() {
   const user = auth.data.user
   const profile = await supabase.from("profiles").select("id, cuenta_eliminada").eq("id", user.id).maybeSingle()
   if (profile.error || !profile.data || profile.data.cuenta_eliminada) return { error: "Cuenta no disponible.", status: 403 } as const
-  return { user } as const
+  return { user, supabase } as const
 }
 
 // The signed read URL stays on the server. Streaming the body avoids Vercel's

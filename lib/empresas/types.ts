@@ -102,6 +102,7 @@ export interface OperacionEmpresa {
   actorNombre: string
   precio?: number
   solicitudId?: string
+  ofertaOrigenId?: string | null
   trabajoId?: string
   parte?: "cliente" | "proveedor"
   operadorUsuarioId?: string
@@ -110,6 +111,8 @@ export interface OperacionEmpresa {
   cancelacionEstado?: string | null
   cancelacionParteSolicitante?: "cliente" | "proveedor" | null
   cancelacionRazon?: string | null
+  fechaEntrega?: string | null
+  liquidacion?: { estado: string; liquidacion_estado: string | null } | null
   cancelacionRevision?: string | null
   disputaActual?: {
     id: string

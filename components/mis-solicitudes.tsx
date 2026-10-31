@@ -1,10 +1,14 @@
 "use client"
 
+import { solicitarReautenticacion } from "@/lib/auth-redirect"
+
+import { calendarContractDate } from "@/lib/calendar-work-dates"
+
 import { IdentidadEmpresa } from "@/components/identidad-empresa"
 import { useT, useIdioma } from "@/components/idioma-provider"
 import { localeDe } from "@/lib/i18n"
 
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import { useNotificacionesSeccion } from "@/hooks/use-notificaciones-seccion"
 import { useDestinoNotificacion } from "@/hooks/use-destino-notificacion"
 import { AvisosTarjeta } from "@/components/avisos-tarjeta"
@@ -25,7 +29,7 @@ import {
   CreditCard, AlertCircle, Send, Check, Star, ChevronRight, ArrowRight, Package,
   Banknote, ShieldCheck, Timer, TrendingUp, User, Building, Eye, Pencil, Trash2, Scale
 } from "lucide-react"
-import { obtenerSolicitudesPorUsuario, actualizarSolicitud, eliminarSolicitud } from "@/app/actions/solicitudes"
+import { obtenerSolicitudesPorUsuario, actualizarSolicitud, eliminarSolicitud, crearSolicitud } from "@/app/actions/solicitudes"
 import { aceptarOferta, rechazarOferta } from "@/app/actions/ofertas"
 import { crearConversacion } from "@/app/actions/messages"
 import { rechazarEntrega, obtenerMisDisputas } from "@/app/actions/disputes"
@@ -35,6 +39,7 @@ import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
 import MisDisputas from "@/components/mis-disputas"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
 import { AvisoLiquidacionPago } from "@/components/aviso-liquidacion-pago"
+import { AvisoRevisionEntrega } from "@/components/aviso-revision-entrega"
 import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
 import { EnlacePerfil } from "@/components/enlace-perfil"
 import { PlazoNecesidad } from "@/components/plazo-necesidad"
@@ -43,6 +48,8 @@ import { calcularTotalCliente, PLATFORM_CONFIG } from "@/lib/comisiones"
 import { fechaHoyEnEspana, OPCION_FECHA_EXACTA, urgenciaParaFecha, URGENCIAS } from "@/lib/urgencias"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
+import { isAuthRetryableFetchError } from "@supabase/supabase-js"
 import {
   Dialog,
   DialogContent,
@@ -83,6 +90,8 @@ function MisSolicitudesContenido() {
   const [solicitudes, setSolicitudes] = useState<any[]>([])
   const [trabajos, setTrabajos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [errorCarga, setErrorCarga] = useState(false)
+  const [reintentoCarga, setReintentoCarga] = useState(0)
   const [selectedSolicitud, setSelectedSolicitud] = useState<any>(null)
   const [selectedTrabajo, setSelectedTrabajo] = useState<any>(null)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
@@ -110,6 +119,7 @@ function MisSolicitudesContenido() {
   // Confirmación al aceptar una oferta: informa de los gastos de servicio
   // de Diime antes de continuar al pago.
   const [acceptOfertaTarget, setAcceptOfertaTarget] = useState<{ oferta: any; solicitud: any } | null>(null)
+  const acceptOfertaTrigger = useRef<HTMLButtonElement | null>(null)
   const { toast } = useToast()
   const router = useRouter()
 
@@ -137,7 +147,7 @@ function MisSolicitudesContenido() {
       urgencia: solicitud.fecha_necesaria ? OPCION_FECHA_EXACTA : solicitud.urgencia || "media",
       fecha_necesaria: solicitud.fecha_necesaria || "",
     })
-    setEditSolicitud(solicitud)
+    setEditSolicitud({ ...solicitud, envioCopia: crypto.randomUUID() })
   }
 
   const handleGuardarEdicion = async () => {
@@ -160,7 +170,7 @@ function MisSolicitudesContenido() {
     const fechaNecesaria =
       editForm.urgencia === OPCION_FECHA_EXACTA ? editForm.fecha_necesaria : null
     setActionLoading(true)
-    const result = await actualizarSolicitud(editSolicitud.id, {
+    const campos = {
       categoria_id: editForm.categoria,
       titulo: editForm.titulo,
       descripcion: editForm.descripcion,
@@ -171,11 +181,16 @@ function MisSolicitudesContenido() {
       presupuesto_max: editForm.presupuesto_max ? Number.parseFloat(editForm.presupuesto_max) : null,
       urgencia: fechaNecesaria ? urgenciaParaFecha(fechaNecesaria) : editForm.urgencia,
       fecha_necesaria: fechaNecesaria,
-    })
+    }
+    const result = editSolicitud.historial_pagado
+      ? await crearSolicitud({ ...campos, empresa_id: editSolicitud.empresa_id, idempotency_key: editSolicitud.envioCopia,
+          presupuesto_min: campos.presupuesto_min ?? undefined, presupuesto_max: campos.presupuesto_max ?? undefined,
+          fecha_necesaria: campos.fecha_necesaria ?? undefined, archivos_adjuntos: editSolicitud.archivos || [] })
+      : await actualizarSolicitud(editSolicitud.id, campos)
     if (result.error) {
       toast({ title: t("Error"), description: t(result.error), variant: "destructive" })
     } else {
-      toast({ title: t("Demanda actualizada"), description: t("Los cambios se han guardado.") })
+      toast({ title: t(editSolicitud.historial_pagado ? "Copia publicada" : "Demanda actualizada"), description: t("Los cambios se han guardado.") })
       setEditSolicitud(null)
       await refrescarSolicitudes()
     }
@@ -211,43 +226,40 @@ function MisSolicitudesContenido() {
   }
 
   useEffect(() => {
+    let vigente = true
+    let enCurso = false
     async function cargarDatos(inicial: boolean) {
+      if (enCurso) return
+      enCurso = true
       if (inicial) setLoading(true)
-
-      const [solicitudesResult, trabajosResult, disputasResult] = await Promise.all([
-        obtenerSolicitudesPorUsuario(),
-        obtenerMisTrabajos(),
-        // El contador de la tarjeta de Disputas tiene que estar desde el
-        // principio: <MisDisputas> solo se monta al abrir esa pestaña, así que
-        // no puede ser quien lo alimente la primera vez.
-        obtenerMisDisputas(),
-      ])
-      // Solo las que están EN CURSO y en las que soy el cliente: la tarjeta
-      // dice "en curso" y esta sección es la del cliente. Antes se contaban
-      // todas, incluidas las resueltas y las que eran mías como profesional.
-      setDisputasCount(
-        (disputasResult.data || []).filter((d: any) => d.soy_cliente && d.estado === "abierta").length,
-      )
-
-      // Solo datos reales (aunque estén vacíos): nada de datos de ejemplo.
-      setSolicitudes(solicitudesResult.data || [])
-
-      if (trabajosResult.data) {
-        setTrabajos(trabajosResult.data)
+      try {
+        const [solicitudesResult, trabajosResult, disputasResult] = await Promise.all([
+          obtenerSolicitudesPorUsuario(),
+          obtenerMisTrabajos(),
+          obtenerMisDisputas(),
+        ])
+        if (solicitudesResult.error || trabajosResult.error || disputasResult.error) {
+          throw new Error("Lectura incompleta")
+        }
+        if (!vigente) return
+        setDisputasCount((disputasResult.data || []).filter((d: any) => d.soy_cliente && d.estado === "abierta").length)
+        setSolicitudes(solicitudesResult.data || [])
+        setTrabajos(trabajosResult.data || [])
+        setErrorCarga(false)
+      } catch {
+        // No sustituir datos conocidos por un listado vacío cuando falla la red.
+        if (vigente) setErrorCarga(true)
+      } finally {
+        enCurso = false
+        if (vigente && inicial) setLoading(false)
       }
-
-      if (inicial) setLoading(false)
     }
-    cargarDatos(true)
-
-    // Refresco en vivo: las ofertas nuevas y los cambios de estado (entregas,
-    // cancelaciones...) aparecen sin recargar la página.
+    void cargarDatos(true)
     const id = setInterval(() => {
-      if (document.visibilityState !== "visible") return
-      cargarDatos(false)
+      if (document.visibilityState === "visible") void cargarDatos(false)
     }, 15000)
-    return () => clearInterval(id)
-  }, [])
+    return () => { vigente = false; clearInterval(id) }
+  }, [reintentoCarga])
 
   const handleAceptarOferta = async (oferta: any, solicitud: any) => {
     toast({
@@ -288,6 +300,12 @@ function MisSolicitudesContenido() {
     setActionLoading(true)
     setErrorConfirmacion(null)
     try {
+      const { data: { user }, error } = await createClient().auth.getUser()
+      if (error && isAuthRetryableFetchError(error)) throw error
+      if (error || !user) {
+        solicitarReautenticacion(`/mis-solicitudes?solicitud=${trabajo.solicitud_id}`)
+        return
+      }
       const result = await confirmarTrabajoCompletado(trabajo.id)
       if (result.error) {
         setErrorConfirmacion("No se pudo completar la liquidación. El trabajo sigue abierto y no tienes que volver a pagar.")
@@ -434,6 +452,8 @@ function MisSolicitudesContenido() {
       s.trabajo?.estado !== "entregado" &&
       s.trabajo?.estado !== "en_disputa",
   )
+  const solicitudesPropias = new Set(solicitudes.map((solicitud) => solicitud.id))
+  const contratosCancelados = trabajos.filter((trabajo) => trabajo.estado === "cancelado" && solicitudesPropias.has(trabajo.solicitud_id))
   const solicitudesCompletadas = solicitudes.filter(
     (s) => s.estado === "completado" || s.estado === "completada" || s.estado === "cerrada",
   )
@@ -442,6 +462,8 @@ function MisSolicitudesContenido() {
     cargando: loading,
     seleccionar: setActiveTab,
     resolver: (params) => {
+      const cancelado = contratosCancelados.find((trabajo) => trabajo.id === params.get("trabajo"))
+      if (cancelado) return { id: `trabajo-${cancelado.id}`, tab: "historial" }
       const solicitud = solicitudes.find((item) =>
         (params.get("solicitud") && item.id === params.get("solicitud")) ||
         (params.get("trabajo") && item.trabajo?.id === params.get("trabajo")) ||
@@ -466,6 +488,13 @@ function MisSolicitudesContenido() {
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     )
+  }
+
+  if (errorCarga) {
+    return <div role="alert" className="rounded-lg border border-destructive/40 p-6 space-y-3">
+      <p>{t("No se pudieron cargar tus solicitudes y trabajos. Inténtalo de nuevo.")}</p>
+      <Button onClick={() => setReintentoCarga((n) => n + 1)}>{t("Reintentar")}</Button>
+    </div>
   }
 
   return (
@@ -553,9 +582,9 @@ function MisSolicitudesContenido() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">{t("Historial")}</p>
-                <p className="text-3xl font-bold">{solicitudesCompletadas.length}</p>
+                <p className="text-3xl font-bold">{solicitudesCompletadas.length + contratosCancelados.length}</p>
                 <p className="text-xs text-muted-foreground">
-                  {solicitudesCompletadas.length === 1 ? t("completado") : t("completados")}
+                  {t("Completados y cancelados")}
                 </p>
               </div>
               <div className="h-12 w-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
@@ -691,6 +720,11 @@ function MisSolicitudesContenido() {
 
                   {terminosBloqueados ? (
                     <p className="mb-4 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-muted-foreground">{t("Los datos de la demanda quedan bloqueados mientras haya una oferta aceptada o un trabajo activo.")}</p>
+                  ) : solicitud.historial_pagado ? (
+                    <div className="mb-4 space-y-2">
+                      <p className="text-sm text-muted-foreground">{t("Esta demanda conserva un contrato pagado. Sus términos no se pueden editar ni borrar; puedes publicar una copia con nuevas condiciones.")}</p>
+                      <Button variant="outline" size="sm" onClick={() => abrirEditar(solicitud)}>{t("Publicar una copia")}</Button>
+                    </div>
                   ) : (
                     <div className="flex gap-2 mb-4">
                       <Button variant="outline" size="sm" className="bg-transparent" onClick={() => abrirEditar(solicitud)}>
@@ -753,6 +787,7 @@ function MisSolicitudesContenido() {
                                     </div>
                                   </div>
                                   <p className="text-sm mt-2 text-muted-foreground">{oferta.descripcion}</p>
+                                  {oferta.oferta_origen_id && <p className="mt-2 text-xs text-muted-foreground">{t("Nueva oferta vinculada. Requiere tu aceptación independiente.")} <a className="underline" href={`#oferta-${oferta.oferta_origen_id}`}>{t("Oferta original")}</a></p>}
                                   {oferta.materiales_incluidos && (
                                     <p className="text-sm text-muted-foreground mt-1">
                                       <span className="font-medium text-foreground">{t("Materiales:")}</span>{" "}
@@ -774,9 +809,10 @@ function MisSolicitudesContenido() {
                                     </div>
                                   )}
                                   <div className="flex flex-wrap gap-2 mt-3">
+                                    {solicitud.ofertas?.some((otra: any) => otra.oferta_origen_id === oferta.id) ? <p className="text-xs text-muted-foreground">{t("Oferta original conservada como historial. Revisa la nueva oferta vinculada.")}</p> : <>
                                     <Button
                                       size="sm"
-                                      onClick={() => setAcceptOfertaTarget({ oferta, solicitud })}
+                                      onClick={(event) => { acceptOfertaTrigger.current = event.currentTarget; setAcceptOfertaTarget({ oferta, solicitud }) }}
                                     >
                                       <Check className="h-4 w-4 mr-1" />{t("Aceptar Oferta")}</Button>
                                     <Button
@@ -786,6 +822,7 @@ function MisSolicitudesContenido() {
                                       onClick={() => setRejectOfertaTarget(oferta)}
                                     >
                                       <XCircle className="h-4 w-4 mr-1" />{t("Rechazar")}</Button>
+                                    </>}
                                     <Button
                                       size="sm"
                                       variant="outline"
@@ -1006,14 +1043,14 @@ function MisSolicitudesContenido() {
                           <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
                           <span className="shrink-0 text-muted-foreground">{t("Inicio:")}</span>
                           <span className="min-w-0 break-words font-medium">
-                            {trabajo?.fecha_inicio ? formatearFecha(trabajo.fecha_inicio) : "—"}
+                            {trabajo?.fecha_inicio ? calendarContractDate(trabajo.fecha_inicio).toLocaleDateString(localeDe(idioma), { day: "numeric", month: "short", year: "numeric" }) : "—"}
                           </span>
                         </div>
                         <div className="flex min-w-0 items-center gap-2 text-sm">
                           <Timer className="h-4 w-4 shrink-0 text-muted-foreground" />
                           <span className="shrink-0 text-muted-foreground">{t("Entrega estimada:")}</span>
                           <span className="min-w-0 break-words font-medium">
-                            {trabajo?.fecha_estimada_fin ? formatearFecha(trabajo.fecha_estimada_fin) : "—"}
+                            {trabajo?.fecha_estimada_fin ? calendarContractDate(trabajo.fecha_estimada_fin).toLocaleDateString(localeDe(idioma), { day: "numeric", month: "short", year: "numeric" }) : "—"}
                           </span>
                         </div>
                       </div>
@@ -1049,7 +1086,7 @@ function MisSolicitudesContenido() {
                                   {formatearFecha(update.fecha)}
                                 </p>
                                 <p className="break-words">{update.mensaje}</p>
-                                {update.progreso && (
+                                {Boolean(update.progreso) && (
                                   <Badge variant="secondary" className="mt-1">
                                     {update.progreso}{t("% completado")}</Badge>
                                 )}
@@ -1077,6 +1114,7 @@ function MisSolicitudesContenido() {
                             <p className="break-words text-sm text-muted-foreground">{t(confirmacionFijada ? "La confirmación ya está registrada. Continúa la misma liquidación cuando se haya resuelto la incidencia." : "Revisa el trabajo realizado y confirma su finalización para liberar el pago.")}</p>
                           </div>
                         </div>
+                        {!confirmacionFijada && <AvisoRevisionEntrega fechaEntrega={trabajo.fecha_entrega} />}
                         <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
                           <AlertDialog open={showConfirmDialog && selectedTrabajo?.id === trabajo?.id} onOpenChange={(open) => { if (!actionLoading) setShowConfirmDialog(open) }}>
                             <Button
@@ -1132,7 +1170,7 @@ function MisSolicitudesContenido() {
 
         {/* Historial Tab */}
         <TabsContent value="historial" className="space-y-4">
-          {solicitudesCompletadas.length === 0 ? (
+          {solicitudesCompletadas.length === 0 && contratosCancelados.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <CheckCircle2 className="h-12 w-12 text-muted-foreground mb-4" />
@@ -1141,7 +1179,8 @@ function MisSolicitudesContenido() {
               </CardContent>
             </Card>
           ) : (
-            solicitudesCompletadas.map((solicitud) => {
+            <>
+            {solicitudesCompletadas.map((solicitud) => {
               const hasReview = solicitud.trabajo?.review_cliente_id
               return (
                 <Card key={solicitud.id} id={`solicitud-${solicitud.id}`} tabIndex={-1} className={`scroll-mt-24 overflow-hidden border-emerald-500/20 bg-emerald-500/5 ${estiloAviso(solicitud)}`}>
@@ -1193,10 +1232,30 @@ function MisSolicitudesContenido() {
                         )}
                       </div>
                     </div>
+                    <AvisoLiquidacionPago escrow={solicitud.trabajo?.escrow} parte="cliente" />
                   </CardContent>
                 </Card>
               )
-            })
+            })}
+            {contratosCancelados.map((trabajo) => (
+              <Card key={trabajo.id} id={`trabajo-${trabajo.id}`} tabIndex={-1} className="scroll-mt-24 border-destructive/20">
+                <CardContent className="space-y-3 p-4 sm:p-6">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0"><p className="break-words font-semibold">{trabajo.titulo}</p>
+                      <p className="break-words text-sm text-muted-foreground">{t("Profesional:")} {trabajo.profesional?.nombre} {trabajo.profesional?.apellido}</p>
+                    </div>
+                    <Badge variant="outline">{t("Cancelado")}</Badge>
+                  </div>
+                  <p className="text-sm">{formatearPrecioEuros(trabajo.precio_acordado, idioma)}</p>
+                  <AvisoLiquidacionPago escrow={trabajo.transaccion_escrow} parte="cliente" />
+                  <div className="flex flex-wrap gap-4 text-sm">
+                    <a className="inline-flex items-center gap-1 text-primary hover:underline" href={`/trabajos/${trabajo.id}/factura`} target="_blank" rel="noopener noreferrer"><FileText className="h-4 w-4" />{t("Ver justificante y términos")}</a>
+                    <Button size="sm" variant="outline" onClick={() => handleContactar(trabajo.profesional_id, trabajo.solicitud_id, trabajo.id)}><MessageSquare className="mr-1 h-4 w-4" />{t("Ver conversación")}</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            </>
           )}
         </TabsContent>
 
@@ -1319,8 +1378,8 @@ function MisSolicitudesContenido() {
       <Dialog open={!!editSolicitud} onOpenChange={(o) => !o && setEditSolicitud(null)}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{t("Editar demanda")}</DialogTitle>
-            <DialogDescription>{t("Modifica los datos de tu demanda. Solo es posible mientras siga abierta.")}</DialogDescription>
+            <DialogTitle>{t(editSolicitud?.historial_pagado ? "Publicar una copia" : "Editar demanda")}</DialogTitle>
+            <DialogDescription>{t(editSolicitud?.historial_pagado ? "Revisa las nuevas condiciones. La demanda y el contrato anteriores se conservarán sin cambios." : "Modifica los datos de tu demanda. Solo es posible mientras siga abierta.")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
@@ -1332,33 +1391,36 @@ function MisSolicitudesContenido() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">{t("Título")}</label>
-              <Input value={editForm.titulo} onChange={(e) => setEditForm({ ...editForm, titulo: e.target.value })} />
+              <label htmlFor="demanda-titulo" className="text-sm font-medium">{t("Título")}</label>
+              <Input id="demanda-titulo" value={editForm.titulo} onChange={(e) => setEditForm({ ...editForm, titulo: e.target.value })} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">{t("Descripción")}</label>
+              <label htmlFor="demanda-descripcion" className="text-sm font-medium">{t("Descripción")}</label>
               <Textarea
+                id="demanda-descripcion"
                 rows={4}
                 value={editForm.descripcion}
                 onChange={(e) => setEditForm({ ...editForm, descripcion: e.target.value })}
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">{t("Ubicación")}</label>
-              <Input value={editForm.ubicacion} onChange={(e) => setEditForm({ ...editForm, ubicacion: e.target.value })} />
+              <label htmlFor="demanda-ubicacion" className="text-sm font-medium">{t("Ubicación")}</label>
+              <Input id="demanda-ubicacion" value={editForm.ubicacion} onChange={(e) => setEditForm({ ...editForm, ubicacion: e.target.value })} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">{t("Presupuesto mín. (€)")}</label>
+                <label htmlFor="demanda-presupuesto_min" className="text-sm font-medium">{t("Presupuesto mín. (€)")}</label>
                 <Input
+                  id="demanda-presupuesto_min"
                   type="number"
                   value={editForm.presupuesto_min}
                   onChange={(e) => setEditForm({ ...editForm, presupuesto_min: e.target.value })}
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">{t("Presupuesto máx. (€)")}</label>
+                <label htmlFor="demanda-presupuesto_max" className="text-sm font-medium">{t("Presupuesto máx. (€)")}</label>
                 <Input
+                  id="demanda-presupuesto_max"
                   type="number"
                   value={editForm.presupuesto_max}
                   onChange={(e) => setEditForm({ ...editForm, presupuesto_max: e.target.value })}
@@ -1395,14 +1457,19 @@ function MisSolicitudesContenido() {
           <DialogFooter className="gap-2">
             <Button variant="outline" className="bg-transparent" onClick={() => setEditSolicitud(null)}>{t("Cancelar")}</Button>
             <Button onClick={handleGuardarEdicion} disabled={actionLoading}>
-              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}{t("Guardar cambios")}</Button>
+              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}{t(editSolicitud?.historial_pagado ? "Publicar copia" : "Guardar cambios")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Confirmar aceptación de oferta: informa de los gastos de servicio */}
       <AlertDialog open={!!acceptOfertaTarget} onOpenChange={(o) => !o && setAcceptOfertaTarget(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto" onCloseAutoFocus={(event) => {
+          if (acceptOfertaTrigger.current?.isConnected) {
+            event.preventDefault()
+            acceptOfertaTrigger.current.focus()
+          }
+        }}>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("Aceptar oferta y continuar al pago")}</AlertDialogTitle>
             <AlertDialogDescription>{t("Vas a aceptar la oferta de")}{" "}

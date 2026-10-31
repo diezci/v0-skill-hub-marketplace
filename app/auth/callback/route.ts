@@ -1,4 +1,4 @@
-import { destinoAuthSeguro } from "@/lib/auth-redirect"
+import { destinoAuthSeguro, origenAuthConfigurado } from "@/lib/auth-redirect"
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 
@@ -6,14 +6,21 @@ export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get("code")
   const requested = requestUrl.searchParams.get("next")
-  const destination = destinoAuthSeguro(requested)
+  const origin = origenAuthConfigurado(request.url, process.env.NEXT_PUBLIC_SITE_URL)
+  let destination = destinoAuthSeguro(requested)
   const authError = (reason: string) => {
-    const url = new URL("/auth/error", request.url)
+    const url = new URL("/auth/error", origin)
     url.searchParams.set("error", reason)
     url.searchParams.set("next", destination)
     return NextResponse.redirect(url)
   }
 
+  if (requestUrl.searchParams.get("error") === "access_denied") {
+    const login = new URL("/auth/login", origin)
+    login.searchParams.set("oauth", "cancelled")
+    login.searchParams.set("next", destination)
+    return NextResponse.redirect(login)
+  }
   if (!code || requestUrl.searchParams.has("error")) return authError("callback")
 
   if (code) {
@@ -23,6 +30,9 @@ export async function GET(request: Request) {
     if (sessionError || !sessionData.user) return authError("callback")
 
     if (sessionData.user && !sessionError) {
+      // A resend from a reopened login page may have no explicit destination.
+      // Recover only the sanitized intent stored by the original signup.
+      if (!requested) destination = destinoAuthSeguro(sessionData.user.user_metadata?.registro_next)
       const aceptaTerminos = requestUrl.searchParams.get("terms") === "1"
       const confirmaMayoriaEdad = requestUrl.searchParams.get("age") === "1"
       const aceptacionLegal = new Date().toISOString()
@@ -78,5 +88,5 @@ export async function GET(request: Request) {
 
   // Tras el login (incluido Google), aterrizar en el homepage como el login normal.
   // Los admins se redirigen a /admin desde el navbar.
-  return NextResponse.redirect(new URL(destination, request.url))
+  return NextResponse.redirect(new URL(destination, origin))
 }

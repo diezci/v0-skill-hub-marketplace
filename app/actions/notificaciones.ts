@@ -160,12 +160,21 @@ export async function obtenerResumenNotificaciones() {
   for (const n of notificaciones) porSeccion[n.seccion] = (porSeccion[n.seccion] || 0) + 1
   const noLeidas = notificaciones.length
 
-  // Mensajes de chat sin leer (en conversaciones donde participo, no enviados por mí).
-  const { data: convs } = await supabase
+  // El contador y el popup deben usar las mismas conversaciones personales
+  // visibles: bloquear en cualquiera de los dos sentidos oculta el contacto,
+  // pero conserva sus mensajes y su estado de lectura para recuperarlos después.
+  const { data: incompatibles, error: errorBloqueos } = await supabase.rpc("usuarios_incompatibles")
+  if (errorBloqueos) return { ...vacio, error: await textoServidor("No se pudieron cargar las notificaciones") }
+  const idsIncompatibles = new Set((incompatibles || []) as string[])
+  const { data: convs, error: errorConversaciones } = await supabase
     .from("conversaciones")
-    .select("id")
+    .select("id, participante_1, participante_2")
     .or(`participante_1.eq.${user.id},participante_2.eq.${user.id}`)
-  const convIds = (convs || []).map((c: any) => c.id)
+  if (errorConversaciones) return { ...vacio, error: await textoServidor("No se pudieron cargar las notificaciones") }
+  const convIds = (convs || []).filter((c: any) => {
+    const otro = c.participante_1 === user.id ? c.participante_2 : c.participante_1
+    return !idsIncompatibles.has(otro)
+  }).map((c: any) => c.id)
 
   let mensajesNoLeidos = 0
   let ultimoMensajeNoLeido: {

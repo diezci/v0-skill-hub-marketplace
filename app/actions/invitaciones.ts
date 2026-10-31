@@ -74,6 +74,7 @@ export async function buscarYEnviarInvitaciones(solicitudId: string) {
     .from("profesionales")
     .select("id, provincias_cobertura, presupuesto_min_interes, presupuesto_max_interes")
     .contains("categorias_interes", [categoriaNombre])
+    .eq("disponible", true)
 
   if (profError) {
     return { error: await textoServidor(profError.message) }

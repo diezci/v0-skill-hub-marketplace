@@ -3,6 +3,7 @@
 import { textoServidor } from "@/lib/i18n-servidor"
 
 import { createClient } from "@/lib/supabase/server"
+import { validateCalendarEvent } from "@/lib/calendar-events"
 
 export interface TrabajoCalendario {
   id: string
@@ -76,7 +77,7 @@ export async function obtenerTrabajosCalendario(): Promise<{
       )
     `)
     .eq("profesional_id", user.id)
-    .in("estado", ["en_progreso", "pendiente_pago", "entregado", "completado"])
+    .in("estado", ["en_progreso", "pendiente_pago", "entregado", "completado", "cancelado"])
     .order("fecha_inicio", { ascending: true })
 
   if (error) {
@@ -84,6 +85,7 @@ export async function obtenerTrabajosCalendario(): Promise<{
   }
 
   const notasPorTrabajo = new Map<string, string>()
+  const planesPorTrabajo = new Map<string, Record<string, unknown>>()
   for (let inicio = 0; inicio < (data || []).length; inicio += 500) {
     const { data: notas, error: errorNotas } = await supabase.rpc("notas_trabajos_proveedor", {
       p_trabajo_ids: (data || []).slice(inicio, inicio + 500).map((trabajo) => trabajo.id),
@@ -92,10 +94,18 @@ export async function obtenerTrabajosCalendario(): Promise<{
     for (const nota of (notas || []) as { trabajo_id: string; notas_privadas_proveedor: string }[]) {
       notasPorTrabajo.set(nota.trabajo_id, nota.notas_privadas_proveedor)
     }
+    const { data: planes, error: errorPlanes } = await supabase.rpc("planificacion_trabajos_proveedor", {
+      p_trabajo_ids: (data || []).slice(inicio, inicio + 500).map((trabajo) => trabajo.id),
+    })
+    if (errorPlanes) return { data: [], error: await textoServidor(errorPlanes.message) }
+    for (const plan of (planes || []) as { trabajo_id: string; datos: Record<string, unknown> }[]) {
+      planesPorTrabajo.set(plan.trabajo_id, plan.datos)
+    }
   }
   // Las notas nunca se leen de la fila contractual visible para el cliente.
   return { data: (data || []).map((trabajo) => ({
     ...trabajo,
+    ...planesPorTrabajo.get(trabajo.id),
     notas_privadas_proveedor: notasPorTrabajo.get(trabajo.id) ?? null,
   })) as unknown as TrabajoCalendario[] }
 }
@@ -144,6 +154,7 @@ export interface ServicioSolicitado {
   monto: number
   fecha_inicio: string | null
   fecha_estimada_fin: string | null
+  fecha_fin: string | null
   profesional: {
     id: string
     nombre: string
@@ -185,44 +196,36 @@ export async function obtenerServiciosSolicitados(): Promise<{
       monto:precio_acordado,
       fecha_inicio,
       fecha_estimada_fin,
-      profesional:profesional_id (
-        id,
-        nombre,
-        apellido,
-        foto_perfil
-      ),
+      fecha_fin,
+      profesional_id,
       solicitud:solicitud_id (
         id,
         titulo
       )
     `)
     .eq("cliente_id", user.id)
-    .in("estado", ["en_progreso", "pendiente_pago", "completado"])
+    .in("estado", ["en_progreso", "pendiente_pago", "entregado", "completado", "cancelado"])
     .order("fecha_inicio", { ascending: true })
 
   if (error) {
     return { data: [], error: await textoServidor(error.message) }
   }
 
-  // Get professional titles
-  const serviciosConTitulo = await Promise.all(
-    (data || []).map(async (servicio: any) => {
-      if (servicio.profesional?.id) {
-        const { data: profData } = await supabase
-          .from("profesionales")
-          .select("titulo")
-          .eq("id", servicio.profesional.id)
-          .single()
-        
-        if (profData) {
-          servicio.profesional.titulo = profData.titulo
-        }
-      }
-      return servicio
-    })
-  )
+  const ids = [...new Set((data || []).map(servicio => servicio.profesional_id).filter(Boolean))]
+  const [perfiles, profesionales] = await Promise.all([
+    ids.length ? supabase.from("profiles").select("id, nombre, apellido, foto_perfil").in("id", ids) : Promise.resolve({ data: [], error: null }),
+    ids.length ? supabase.from("profesionales").select("id, titulo").in("id", ids) : Promise.resolve({ data: [], error: null }),
+  ])
+  if (perfiles.error || profesionales.error) return { data: [], error: await textoServidor("No se pudo cargar la información de los profesionales.") }
+  const perfilesPorId = new Map((perfiles.data || []).map(perfil => [perfil.id, perfil]))
+  const titulosPorId = new Map((profesionales.data || []).map(perfil => [perfil.id, perfil.titulo]))
+  return { data: (data || []).map(servicio => ({
+    ...servicio,
+    profesional: perfilesPorId.has(servicio.profesional_id)
+      ? { ...perfilesPorId.get(servicio.profesional_id), titulo: titulosPorId.get(servicio.profesional_id) }
+      : null,
+  })) as unknown as ServicioSolicitado[] }
 
-  return { data: serviciosConTitulo as ServicioSolicitado[] }
 }
 
 export interface EventoCalendario {
@@ -261,10 +264,6 @@ export async function obtenerEventosCalendario(): Promise<{
     .order("fecha_inicio", { ascending: true })
 
   if (error) {
-    // If table doesn't exist yet (migration not applied), return empty data instead of erroring
-    if (error.code === "42P01" || error.message?.includes("eventos_calendario")) {
-      return { data: [] }
-    }
     return { data: [], error: await textoServidor(error.message) }
   }
 
@@ -281,6 +280,8 @@ export async function crearEventoCalendario(datos: {
   todo_el_dia?: boolean
   ubicacion?: string
 }): Promise<{ success: boolean; error?: string; codigo?: "NO_AUTENTICADO"; id?: string }> {
+  const invalid = validateCalendarEvent(datos)
+  if (invalid) return { success: false, error: await textoServidor(invalid) }
   const supabase = await createClient()
   if (!supabase) {
     return { success: false, error: await textoServidor("No se pudo conectar a la base de datos") }
@@ -298,7 +299,7 @@ export async function crearEventoCalendario(datos: {
     .from("eventos_calendario")
     .insert({
       usuario_id: user.id,
-      titulo: datos.titulo,
+      titulo: datos.titulo.trim(),
       descripcion: datos.descripcion || null,
       fecha_inicio: datos.fecha_inicio,
       fecha_fin: datos.fecha_fin || null,
@@ -343,16 +344,29 @@ export async function actualizarEventoCalendario(
     return { codigo: "NO_AUTENTICADO", success: false, error: await textoServidor("No autenticado") }
   }
 
-  const { error } = await supabase
+  const existente = await supabase.from("eventos_calendario")
+    .select("titulo, descripcion, fecha_inicio, fecha_fin, color, tipo, todo_el_dia, ubicacion")
+    .eq("id", id).eq("usuario_id", user.id).maybeSingle()
+  if (existente.error || !existente.data) return { success: false, error: await textoServidor("No se encontró el evento en tu calendario.") }
+  // Whitelist fields: a crafted action payload must never change its owner.
+  const permitidos = ["titulo", "descripcion", "fecha_inicio", "fecha_fin", "color", "tipo", "todo_el_dia", "ubicacion"] as const
+  const cambios = Object.fromEntries(permitidos.filter(campo => datos[campo] !== undefined).map(campo => [campo, datos[campo]]))
+  const completo = { ...existente.data, ...cambios }
+  const invalid = validateCalendarEvent(completo)
+  if (invalid) return { success: false, error: await textoServidor(invalid) }
+  const { data, error } = await supabase
     .from("eventos_calendario")
-    .update(datos)
+    .update({ ...cambios, titulo: completo.titulo.trim() })
     .eq("id", id)
     .eq("usuario_id", user.id)
+    .select("id")
+    .maybeSingle()
 
   if (error) {
     return { success: false, error: await textoServidor(error.message) }
   }
 
+  if (!data) return { success: false, error: await textoServidor("No se encontró el evento en tu calendario.") }
   return { success: true }
 }
 
@@ -370,78 +384,48 @@ export async function eliminarEventoCalendario(id: string): Promise<{ success: b
     return { codigo: "NO_AUTENTICADO", success: false, error: await textoServidor("No autenticado") }
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("eventos_calendario")
     .delete()
     .eq("id", id)
     .eq("usuario_id", user.id)
+    .select("id")
+    .maybeSingle()
 
   if (error) {
     return { success: false, error: await textoServidor(error.message) }
   }
 
+  if (!data) return { success: false, error: await textoServidor("No se encontró el evento en tu calendario.") }
   return { success: true }
 }
 
 export async function obtenerEstadisticasCarga(): Promise<{
+  error?: string
   totalTrabajos: number
   trabajosEnProgreso: number
-  horasEstimadasSemana: number
-  horasRegistradasSemana: number
+  horasEstimadasAcumuladas: number
+  horasRegistradasAcumuladas: number
   trabajosAtrasados: number
 }> {
-  const supabase = await createClient()
-  if (!supabase) {
-    return {
-      totalTrabajos: 0,
-      trabajosEnProgreso: 0,
-      horasEstimadasSemana: 0,
-      horasRegistradasSemana: 0,
-      trabajosAtrasados: 0,
-    }
+  // Use the same authorized private planning as the calendar. Contract fields
+  // remain frozen and cannot represent later changes to a provider's plan.
+  const calendario = await obtenerTrabajosCalendario()
+  if (calendario.error) return {
+    error: calendario.error,
+    totalTrabajos: 0,
+    trabajosEnProgreso: 0,
+    horasEstimadasAcumuladas: 0,
+    horasRegistradasAcumuladas: 0,
+    trabajosAtrasados: 0,
   }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return {
-      totalTrabajos: 0,
-      trabajosEnProgreso: 0,
-      horasEstimadasSemana: 0,
-      horasRegistradasSemana: 0,
-      trabajosAtrasados: 0,
-    }
-  }
-
-  const { data: trabajos } = await supabase
-    .from("trabajos")
-    .select("estado, horas_estimadas, horas_registradas, fecha_estimada_fin")
-    .eq("profesional_id", user.id)
-    .in("estado", ["en_progreso", "pendiente_pago"])
-
-  if (!trabajos) {
-    return {
-      totalTrabajos: 0,
-      trabajosEnProgreso: 0,
-      horasEstimadasSemana: 0,
-      horasRegistradasSemana: 0,
-      trabajosAtrasados: 0,
-    }
-  }
-
+  const trabajos = calendario.data.filter((t) => ["en_progreso", "pendiente_pago"].includes(t.estado))
   const hoy = new Date()
-  const trabajosAtrasados = trabajos.filter((t) => {
-    if (!t.fecha_estimada_fin) return false
-    return new Date(t.fecha_estimada_fin) < hoy && t.estado === "en_progreso"
-  }).length
-
   return {
     totalTrabajos: trabajos.length,
     trabajosEnProgreso: trabajos.filter((t) => t.estado === "en_progreso").length,
-    horasEstimadasSemana: trabajos.reduce((sum, t) => sum + (t.horas_estimadas || 0), 0),
-    horasRegistradasSemana: trabajos.reduce((sum, t) => sum + (t.horas_registradas || 0), 0),
-    trabajosAtrasados,
+    horasEstimadasAcumuladas: trabajos.reduce((sum, t) => sum + (t.horas_estimadas || 0), 0),
+    horasRegistradasAcumuladas: trabajos.reduce((sum, t) => sum + (t.horas_registradas || 0), 0),
+    trabajosAtrasados: trabajos.filter((t) => t.fecha_estimada_fin && new Date(t.fecha_estimada_fin) < hoy && t.estado === "en_progreso").length,
   }
 }

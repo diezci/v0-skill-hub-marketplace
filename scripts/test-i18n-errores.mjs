@@ -19,6 +19,14 @@ const { REGLAS_MODERACION_SOLICITUDES, errorSolicitudNoPublicable, errorContenid
 // Include older RPCs that can still exist in an installation, as well as the
 // latest contract/payment migrations. No SQL is executed by this test.
 const excepciones = new Set()
+// These assertions run only while applying migrations, outside any product
+// function. They abort an unsafe source rewrite and cannot be returned by RPC.
+const migrationOnlyAssertions = new Set([
+  "Expected exactly one existing workspace offer projection; migration aborted",
+  "Expected exactly one original company-message notification query",
+  "Expected the reviewed company notification function exactly once",
+  "Conversaciones ambiguas para la misma pareja y contexto; revisar manualmente antes de migrar",
+])
 for (const dir of ["scripts", "supabase/migrations"]) {
   for (const file of fs.readdirSync(dir).filter((name) => name.endsWith(".sql"))) {
     // Rollback verification templates raise internal QA assertions, not errors
@@ -26,7 +34,8 @@ for (const dir of ["scripts", "supabase/migrations"]) {
     if (file.endsWith(".template.sql")) continue
     const source = fs.readFileSync(path.join(dir, file), "utf8")
     for (const match of source.matchAll(/raise\s+exception\s+'((?:''|[^'])*)'/gi)) {
-      excepciones.add(match[1].replaceAll("''", "'"))
+      const message = match[1].replaceAll("''", "'")
+      if (!migrationOnlyAssertions.has(message)) excepciones.add(message)
     }
     // The moderation trigger raises the stored rule message through USING.
     for (const match of source.matchAll(/'(No se puede publicar: (?:''|[^'])*)'/g)) {

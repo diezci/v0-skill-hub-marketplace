@@ -1,5 +1,7 @@
 "use client"
 
+import { calendarWorkEnd, localCalendarDay, calendarDateKey, calendarContractDate } from "@/lib/calendar-work-dates"
+
 import { useT, useIdioma } from "@/components/idioma-provider"
 import { localeDe } from "@/lib/i18n"
 
@@ -40,6 +42,7 @@ import {
   type ServicioSolicitado
 } from "@/app/actions/calendario"
 import { useToast } from "@/hooks/use-toast"
+import { ProjectCalendar } from "@/components/project-calendar"
 
 const DIAS_SEMANA = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"]
 const MESES = [
@@ -66,6 +69,10 @@ function getEstadoBadge(estado: string, t: ReturnType<typeof useT>) {
   switch (estado) {
     case "completado":
       return <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">{t("Completado")}</Badge>
+    case "cancelado":
+      return <Badge variant="destructive">{t("Cancelado")}</Badge>
+    case "entregado":
+      return <Badge className="bg-purple-500/20 text-purple-400">{t("Entregado")}</Badge>
     case "en_progreso":
       return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">{t("En progreso")}</Badge>
     case "pendiente_pago":
@@ -95,6 +102,7 @@ type ItemCalendario = {
   estado: string
   fecha_inicio: string | null
   fecha_estimada_fin: string | null
+  fecha_fin: string | null
   monto: number
   persona: {
     nombre: string
@@ -118,11 +126,12 @@ export default function MiCalendarioPage() {
   const [estadisticas, setEstadisticas] = useState({
     totalTrabajos: 0,
     trabajosEnProgreso: 0,
-    horasEstimadasSemana: 0,
-    horasRegistradasSemana: 0,
+    horasEstimadasAcumuladas: 0,
+    horasRegistradasAcumuladas: 0,
     trabajosAtrasados: 0,
   })
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [currentDate, setCurrentDate] = useState(new Date())
   const [vista, setVista] = useState<"mensual" | "semanal">("mensual")
   const [tipoVista, setTipoVista] = useState<"todos" | "trabajos" | "servicios">("todos")
@@ -146,20 +155,20 @@ export default function MiCalendarioPage() {
 
   async function loadData() {
     setLoading(true)
-    const [trabajosResult, serviciosResult, statsResult] = await Promise.all([
-      obtenerTrabajosCalendario(),
-      obtenerServiciosSolicitados(),
-      obtenerEstadisticasCarga(),
-    ])
-    
-    if (trabajosResult.data) {
+    setLoadError(false)
+    try {
+      const [trabajosResult, serviciosResult, statsResult] = await Promise.all([
+        obtenerTrabajosCalendario(), obtenerServiciosSolicitados(), obtenerEstadisticasCarga(),
+      ])
+      if (trabajosResult.error || serviciosResult.error || statsResult.error) throw new Error("calendar-load")
       setTrabajos(trabajosResult.data)
-    }
-    if (serviciosResult.data) {
       setServicios(serviciosResult.data)
+      setEstadisticas(statsResult)
+    } catch {
+      setLoadError(true)
+    } finally {
+      setLoading(false)
     }
-    setEstadisticas(statsResult)
-    setLoading(false)
   }
 
   // Combine trabajos and servicios into calendar items
@@ -175,6 +184,7 @@ export default function MiCalendarioPage() {
           estado: trabajo.estado,
           fecha_inicio: trabajo.fecha_inicio,
           fecha_estimada_fin: trabajo.fecha_estimada_fin,
+          fecha_fin: trabajo.fecha_fin,
           monto: trabajo.monto,
           persona: trabajo.cliente,
           horas_estimadas: trabajo.horas_estimadas,
@@ -195,6 +205,7 @@ export default function MiCalendarioPage() {
           estado: s.estado,
           fecha_inicio: s.fecha_inicio,
           fecha_estimada_fin: s.fecha_estimada_fin,
+          fecha_fin: s.fecha_fin,
           monto: s.monto,
           persona: s.profesional,
           solicitud: s.solicitud,
@@ -249,15 +260,16 @@ export default function MiCalendarioPage() {
   }, [currentDate])
 
   function getItemsForDate(date: Date): { item: ItemCalendario; color: string; isStart: boolean; isEnd: boolean; isMiddle: boolean }[] {
-    const dateStr = date.toISOString().split("T")[0]
+    const dateStr = localCalendarDay(date)
     
     let trabajoIndex = 0
     let servicioIndex = 0
     
     return itemsCalendario
       .map((item) => {
-        const inicio = item.fecha_inicio ? item.fecha_inicio.split("T")[0] : null
-        const fin = item.fecha_estimada_fin ? item.fecha_estimada_fin.split("T")[0] : null
+        const inicio = item.fecha_inicio ? calendarDateKey(item.fecha_inicio) : null
+        const fechaCierre = calendarWorkEnd(item)
+        const fin = fechaCierre ? calendarDateKey(fechaCierre) : null
         
         if (!inicio && !fin) return null
         
@@ -301,8 +313,8 @@ export default function MiCalendarioPage() {
         horas_registradas: item.horas_registradas || 0,
         notas_privadas_proveedor: item.notas_privadas_proveedor || "",
         prioridad: item.prioridad || "media",
-        fecha_inicio: item.fecha_inicio ? item.fecha_inicio.split("T")[0] : "",
-        fecha_estimada_fin: item.fecha_estimada_fin ? item.fecha_estimada_fin.split("T")[0] : "",
+        fecha_inicio: item.fecha_inicio ? calendarDateKey(item.fecha_inicio) : "",
+        fecha_estimada_fin: item.fecha_estimada_fin ? calendarDateKey(item.fecha_estimada_fin) : "",
       })
       setEditDialogOpen(true)
     } else {
@@ -365,6 +377,19 @@ export default function MiCalendarioPage() {
     )
   }
 
+  if (loadError) {
+    return <div className="min-h-screen bg-background">
+      <Navbar />
+      <main className="container mx-auto px-4 py-8">
+        <div role="alert" className="rounded-lg border p-6 space-y-3">
+          <p>{t("No se pudo cargar el calendario.")}</p>
+          <Button onClick={loadData}>{t("Reintentar")}</Button>
+        </div>
+      </main>
+      <Footer />
+    </div>
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -391,6 +416,11 @@ export default function MiCalendarioPage() {
           </div>
         </div>
 
+        <section aria-label={t("Eventos personales")} className="mb-8">
+          <h2 className="text-lg font-semibold mb-3">{t("Eventos personales")}</h2>
+          <ProjectCalendar personalOnly />
+        </section>
+
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Panel izquierdo - Estadisticas y listas */}
           <div className="lg:w-80 space-y-4">
@@ -415,6 +445,7 @@ export default function MiCalendarioPage() {
                     <TrendingUp className="h-5 w-5 text-primary" />{t("Carga de Trabajo")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <p className="text-xs text-muted-foreground">{t("Suma de la planificación privada de tus trabajos activos. No es una medición semanal.")}</p>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-muted/50 rounded-lg p-3 text-center">
                       <div className="text-2xl font-bold text-foreground">{estadisticas.trabajosEnProgreso}</div>
@@ -428,19 +459,19 @@ export default function MiCalendarioPage() {
                   
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">{t("Horas estimadas")}</span>
-                      <span className="font-medium">{estadisticas.horasEstimadasSemana}h</span>
+                      <span className="text-muted-foreground">{t("Horas estimadas acumuladas")}</span>
+                      <span className="font-medium">{estadisticas.horasEstimadasAcumuladas}h</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">{t("Horas registradas")}</span>
-                      <span className="font-medium">{estadisticas.horasRegistradasSemana}h</span>
+                      <span className="text-muted-foreground">{t("Horas registradas acumuladas")}</span>
+                      <span className="font-medium">{estadisticas.horasRegistradasAcumuladas}h</span>
                     </div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden">
                       <div 
                         className="h-full bg-primary rounded-full transition-all"
                         style={{ 
-                          width: `${Math.min(100, estadisticas.horasEstimadasSemana > 0 
-                            ? (estadisticas.horasRegistradasSemana / estadisticas.horasEstimadasSemana) * 100 
+                          width: `${Math.min(100, estadisticas.horasEstimadasAcumuladas > 0
+                            ? (estadisticas.horasRegistradasAcumuladas / estadisticas.horasEstimadasAcumuladas) * 100
                             : 0)}%` 
                         }}
                       />
@@ -481,6 +512,7 @@ export default function MiCalendarioPage() {
                           estado: trabajo.estado,
                           fecha_inicio: trabajo.fecha_inicio,
                           fecha_estimada_fin: trabajo.fecha_estimada_fin,
+          fecha_fin: trabajo.fecha_fin,
                           monto: trabajo.monto,
                           persona: trabajo.cliente,
                           horas_estimadas: trabajo.horas_estimadas,
@@ -533,6 +565,7 @@ export default function MiCalendarioPage() {
                           estado: servicio.estado,
                           fecha_inicio: servicio.fecha_inicio,
                           fecha_estimada_fin: servicio.fecha_estimada_fin,
+          fecha_fin: servicio.fecha_fin,
                           monto: servicio.monto,
                           persona: servicio.profesional,
                           solicitud: servicio.solicitud,
@@ -549,7 +582,7 @@ export default function MiCalendarioPage() {
                             <div className="flex items-center gap-2 mt-1">
                               {getEstadoBadge(servicio.estado, t)}
                               {servicio.fecha_estimada_fin && (
-                                <span className="text-xs text-muted-foreground">{t("Entrega:")}{" "}{new Date(servicio.fecha_estimada_fin).toLocaleDateString(localeDe(idioma))}
+                                <span className="text-xs text-muted-foreground">{t("Entrega:")}{" "}{calendarContractDate(servicio.fecha_estimada_fin).toLocaleDateString(localeDe(idioma))}
                                 </span>
                               )}
                             </div>
@@ -739,7 +772,7 @@ export default function MiCalendarioPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Briefcase className="h-5 w-5 text-primary" />{t("Gestionar Trabajo")}</DialogTitle>
-            <DialogDescription>{t("Edita las fechas y notas del trabajo seleccionado.")}</DialogDescription>
+            <DialogDescription>{t("Esta planificación es privada y deja historial. No cambia los términos del contrato ni el plazo comunicado al cliente.")}</DialogDescription>
           </DialogHeader>
           
           {selectedItem && (
@@ -754,6 +787,7 @@ export default function MiCalendarioPage() {
                 </div>
               </div>
 
+              {selectedItem.fecha_fin && ["completado", "cancelado"].includes(selectedItem.estado) && <p className="text-sm"><span>{t("Fecha de cierre:")}</span> {calendarContractDate(selectedItem.fecha_fin).toLocaleDateString(localeDe(idioma))}</p>}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>{t("Fecha inicio")}</Label>
@@ -775,7 +809,7 @@ export default function MiCalendarioPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>{t("Horas estimadas")}</Label>
+                  <Label>{t("Horas estimadas acumuladas")}</Label>
                   <Input
                     type="number"
                     min="0"
@@ -784,7 +818,7 @@ export default function MiCalendarioPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>{t("Horas registradas")}</Label>
+                  <Label>{t("Horas registradas acumuladas")}</Label>
                   <Input
                     type="number"
                     min="0"
@@ -880,11 +914,11 @@ export default function MiCalendarioPage() {
                 </div>
               </div>
 
-              {selectedItem.fecha_estimada_fin && (
+              {calendarWorkEnd(selectedItem) && (
                 <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-primary" />
-                    <span className="text-sm text-foreground">{t("Fecha estimada de entrega:")}{" "}<strong>{new Date(selectedItem.fecha_estimada_fin).toLocaleDateString(localeDe(idioma), { weekday: "long", day: "numeric", month: "long" })}</strong>
+                    <span className="text-sm text-foreground">{t(selectedItem.fecha_fin && ["completado", "cancelado"].includes(selectedItem.estado) ? "Fecha de cierre:" : "Fecha estimada de entrega:")}{" "}<strong>{calendarContractDate(calendarWorkEnd(selectedItem)!).toLocaleDateString(localeDe(idioma), { weekday: "long", day: "numeric", month: "long" })}</strong>
                     </span>
                   </div>
                 </div>

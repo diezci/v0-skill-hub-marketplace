@@ -39,16 +39,20 @@ function sdkFixture(status = 204) {
   sdk.onAuthStateChange((event) => events.push(event))
   return { sdk, calls, store, key, events, setStatus: x => { status = x } }
 }
-function logoutHandler(file, sdk, unlink = async () => {}) {
+function logoutHandler(file, sdk, unlink = async () => {}, native = false) {
   const helper = load('lib/auth-logout.ts', { '@/lib/supabase/client': { createClient: () => ({ auth: sdk }) }, '@/lib/push/client': { desvincularPushActual: unlink } }).value
   const state = { busy: false, authenticated: true, errors: [], paths: [], refreshes: 0 }
-  const deps = { actorEmpresaLocal: null, cierrePendiente: { current: false }, loggingOut: false, guardando: false, closingSession: false,
+  const deps = { Capacitor: { isNativePlatform: () => native }, actorEmpresaLocal: null, cierrePendiente: { current: false }, loggingOut: false, guardando: false, closingSession: false,
     cerrarSesionActual: helper.cerrarSesionActual, setIsLoading: v => state.busy = v, setClosingSession: v => state.busy = v, setLoggingOut: v => state.busy = v, setGuardando: v => state.busy = v,
     setIsAuthenticated: v => state.authenticated = v, setIsOpen() {}, setUserEmail() {}, setUserName() {}, setUserPhoto() {}, setIsAdmin() {}, setIsProfessional() {},
     toast: v => state.errors.push(v), setError: v => { if (v) state.errors.push(v) }, t: x => x,
     router: { push: p => state.paths.push(p), refresh: () => state.refreshes++ }, window: { location: { assign: p => state.paths.push(p) } } }
   return { state, run: extract(file, file.includes('confirmar-mayoria') ? 'salir' : 'handleLogout', deps) }
 }
+await test('Navbar nativo cierra Auth sin duplicar la navegación que pertenece a AppChrome', async () => {
+  const a = sdkFixture(), h = logoutHandler('components/navbar.tsx', a.sdk, async () => {}, true)
+  await h.run();assert.equal((await a.sdk.getSession()).data.session,null);assert.equal(h.state.authenticated,false);assert.deepEqual(h.state.paths,[]);assert.equal(h.state.refreshes,0);assert.equal(h.state.errors.length,0);assert.equal(h.state.busy,false)
+})
 const logoutFiles = ['components/logout-button.tsx', 'components/navbar.tsx', 'components/perfil-profesional.tsx', 'app/admin/layout.tsx', 'components/confirmar-mayoria-edad.tsx']
 for (const file of logoutFiles) {
   await test(file + ': Auth503 conserva identidad, informa error y permite reintentar', async () => {
@@ -61,6 +65,22 @@ for (const file of logoutFiles) {
     assert.equal(a.calls.length, 0); assert.equal(h.state.paths.length, 0); assert.equal(h.state.errors.length, 1); assert.equal(h.state.busy, false)
   })
 }
+await test('Logout: intención manual disponible durante SIGNED_OUT y liberada tras éxito o fallo', async () => {
+  const a = sdkFixture(503)
+  const helper = load('lib/auth-logout.ts', { '@/lib/supabase/client': { createClient: () => ({ auth: a.sdk }) }, '@/lib/push/client': { desvincularPushActual: async () => {} } }).value
+  const observed = []
+  a.sdk.onAuthStateChange(event => { if (event === 'SIGNED_OUT') observed.push(helper.cierreSesionSolicitado()) })
+  assert.equal(helper.cierreSesionSolicitado(), false)
+  const failed = helper.cerrarSesionActual()
+  assert.equal(helper.cierreSesionSolicitado(), true)
+  await assert.rejects(failed)
+  assert.equal(helper.cierreSesionSolicitado(), false)
+  assert.deepEqual(observed, [])
+  a.setStatus(204)
+  await helper.cerrarSesionActual()
+  assert.deepEqual(observed, [true])
+  assert.equal(helper.cierreSesionSolicitado(), false)
+})
 await test('Logout: doble clic comparte operación pendiente y no duplica revocación', async () => {
   const a = sdkFixture(), pending = deferred(); let removals = 0
   const h = logoutHandler('components/logout-button.tsx', a.sdk, async () => { removals++; await pending.promise })
@@ -108,7 +128,8 @@ function chatFixture({ conversation = {}, enPanelAdmin = false } = {}) {
   }, { has: () => true, get: (o, k) => k in o ? o[k] : ui })
   let search = new URLSearchParams()
   const router = { replace: p => paths.push(p), push: p => paths.push(p) }, t = x => x
-  const runtime = load('components/mensajes-content.tsx', deps, { window: { dispatchEvent() {}, addEventListener: (event, fn) => windowListeners.set(event, fn), removeEventListener: event => windowListeners.delete(event) }, document: { visibilityState: 'visible' }, CustomEvent: class {},
+  const browserLocation = new URL('https://diime.example.test/' + (enPanelAdmin ? 'admin/mensajes' : 'mensajes'))
+  const runtime = load('components/mensajes-content.tsx', deps, { window: { location: browserLocation, history: { replaceState(_state, _unused, url) { paths.push(url); browserLocation.href = new URL(url, browserLocation).href } }, dispatchEvent() {}, addEventListener: (event, fn) => windowListeners.set(event, fn), removeEventListener: event => windowListeners.delete(event) }, document: { visibilityState: 'visible' }, CustomEvent: class {},
     setInterval: (fn, ms) => { const id = ++intervalId; intervals.set(id, { fn, ms }); return id }, clearInterval: id => intervals.delete(id),
     fetch: async (url, opts) => { if (url === '/api/upload') return upload(opts); const body = JSON.parse(opts.body); sends.push(body); return { json: async () => send(body) } },
   }, src => src.replace('  const formatTime =', '  globalThis.__chat = { handleSendMessage, handleSelectConversation, handleFileChange, handleValorar, handleEnviarValoracion, reviewTrabajo, reviewSubmitting, cerrarConversacion, newMessage, borradores, sendingMessage, uploading, currentUserId, messages, conversations, selectedConversation, versionSesion, versionLectura };\n  const formatTime ='))
@@ -120,7 +141,7 @@ function chatFixture({ conversation = {}, enPanelAdmin = false } = {}) {
     draft(text) { const input = walk(tree).find(n => n.type === 'Textarea' && n.props['aria-label'] === 'Escribe un mensaje'); assert.ok(input); input.props.onChange({ target: { value: text } }); render() },
     setReadReview(fn) { readReview = fn }, setWriteReview(fn) { writeReview = fn },
     setSend(fn) { send = fn }, setRead(fn) { readMessages = fn }, setList(fn) { readList = fn }, setGetUser(fn) { getUser = fn }, setUpload(fn) { upload = fn },
-    navigate(query, { popstate = false } = {}) { if (popstate) windowListeners.get('popstate')?.(); const next = new URLSearchParams(query); if (next.toString() !== search.toString()) search = next; render() },
+    navigate(query, { popstate = false } = {}) { if (popstate) { browserLocation.search = query; windowListeners.get('popstate')?.() }; const next = new URLSearchParams(query); if (next.toString() !== search.toString()) search = next; render() },
     changeUser(id) { account = id; authChange(id ? 'SIGNED_IN' : 'SIGNED_OUT', id ? { user: { id } } : null) },
     poll(ms) { return [...intervals.values()].find(i => i.ms === ms)?.fn() },
     unmount() { mounted = false; slots.forEach(s => s?.cleanup?.()) },

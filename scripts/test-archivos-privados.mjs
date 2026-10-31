@@ -5,22 +5,24 @@ import vm from 'node:vm'
 import ts from 'typescript'
 import { randomUUID } from 'node:crypto'
 const results = []
-function load(file, deps) {
+function load(file, deps, extra = {}) {
   const module = { exports: {} }
   vm.runInNewContext(ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText,
-    { module, exports: module.exports, require: name => { if (!(name in deps)) throw Error(name); return deps[name] }, console: { error() {} }, File, Response, Uint8Array, URL, process: { env: { NEXT_PUBLIC_SITE_URL: 'https://diime.example.test' } } }, { filename: file })
+    { module, exports: module.exports, require: name => { if (!(name in deps)) throw Error(name); return deps[name] }, console: { error() {} }, File, Response, Uint8Array, URL, TransformStream, AbortSignal, ...extra, process: { env: { NEXT_PUBLIC_SITE_URL: 'https://diime.example.test', BLOB_READ_WRITE_TOKEN: 'mock-public-storage-available-no-provider' } } }, { filename: file })
   return module.exports
 }
 const files = load('lib/archivos.ts', {})
+const uploadConversation = load('lib/upload-conversation.ts', {})
 function fixture(options = {}) {
   const calls = { form: 0, public: [], upload: [], insert: [], remove: [], download: [], rpc: [] }
-  const bucket = { upload: async (...args) => { calls.upload.push(args); return { error: options.uploadError } }, remove: async (...args) => { calls.remove.push(args); return {} }, download: async (...args) => { calls.download.push(args); return { error: options.downloadError, data: new Blob(['%PDF-private'], { type: 'application/pdf' }) } } }
+  const bucket = { createSignedUrl: async (storagePath, seconds) => { calls.download.push([storagePath, seconds]); return { error: options.downloadError, data: options.downloadError ? null : { signedUrl: 'https://private-storage.example.test/' + storagePath } } }, upload: async (...args) => { calls.upload.push(args); return { error: options.uploadError } }, remove: async (...args) => { calls.remove.push(args); return {} }, download: async (...args) => { calls.download.push(args); return { error: options.downloadError, data: new Blob(['%PDF-private'], { type: 'application/pdf' }) } } }
   const admin = { storage: { from: name => { assert.equal(name, files.BUCKET_ADJUNTOS); return bucket } }, from: name => { assert.equal(name, 'archivos_privados'); return { insert: async data => { calls.insert.push(data); return { error: options.insertError } } } } }
   const client = { auth: { getUser: async () => ({ data: { user: options.anonymous ? null : { id: 'user-fixture' } }, error: options.authError }) },
     from: name => { assert.equal(name, 'profiles'); const q = { select: () => q, eq: () => q, maybeSingle: async () => ({ data: options.missingProfile ? null : { id: 'user-fixture', cuenta_eliminada: options.deleted ? '2026-01-01' : null }, error: options.profileError }) }; return q },
     rpc: async (...args) => { calls.rpc.push(args); return { error: options.rpcError, data: options.denied ? null : { storage_path: 'owner/id.pdf', nombre: options.name || 'documento privado.pdf', tipo: options.mime || 'application/pdf', bytes: 12 } } } }
-  const deps = { 'next/server': { NextResponse: Response }, 'node:crypto': { randomUUID }, '@/lib/supabase/server': { createClient: async () => client }, '@/lib/supabase/admin': { createAdminClient: () => options.noAdmin ? null : admin }, '@/lib/archivos': files,
+  const deps = { 'next/server': { NextResponse: Response }, 'node:crypto': { randomUUID }, '@/lib/supabase/server': { createClient: async () => client }, '@/lib/supabase/admin': { createAdminClient: () => options.noAdmin ? null : admin }, '@/lib/archivos': files, '@/lib/upload-conversation': uploadConversation,
     '@vercel/blob': { put: async (...args) => { calls.public.push(args); return { url: 'https://public.example.test/profile.png' } } } }
+  deps['@/lib/archivos-servidor'] = load('lib/archivos-servidor.ts', deps, { fetch: async (url, config) => { assert.equal(url, 'https://private-storage.example.test/owner/id.pdf'); assert.equal(config.cache, 'no-store'); return new Response('%PDF-private', { headers: { 'content-type': 'application/pdf', 'content-length': '12' } }) } })
   const post = load('app/api/upload/route.ts', deps).POST
   const get = load('app/api/archivos/[id]/route.ts', deps).GET
   return { calls, post: (file = new File(['%PDF-fixture'], 'documento.pdf'), purpose, length = '') => post({ url: 'https://local.example.test/api/upload', headers: new Headers({ 'content-length': length }), formData: async () => { calls.form++; const data = new FormData(); if (file !== null) data.set('file', file); if (purpose) data.set('purpose', purpose); return data } }), get: (id = randomUUID()) => get(new Request('https://diime.example.test'), { params: Promise.resolve({ id }) }) }

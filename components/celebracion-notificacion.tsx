@@ -11,7 +11,8 @@ import { traducirTextoNotificacion } from "@/lib/i18n-notificaciones"
 // en localStorage) e intenta reproducir un arpegio breve con Web Audio; si el
 // navegador bloquea el audio por falta de gesto del usuario, falla en silencio.
 
-import { useEffect, useMemo } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import * as Dialog from "@radix-ui/react-dialog"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { PartyPopper, X, Scale, ShieldCheck, ShieldAlert } from "lucide-react"
@@ -144,6 +145,52 @@ export function CelebracionNotificacion({ notificacion, onClose }: Props) {
   const acento = ACENTO[variante.tono]
   const esFestivo = variante.tono === "festivo"
   const IconoEtiqueta = variante.tono === "festivo" ? PartyPopper : variante.Icono || Scale
+  const [otroDialogoAbierto, setOtroDialogoAbierto] = useState(true)
+  const ultimoSonido = useRef<string | null>(null)
+  const focoAnterior = useRef<HTMLElement | null>(null)
+
+  useEffect(() => {
+    // Un aviso asíncrono debe esperar a que termine el formulario actual.
+    // Los diálogos de Radix desactivan los clics fuera de su portal: superponer
+    // aquí otro modal deja un aviso visible cuyos botones no se pueden pulsar.
+    let formularioActivo = document.activeElement?.closest("form") ?? null
+    const hayInteraccion = () => Boolean(document.activeElement?.closest("form")) ||
+      Boolean(formularioActivo?.isConnected && formularioActivo.getClientRects().length) ||
+      Array.from(document.querySelectorAll<HTMLElement>('dialog[open], [role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"]'))
+        .some(elemento => !elemento.hasAttribute("data-diime-celebracion")
+          && elemento.getAttribute("data-state") !== "closed"
+          && elemento.getClientRects().length > 0)
+    let espera: ReturnType<typeof setTimeout> | undefined
+    const actualizar = () => {
+      clearTimeout(espera)
+      if (hayInteraccion()) setOtroDialogoAbierto(true)
+      // Al cerrar un selector, Radix restaura el foco después de desmontarlo.
+      // Esperar evita interrumpir el formulario en ese breve foco intermedio.
+      else espera = setTimeout(() => setOtroDialogoAbierto(hayInteraccion()), 150)
+    }
+    const observer = new MutationObserver(actualizar)
+    observer.observe(document.body, {
+      childList: true, subtree: true, attributes: true,
+      attributeFilter: ["data-state", "hidden", "open", "style", "class"],
+    })
+    const registrarFoco = (evento: FocusEvent) => {
+      const destino = evento.target instanceof HTMLElement ? evento.target : null
+      const formulario = destino?.closest("form")
+      if (formulario) formularioActivo = formulario
+      // Los selectores viven en portales y pueden devolver el foco al body
+      // durante su cierre. Ese tránsito no significa abandonar el formulario.
+      else if (destino && destino !== document.body && destino !== document.documentElement
+        && !destino.closest('dialog[open], [role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"]')) formularioActivo = null
+      actualizar()
+    }
+    document.addEventListener("focusin", registrarFoco)
+    actualizar()
+    return () => {
+      observer.disconnect()
+      document.removeEventListener("focusin", registrarFoco)
+      clearTimeout(espera)
+    }
+  }, [])
 
   // Piezas de confeti con posiciones/tiempos aleatorios pero estables por render.
   const confeti = useMemo(
@@ -161,16 +208,18 @@ export function CelebracionNotificacion({ notificacion, onClose }: Props) {
 
   useEffect(() => {
     // Solo las buenas noticias suenan; una resolución en contra no se celebra.
-    if (esFestivo && variante.sonido) reproducirArpegio(variante.sonido)
-  }, [notificacion.id, esFestivo, variante.sonido])
+    if (!otroDialogoAbierto && esFestivo && variante.sonido && ultimoSonido.current !== notificacion.id) {
+      ultimoSonido.current = notificacion.id
+      reproducirArpegio(variante.sonido)
+    }
+  }, [notificacion.id, esFestivo, variante.sonido, otroDialogoAbierto])
+
+  if (otroDialogoAbierto) return null
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-      role="dialog"
-      aria-modal="true"
-      onClick={onClose}
-    >
+    <Dialog.Root open onOpenChange={(open) => { if (!open) onClose() }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <style>{`
         @keyframes diime-confeti-caida {
           0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
@@ -207,9 +256,16 @@ export function CelebracionNotificacion({ notificacion, onClose }: Props) {
         </div>
       )}
 
-      <div
+      <Dialog.Content
+        data-diime-celebracion="true"
+        {...(!notificacion.mensaje ? { "aria-describedby": undefined } : {})}
+        onOpenAutoFocus={() => { focoAnterior.current = document.activeElement instanceof HTMLElement ? document.activeElement : null }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault()
+          if (!otroDialogoAbierto && focoAnterior.current?.isConnected) focoAnterior.current.focus()
+        }}
         className={cn(
-          "relative w-full max-w-md rounded-2xl border bg-background shadow-2xl p-8 text-center",
+          "relative w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl border bg-background shadow-2xl p-8 text-center",
           acento.borde,
         )}
         style={{ animation: "diime-celebracion-pop 0.45s ease-out" }}
@@ -242,12 +298,12 @@ export function CelebracionNotificacion({ notificacion, onClose }: Props) {
           {t(variante.etiqueta)}
         </div>
 
-        <h2 className="text-2xl font-bold mb-2 text-balance">{traducirTextoNotificacion(idioma, notificacion.titulo || variante.titulo, notificacion.tipo)}</h2>
+        <Dialog.Title className="text-2xl font-bold mb-2 text-balance">{traducirTextoNotificacion(idioma, notificacion.titulo || variante.titulo, notificacion.tipo)}</Dialog.Title>
         {notificacion.mensaje && (
-          <p className="text-sm text-muted-foreground mb-6 text-pretty">{traducirTextoNotificacion(idioma, notificacion.mensaje, notificacion.tipo)}</p>
+          <Dialog.Description className="text-sm text-muted-foreground mb-6 text-pretty">{traducirTextoNotificacion(idioma, notificacion.mensaje, notificacion.tipo)}</Dialog.Description>
         )}
 
-        <div className="flex gap-2 justify-center">
+        <div className="flex flex-wrap gap-2 justify-center">
           <Button variant="outline" className="bg-transparent" onClick={onClose}>
              {t("Cerrar")} </Button>
           <Button
@@ -265,7 +321,9 @@ export function CelebracionNotificacion({ notificacion, onClose }: Props) {
             </Link>
           </Button>
         </div>
-      </div>
-    </div>
+      </Dialog.Content>
+        </Dialog.Overlay>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }

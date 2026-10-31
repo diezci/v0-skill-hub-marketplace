@@ -1,0 +1,3 @@
+-- Release marker: the preceding 19 source migrations were applied atomically.
+-- Their original versions, names and SQL are recorded in schema_migrations.
+-- This marker intentionally makes no additional schema or data changes.

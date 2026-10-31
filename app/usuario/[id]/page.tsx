@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { MapPin, CalendarDays, BadgeCheck, Briefcase, UserX } from "lucide-react"
 import { formatearFecha } from "@/lib/utils"
+import { BloquearUsuarioButton } from "@/components/bloquear-usuario-button"
 
 export const dynamic = "force-dynamic"
 
@@ -106,6 +107,12 @@ export default async function PerfilUsuario({ params }: { params: Promise<{ id: 
               </div>
             </div>
           </div>
+
+          {!perfil.cuenta_eliminada && (
+            <div className="mt-5">
+              <BloquearUsuarioButton usuarioId={perfil.id} />
+            </div>
+          )}
 
           {perfil.bio && (
             <div className="mt-6">

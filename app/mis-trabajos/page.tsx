@@ -3,7 +3,7 @@
 import { useIdioma } from "@/components/idioma-provider"
 import { localeDe } from "@/lib/i18n"
 
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import { useNotificacionesSeccion } from "@/hooks/use-notificaciones-seccion"
 import { useDestinoNotificacion } from "@/hooks/use-destino-notificacion"
 import { AvisosTarjeta, type AvisoTarjeta } from "@/components/avisos-tarjeta"
@@ -71,6 +71,7 @@ import {
 import { createClient } from "@/lib/supabase/client"
 import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
 import { AvisoLiquidacionPago } from "@/components/aviso-liquidacion-pago"
+import { AvisoRevisionEntrega } from "@/components/aviso-revision-entrega"
 import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
 import MisDisputas from "@/components/mis-disputas"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
@@ -131,6 +132,9 @@ function MisTrabajosPageContenido() {
   const { paraEntidad, marcarLeidas } = useNotificacionesSeccion("/mis-trabajos")
   const [trabajos, setTrabajos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [errorCarga, setErrorCarga] = useState(false)
+  const lecturaEnCurso = useRef(false)
+  const lecturaVersion = useRef(0)
   // Pestaña activa controlada: las tarjetas-resumen también la seleccionan.
   const [activeTab, setActiveTab] = useState("activos")
   const [selectedTrabajo, setSelectedTrabajo] = useState<any>(null)
@@ -153,25 +157,33 @@ function MisTrabajosPageContenido() {
       if (document.visibilityState !== "visible") return
       loadTrabajos(false)
     }, 15000)
-    return () => clearInterval(id)
+    return () => { clearInterval(id); lecturaVersion.current++; lecturaEnCurso.current = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const loadTrabajos = async (inicial = true) => {
+    if (lecturaEnCurso.current) return
+    lecturaEnCurso.current = true
+    const version = ++lecturaVersion.current
     if (inicial) setLoading(true)
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    setCurrentUserId(user?.id || null)
-
-    const result = await obtenerMisTrabajos()
-    // Solo datos reales (aunque estén vacíos): nada de datos de ejemplo.
-    if (user && result.data) {
-      const misTrabajos = result.data.filter((t: any) => t.profesional_id === user.id)
-      setTrabajos(misTrabajos)
-    } else {
-      setTrabajos([])
+    try {
+      const supabase = createClient()
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError || !user) throw new Error("No se pudo comprobar la sesión")
+      const result = await obtenerMisTrabajos()
+      if (result.error) throw new Error(result.error)
+      if (lecturaVersion.current !== version) return
+      setCurrentUserId(user.id)
+      setTrabajos((result.data || []).filter((trabajo: any) => trabajo.profesional_id === user.id))
+      setErrorCarga(false)
+    } catch {
+      if (lecturaVersion.current === version) setErrorCarga(true)
+    } finally {
+      if (lecturaVersion.current === version) {
+        lecturaEnCurso.current = false
+        if (inicial) setLoading(false)
+      }
     }
-    if (inicial) setLoading(false)
   }
 
   const handleUpdateProgress = async () => {
@@ -329,6 +341,13 @@ function MisTrabajosPageContenido() {
         <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
       </div>
     )
+  }
+
+  if (errorCarga) {
+    return <div role="alert" className="container mx-auto my-8 rounded-lg border border-destructive/40 p-6 space-y-3">
+      <p>{t("No se pudieron cargar tus trabajos. Inténtalo de nuevo.")}</p>
+      <Button onClick={() => { void loadTrabajos() }}>{t("Reintentar")}</Button>
+    </div>
   }
 
   return (

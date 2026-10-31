@@ -1,10 +1,11 @@
 "use client"
 
 import { IdentidadEmpresa } from "@/components/identidad-empresa"
+import { SelectorIdentidadEmpresa } from "@/components/selector-identidad-empresa"
 import { useT, useIdioma } from "@/components/idioma-provider"
 import { localeDe } from "@/lib/i18n"
 
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, useRef, useId, Suspense } from "react"
 import { useNotificacionesSeccion } from "@/hooks/use-notificaciones-seccion"
 import { useDestinoNotificacion } from "@/hooks/use-destino-notificacion"
 import { AvisosTarjeta } from "@/components/avisos-tarjeta"
@@ -77,7 +78,13 @@ function MisOfertasContenido() {
   const [ofertas, setOfertas] = useState<any[]>([])
   const [perdidas, setPerdidas] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [errorCarga, setErrorCarga] = useState(false)
+  const lecturaVersion = useRef(0)
   const [editOferta, setEditOferta] = useState<any>(null)
+  const editId = useId()
+  const editTrigger = useRef<HTMLButtonElement | null>(null)
+  const [editError, setEditError] = useState<"precio" | "tiempo" | null>(null)
+  const [editEmpresaId, setEditEmpresaId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ precio: "", tiempo_estimado: "", unidad_tiempo: "dias", descripcion: "" })
   // Adjuntos en edición: URLs ya existentes + archivos nuevos por subir.
   const [editArchivos, setEditArchivos] = useState<string[]>([])
@@ -92,21 +99,26 @@ function MisOfertasContenido() {
   const { toast } = useToast()
 
   async function cargarOfertas() {
+    const version = ++lecturaVersion.current
     setLoading(true)
-    const result = await obtenerOfertasPorProfesional()
-    if (result.error) {
-      toast({ title: t("No se pudieron cargar tus pujas"), description: t(result.error), variant: "destructive" })
-      setLoading(false)
-      return
+    try {
+      const result = await obtenerOfertasPorProfesional()
+      if (result.error) throw new Error(result.error)
+      if (lecturaVersion.current !== version) return
+      const todas = result.data || []
+      setOfertas(todas.filter(esVisible))
+      setPerdidas(todas.filter(esPerdida))
+      setErrorCarga(false)
+    } catch {
+      if (lecturaVersion.current === version) setErrorCarga(true)
+    } finally {
+      if (lecturaVersion.current === version) setLoading(false)
     }
-    const todas = result.data || []
-    setOfertas(todas.filter(esVisible))
-    setPerdidas(todas.filter(esPerdida))
-    setLoading(false)
   }
 
   useEffect(() => {
-    cargarOfertas()
+    void cargarOfertas()
+    return () => { lecturaVersion.current++ }
   }, [])
 
   useDestinoNotificacion({
@@ -126,7 +138,10 @@ function MisOfertasContenido() {
   // demanda, no ofrecemos volver a pujar otra vez desde la tarjeta antigua.
   const solicitudesConOfertaViva = new Set(ofertas.map((oferta) => oferta.solicitud_id).filter(Boolean))
 
-  const abrirEditar = (oferta: any) => {
+  const abrirEditar = (oferta: any, trigger: HTMLButtonElement) => {
+    editTrigger.current = trigger
+    setEditError(null)
+    setEditEmpresaId(oferta.empresa_id ?? null)
     setEditForm({
       precio: oferta.precio?.toString() || "",
       tiempo_estimado: oferta.tiempo_estimado?.toString() || "",
@@ -153,13 +168,14 @@ function MisOfertasContenido() {
     const precio = Number.parseFloat(editForm.precio)
     const tiempoEstimado = Number.parseInt(editForm.tiempo_estimado, 10)
     if (!(precio > 0)) {
-      toast({ title: t("Precio no válido"), description: t("El precio propuesto debe ser mayor que 0."), variant: "destructive" })
+      setEditError("precio")
       return
     }
     if (!(tiempoEstimado > 0)) {
-      toast({ title: t("Tiempo no válido"), description: t("El tiempo estimado debe ser mayor que 0."), variant: "destructive" })
+      setEditError("tiempo")
       return
     }
+    setEditError(null)
     setActionLoading(true)
     // Subir los archivos nuevos y combinarlos con los que se conservan.
     let archivosFinales = [...editArchivos]
@@ -182,7 +198,7 @@ function MisOfertasContenido() {
     }
     const result = esRepuja
       ? await crearOferta({
-          empresa_id: editOferta.empresa_id || null,
+          empresa_id: editEmpresaId,
           solicitud_id: editOferta.solicitud_id,
           precio,
           tiempo_estimado: tiempoEstimado,
@@ -262,6 +278,13 @@ function MisOfertasContenido() {
     )
   }
 
+  if (errorCarga) {
+    return <div role="alert" className="rounded-lg border border-destructive/40 p-6 space-y-3">
+      <p>{t("No se pudieron cargar tus pujas. Inténtalo de nuevo.")}</p>
+      <Button onClick={() => { void cargarOfertas() }}>{t("Reintentar")}</Button>
+    </div>
+  }
+
   const precioRepuja = Number.parseFloat(editForm.precio)
   const liquidacionRepuja = precioRepuja > 0 ? calcularPagoProveedor(precioRepuja) : null
 
@@ -284,7 +307,7 @@ function MisOfertasContenido() {
             ofertas.map((oferta) => (
               <Card key={oferta.id} id={`puja-${oferta.id}`} tabIndex={-1} className={`scroll-mt-24 hover:shadow-md transition-shadow ${avisosOferta(oferta).length ? "ring-2 ring-primary/50 border-primary/40" : ""}`}>
                 <CardHeader>
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                  <div className="flex min-w-0 flex-col sm:flex-row sm:items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <CardTitle className="text-lg sm:text-xl">{oferta.solicitud?.titulo || t("Servicio")}</CardTitle>
@@ -357,6 +380,7 @@ function MisOfertasContenido() {
                   <div className="pt-3 border-t">
                     <p className="text-sm font-medium mb-2">{t("Descripción del Servicio:")}</p>
                     <p className="text-sm text-muted-foreground">{oferta.descripcion}</p>
+                    {oferta.oferta_origen_id && <p className="mt-2 text-xs text-muted-foreground">{t("Nueva oferta vinculada. La oferta original conserva su autor e historial.")} <span className="break-all">{oferta.oferta_origen_id}</span></p>}
                     {oferta.materiales_incluidos && (
                       <p className="text-sm text-muted-foreground mt-1.5">
                         <span className="font-medium text-foreground">{t("Materiales:")}</span>{" "}
@@ -405,7 +429,7 @@ function MisOfertasContenido() {
                       <MessageSquare className="h-4 w-4 mr-2" />{t("Contactar Cliente")}</Button>
                     {!esAceptadaSinPagar(oferta) && (
                       <>
-                        <Button variant="outline" size="sm" className="flex-1 bg-transparent" onClick={() => abrirEditar(oferta)}>
+                        <Button variant="outline" size="sm" className="flex-1 bg-transparent" onClick={(event) => abrirEditar(oferta, event.currentTarget)}>
                           <Pencil className="h-4 w-4 mr-2" />{t("Editar oferta")}</Button>
                         <Button
                           variant="outline"
@@ -478,7 +502,7 @@ function MisOfertasContenido() {
                     <Eye className="h-4 w-4 mr-1.5" />{t("Ver demanda")}</Button>
                   {oferta.solicitud?.estado === "abierta" &&
                     !solicitudesConOfertaViva.has(oferta.solicitud_id) && (
-                      <Button size="sm" className="shrink-0" onClick={() => abrirEditar(oferta)}>
+                      <Button size="sm" className="shrink-0" onClick={(event) => abrirEditar(oferta, event.currentTarget)}>
                         <Send className="h-4 w-4 mr-1.5" />{t("Volver a pujar")}</Button>
                     )}
                   <Button
@@ -497,7 +521,12 @@ function MisOfertasContenido() {
 
       {/* Editar una oferta viva o preparar una nueva a partir de una rechazada */}
       <Dialog open={!!editOferta} onOpenChange={(o) => !o && setEditOferta(null)}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto" onCloseAutoFocus={(event) => {
+          if (editTrigger.current?.isConnected) {
+            event.preventDefault()
+            editTrigger.current.focus()
+          }
+        }}>
           <DialogHeader>
             <DialogTitle>{editOferta && esPerdida(editOferta) ? t("Volver a pujar") : t("Editar oferta")}</DialogTitle>
             <DialogDescription>
@@ -507,25 +536,36 @@ function MisOfertasContenido() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {editOferta && esPerdida(editOferta) && (
+              <SelectorIdentidadEmpresa value={editEmpresaId} onChange={setEditEmpresaId} disabled={actionLoading || subiendo} />
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">{t("Precio (€)")}</label>
+                <label htmlFor={`${editId}-precio`} className="text-sm font-medium">{t("Precio (€)")}</label>
                 <Input
+                  id={`${editId}-precio`}
+                  aria-invalid={editError === "precio"}
+                  aria-describedby={editError === "precio" ? `${editId}-precio-error` : undefined}
                   type="number"
                   value={editForm.precio}
-                  onChange={(e) => setEditForm({ ...editForm, precio: e.target.value })}
+                  onChange={(e) => { setEditForm({ ...editForm, precio: e.target.value }); if (editError === "precio") setEditError(null) }}
                 />
+                {editError === "precio" && <div id={`${editId}-precio-error`} role="alert" className="text-sm text-destructive"><p>{t("Precio no válido")}</p><p>{t("El precio propuesto debe ser mayor que 0.")}</p></div>}
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">{t("Tiempo estimado")}</label>
+                <label htmlFor={`${editId}-tiempo`} className="text-sm font-medium">{t("Tiempo estimado")}</label>
                 <div className="flex gap-2">
                   <Input
+                    id={`${editId}-tiempo`}
+                    aria-invalid={editError === "tiempo"}
+                    aria-describedby={editError === "tiempo" ? `${editId}-tiempo-error` : undefined}
                     type="number"
                     className="w-20"
                     value={editForm.tiempo_estimado}
-                    onChange={(e) => setEditForm({ ...editForm, tiempo_estimado: e.target.value })}
+                    onChange={(e) => { setEditForm({ ...editForm, tiempo_estimado: e.target.value }); if (editError === "tiempo") setEditError(null) }}
                   />
                   <select
+                    aria-label={t("Unidad de tiempo")}
                     className="flex-1 h-9 rounded-md border border-input bg-background px-2 text-sm"
                     value={editForm.unidad_tiempo}
                     onChange={(e) => setEditForm({ ...editForm, unidad_tiempo: e.target.value })}
@@ -535,11 +575,13 @@ function MisOfertasContenido() {
                     <option value="semanas">{t("Semanas")}</option>
                   </select>
                 </div>
+                {editError === "tiempo" && <div id={`${editId}-tiempo-error`} role="alert" className="text-sm text-destructive"><p>{t("Tiempo no válido")}</p><p>{t("El tiempo estimado debe ser mayor que 0.")}</p></div>}
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">{t("Descripción")}</label>
+              <label htmlFor={`${editId}-descripcion`} className="text-sm font-medium">{t("Descripción")}</label>
               <Textarea
+                id={`${editId}-descripcion`}
                 rows={4}
                 value={editForm.descripcion}
                 onChange={(e) => setEditForm({ ...editForm, descripcion: e.target.value })}

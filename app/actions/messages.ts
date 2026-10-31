@@ -6,18 +6,10 @@ import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { errorContenidoProhibido } from "@/lib/moderacion"
 import { enviarPushAUsuario } from "@/lib/push/enviar"
+import { prepararPushMensajeEmpresa, entregarPushMensajeEmpresa } from "@/lib/push/mensaje-empresa"
+import { after } from "next/server"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-
-function funcionVincularContextoNoDisponible(error: { code?: string } | null) {
-  if (!error) return false
-
-  // PostgREST puede devolver PGRST202 (función ausente de la caché de esquema)
-  // o PostgreSQL 42883 (función inexistente) mientras la migración 043 aún no
-  // se ha aplicado. En ese caso el chat existente sigue siendo válido: la
-  // demanda y sus participantes ya se han comprobado arriba.
-  return error.code === "PGRST202" || error.code === "42883"
-}
 
 export async function obtenerConversaciones() {
   const supabase = await createClient()
@@ -45,6 +37,7 @@ export async function obtenerConversaciones() {
       fecha_ultimo_mensaje,
       solicitud_id,
       trabajo_id,
+      contexto_archivado,
       created_at
     `)
     .or(`participante_1.eq.${user.id},participante_2.eq.${user.id}`)
@@ -165,7 +158,32 @@ export async function obtenerConversaciones() {
 
   const { data: empresariales, error: errorEmpresa } = await supabase.rpc("empresa_conversaciones_listar")
   if (errorEmpresa) return { error: await textoServidor(errorEmpresa.message), data: enrichedConversations }
-  return { data: [...enrichedConversations, ...(empresariales || [])].sort((a, b) =>
+  // El RPC determina el acceso y la identidad empresarial. Añadimos sólo el
+  // contexto visible por RLS, sin sustituir participantes, roles ni empresas.
+  const conversacionesEmpresa = empresariales || []
+  const solicitudesIds = [...new Set<string>(conversacionesEmpresa.map((conv: any) => conv.solicitud_id).filter(Boolean))]
+  const trabajosIds = [...new Set<string>(conversacionesEmpresa.map((conv: any) => conv.trabajo_id).filter(Boolean))]
+  const [solicitudesEmpresa, trabajosEmpresa] = await Promise.all([
+    solicitudesIds.length
+      ? supabase.from("solicitudes").select("id, titulo, estado").in("id", solicitudesIds)
+      : Promise.resolve({ data: [], error: null }),
+    trabajosIds.length
+      ? supabase.from("trabajos").select("id, titulo, estado, progreso").in("id", trabajosIds)
+      : Promise.resolve({ data: [], error: null }),
+  ])
+  const errorProyecto = solicitudesEmpresa.error || trabajosEmpresa.error
+  if (errorProyecto) return { error: await textoServidor(errorProyecto.message), data: enrichedConversations }
+  const solicitudesPorId = new Map((solicitudesEmpresa.data || []).map(s => [s.id, s]))
+  const trabajosPorId = new Map((trabajosEmpresa.data || []).map(t => [t.id, t]))
+  const empresasConProyecto = conversacionesEmpresa.map((conv: any) => {
+    const proyecto = trabajosPorId.get(conv.trabajo_id) || solicitudesPorId.get(conv.solicitud_id)
+    return { ...conv, proyecto: proyecto ? {
+      titulo: proyecto.titulo,
+      estado: proyecto.estado,
+      ...("progreso" in proyecto ? { progreso: proyecto.progreso } : {}),
+    } : null }
+  })
+  return { data: [...enrichedConversations, ...empresasConProyecto].sort((a, b) =>
     new Date(b.fecha_ultimo_mensaje || b.created_at || 0).getTime() - new Date(a.fecha_ultimo_mensaje || a.created_at || 0).getTime()) }
 }
 
@@ -200,14 +218,31 @@ export async function obtenerMensajes(conversacionId: string) {
   const { data: bloqueada } = await supabase.rpc("interaccion_bloqueada_con", { p_otro: otroUsuarioId })
   if (bloqueada) return { error: await textoServidor("La conversación está bloqueada."), data: [] }
 
-  const { data: mensajes, error } = await supabase
-    .from("mensajes")
-    .select("*")
-    .eq("conversacion_id", conversacionId)
-    .order("created_at", { ascending: true })
-
-  if (error) {
-    return { error: await textoServidor(error.message), data: [] }
+  // Page by the exact database tuple, including its timestamp precision.
+  // A transaction committed later with a tuple behind this cursor appears on
+  // the next read; it is never acknowledged by this read. Null legacy dates
+  // sort last and use their IDs to continue without restarting the history.
+  const mensajes: any[] = []
+  let cursor: { created_at: string | null; id: string } | null = null
+  for (;;) {
+    let consulta = supabase
+      .from("mensajes")
+      .select("*")
+      .eq("conversacion_id", conversacionId)
+      .order("created_at", { ascending: true, nullsFirst: false })
+      .order("id", { ascending: true })
+      .limit(500)
+    if (cursor) {
+      consulta = cursor.created_at === null
+        ? consulta.is("created_at", null).gt("id", cursor.id)
+        : consulta.or(`created_at.gt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.gt.${cursor.id}),created_at.is.null`)
+    }
+    const { data: pagina, error } = await consulta
+    if (error) return { error: await textoServidor(error.message), data: [] }
+    mensajes.push(...(pagina || []))
+    if (!pagina || pagina.length < 500) break
+    const ultimo = pagina[pagina.length - 1]
+    cursor = { created_at: ultimo.created_at, id: ultimo.id }
   }
 
   // Only acknowledge the messages returned by this read. A new message can
@@ -255,9 +290,11 @@ export async function enviarMensaje(
   })
   if (errorEmpresa) return { error: await textoServidor(errorEmpresa.message) }
   if (mensajeEmpresa) {
+    const { publico, destinatarios, aviso } = prepararPushMensajeEmpresa(mensajeEmpresa, user.id)
+    if (destinatarios.length) after(() => entregarPushMensajeEmpresa(destinatarios, aviso, enviarPushAUsuario))
     revalidatePath("/mensajes")
     revalidatePath("/mi-empresa")
-    return { data: mensajeEmpresa }
+    return { data: publico }
   }
 
   // Verify user is part of this conversation
@@ -469,46 +506,28 @@ export async function crearConversacion(params: {
     return { data: conversacion }
   }
 
-  // Reutilizar cualquier conversación existente entre ambos usuarios (en
-  // cualquier dirección). Existe una constraint UNIQUE (participante_1,
-  // participante_2), así que no debemos crear duplicados.
-  const { data: existingConv } = await supabase
-    .from("conversaciones")
-    .select("id, solicitud_id, trabajo_id")
-    .or(
-      `and(participante_1.eq.${user.id},participante_2.eq.${params.otroUsuarioId}),and(participante_1.eq.${params.otroUsuarioId},participante_2.eq.${user.id})`,
-    )
-    .limit(1)
-    .maybeSingle()
-
-  if (existingConv) {
-    // Una pareja conserva un único chat. Al abrirlo desde una demanda o trabajo
-    // actualizamos su contexto mediante una RPC acotada: la tabla no concede
-    // UPDATE general a los participantes para evitar que puedan alterar a la
-    // otra parte o asociar proyectos ajenos.
-    if (solicitudIdValidada || params.trabajoId) {
-      const { data: vinculada, error: vinculoError } = await supabase.rpc("vincular_contexto_conversacion", {
-        p_conversacion_id: existingConv.id,
-        p_solicitud_id: solicitudIdValidada ?? null,
-        p_trabajo_id: params.trabajoId ?? null,
-      })
-      if (vinculoError) {
-        if (funcionVincularContextoNoDisponible(vinculoError)) {
-          console.warn(
-            `[chat] contexto_rpc_no_disponible conversation=${existingConv.id.slice(0, 8)} code=${vinculoError.code ?? "unknown"}`,
-          )
-          return devolverConversacion(existingConv)
-        }
-        return { error: await textoServidor("No se pudo vincular el chat con esta demanda.") }
-      }
-      const conversacionVinculada = Array.isArray(vinculada) ? vinculada[0] : vinculada
-      if (conversacionVinculada) return devolverConversacion(conversacionVinculada)
+  // A personal thread, a request negotiation and each job keep independent
+  // histories. Never relabel an existing thread when another context opens.
+  const buscarContexto = async () => {
+    let consulta = supabase.from("conversaciones")
+      .select("id, solicitud_id, trabajo_id")
+      .eq("contexto_archivado", false)
+      .or(`and(participante_1.eq.${user.id},participante_2.eq.${params.otroUsuarioId}),and(participante_1.eq.${params.otroUsuarioId},participante_2.eq.${user.id})`)
+    if (params.trabajoId) consulta = consulta.eq("trabajo_id", params.trabajoId)
+    else {
+      consulta = consulta.is("trabajo_id", null)
+      consulta = solicitudIdValidada
+        ? consulta.eq("solicitud_id", solicitudIdValidada)
+        : consulta.is("solicitud_id", null)
     }
-    return devolverConversacion(existingConv)
+    return consulta.maybeSingle()
   }
+  const { data: existingConv, error: contextoError } = await buscarContexto()
+  if (contextoError) return { error: await textoServidor(contextoError.message) }
+  if (existingConv) return devolverConversacion(existingConv)
 
   // Orden canónico: dos aperturas simultáneas (A→B y B→A) intentan insertar
-  // la misma pareja y la restricción UNIQUE puede resolver la carrera.
+  // la misma pareja/contexto y el índice UNIQUE resuelve la carrera.
   const [participante1, participante2] = [user.id, params.otroUsuarioId].sort()
 
   // Create new conversation
@@ -524,39 +543,12 @@ export async function crearConversacion(params: {
     .single()
 
   if (error) {
-    // Otra petición pudo crear la misma conversación después de nuestra
-    // consulta. En ese caso devolvemos esa conversación en vez de mostrar un
-    // error de clave duplicada.
+    // The canonical pair/context index arbitrates concurrent A→B and B→A
+    // inserts. Recover only the requested context, never another pair thread.
     if (error.code === "23505") {
-      const { data: creadaEnParalelo } = await supabase
-        .from("conversaciones")
-        .select("id, solicitud_id, trabajo_id")
-        .or(
-          `and(participante_1.eq.${user.id},participante_2.eq.${params.otroUsuarioId}),and(participante_1.eq.${params.otroUsuarioId},participante_2.eq.${user.id})`,
-        )
-        .limit(1)
-        .maybeSingle()
-      if (creadaEnParalelo) {
-        if (solicitudIdValidada || params.trabajoId) {
-          const { data: vinculada, error: vinculoError } = await supabase.rpc("vincular_contexto_conversacion", {
-            p_conversacion_id: creadaEnParalelo.id,
-            p_solicitud_id: solicitudIdValidada ?? null,
-            p_trabajo_id: params.trabajoId ?? null,
-          })
-          if (vinculoError) {
-            if (funcionVincularContextoNoDisponible(vinculoError)) {
-              console.warn(
-                `[chat] contexto_rpc_no_disponible conversation=${creadaEnParalelo.id.slice(0, 8)} code=${vinculoError.code ?? "unknown"}`,
-              )
-              return devolverConversacion(creadaEnParalelo)
-            }
-            return { error: await textoServidor("No se pudo vincular el chat con esta demanda.") }
-          }
-          const conversacionVinculada = Array.isArray(vinculada) ? vinculada[0] : vinculada
-          if (conversacionVinculada) return devolverConversacion(conversacionVinculada)
-        }
-        return devolverConversacion(creadaEnParalelo)
-      }
+      const { data: creadaEnParalelo, error: recuperacionError } = await buscarContexto()
+      if (recuperacionError) return { error: await textoServidor(recuperacionError.message) }
+      if (creadaEnParalelo) return devolverConversacion(creadaEnParalelo)
     }
     return { error: await textoServidor(error.message) }
   }
@@ -624,6 +616,7 @@ export async function crearConversacionSoporte() {
 }
 
 export async function vincularConversacionATrabajo(conversacionId: string, trabajoId: string) {
+  if (!UUID_RE.test(conversacionId) || !UUID_RE.test(trabajoId)) return { error: await textoServidor("Trabajo no válido") }
   const supabase = await createClient()
   if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
@@ -635,7 +628,7 @@ export async function vincularConversacionATrabajo(conversacionId: string, traba
     return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   }
 
-  const { error } = await supabase.rpc("vincular_contexto_conversacion", {
+  const { data, error } = await supabase.rpc("vincular_contexto_conversacion", {
     p_conversacion_id: conversacionId,
     p_solicitud_id: null,
     p_trabajo_id: trabajoId,
@@ -645,8 +638,10 @@ export async function vincularConversacionATrabajo(conversacionId: string, traba
     return { error: await textoServidor(error.message) }
   }
 
+  const conversacion = Array.isArray(data) ? data[0] : data
+  if (!conversacion?.id) return { error: await textoServidor("Conversación no disponible") }
   revalidatePath("/mensajes")
-  return { success: true }
+  return { success: true, data: conversacion }
 }
 
 export async function crearConversacionEmpresa(empresaId: string) {

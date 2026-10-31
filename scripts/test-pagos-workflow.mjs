@@ -69,6 +69,12 @@ try {
   e=await rpc('diime_reclamar_liquidacion',f.id,customer,'confirmacion');await finish(e)
   assert.equal((await sql('select estado from trabajos where id=$1',[f.trabajo]))[0].estado,'completado')
  })
+ await check('Completed confirmation retries preserve the exact contract, request and ledger history',async()=>{
+  const f=await fixture({delivered:true});const e=await rpc('diime_reclamar_liquidacion',f.id,customer,'confirmacion');await finish(e)
+  const snapshot=async()=>({work:(await sql('select * from trabajos where id=$1',[f.trabajo]))[0],request:(await sql('select * from solicitudes where id=$1',[f.solicitud]))[0],escrow:(await sql('select * from transacciones_escrow where id=$1',[f.id]))[0]})
+  const before=await snapshot();assert.equal(before.work.estado,'completado');assert.ok(before.work.fecha_fin)
+  for(let i=0;i<2;i++){const claimed=await rpc('diime_reclamar_liquidacion',f.id,customer,'confirmacion');const result=await finish(claimed);assert.equal(result.avisos.length,0);assert.deepEqual(await snapshot(),before)}
+ })
  await check('Cancellation blocks new Checkout, requires old attempts closed, and refunds a late payment without reopening job',async()=>{
   const f=await fixture({paid:false});await sql("update trabajos set cancelacion_estado='pendiente',cancelacion_solicitada_por=$2,cancelacion_razon='Prueba' where id=$1",[f.trabajo,customer])
   await rpc('diime_bloquear_checkout',f.trabajo,provider,true)

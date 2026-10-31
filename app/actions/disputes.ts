@@ -10,6 +10,19 @@ import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cerrarCheckoutsPendientes, enviarAvisosExternos, liquidarPagoReclamado } from "@/lib/flujo-pagos"
 
+// Legacy dispute columns are timestamp-without-time-zone written by PostgreSQL
+// in UTC. Preserve that instant when serializing beside timestamptz history.
+function fechasDisputaUTC<T extends Record<string, unknown>>(disputa: T): T {
+  const result: Record<string, unknown> = { ...disputa }
+  for (const field of ["created_at", "updated_at", "fecha_resolucion"]) {
+    const value = result[field]
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(value)) {
+      result[field] = value.replace(" ", "T") + "Z"
+    }
+  }
+  return result as T
+}
+
 // Comprueba que el usuario actual es un empleado de Diime (es_admin).
 async function requireAdmin(supabase: any) {
   const {
@@ -142,7 +155,7 @@ export async function obtenerMisDisputas() {
 
   const { data, error } = await supabase
     .from("disputas")
-    .select("id, trabajo_id, cliente_id, profesional_id, tipo, motivo, estado, resolucion, resultado, fecha_resolucion, created_at")
+    .select("id, trabajo_id, cliente_id, profesional_id, tipo, motivo, estado, origen, stripe_disputa_id, stripe_disputa_estado, stripe_disputa_plazo, stripe_transfer_reversal_id, resolucion, resultado, fecha_resolucion, created_at")
     .or(`cliente_id.eq.${user.id},profesional_id.eq.${user.id}`)
     .order("created_at", { ascending: false })
 
@@ -179,14 +192,14 @@ export async function obtenerMisDisputas() {
       // actual si su rol en el trabajo coincide con el tipo de la disputa.
       const miRol = d.cliente_id === user.id ? "cliente" : "proveedor"
       return {
-        ...d,
+        ...fechasDisputaUTC(d),
         trabajo_titulo: trabajo?.titulo ?? "Trabajo",
         trabajo_estado: trabajo?.estado ?? null,
         cancelacion_solicitada_por: trabajo?.cancelacion_solicitada_por ?? null,
         cancelacion_respuesta_razon: trabajo?.cancelacion_respuesta_razon ?? null,
         cancelacion_adjuntos_solicitante: trabajo?.cancelacion_adjuntos_solicitante ?? [],
         cancelacion_adjuntos_respuesta: trabajo?.cancelacion_adjuntos_respuesta ?? [],
-        la_abri_yo: d.tipo === miRol,
+        la_abri_yo: d.origen === "usuario" && !d.stripe_disputa_id && d.tipo === miRol,
         // Mi papel EN ESTA disputa. Es imprescindible: el mismo fallo se lee al
         // revés según seas cliente o profesional, y hasta ahora la pantalla lo
         // deducía de en qué sección estabas, no de la disputa.
@@ -323,7 +336,7 @@ export async function obtenerDisputas() {
         .select("nombre, apellido, foto_perfil")
         .eq("id", d.profesional_id)
         .maybeSingle()
-      return { ...d, trabajo, cliente, profesional, responsable: responsables.data?.find((p: any) => p.id === d.responsable_id) || null }
+      return { ...fechasDisputaUTC(d), trabajo, cliente, profesional, responsable: responsables.data?.find((p: any) => p.id === d.responsable_id) || null }
     }),
   )
 
@@ -415,22 +428,35 @@ export async function obtenerDetalleDisputa(disputaId: string) {
         .maybeSingle()
     : { data: null }
 
-  // Conversación entre cliente y proveedor (la del trabajo, si existe).
-  const { data: conversacion } = await supabase
-    .from("conversaciones")
-    .select("id")
-    .eq("trabajo_id", disputa.trabajo_id)
-    .maybeSingle()
-
-  let mensajes: any[] = []
-  if (conversacion?.id) {
-    const { data: msgs } = await supabase
-      .from("mensajes")
-      .select("id, remitente_id, contenido, created_at")
-      .eq("conversacion_id", conversacion.id)
-      .order("created_at", { ascending: true })
-    mensajes = msgs || []
+  // Platform administration is authorized above. Corporate conversations have
+  // their own membership RLS, so read only the threads explicitly tied to this
+  // disputed job through the internal client. Personal correspondence with no
+  // link to this job is never included.
+  const admin = createAdminClient()
+  if (!admin) return { error: await textoServidor("La configuración segura del servidor no está disponible.") }
+  const [personales, empresariales, facturacion] = await Promise.all([
+    admin.from("conversaciones").select("id").eq("trabajo_id", disputa.trabajo_id),
+    admin.from("empresa_conversaciones").select("id").eq("trabajo_id", disputa.trabajo_id),
+    supabase.rpc("facturacion_trabajo", { p_trabajo_id: disputa.trabajo_id }),
+  ])
+  const errorContexto = personales.error || empresariales.error || facturacion.error
+  if (errorContexto) return { error: await textoServidor(errorContexto.message) }
+  const mensajes: any[] = []
+  for (const grupo of [
+    { tabla: "mensajes", origen: "personal", ids: (personales.data || []).map((c: any) => c.id), campos: "id,remitente_id,contenido,tipo,archivo_url,archivo_nombre,created_at" },
+    { tabla: "empresa_mensajes", origen: "empresa", ids: (empresariales.data || []).map((c: any) => c.id), campos: "id,remitente_id,remitente_nombre,empresa_id,contenido,tipo,archivo_url,archivo_nombre,created_at" },
+  ]) {
+    if (!grupo.ids.length) continue
+    for (let desde = 0; ; desde += 500) {
+      const pagina = await admin.from(grupo.tabla).select(grupo.campos)
+        .in("conversacion_id", grupo.ids).order("created_at").order("id").range(desde, desde + 499)
+      if (pagina.error) return { error: await textoServidor(pagina.error.message) }
+      const filas = (pagina.data || []) as any[]
+      mensajes.push(...filas.map((m) => ({ ...m, origen_chat: grupo.origen })))
+      if (filas.length < 500) break
+    }
   }
+  mensajes.sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)) || String(a.id).localeCompare(String(b.id)))
 
   // Historial del trabajo + pruebas adjuntas.
   const { data: actualizaciones } = await supabase
@@ -441,7 +467,11 @@ export async function obtenerDetalleDisputa(disputaId: string) {
 
   return {
     data: {
-      disputa,
+      disputa: fechasDisputaUTC(disputa),
+      stripe_dashboard_url: disputa.stripe_disputa_id ? `https://dashboard.stripe.com/${
+        process.env.DIIME_QA_PROFILE === "sandbox" && /^acct_[A-Za-z0-9]+$/.test(process.env.DIIME_QA_STRIPE_ACCOUNT_ID || "")
+          ? `${process.env.DIIME_QA_STRIPE_ACCOUNT_ID}/` : ""
+      }${escrow?.stripe_session_id?.startsWith("cs_test_") ? "test/" : ""}disputes/${encodeURIComponent(disputa.stripe_disputa_id)}` : null,
       responsable,
       actor_id: auth.user.id,
       trabajo,
@@ -451,6 +481,7 @@ export async function obtenerDetalleDisputa(disputaId: string) {
       solicitud,
       oferta,
       mensajes,
+      facturacion: facturacion.data || [],
       actualizaciones: actualizaciones || [],
     },
   }

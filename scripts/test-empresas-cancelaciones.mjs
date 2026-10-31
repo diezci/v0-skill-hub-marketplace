@@ -3,6 +3,8 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import vm from 'node:vm'
 import ts from 'typescript'
+const attachmentModule={exports:{}}
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/cancelacion-adjuntos.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module:attachmentModule,exports:attachmentModule.exports,URL,Set,process:{env:{}}})
 const revision='11111111-2222-3333-4444-555555555555'
 const job={cancelacion_revision:revision, id:'job',solicitud_id:'request',oferta_id:'offer',cliente_id:'original-buyer',profesional_id:'original-provider',empresa_cliente_id:'buyer-company',empresa_proveedora_id:'provider-company',operador_cliente_id:'buyer-operator',operador_proveedor_id:'provider-operator',estado:'en_progreso',titulo:'Trabajo',cancelacion_estado:'pendiente',cancelacion_solicitada_por:'former-buyer',cancelacion_parte_solicitante:'cliente' }
 function scenario({user={id:'buyer-operator'},denied=false,denySide=false}={}) {
@@ -13,6 +15,7 @@ function scenario({user={id:'buyer-operator'},denied=false,denySide=false}={}) {
    rpc:async(name,args)=>{calls.push(['rpc',name,args]);return{data:{...job,parte_actor:'cliente',stripe_account_id:'must-not-return'}}},
  }
  const deps={
+  '@/lib/cancelacion-adjuntos':attachmentModule.exports,
   '@/lib/notificaciones-contexto':{construirLinkNotificacion:(p)=>{calls.push(['link-context',p]);return p.seccion}},
   '@/lib/i18n-servidor':{textoServidor:async t=>t},
   '@/lib/supabase/server':{createClient:async()=>session},

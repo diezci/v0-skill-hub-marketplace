@@ -8,6 +8,7 @@ import { identidadesEmpresas, validarActorTrabajoEmpresa } from "@/lib/empresas/
 import { destinatariosOperacionEmpresa } from "@/lib/empresas/notificaciones"
 import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { validarAdjuntosCancelacion } from "@/lib/cancelacion-adjuntos"
 
 export async function crearTrabajo(data: {
   oferta_id: string
@@ -222,31 +223,6 @@ async function postMensajeTrabajo(supabase: any, userId: string, trabajo: any, c
 
 // Solicita la cancelación de mutuo acuerdo antes del pago o durante el trabajo.
 // La otra parte deberá aceptarla o rechazarla.
-const MAX_ADJUNTOS_CANCELACION = 5
-
-function validarAdjuntosCancelacion(archivos: string[] | undefined) {
-  if (!archivos) return { archivos: [] as string[] }
-  if (!Array.isArray(archivos)) return { error: "Los archivos adjuntos no son válidos." }
-
-  const unicos = [...new Set(archivos.map((url) => url?.trim()).filter(Boolean))]
-  if (unicos.length > MAX_ADJUNTOS_CANCELACION) {
-    return { error: `Puedes adjuntar un máximo de ${MAX_ADJUNTOS_CANCELACION} archivos.` }
-  }
-  if (
-    unicos.some((url) => {
-      try {
-        return new URL(url).protocol !== "https:"
-      } catch {
-        return true
-      }
-    })
-  ) {
-    return { error: "Hay un archivo adjunto no válido." }
-  }
-
-  return { archivos: unicos }
-}
-
 type ParteCancelacion = "cliente" | "proveedor"
 
 async function destinatarioCancelacion(admin: any, trabajo: any, parte: ParteCancelacion) {

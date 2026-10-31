@@ -209,6 +209,24 @@ function peticionApns(host: string, token: string, aviso: AvisoPush): Promise<{ 
 }
 
 async function enviarIos(token: string, aviso: AvisoPush): Promise<ResultadoEnvio> {
+  const entorno = process.env.APNS_ENVIRONMENT?.trim()
+  if (process.env.DIIME_QA_PROFILE === "sandbox" && entorno !== "sandbox") {
+    return { ok: false, detalle: "APNs requiere entorno sandbox en QA" }
+  }
+  if (entorno && !["sandbox", "production"].includes(entorno)) {
+    return { ok: false, detalle: "Entorno APNs no válido" }
+  }
+  if (entorno) {
+    const host = entorno === "sandbox" ? "api.sandbox.push.apple.com" : "api.push.apple.com"
+    const resultado = await peticionApns(host, token, aviso)
+    if (resultado.status === 200) return { ok: true }
+    console.warn(`[push] apns_rejected environment=${entorno} status=${resultado.status} reason=${resultado.reason || "unknown"}`)
+    return {
+      ok: false,
+      permanente: ["BadDeviceToken", "DeviceTokenNotForTopic", "Unregistered"].includes(resultado.reason || ""),
+      detalle: resultado.reason || `APNs ${resultado.status}`,
+    }
+  }
   // Las builds instaladas desde Xcode usan sandbox; TestFlight/App Store usan
   // producción. Probamos el entorno de producción primero y, si el token no
   // pertenece a él, repetimos una sola vez en sandbox.

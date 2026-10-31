@@ -2,7 +2,7 @@
 
 import { useIdioma } from "@/components/idioma-provider"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -69,6 +69,7 @@ export default function AdminUsuariosPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [tipoFilter, setTipoFilter] = useState<string>("todos")
   const [usuarioPendiente, setUsuarioPendiente] = useState<Usuario | null>(null)
+  const verificacionTriggerRef = useRef<HTMLButtonElement | null>(null)
   const [actualizandoId, setActualizandoId] = useState<string | null>(null)
   const [adminId, setAdminId] = useState<string | null>(null)
   const supabase = createClient()
@@ -103,13 +104,22 @@ export default function AdminUsuariosPage() {
 
       if (error) throw error
 
-      const { data: contactos } = await supabase.rpc("contacto_perfiles", {
-        p_ids: ((data as any[]) || []).map((u: any) => u.id),
-      })
+      // Large directories can exhaust the RPC statement timeout. Keep each
+      // authorization-checked request bounded and never silently hide its error.
+      const contactos: Array<{ id: string; email?: string; telefono?: string }> = []
+      const ids = ((data as any[]) || []).map((u: any) => u.id)
+      for (let offset = 0; offset < ids.length; offset += 50) {
+        const { data: lote, error: contactosError } = await supabase.rpc("contacto_perfiles", {
+          p_ids: ids.slice(offset, offset + 50),
+        })
+        if (contactosError) throw contactosError
+        contactos.push(...(lote || []))
+      }
+      const contactosPorId = new Map(contactos.map((contacto) => [contacto.id, contacto]))
 
       // Transform the data to handle the array/single object difference
       const transformedData = ((data as any[]) || []).map((user: any) => {
-        const c = (contactos as any[] | null)?.find((x: any) => x.id === user.id)
+        const c = contactosPorId.get(user.id)
         return {
           ...user,
           email: c?.email ?? "",
@@ -121,6 +131,7 @@ export default function AdminUsuariosPage() {
       setUsuarios(transformedData)
     } catch (error) {
       console.error("Error loading users:", error)
+      toast({ title: t("No se pudieron cargar los usuarios"), description: t("Ha ocurrido un error inesperado. Inténtalo de nuevo."), variant: "destructive" })
     } finally {
       setLoading(false)
     }
@@ -407,7 +418,10 @@ export default function AdminUsuariosPage() {
                             size="sm"
                             variant="outline"
                             disabled={actualizandoId !== null}
-                            onClick={() => setUsuarioPendiente(usuario)}
+                            onClick={(event) => {
+                              verificacionTriggerRef.current = event.currentTarget
+                              setUsuarioPendiente(usuario)
+                            }}
                           >
                             {actualizandoId === usuario.id ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
@@ -426,7 +440,14 @@ export default function AdminUsuariosPage() {
       </Card>
 
       <AlertDialog open={!!usuarioPendiente} onOpenChange={(open) => !open && setUsuarioPendiente(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent
+          onCloseAutoFocus={(event) => {
+            if (verificacionTriggerRef.current?.isConnected) {
+              event.preventDefault()
+              verificacionTriggerRef.current.focus()
+            }
+          }}
+        >
           <AlertDialogHeader>
             <AlertDialogTitle>
               {t("¿Retirar la verificación?")}</AlertDialogTitle>

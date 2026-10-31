@@ -7,6 +7,10 @@ import { desvincularPushActual } from "@/lib/push/client"
 // confirman. Un fallo conserva la sesión y permite repetir la operación.
 let cierrePendiente: Promise<void> | null = null
 
+export function cierreSesionSolicitado() {
+  return cierrePendiente !== null
+}
+
 export function cerrarSesionActual(scope: "local" | "global" = "local") {
   if (!cierrePendiente) {
     cierrePendiente = confirmarCierre(scope).finally(() => { cierrePendiente = null })

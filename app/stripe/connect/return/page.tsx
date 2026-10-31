@@ -1,12 +1,14 @@
 import { redirect } from "next/navigation"
 import { StripeConnectRetornoNativo } from "@/components/stripe-connect-retorno-nativo"
+import { createClient } from "@/lib/supabase/server"
+import { destinoAuthSeguro } from "@/lib/auth-redirect"
 
 function primerValor(valor?: string | string[]) {
   return Array.isArray(valor) ? valor[0] : valor
 }
 
 function rutaSegura(valor?: string) {
-  return valor?.startsWith("/") && !valor.startsWith("//") ? valor : "/cobros"
+  return destinoAuthSeguro(valor, "/cobros")
 }
 
 function conEstado(ruta: string) {
@@ -33,5 +35,9 @@ export default async function StripeConnectReturnPage({
   // La tarjeta de cobros consulta Stripe al montarse en la página de destino.
   // No se revalida aquí: este retorno también debe funcionar en navegadores
   // externos que no comparten las cookies de la WebView.
-  redirect(conEstado(volverA))
+  const destino = conEstado(volverA)
+  const supabase = await createClient()
+  const usuario = supabase ? await supabase.auth.getUser() : null
+  if (!usuario?.data.user) redirect(`/auth/login?next=${encodeURIComponent(destino)}`)
+  redirect(destino)
 }

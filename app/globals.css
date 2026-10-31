@@ -132,6 +132,10 @@
 }
 
 @layer base {
+  html {
+    /* Keep browser/reader focus scrolling clear of the fixed public header. */
+    scroll-padding-top: calc(5rem + var(--diime-safe-top));
+  }
   * {
     @apply border-border outline-ring/50;
   }
@@ -240,10 +244,17 @@ html[data-native="true"][data-messages-view="true"] body {
   padding-top: 0;
 }
 
-html[data-native="true"][data-messages-view="true"] main {
-  height: var(--diime-viewport-height, 100dvh);
-  padding-top: calc(4rem + var(--diime-safe-top));
-  padding-bottom: var(--diime-safe-bottom);
+html[data-native="true"][data-messages-view="true"] [data-app-main] {
+  /* WKWebView puede desplazar el documento al enfocar el compositor o al
+     regresar del selector de fotos. Anclar la vista mantiene su cabecera y
+     el botón de volver por debajo del navbar durante esas transiciones. */
+  position: fixed;
+  top: calc(4rem + var(--diime-safe-top));
+  right: 0;
+  left: 0;
+  height: max(0px, calc(var(--diime-viewport-height, 100dvh) - 4rem - var(--diime-safe-top) - var(--diime-safe-bottom)));
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 html[data-native="true"] .messages-profile-panel {

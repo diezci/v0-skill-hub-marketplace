@@ -47,7 +47,7 @@ const config: CapacitorConfig = {
       disableBackButtonHandler: true,
     },
     Keyboard: {
-      resize: KeyboardResize.Body,
+      resize: KeyboardResize.Native,
       resizeOnFullScreen: true,
     },
     PushNotifications: {

@@ -53,6 +53,11 @@ export async function liquidarPagoReclamado(admin: any, escrow: any) {
     throw new Error("La liquidación anterior requiere conciliar su decisión antes de continuar.")
   }
   try {
+    const { data: bancosGanados, error: bancosError } = await admin.from("disputas")
+      .select("stripe_disputa_id").eq("escrow_id", escrow.id).eq("origen", "stripe")
+      .eq("estado", "resuelta").eq("stripe_disputa_estado", "won")
+      .eq("contracargo_conciliacion->>estado", "completada")
+    if (bancosError) throw bancosError
     if (contexto.empresa_proveedora_id && Number(escrow.pago_neto_proveedor) > 0 &&
       escrow.liquidacion_estado !== "completada" && !escrow.stripe_transfer_id) {
       if (!contexto.destino) {
@@ -77,6 +82,7 @@ export async function liquidarPagoReclamado(admin: any, escrow: any) {
           refundId: escrow.stripe_refund_id,
           reintentarTrasRefundId: escrow.stripe_refund_reintento_de,
           transferId: escrow.stripe_transfer_id,
+          contracargosGanadosConciliados: (bancosGanados || []).map((d: any) => d.stripe_disputa_id).filter(Boolean),
           reembolsoCliente: Number(escrow.monto_reembolsado),
           netoProveedor: Number(escrow.pago_neto_proveedor),
           operacionId: escrow.liquidacion_operacion_id,

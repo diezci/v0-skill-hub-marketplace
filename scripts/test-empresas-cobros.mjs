@@ -40,10 +40,11 @@ function setup(cuenta = account) {
     '@/lib/stripe': { stripe }, '@/lib/empresas/cobros': cobros, '@/lib/ofertas-perdedoras': {},
     '@/lib/stripe-liquidacion': {
       crearTransferGroup: () => 'group',
+      ReembolsoStripeNoCompletado: class extends Error {},
       ejecutarLiquidacionStripe: async args => { movements.push(args); return { chargeId: 'charge', transferId: 'transfer' } },
     },
   })
-  const chain = { update: () => chain, eq: () => chain, neq: async () => ({}) }
+  const chain = { select: () => chain, update: () => chain, eq: () => chain, neq: async () => ({}), then: resolve => resolve({ data: [] }) }
   const admin = {
     from: () => chain,
     rpc: async (name, args) => { rpcCalls.push({ name, args }); return { data: { ok: true } } },
@@ -108,11 +109,26 @@ await check('New independent contracts cannot use company accounts through the h
 })
 await check('Company payment requires financial permission on the customer side', async () => {
   const f = setup()
+  const auth = { getUser: async () => ({ data: { user: { id: 'customer-employee' } } }) }
   for (const data of [null, false]) {
-    assert.equal(await f.cobros.puedePagarTrabajo({ rpc: async () => ({ data }) }, trabajo, 'customer-employee'), false)
+    assert.equal(await f.cobros.puedePagarTrabajo({ auth, rpc: async () => ({ data }) }, trabajo, 'customer-employee'), false)
   }
-  assert.equal(await f.cobros.puedePagarTrabajo({ rpc: async () => ({ data: true }) }, trabajo, 'customer-employee'), true)
-  assert.equal(await f.cobros.puedePagarTrabajo({ rpc: async () => ({ data: false }) }, trabajo, 'unrelated-user'), false)
+  assert.equal(await f.cobros.puedePagarTrabajo({ auth, rpc: async () => ({ data: true }) }, trabajo, 'customer-employee'), true)
+  assert.equal(await f.cobros.puedePagarTrabajo({ auth, rpc: async () => ({ data: false }) }, trabajo, 'unrelated-user'), false)
+})
+await check('A revoked or changed session cannot obtain company or personal Checkout access', async () => {
+  const f = setup()
+  for (const empresa_cliente_id of ['customer-company', null]) {
+    for (const result of [{ data: { user: null }, error: new Error('Session revoked') }, { data: { user: { id: 'another-user' } } }]) {
+      const client = { auth: { getUser: async () => result }, rpc: async () => { throw Error('No permission RPC after Auth rejection') } }
+      assert.equal(await f.cobros.puedePagarTrabajo(client, { ...trabajo, empresa_cliente_id }, trabajo.cliente_id), false)
+    }
+    let active = true
+    const client = { auth: { getUser: async () => ({ data: { user: active ? { id: trabajo.cliente_id } : null } }) }, rpc: async () => ({ data: true }) }
+    assert.equal(await f.cobros.puedePagarTrabajo(client, { ...trabajo, empresa_cliente_id }, trabajo.cliente_id), true)
+    active = false
+    assert.equal(await f.cobros.puedePagarTrabajo(client, { ...trabajo, empresa_cliente_id }, trabajo.cliente_id), false)
+  }
 })
 await check('The actual Checkout action rejects a revoked original customer before Stripe or admin mutation', async () => {
   const f = setup()

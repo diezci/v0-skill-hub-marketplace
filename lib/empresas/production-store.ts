@@ -12,7 +12,7 @@ type InvitacionRow = { id: string; email?: string; cargo: string; estado: Invita
 type PublicaRow = { empresa: EmpresaRow; miembros?: MiembroRow[]; portfolio?: Array<{ id: string; trabajo_id?: string; titulo: string; descripcion?: string; categoria?: string; ubicacion?: string; rango_precio?: string; fecha_proyecto?: string; created_at?: string; imagen?: string; participantes_ids?: string[] }>; resenas?: Array<{ id: string; trabajo_id: string; autor: string; rating: number; comentario: string; created_at: string }> }
 type WorkspaceRow = { empresa: EmpresaRow; miembros: MiembroRow[]; invitaciones: InvitacionRow[]; actividad: Array<{ id: string; actor_usuario_id: string; actor_nombre: string; accion: string; entidad_tipo?: string; entidad_id?: string; detalle?: Record<string, unknown>; created_at: string }>; es_titular: boolean; usuario_id: string; plataforma_admin?: boolean; verificacion?: VerificacionRow | null; operaciones?: { solicitudes: OperacionRow[]; ofertas: OperacionRow[]; trabajos: OperacionRow[] } }
 type VerificacionRow = { id: string; estado: EstadoVerificacionEmpresa; metodo: "certificado" | "documental"; representante_nombre: string; cargo_legal: string; responsable_usuario_id: string; documento_nombre: string; nota_revision?: string; creada_at: string; revisada_at?: string }
-type OperacionRow = { id: string; titulo: string; descripcion?: string; estado: string; fecha: string; actor_usuario_id: string; actor_nombre: string; precio?: number; solicitud_id?: string; trabajo_id?: string; parte?: "cliente" | "proveedor"; operador_usuario_id?: string; operador_nombre?: string; progreso?: number; cancelacion_estado?: string | null; cancelacion_parte_solicitante?: "cliente" | "proveedor" | null; cancelacion_razon?: string | null; cancelacion_revision?: string | null; disputa_actual?: OperacionEmpresa["disputaActual"] }
+type OperacionRow = { id: string; oferta_origen_id?: string | null; titulo: string; descripcion?: string; estado: string; fecha: string; actor_usuario_id: string; actor_nombre: string; precio?: number; solicitud_id?: string; trabajo_id?: string; parte?: "cliente" | "proveedor"; operador_usuario_id?: string; operador_nombre?: string; progreso?: number; cancelacion_estado?: string | null; cancelacion_parte_solicitante?: "cliente" | "proveedor" | null; cancelacion_razon?: string | null; fecha_entrega?: string | null; cancelacion_revision?: string | null; liquidacion?: OperacionEmpresa["liquidacion"]; disputa_actual?: OperacionEmpresa["disputaActual"] }
 
 function ficha(row: EmpresaRow): EmpresaFicha {
   return { id: row.id, slug: row.id, nombre: row.nombre, razonSocial: row.razon_social || row.nombre, nif: row.cif || "", descripcion: row.descripcion || "", web: row.sitio_web || "", ubicacion: row.ubicacion || "", provincias: row.provincias || [], servicios: row.servicios || [], logoUrl: row.logo || undefined, estadoVerificacion: row.estado_verificacion || (row.verificada ? "verificada" : "borrador"), representanteNombre: "", cargoLegal: "" }
@@ -76,6 +76,23 @@ export async function espacioEmpresaReal(): Promise<ResultadoEmpresa<EspacioEmpr
   const row = result.data
   const miembros = row.miembros.map(miembro)
   const miembroActual = miembros.find((m) => m.usuarioId === row.usuario_id) || null
+  // Read only the status of jobs already authorized by empresa_workspace.
+  // The authenticated client preserves financial RLS; no amounts, Stripe IDs
+  // or internal provider errors are sent to the company workspace.
+  const trabajos = row.operaciones?.trabajos || []
+  if (trabajos.length) {
+    const supabase = await createClient()
+    if (!supabase) return { error: "No se pudo consultar el estado de la liquidación." }
+    const ids = [...new Set(trabajos.map((t) => t.trabajo_id || t.id))]
+    const estados = new Map<string, NonNullable<OperacionEmpresa["liquidacion"]>>()
+    for (let i = 0; i < ids.length; i += 500) {
+      const { data, error } = await supabase.from("transacciones_escrow")
+        .select("trabajo_id,estado,liquidacion_estado").eq("estado", "liquidando").in("trabajo_id", ids.slice(i, i + 500))
+      if (error) return { error: "No se pudo consultar el estado de la liquidación." }
+      for (const e of data || []) estados.set(e.trabajo_id, { estado: e.estado, liquidacion_estado: e.liquidacion_estado })
+    }
+    for (const t of trabajos) t.liquidacion = estados.get(t.trabajo_id || t.id) || null
+  }
   return { data: { empresa: ficha(row.empresa), miembros, miembroActual, actor: { id: row.usuario_id, nombre: miembroActual?.nombre || "", email: miembroActual?.email || "", plataformaAdmin: row.plataforma_admin === true }, invitaciones: row.invitaciones.map((i) => invitacion(i, row.empresa.id)), actividad: row.actividad.map((a) => ({ id: a.id, actorUsuarioId: a.actor_usuario_id, actorNombre: a.actor_nombre, accion: a.accion, fecha: a.created_at, entidadTipo: a.entidad_tipo, entidadId: a.entidad_id, detalle: a.detalle })), verificacion: row.verificacion ? verificacionReal(row.verificacion) : null, solicitudes: [], operaciones: { solicitudes: (row.operaciones?.solicitudes || []).map(operacion), ofertas: (row.operaciones?.ofertas || []).map(operacion), trabajos: (row.operaciones?.trabajos || []).map(operacion) }, local: false } }
 }
 
@@ -103,5 +120,5 @@ export function verificacionReal(row: VerificacionRow): SolicitudVerificacionEmp
   return { id: row.id, estado: row.estado, metodo: row.metodo, representanteNombre: row.representante_nombre, cargoLegal: row.cargo_legal, responsableUsuarioId: row.responsable_usuario_id, documentoNombre: row.documento_nombre, notaRevision: row.nota_revision, creadaEn: row.creada_at, revisadaEn: row.revisada_at }
 }
 function operacion(row: OperacionRow): OperacionEmpresa {
-  return { id: row.id, titulo: row.titulo, descripcion: row.descripcion || "", estado: row.estado, fecha: row.fecha, actorUsuarioId: row.actor_usuario_id, actorNombre: row.actor_nombre, precio: row.precio == null ? undefined : Number(row.precio), solicitudId: row.solicitud_id, trabajoId: row.trabajo_id, parte: row.parte, operadorUsuarioId: row.operador_usuario_id, operadorNombre: row.operador_nombre, progreso: row.progreso, cancelacionEstado: row.cancelacion_estado ?? null, cancelacionParteSolicitante: row.cancelacion_parte_solicitante ?? null, cancelacionRazon: row.cancelacion_razon ?? null, cancelacionRevision: row.cancelacion_revision ?? null, disputaActual: row.disputa_actual ?? null }
+  return { id: row.id, titulo: row.titulo, descripcion: row.descripcion || "", estado: row.estado, fecha: row.fecha, actorUsuarioId: row.actor_usuario_id, actorNombre: row.actor_nombre, precio: row.precio == null ? undefined : Number(row.precio), solicitudId: row.solicitud_id, ofertaOrigenId: row.oferta_origen_id ?? null, trabajoId: row.trabajo_id, parte: row.parte, operadorUsuarioId: row.operador_usuario_id, operadorNombre: row.operador_nombre, progreso: row.progreso, cancelacionEstado: row.cancelacion_estado ?? null, cancelacionParteSolicitante: row.cancelacion_parte_solicitante ?? null, cancelacionRazon: row.cancelacion_razon ?? null, fechaEntrega: row.fecha_entrega ?? null, cancelacionRevision: row.cancelacion_revision ?? null, liquidacion: row.liquidacion ?? null, disputaActual: row.disputa_actual ?? null }
 }

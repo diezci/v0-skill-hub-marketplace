@@ -7,6 +7,7 @@ import type React from "react"
 import { useEffect, useRef, useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
+import { isAuthRetryableFetchError } from "@supabase/supabase-js"
 import * as z from "zod"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -17,7 +18,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { toast } from "@/hooks/use-toast"
 import { Send, Paperclip, X, MapPin, Euro, Clock } from "lucide-react"
 import { uploadFile } from "@/lib/upload-helpers"
-import { crearSolicitud } from "@/app/actions/solicitudes"
+import { crearSolicitud, obtenerSolicitudEnviada } from "@/app/actions/solicitudes"
 import { useRouter } from "next/navigation"
 import { SelectCategoriaJerarquico } from "@/components/select-categoria-jerarquico"
 import { RangoPrecio } from "@/components/rango-precio"
@@ -32,7 +33,13 @@ import {
 import { PROVINCIAS_ES } from "@/lib/provincias"
 import { createClient } from "@/lib/supabase/client"
 import { SolicitudServicioAcceso } from "@/components/solicitud-servicio-acceso"
-import { almacenBorradorSolicitud, borrarBorradorSolicitud, guardarBorradorSolicitud, leerBorradorSolicitud } from "@/lib/borrador-solicitud"
+import {
+  almacenBorradorSolicitud, borrarBorradorSolicitud, guardarBorradorSolicitud, leerBorradorSolicitud,
+  huellaAdjuntoSolicitud, guardarReferenciaAdjuntoSolicitud, recuperarReferenciaAdjuntoSolicitud,
+  type SubidaBorradorSolicitud,
+} from "@/lib/borrador-solicitud"
+
+class PublicacionRechazada extends Error {}
 
 const crearFormSchema = (t: ReturnType<typeof useT>) => z
   .object({
@@ -76,6 +83,10 @@ const SolicitudServicioForm = ({ embedded = false, usuarioId }: Props) => {
   const [borradorRecuperado, setBorradorRecuperado] = useState(false)
   const [adjuntosPendientes, setAdjuntosPendientes] = useState<string[]>([])
   const publicado = useRef(false)
+  const enviando = useRef(false)
+  const envioId = useRef<string | undefined>(undefined)
+  const archivosSubidos = useRef(new Map<File, string>())
+  const referenciasSubidas = useRef<SubidaBorradorSolicitud[]>([])
   const router = useRouter()
 
   useEffect(() => {
@@ -109,6 +120,8 @@ const SolicitudServicioForm = ({ embedded = false, usuarioId }: Props) => {
     // Solo se monta tras validar la sesión en el servidor. La clave incluye
     // al propietario: otra cuenta nunca recupera ni publica este borrador.
     const borrador = leerBorradorSolicitud(almacenBorradorSolicitud(), usuarioId)
+    envioId.current = borrador?.envioId ?? crypto.randomUUID()
+    referenciasSubidas.current = borrador?.subidas ?? []
     if (borrador) {
       form.reset(borrador.valores)
       setEmpresaId(borrador.empresaId)
@@ -123,8 +136,9 @@ const SolicitudServicioForm = ({ embedded = false, usuarioId }: Props) => {
     const guardar = () => {
       if (publicado.current) return
       guardarBorradorSolicitud(almacenBorradorSolicitud(), {
-        usuarioId, valores: form.getValues(), empresaId,
+        usuarioId, valores: form.getValues(), empresaId, envioId: envioId.current,
         adjuntos: [...adjuntosPendientes, ...attachedFiles.map(file => file.name)],
+        subidas: referenciasSubidas.current,
       })
     }
     guardar()
@@ -154,73 +168,121 @@ const SolicitudServicioForm = ({ embedded = false, usuarioId }: Props) => {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     // Los File no sobreviven a una navegación. Nunca publicar silenciosamente
     // sin los adjuntos que el usuario había seleccionado.
-    if (!borradorPreparado || adjuntosPendientes.length) return
+    if (!borradorPreparado || enviando.current || publicado.current) return
+    enviando.current = true
     setIsSubmitting(true)
     try {
       // La sesión puede caducar mientras se rellena el formulario: comprobarla
       // antes de subir cualquier archivo, además del control en crearSolicitud.
       const { data: { user }, error } = await createClient().auth.getUser()
+      // Un fallo de red no invalida la sesión. Mantener el formulario y dejar
+      // que el aviso recuperable permita reintentar cuando vuelva la conexión.
+      if (error && isAuthRetryableFetchError(error)) throw error
       if (error || !user || user.is_anonymous || user.id !== usuarioId) {
         setSesionVigente(false)
         router.refresh()
         return
       }
-      const uploadResults = await Promise.all(attachedFiles.map((file) => uploadFile(file)))
-      // Si falla una subida no se publica la demanda: los profesionales verían
-      // una demanda sin las fotos que creías haber adjuntado.
-      if (uploadResults.some((r) => r === null)) {
-        toast({
-          title: t("No se pudieron subir los archivos"),
-          description: t("Tu demanda no se ha publicado. Inténtalo de nuevo o quita los adjuntos."),
-          variant: "destructive",
+      // Recover a committed request before uploading again after a lost reply.
+      let result: Awaited<ReturnType<typeof crearSolicitud>> | Awaited<ReturnType<typeof obtenerSolicitudEnviada>> = await obtenerSolicitudEnviada(envioId.current!)
+      if (result.error) throw new PublicacionRechazada(result.error)
+      if (!result.data) {
+        if (adjuntosPendientes.length) {
+          toast({ title: t("Faltan los archivos del borrador"), description: t("Vuelve a adjuntarlos o descártalos antes de publicar. No hemos creado una nueva solicitud."), variant: "destructive" })
+          return
+        }
+        const uploadResults = await Promise.all(attachedFiles.map(async (file) => {
+          const existente = archivosSubidos.current.get(file)
+          if (existente) return { url: existente }
+          const sha256 = await huellaAdjuntoSolicitud(file)
+          const contextoSubida = { usuarioId, envioId: envioId.current!, origen: process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== "undefined" ? window.location.origin : "") }
+          const recuperado = sha256 ? recuperarReferenciaAdjuntoSolicitud(referenciasSubidas.current, contextoSubida, file, sha256) : null
+          if (recuperado) {
+            archivosSubidos.current.set(file, recuperado)
+            return { url: recuperado }
+          }
+          const subido = await uploadFile(file)
+          if (subido) {
+            archivosSubidos.current.set(file, subido.url)
+            const referencia = sha256 ? guardarReferenciaAdjuntoSolicitud(contextoSubida, file, sha256, subido.url) : null
+            if (referencia) {
+              referenciasSubidas.current = [...referenciasSubidas.current.filter((previa) => previa.url !== referencia.url), referencia].slice(-100)
+              // Persist before publication: an expired session can unmount the form.
+              // Only internal private references are saved, never upload credentials.
+              guardarBorradorSolicitud(almacenBorradorSolicitud(), {
+                usuarioId, valores: values, empresaId, envioId: envioId.current,
+                adjuntos: [...adjuntosPendientes, ...attachedFiles.map((adjunto) => adjunto.name)],
+                subidas: referenciasSubidas.current,
+              })
+            }
+          }
+          return subido
+        }))
+        // Si falla una subida no se publica la demanda: los profesionales verían
+        // una demanda sin las fotos que creías haber adjuntado.
+        const archivosFallidos = attachedFiles.filter((_, index) => uploadResults[index] === null).map((file) => file.name)
+        if (archivosFallidos.length) {
+          toast({
+            title: t("No se pudieron subir los archivos"),
+            description: t("Tu demanda no se ha publicado. No se pudieron subir: {archivos}. Inténtalo de nuevo o quita esos adjuntos.", { archivos: archivosFallidos.join(", ") }),
+            variant: "destructive",
+          })
+          setIsSubmitting(false)
+          return
+        }
+        const successfulUploads = uploadResults.map((r) => r!.url)
+
+        const [presMin, presMax] = values.budget
+        const fechaNecesaria = values.urgency === OPCION_FECHA_EXACTA ? values.neededDate : undefined
+        result = await crearSolicitud({
+          idempotency_key: envioId.current,
+          empresa_id: empresaId,
+          categoria_id: values.category,
+          titulo: values.title,
+          descripcion: values.description,
+          ubicacion: values.location,
+          // Se guardan las cifras que el cliente ha marcado, tal cual. Antes, si
+          // dejaba el tirador derecho en el tope se tiraba el máximo, y la tarjeta
+          // acababa enseñando "Más de 5.000€" en vez del rango publicado.
+          //
+          // La barra entera de lado a lado es la posición de partida: quien no la
+          // toca no está diciendo "de 0 a 100.000", está diciendo que no lo tiene
+          // decidido, y eso se publica como "A convenir".
+          ...(presMin <= 0 && presMax >= PRECIO_MAX
+            ? { presupuesto_min: undefined, presupuesto_max: undefined }
+            : { presupuesto_min: presMin > 0 ? presMin : undefined, presupuesto_max: presMax }),
+          urgencia: fechaNecesaria ? urgenciaParaFecha(fechaNecesaria) : values.urgency,
+          fecha_necesaria: fechaNecesaria,
+          archivos_adjuntos: successfulUploads,
         })
-        setIsSubmitting(false)
-        return
       }
-      const successfulUploads = uploadResults.map((r) => r!.url)
 
-      const [presMin, presMax] = values.budget
-      const fechaNecesaria = values.urgency === OPCION_FECHA_EXACTA ? values.neededDate : undefined
-      const result = await crearSolicitud({
-        empresa_id: empresaId,
-        categoria_id: values.category,
-        titulo: values.title,
-        descripcion: values.description,
-        ubicacion: values.location,
-        // Se guardan las cifras que el cliente ha marcado, tal cual. Antes, si
-        // dejaba el tirador derecho en el tope se tiraba el máximo, y la tarjeta
-        // acababa enseñando "Más de 5.000€" en vez del rango publicado.
-        //
-        // La barra entera de lado a lado es la posición de partida: quien no la
-        // toca no está diciendo "de 0 a 100.000", está diciendo que no lo tiene
-        // decidido, y eso se publica como "A convenir".
-        ...(presMin <= 0 && presMax >= PRECIO_MAX
-          ? { presupuesto_min: undefined, presupuesto_max: undefined }
-          : { presupuesto_min: presMin > 0 ? presMin : undefined, presupuesto_max: presMax }),
-        urgencia: fechaNecesaria ? urgenciaParaFecha(fechaNecesaria) : values.urgency,
-        fecha_necesaria: fechaNecesaria,
-        archivos_adjuntos: successfulUploads,
-      })
-
-      if (result.error) throw new Error(result.error)
+      if (result.error) throw new PublicacionRechazada(result.error)
 
       publicado.current = true
       borrarBorradorSolicitud(almacenBorradorSolicitud(), usuarioId)
 
       toast({
         title: t("¡Proyecto publicado!"),
-        description: t("Los profesionales ya pueden ver tu solicitud y enviarte ofertas."),
+        description: result.reutilizado
+          ? t("Tu solicitud ya se había publicado. La hemos recuperado sin crear otra; puedes revisar su contenido en Mis Solicitudes.")
+          : t("Los profesionales ya pueden ver tu solicitud y enviarte ofertas."),
       })
       form.reset()
       setAttachedFiles([])
+      archivosSubidos.current.clear()
+      referenciasSubidas.current = []
       router.push("/mis-solicitudes")
     } catch (error) {
       toast({
         title: t("No se pudo publicar"),
-        description: error instanceof Error ? t(error.message) : t("Hubo un problema. Inténtalo de nuevo."),
+        description: error instanceof PublicacionRechazada
+          ? t(error.message)
+          : t("No hemos recibido la confirmación. Tus datos siguen en el formulario. Vuelve a intentarlo; si la solicitud ya se publicó, la recuperaremos."),
         variant: "destructive",
       })
     } finally {
+      enviando.current = false
       setIsSubmitting(false)
     }
   }
@@ -418,7 +480,7 @@ const SolicitudServicioForm = ({ embedded = false, usuarioId }: Props) => {
           )}
         </div>
 
-        <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700" size="lg" disabled={isSubmitting || !borradorPreparado || adjuntosPendientes.length > 0}>
+        <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700" size="lg" disabled={isSubmitting || !borradorPreparado}>
           {isSubmitting ? (
             t("Publicando...")
           ) : (

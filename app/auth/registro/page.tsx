@@ -145,7 +145,7 @@ export default function RegistroPage() {
         documentoPersonal: tipoEntidad === "empresa" ? documentoPersonal : undefined,
         cargoEmpresa: tipoEntidad === "empresa" ? cargoEmpresa || undefined : undefined,
         nombreEmpresa: tipoEntidad === "empresa" ? nombreEmpresa : undefined,
-        next: siguiente || undefined,
+        next: siguiente || (quiereSerProfesional ? "/mi-perfil?completar=profesional" : undefined),
         telefono,
         ubicacion,
         aceptaTerminos,

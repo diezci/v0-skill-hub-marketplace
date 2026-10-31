@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { obtenerEstadoOperativo, obtenerPaginaOperativa, resolverEventoOperativo, type ResumenOperativo } from "@/app/actions/operaciones"
 import { useToast } from "@/hooks/use-toast"
+import { revisarPlazosWorkflow } from "@/app/actions/plazos-workflow"
 
 type Categoria = keyof ResumenOperativo["detalle"]
 
@@ -28,19 +29,27 @@ export default function OperacionesPage() {
   const [cargandoGrupo, setCargandoGrupo] = useState<Categoria | null>(null)
   const [errorCarga, setErrorCarga] = useState("")
   const [resolviendo, setResolviendo] = useState<string | null>(null)
+  const [procesandoPlazos, setProcesandoPlazos] = useState(false)
   const { toast } = useToast()
 
   const cargar = async () => {
     setLoading(true)
     setErrorCarga("")
-    const resultado = await obtenerEstadoOperativo()
-    if (!resultado.ok) {
-      setErrorCarga(resultado.error)
-      toast({ title: t("No se pudo cargar operaciones"), description: resultado.error, variant: "destructive" })
-    } else {
-      setResumen(resultado.data)
+    try {
+      const resultado = await obtenerEstadoOperativo()
+      if (!resultado.ok) {
+        setErrorCarga(resultado.error)
+        toast({ title: t("No se pudo cargar operaciones"), description: resultado.error, variant: "destructive" })
+      } else {
+        setResumen(resultado.data)
+      }
+    } catch {
+      const mensaje = t("No se puede conectar con Diime. Inténtalo de nuevo.")
+      setErrorCarga(mensaje)
+      toast({ title: t("No se pudo cargar operaciones"), description: mensaje, variant: "destructive" })
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   useEffect(() => {
@@ -50,22 +59,27 @@ export default function OperacionesPage() {
   const cargarMas = async (categoria: Categoria) => {
     if (!resumen || loading || cargandoGrupo) return
     setCargandoGrupo(categoria)
-    const resultado = await obtenerPaginaOperativa(categoria, resumen.detalle[categoria].length)
-    if (!resultado.ok) {
-      toast({ title: t("No se pudo cargar operaciones"), description: resultado.error, variant: "destructive" })
-    } else {
-      setResumen(actual => {
-        if (!actual) return actual
-        const anteriores = actual.detalle[categoria]
-        const conocidos = new Set(anteriores.map(fila => fila.id))
-        const filas = [...anteriores, ...resultado.data.filas.filter(fila => !conocidos.has(fila.id))]
-        const totales = { ...actual.totales, [categoria]: resultado.data.total }
-        const alertasTecnicas = totales.eventos + totales.webhooksError + totales.webhooksAtascados + totales.liquidacionesError + totales.liquidacionesAtascadas
-        const alertasOperacion = totales.disputasVencidas + totales.incidenciasCriticas + totales.solicitudesSinOferta
-        return { ...actual, totales, detalle: { ...actual.detalle, [categoria]: filas }, alertasTecnicas, alertasOperacion, total: alertasTecnicas + alertasOperacion }
-      })
+    try {
+      const resultado = await obtenerPaginaOperativa(categoria, resumen.detalle[categoria].length)
+      if (!resultado.ok) {
+        toast({ title: t("No se pudo cargar operaciones"), description: resultado.error, variant: "destructive" })
+      } else {
+        setResumen(actual => {
+          if (!actual) return actual
+          const anteriores = actual.detalle[categoria]
+          const conocidos = new Set(anteriores.map(fila => fila.id))
+          const filas = [...anteriores, ...resultado.data.filas.filter(fila => !conocidos.has(fila.id))]
+          const totales = { ...actual.totales, [categoria]: resultado.data.total }
+          const alertasTecnicas = totales.eventos + totales.webhooksError + totales.webhooksAtascados + totales.liquidacionesError + totales.liquidacionesAtascadas
+          const alertasOperacion = totales.disputasVencidas + totales.incidenciasCriticas + totales.solicitudesSinOferta
+          return { ...actual, totales, detalle: { ...actual.detalle, [categoria]: filas }, alertasTecnicas, alertasOperacion, total: alertasTecnicas + alertasOperacion }
+        })
+      }
+    } catch {
+      toast({ title: t("No se pudo cargar operaciones"), description: t("No se puede conectar con Diime. Inténtalo de nuevo."), variant: "destructive" })
+    } finally {
+      setCargandoGrupo(null)
     }
-    setCargandoGrupo(null)
   }
 
   const paginacion = (categoria: Categoria) => resumen && resumen.detalle[categoria].length < resumen.totales[categoria] ? (
@@ -79,14 +93,31 @@ export default function OperacionesPage() {
 
   const resolver = async (id: string) => {
     setResolviendo(id)
-    const resultado = await resolverEventoOperativo(id)
-    if ("error" in resultado && resultado.error) {
-      toast({ title: t("No se pudo resolver"), description: resultado.error, variant: "destructive" })
-    } else {
-      toast({ title: t("Evento resuelto"), description: t("Volverá a abrirse automáticamente si el fallo se repite.") })
-      await cargar()
+    try {
+      const resultado = await resolverEventoOperativo(id)
+      if ("error" in resultado && resultado.error) {
+        toast({ title: t("No se pudo resolver"), description: resultado.error, variant: "destructive" })
+      } else {
+        toast({ title: t("Evento resuelto"), description: t("Volverá a abrirse automáticamente si el fallo se repite.") })
+        await cargar()
+      }
+    } catch {
+      toast({ title: t("No se pudo resolver"), description: t("No se puede conectar con Diime. Inténtalo de nuevo."), variant: "destructive" })
+    } finally {
+      setResolviendo(null)
     }
-    setResolviendo(null)
+  }
+
+  const procesarPlazos = async () => {
+    setProcesandoPlazos(true)
+    try {
+      const r = await revisarPlazosWorkflow()
+      if (r.error) throw new Error(r.error)
+      toast({ title: t("Plazos revisados"), description: t("Contratos caducados: {caducados}. Recordatorios: {recordatorios}. Pendientes de conciliación: {errores}.", { caducados: r.data!.caducados, recordatorios: r.data!.recordatorios, errores: r.data!.errores.length }) })
+      await cargar()
+    } catch {
+      toast({ title: t("No se pudieron procesar los plazos. Inténtalo de nuevo."), variant: "destructive" })
+    } finally { setProcesandoPlazos(false) }
   }
 
   if (loading && !resumen) {
@@ -113,6 +144,13 @@ export default function OperacionesPage() {
         </div>
         <Button variant="outline" onClick={cargar} disabled={loading || !!cargandoGrupo} className="gap-2">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}{t("Actualizar")}</Button>
+      </div>
+
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted-foreground">{t("Pago sin completar: 15 días. Revisión de entrega: 7 días. Sin liberación automática de fondos.")}</p>
+        <Button variant="outline" onClick={procesarPlazos} disabled={procesandoPlazos}>
+          {procesandoPlazos && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{t("Procesar plazos vencidos")}
+        </Button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">

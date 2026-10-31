@@ -24,3 +24,19 @@ const denied={getItem(){throw Error('denied')},setItem(){throw Error('quota')},r
 assert.equal(save(denied,draft),false);assert.equal(read(denied,'actor-A'),null);clear(denied,'actor-A')
 Object.defineProperty(globalThis,'window',{configurable:true,value:{get sessionStorage(){throw Error('SecurityError')}}});assert.equal(storage(),null);delete globalThis.window
 console.log('PASS actor isolation, expiry, malformed drafts, company identity, attachment manifest, deletion and unavailable storage')
+
+const {huellaAdjuntoSolicitud:fingerprint,guardarReferenciaAdjuntoSolicitud:reference,recuperarReferenciaAdjuntoSolicitud:recover}=exports
+const context={usuarioId:'actor-A',envioId:'da7bfcec-a4af-41bf-8809-c94c0cc1715f',origen:'https://diime.invalid'}
+const file=new File(['original content'],'plano.pdf',{type:'application/pdf'}),same=new File(['original content'],'plano.pdf',{type:'application/pdf'}),changed=new File(['modified content'],'plano.pdf',{type:'application/pdf'})
+const digest=await fingerprint(file),url='https://diime.invalid/api/archivos/4a712101-2f97-435c-9f18-882b3eb6c2ce?nombre=plano.pdf',ref=reference(context,file,digest,url)
+assert.ok(ref)
+assert.equal(recover([ref],context,same,await fingerprint(same)),url)
+assert.equal(recover([ref],context,changed,await fingerprint(changed)),null,'Same name and size with different bytes cannot reuse a reference')
+for(const other of [{...context,usuarioId:'actor-B'},{...context,envioId:'7e6fd47d-e44b-4d56-bf31-5e7c121b92b5'},{...context,origen:'https://foreign.invalid'}])assert.equal(recover([ref],other,same,digest),null)
+for(const candidate of [url.replace('diime.invalid','foreign.invalid'),url+'&token=secret',url.replace('/api/archivos/','/storage/v1/object/sign/'),url.replace('https://','https://user:password@'),url+'#token'])assert.equal(reference(context,file,digest,candidate),null,'External, credentialed and signed references are not cached')
+assert.equal(recover([ref],context,new File(['original content'],'different.pdf',{type:'application/pdf'}),digest),null)
+assert.equal(recover([ref],context,new File(['original content'],'plano.pdf',{type:'text/plain'}),digest),null)
+assert.equal(save(store,{...draft,envioId:context.envioId,subidas:[ref]},1000),true)
+assert.deepEqual(read(store,'actor-A',1001).subidas,[ref])
+clear(store,'actor-A');assert.equal(read(store,'actor-A',1001),null)
+console.log('PASS exact private upload recovery, changed bytes, user/send/metadata isolation, unsafe URL rejection and reference cleanup')

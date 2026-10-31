@@ -6,20 +6,20 @@ const sourceUrl = 'https://ownstore.public.blob.vercel-storage.com/Informe%20cli
 const sourceBytes = Buffer.from('Private historical attachment fixture')
 const options = { projectRef: 'localfixture', siteUrl: 'https://diime.example.test', apply: true }
 function fixture() {
-  const state = { references: new Map([[sourceUrl, 2]]), records: [], objects: new Map(), calls: [], source: sourceBytes, other: false, keepReference: false }
+  const state = { references: new Map([[sourceUrl, 2]]), records: [], objects: new Map(), calls: [], source: sourceBytes, other: false, keepReference: false, etag: '"fixture-v1"' }
   const call = (name, value) => state.calls.push({ name, value })
   const io = {
     async preflight(ref) { call('preflight', ref); assert.equal(ref, 'localfixture') },
     async listOwnedBlobs() { call('list'); return [{ url: sourceUrl, size: sourceBytes.length }] },
     async privateReferences() { call('references'); return new Map(state.references) },
     async listLegacyMetadata() { call('metadataList'); return [...state.records] },
-    async downloadOwnedBlob(blob) { call('sourceDownload', blob.url); assert.equal(blob.url, sourceUrl); return { bytes: state.source, type: 'application/pdf' } },
+    async downloadOwnedBlob(blob) { call('sourceDownload', blob.url); assert.equal(blob.url, sourceUrl); return { bytes: state.source, type: 'application/pdf', etag: state.etag } },
     async uploadPrivate(name, bytes) { call('upload', name); if (!state.objects.has(name)) state.objects.set(name, Buffer.from(bytes)) },
     async downloadPrivate(name) { call('privateDownload', name); return state.objects.get(name) },
     async insertMetadataOrReadExisting(record) { call('insert', record.id); const existing = state.records.find(row => row.legacy_url === record.legacy_url); if (existing) return existing; state.records.push(record); return record },
     async replaceReferences(id) { call('replace', id); if (!state.keepReference) state.references.delete(state.records.find(row => row.id === id).legacy_url) },
     async hasOtherReferences(url) { call('otherReferences', url); return state.other },
-    async deleteOwnedBlob(blob) { call('delete', blob.url) },
+    async deleteOwnedBlob(blob, etag) { assert.equal(etag, state.etag); call('delete', blob.url) },
   }
   return { io, state }
 }
@@ -64,6 +64,15 @@ await check('Explicit deletion verifies both objects afresh and checks all refer
   assert.equal(count(state, 'sourceDownload'), 2); assert.equal(count(state, 'delete'), 1)
   const names = state.calls.map(call => call.name)
   assert.deepEqual(names.slice(-3), ['references', 'otherReferences', 'delete'])
+})
+await check('Absent and weak source validators preserve the original', async () => {
+  for (const etag of [null, '', 'W/"fixture-v1"']) {
+    const { io, state } = fixture(); state.etag = etag
+    const report = await migrateAttachments(io, { ...options, deletePublicOriginals: true })
+    assert.equal(status(report), 'error_original_retained')
+    assert.equal(report.entries[0].error, 'SOURCE_STRONG_ETAG_REQUIRED')
+    assert.equal(count(state, 'delete'), 0)
+  }
 })
 await check('URLs also used as public images or any other field keep their original', async () => {
   for (const publicField of ['profiles.foto_perfil', 'profiles.foto_portada', 'portfolio.imagenes', 'empresas.logo_url', 'unknown_table.content']) {

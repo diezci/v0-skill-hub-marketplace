@@ -47,7 +47,27 @@ export async function crearNotificacion(params: {
   if (aviso.metadata?.empresa_id) {
     const financiero = ["pago_liberado", "reembolso_emitido", "reembolso_fallido", "disputa_ganada", "disputa_perdida", "disputa_resuelta"].includes(aviso.tipo)
     const destinatarios = await destinatariosOperacionEmpresa(admin, aviso.metadata.empresa_id, aviso.usuario_id, financiero ? "ver_cobros" : "encargos")
-    if (!destinatarios.includes(aviso.usuario_id)) return
+    if (!destinatarios.includes(aviso.usuario_id)) {
+      // La revocación puede ocurrir después del INSERT. Conservar un aviso
+      // para los responsables actuales antes de enviar sus canales externos.
+      // El trigger vuelve a validar cada INSERT; luego comprobamos otra vez
+      // el destinatario persistido. Una segunda revocación suprime el envío.
+      const enviados = new Set<string>()
+      for (const usuarioId of new Set(destinatarios)) {
+        if (usuarioId === user.id || enviados.has(usuarioId)) continue
+        const { data: vigente, error: redireccionError } = await admin.from("notificaciones").insert({
+          ...aviso, usuario_id: usuarioId, leida: false,
+        }).select("usuario_id, tipo, titulo, mensaje, link, metadata").maybeSingle()
+        if (redireccionError || !vigente || vigente.usuario_id === user.id || enviados.has(vigente.usuario_id)) continue
+        const actuales = await destinatariosOperacionEmpresa(admin, aviso.metadata.empresa_id, vigente.usuario_id, financiero ? "ver_cobros" : "encargos")
+        if (!actuales.includes(vigente.usuario_id)) continue
+        const { data: { user: actorVigente } } = await supabase.auth.getUser()
+        if (!actorVigente || actorVigente.id !== user.id) return
+        enviados.add(vigente.usuario_id)
+        await enviarAvisoExterno(vigente)
+      }
+      return
+    }
   }
   await enviarAvisoExterno(aviso)
 }

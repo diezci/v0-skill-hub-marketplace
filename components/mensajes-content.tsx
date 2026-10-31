@@ -134,6 +134,9 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
   const [showMobileChat, setShowMobileChat] = useState(false)
   const [activeTab, setActiveTab] = useState<"all" | "unread" | "archived">("all")
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const seguirFinalMensajes = useRef(true)
+  const mostrarFinalMensajes = useRef(true)
+  const lecturaEnCurso = useRef<{ convId: string; sesion: number; lectura: number } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messageComposerRef = useRef<HTMLTextAreaElement>(null)
   const [loadingMessages, setLoadingMessages] = useState(true) // Added state for message loading
@@ -144,8 +147,8 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
   const sendingMessage = !!(selectedConversation && enviosPendientes[selectedConversation.id])
   const searchParams = useSearchParams()
   const router = useRouter()
-  // Último destino aplicado desde la URL. Un clic no lo cambia hasta que
-  // router.replace termina: mientras tanto la URL anterior no debe reabrirse.
+  // Último destino aplicado desde la URL. Un clic actualiza el historial al
+  // instante; mientras React sincroniza searchParams no debe reabrirse la URL anterior.
   const autoSelectId = useRef("")
   const navegacionConversacion = useRef<{ destino: string; anteriores: Set<string>; origen: typeof searchParams } | null>(null)
   const [versionHistorial, setVersionHistorial] = useState(0)
@@ -192,11 +195,13 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
     if (viewport) viewport.scrollTop = viewport.scrollHeight
   }
 
-  // Solo bajar el scroll cuando llega un mensaje nuevo, no en cada refresco en
-  // vivo (si el usuario está leyendo mensajes antiguos no hay que moverle).
+  // Una llegada ajena sigue el final únicamente si ya se estaba leyendo allí.
+  // Cambiar de conversación o enviar sí lleva al mensaje que acaba de abrirse.
   const ultimoMensajeId = messages.length > 0 ? messages[messages.length - 1].id : null
   useEffect(() => {
-    scrollToBottom()
+    if (!ultimoMensajeId) return
+    if (mostrarFinalMensajes.current || seguirFinalMensajes.current) scrollToBottom()
+    mostrarFinalMensajes.current = false
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ultimoMensajeId])
 
@@ -220,6 +225,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
       usuarioActual.current = id
       const version = ++versionSesion.current
       ++versionLectura.current
+      lecturaEnCurso.current = null
       const lecturaLista = ++versionLista.current
       ++versionValoracion.current
       conversacionActual.current = null
@@ -284,7 +290,10 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
       anteriores: new Set([actual, ...(pendiente?.anteriores || []), ...(pendiente ? [pendiente.destino] : [])]),
     }
     const ruta = enPanelAdmin ? "/admin/mensajes" : "/mensajes"
-    router.replace(destino ? `${ruta}?c=${encodeURIComponent(destino)}` : ruta, { scroll: false })
+    // La selección ya se carga en este componente. History mantiene la URL
+    // recargable sin ponerla detrás de las lecturas y acciones de mensajes.
+    // Next sincroniza useSearchParams con esta API nativa sin otra navegación.
+    window.history.replaceState(null, "", destino ? `${ruta}?c=${encodeURIComponent(destino)}` : ruta)
   }
 
   const handleSelectConversation = async (conv: Conversation) => {
@@ -292,6 +301,9 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
     const sesion = versionSesion.current
     const lectura = ++versionLectura.current
     conversacionActual.current = conv.id
+    lecturaEnCurso.current = { convId: conv.id, sesion, lectura }
+    mostrarFinalMensajes.current = true
+    seguirFinalMensajes.current = true
     ++versionValoracion.current
     setReviewTrabajo(null)
     setReviewSubmitting(false)
@@ -314,6 +326,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
     } catch {
       if (versionSesion.current === sesion && versionLectura.current === lectura && conversacionActual.current === conv.id) toast({ title: t("Error"), description: t("No se pudo cargar la conversación. Vuelve a intentarlo."), variant: "destructive" })
     } finally {
+      if (lecturaEnCurso.current?.lectura === lectura) lecturaEnCurso.current = null
       if (versionSesion.current === sesion && versionLectura.current === lectura && conversacionActual.current === conv.id) setLoadingMessages(false)
     }
 
@@ -350,7 +363,11 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
     const id = setInterval(async () => {
       if (document.visibilityState !== "visible" || !usuarioActual.current || usuarioActual.current !== currentUserId) return
       const sesion = versionSesion.current
+      // Do not supersede a slow read of this same conversation every four
+      // seconds; it must be allowed to finish before the next poll starts.
+      if (conversacionActual.current !== convId || (lecturaEnCurso.current?.convId === convId && lecturaEnCurso.current.sesion === sesion)) return
       const lectura = ++versionLectura.current
+      lecturaEnCurso.current = { convId, sesion, lectura }
       try {
         const result = await obtenerMensajes(convId)
         if (!activo || versionSesion.current !== sesion || versionLectura.current !== lectura || conversacionActual.current !== convId || result.error) return
@@ -363,6 +380,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
         }
       } catch { /* Retry at the next poll without clearing the conversation. */ }
       finally {
+        if (lecturaEnCurso.current?.lectura === lectura) lecturaEnCurso.current = null
         if (activo && versionSesion.current === sesion && versionLectura.current === lectura && conversacionActual.current === convId) setLoadingMessages(false)
       }
     }, 4000)
@@ -484,6 +502,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
       }
       const mensaje = result.data
       if (conversacionActual.current === convId) {
+        mostrarFinalMensajes.current = true
         ++versionLectura.current
         setMessages(actuales => actuales.some(m => m.id === mensaje.id) ? actuales : [...actuales, mensaje])
         setLoadingMessages(false)
@@ -521,6 +540,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
       if (result.error || !result.data) {
         toast({ title: t("Error"), description: t(result.error || "No se pudo enviar el mensaje. Inténtalo de nuevo."), variant: "destructive" })
       } else if (result.data && conversacionActual.current === convId) {
+        mostrarFinalMensajes.current = true
         ++versionLectura.current
         const mensaje = result.data
         setMessages(actuales => actuales.some(m => m.id === mensaje.id) ? actuales : [...actuales, mensaje])
@@ -549,7 +569,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
     // contexto del contacto. Los contratos siguen abriendo su sección de trabajo.
     const seccion = enPanelAdmin
       ? trabajo_id ? "/admin/trabajos" : "/demandas"
-      : empresaPropia
+      : empresaPropia && (trabajo_id || mi_rol === "cliente")
         ? "/mi-empresa"
         : mi_rol === "proveedor"
           ? trabajo_id ? "/mis-trabajos" : "/demandas"
@@ -889,6 +909,7 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                     variant="ghost"
                     size="icon"
                     className="shrink-0 md:hidden"
+                    aria-label={t("Volver a conversaciones")}
                     onClick={cerrarConversacion}
                   >
                     <ArrowLeft className="h-5 w-5" />
@@ -978,7 +999,11 @@ export default function MensajesContent({ enPanelAdmin = false }: { enPanelAdmin
                   un mensaje con una palabra muy larga (una URL, un número) no
                   se encoge, empuja toda la fila y recorta el panel de la
                   derecha en vez de quedarse dentro de su burbuja. */}
-              <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
+              <div className="flex-1 min-h-0 min-w-0 overflow-hidden" onScrollCapture={(event) => {
+                const viewport = event.target as HTMLElement
+                if (!viewport.hasAttribute("data-radix-scroll-area-viewport")) return
+                seguirFinalMensajes.current = viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop < 80
+              }}>
                 <ScrollArea className="h-full w-full">
                   <div className="p-4 space-y-4">
                   {loadingMessages ? (

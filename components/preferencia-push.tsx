@@ -26,12 +26,6 @@ export function PreferenciaPush() {
     }
 
     let activo = true
-    PushNotifications.checkPermissions()
-      .then(({ receive }) => {
-        if (activo) setEstado(receive === "granted" ? "granted" : receive === "denied" ? "denied" : "prompt")
-      })
-      .catch(() => activo && setEstado("error"))
-
     const alCambiar = (evento: Event) => {
       const detail = (evento as CustomEvent).detail as { permiso?: string; registrado?: boolean; error?: string }
       if (detail.registrado) setEstado("registered")
@@ -40,6 +34,20 @@ export function PreferenciaPush() {
       else if (detail.permiso === "granted") setEstado("granted")
     }
     window.addEventListener("diime:push-state", alCambiar)
+    void PushNotifications.checkPermissions()
+      .then(async ({ receive }) => {
+        if (!activo) return
+        if (receive === "granted") {
+          // Registration may have completed before this page mounted, or
+          // while checkPermissions was pending. Subscribe first, then ask the
+          // native SDK to report its token again for the current session.
+          setEstado((actual) => actual === "registered" ? actual : "granted")
+          await PushNotifications.register()
+        } else {
+          setEstado(receive === "denied" ? "denied" : "prompt")
+        }
+      })
+      .catch(() => activo && setEstado("error"))
     return () => {
       activo = false
       window.removeEventListener("diime:push-state", alCambiar)

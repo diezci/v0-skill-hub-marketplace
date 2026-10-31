@@ -5,6 +5,46 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import { textoServidor } from "@/lib/i18n-servidor"
 import { idNotificacionValido } from "@/lib/notificaciones-contexto"
+import { actualizarContracargoStripe, recuperarTransferenciaContracargo } from "@/lib/stripe-contracargos"
+
+/** An explicit administrator decision; bank closure alone never releases the lock. */
+export async function conciliarContracargoAdmin(disputaId: string, stripeDisputaEsperada: string) {
+  if (!idNotificacionValido(disputaId) || !/^du_[A-Za-z0-9]+$/.test(stripeDisputaEsperada)) return { error: "Expediente bancario no válido" }
+  const supabase = await createClient()
+  const admin = createAdminClient()
+  if (!supabase || !admin) return { error: "Base de datos no disponible" }
+  const { data: { user } } = await supabase.auth.getUser()
+  const claims = await supabase.auth.getClaims()
+  const session = claims.data?.claims?.session_id
+  if (!user || claims.error || claims.data?.claims.sub !== user.id || typeof session !== "string" || !idNotificacionValido(session)) return { error: "No autenticado" }
+  const { data: profile } = await supabase.from("profiles").select("es_admin,cuenta_eliminada").eq("id", user.id).maybeSingle()
+  if (!profile?.es_admin || profile.cuenta_eliminada) return { error: "No tienes permiso" }
+  try {
+    const { data: record, error } = await admin.from("disputas").select("id,origen,stripe_disputa_id").eq("id", disputaId).maybeSingle()
+    if (error || record?.origen !== "stripe" || record.stripe_disputa_id !== stripeDisputaEsperada) return { error: "El expediente cambió. Actualiza su estado." }
+    const { bank } = await actualizarContracargoStripe(admin, record.stripe_disputa_id)
+    const params = { p_disputa: disputaId, p_stripe_disputa: stripeDisputaEsperada, p_actor: user.id, p_sesion: session }
+    const { data: plan, error: claimError } = await admin.rpc("diime_preparar_conciliacion_contracargo", params)
+    if (claimError) return { error: "El banco debe cerrar el cargo íntegro y no debe haber reembolsos ni liquidaciones pendientes. Revisa los movimientos en Stripe." }
+    if (plan.completada) return { success: true }
+    // A second auth check after network reads prevents a revoked session from moving funds.
+    const fresh = await supabase.auth.getUser()
+    if (!fresh.data.user || fresh.data.user.id !== user.id) return { error: "No autenticado" }
+    const { error: recheck } = await admin.rpc("diime_preparar_conciliacion_contracargo", params)
+    if (recheck) return { error: "No tienes permiso" }
+    const reversal = await recuperarTransferenciaContracargo(bank, plan.escrow, async () => {
+      const auth = await supabase.auth.getUser()
+      if (auth.data.user?.id !== user.id) throw new Error("No autenticado")
+      const { error: denied } = await admin.rpc("diime_preparar_conciliacion_contracargo", params)
+      if (denied) throw denied
+    })
+    const { error: finishError } = await admin.rpc("diime_finalizar_conciliacion_contracargo", { ...params, p_reversal: reversal })
+    if (finishError) throw finishError
+    return { success: true }
+  } catch {
+    return { error: "La conciliación sigue pendiente. Revisa Stripe y vuelve a intentarlo; se conserva el expediente y no se emite otro reembolso." }
+  }
+}
 
 // Read-only reconciliation for support. The caller cannot supply a Stripe
 // account/refund ID, and consulting a refund never issues or retries one.

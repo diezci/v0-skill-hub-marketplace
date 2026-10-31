@@ -4,6 +4,7 @@ import { test } from "node:test"
 import ts from "typescript"
 import * as jsx from "react/jsx-runtime"
 import * as z from "zod"
+import { AuthRetryableFetchError, isAuthRetryableFetchError } from "@supabase/supabase-js"
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8")
 function load(path, dependencies) {
@@ -73,9 +74,10 @@ test("access prompt has no fields and both auth options return to the questionna
   for (const link of links) assert.equal(link.searchParams.get("next"), "/#publicar-demanda")
 })
 
-function fixture() {
-  const states = [], effects = [], cleanups = [], calls = { uploads: [], writes: [], refreshes: 0, pushes: [] }
-  let cursor = 0, mounted = false, callback, authResult = { data: { user }, error: null }
+function fixture(account = user) {
+  const states = [], effects = [], cleanups = [], calls = { uploads: [], writes: [], refreshes: 0, pushes: [], toasts: [] }
+  let cursor = 0, mounted = false, callback, authResult = { data: { user: account }, error: null }
+  let recoveryError = null, publicationError = null, failedUploads = new Set()
   const hooks = {
     useRef(initial) { const index = cursor++; if (!(index in states)) states[index] = { current: initial }; return states[index] },
     useState(initial) {
@@ -95,19 +97,20 @@ function fixture() {
   const { default: Component } = load("components/solicitud-servicio-form.tsx", {
     react: hooks, "react/jsx-runtime": jsx, zod: z,
     "@/components/selector-identidad-empresa": { SelectorIdentidadEmpresa: "Identity" },
-    "@/components/idioma-provider": { useT: () => (key) => key },
+    "@/components/idioma-provider": { useT: () => (key, params) => key.replace(/\{(\w+)\}/g, (match, name) => params?.[name] ?? match) },
     "@hookform/resolvers/zod": { zodResolver: () => ({}) },
     "react-hook-form": { useForm: () => form },
+    "@supabase/supabase-js": { isAuthRetryableFetchError },
     "@/lib/borrador-solicitud": drafts,
     "@/components/ui/button": controls(["Button"]),
     "@/components/ui/form": controls(["Form", "FormControl", "FormField", "FormItem", "FormLabel", "FormMessage"]),
     "@/components/ui/input": controls(["Input"]), "@/components/ui/textarea": controls(["Textarea"]),
     "@/components/ui/select": controls(["Select", "SelectContent", "SelectItem", "SelectTrigger", "SelectValue"]),
     "@/components/ui/card": controls(["Card", "CardContent"]),
-    "@/hooks/use-toast": { toast: () => {} },
+    "@/hooks/use-toast": { toast: (message) => calls.toasts.push(message) },
     "lucide-react": controls(["Send", "Paperclip", "X", "MapPin", "Euro", "Clock"]),
-    "@/lib/upload-helpers": { uploadFile: async (file) => { calls.uploads.push(file); return { url: "https://files.invalid/synthetic" } } },
-    "@/app/actions/solicitudes": { crearSolicitud: async (data) => { calls.writes.push(data); return { data: {} } } },
+    "@/lib/upload-helpers": { uploadFile: async (file) => { calls.uploads.push(file); return failedUploads.has(file.name) ? null : { url: (globalThis.window?.location?.origin || "https://files.invalid") + "/api/archivos/" + crypto.randomUUID() + "?nombre=" + encodeURIComponent(file.name) } } },
+    "@/app/actions/solicitudes": { obtenerSolicitudEnviada: async () => recoveryError ? { error: recoveryError } : ({ data: null, reutilizado: false }), crearSolicitud: async (data) => { calls.writes.push(data); return publicationError ? { error: publicationError } : { data: {} } } },
     "next/navigation": { useRouter: () => ({ refresh: () => { calls.refreshes++ }, push: (href) => calls.pushes.push(href) }) },
     "@/components/select-categoria-jerarquico": controls(["SelectCategoriaJerarquico"]),
     "@/components/rango-precio": controls(["RangoPrecio"]),
@@ -119,9 +122,12 @@ function fixture() {
   })
   return {
     calls,
-    render() { cursor = 0; let element = Component({ embedded: true, usuarioId: user.id }); effects.splice(0).forEach((effect) => cleanups.push(effect())); const wasMounted = mounted; mounted = true; if (!wasMounted) { cursor = 0; element = Component({ embedded: true, usuarioId: user.id }) }; return element },
+    render() { cursor = 0; let element = Component({ embedded: true, usuarioId: account.id }); effects.splice(0).forEach((effect) => cleanups.push(effect())); const wasMounted = mounted; mounted = true; if (!wasMounted) { cursor = 0; element = Component({ embedded: true, usuarioId: account.id }) }; return element },
     emit(session) { callback("SIGNED_IN", session) },
     setAuth(result) { authResult = result },
+    rejectRecovery(message) { recoveryError = message },
+    rejectPublication(message) { publicationError = message },
+    failUploads(...names) { failedUploads = new Set(names) },
     cleanup() { cleanups.forEach((cleanup) => cleanup?.()); assert.equal(callback, null) },
   }
 }
@@ -166,6 +172,96 @@ test("expired or switched sessions cannot upload attachments or publish a filled
   }
 })
 
+test("temporary Auth transport failures preserve the form and permit one later publication", async () => {
+  for (const status of [0, 503]) {
+    const f = fixture()
+    const input = walk(f.render()).find((element) => element.type === "input" && element.props.type === "file")
+    input.props.onChange({ target: { files: [{ name: "retained-photo.png" }] } })
+    f.setAuth({ data: { user: null }, error: new AuthRetryableFetchError("temporary transport failure", status) })
+    await walk(f.render()).find((element) => element.type === "form").props.onSubmit(values)
+    assert.ok(walk(f.render()).some((element) => element.type === "form"))
+    assert.equal(f.calls.refreshes, 0)
+    assert.deepEqual(f.calls.uploads, [])
+    assert.deepEqual(f.calls.writes, [])
+    assert.match(f.calls.toasts[0].description, /Tus datos siguen en el formulario/)
+    f.setAuth({ data: { user }, error: null })
+    await walk(f.render()).find((element) => element.type === "form").props.onSubmit(values)
+    assert.equal(f.calls.uploads.length, 1)
+    assert.equal(f.calls.writes.length, 1)
+    assert.deepEqual(f.calls.pushes, ["/mis-solicitudes"])
+    f.cleanup()
+  }
+})
+
+test("explicit publication rejections retain their actionable message and preserve the form", async () => {
+  for (const stage of ["recovery", "publication"]) {
+    const f = fixture(), reason = "Ya no tienes permiso para publicar como esta empresa."
+    f.render()
+    if (stage === "recovery") f.rejectRecovery(reason)
+    else f.rejectPublication(reason)
+    await walk(f.render()).find((element) => element.type === "form").props.onSubmit(values)
+    assert.equal(f.calls.toasts[0].description, reason)
+    assert.ok(walk(f.render()).some((element) => element.type === "form"))
+    assert.equal(f.calls.writes.length, stage === "recovery" ? 0 : 1)
+    assert.deepEqual(f.calls.pushes, [])
+    assert.equal(f.calls.refreshes, 0)
+    f.cleanup()
+  }
+})
+
+test("upload failure names only failed files and retries them without uploading successful files again", async () => {
+  const f = fixture(), files = [{ name: "already-uploaded.pdf" }, { name: "failed-photo.png" }, { name: "failed-notes.txt" }]
+  const input = walk(f.render()).find((element) => element.type === "input" && element.props.type === "file")
+  input.props.onChange({ target: { files } })
+  f.failUploads(files[1].name, files[2].name)
+  await walk(f.render()).find((element) => element.type === "form").props.onSubmit(values)
+  assert.equal(f.calls.writes.length, 0)
+  const message = f.calls.toasts.at(-1)
+  assert.equal(message.title, "No se pudieron subir los archivos")
+  assert.ok(message.description.includes(files[1].name) && message.description.includes(files[2].name))
+  assert.equal(message.description.includes(files[0].name), false)
+  assert.deepEqual(f.calls.pushes, [])
+  f.failUploads()
+  await walk(f.render()).find((element) => element.type === "form").props.onSubmit(values)
+  assert.deepEqual(files.map((file) => f.calls.uploads.filter((item) => item === file).length), [1, 2, 2])
+  assert.equal(f.calls.writes.length, 1)
+  assert.equal(new Set(f.calls.writes[0].archivos_adjuntos).size, 3)
+  assert.deepEqual(f.calls.pushes, ["/mis-solicitudes"])
+  f.cleanup()
+})
+
+test("a new login reuses only the same user's exact uploaded bytes and clears references after publishing", async () => {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window")
+  const entries = new Map(), store = { getItem: (key) => entries.get(key) ?? null, setItem: (key, value) => entries.set(key, value), removeItem: (key) => entries.delete(key) }
+  Object.defineProperty(globalThis, "window", { configurable: true, value: { location: { origin: "https://diime.invalid" }, sessionStorage: store } })
+  const attach = (f, files) => walk(f.render()).find((element) => element.type === "input" && element.props.type === "file").props.onChange({ target: { files } })
+  const file = (body) => new File([body], "same-name.pdf", { type: "application/pdf" })
+  try {
+    for (const variant of ["same", "changed", "another-account"]) {
+      entries.clear()
+      const first = fixture(); attach(first, [file("old contents")]); first.rejectPublication("No autenticado")
+      await walk(first.render()).find((element) => element.type === "form").props.onSubmit(values)
+      assert.equal(first.calls.uploads.length, 1)
+      const saved = drafts.leerBorradorSolicitud(store, user.id)
+      assert.equal(saved.subidas.length, 1)
+      const previousUrl = saved.subidas[0].url
+      first.cleanup()
+      const nextAccount = variant === "another-account" ? { ...user, id: "separate-account" } : user
+      const second = fixture(nextAccount); attach(second, [file(variant === "changed" ? "new contents" : "old contents")])
+      await walk(second.render()).find((element) => element.type === "form").props.onSubmit(values)
+      assert.equal(second.calls.uploads.length, variant === "same" ? 0 : 1)
+      assert.equal(second.calls.writes.length, 1)
+      assert.equal(second.calls.writes[0].archivos_adjuntos[0] === previousUrl, variant === "same")
+      assert.equal(drafts.leerBorradorSolicitud(store, nextAccount.id), null)
+      if (variant === "another-account") assert.ok(drafts.leerBorradorSolicitud(store, user.id), "Another account cannot clear the original user's draft")
+      second.cleanup()
+    }
+  } finally {
+    if (originalWindow) Object.defineProperty(globalThis, "window", originalWindow)
+    else delete globalThis.window
+  }
+})
+
 test("registered user can still publish and reaches their requests", async () => {
   const f = fixture()
   await walk(f.render()).find((element) => element.type === "form").props.onSubmit(values)
@@ -182,7 +278,7 @@ test("direct server action rejects both absent and anonymous users before queryi
       "@/lib/supabase/server": { createClient: async () => ({ auth: { getUser: async () => ({ data: { user: usuario } }) }, from: () => assert.fail("Must not query user data") }) },
       "next/cache": {}, "@/lib/empresas/identidad": {}, "next/server": {}, "./invitaciones": {},
       "@/lib/moderacion": {}, "@/lib/categorias": { CATEGORIAS_SERVICIO_NOMBRES: [] },
-      "@/lib/urgencias": {}, "@/lib/precios": {},
+      "@/lib/urgencias": {}, "@/lib/precios": {}, "@/lib/historial-contratos": {},
     })
     assert.match((await crearSolicitud({})).error, /No autenticado/)
   }

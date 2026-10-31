@@ -2,7 +2,7 @@ import { localeDe, type Idioma, traducir } from "@/lib/i18n"
 import { createClient } from "@/lib/supabase/server"
 
 // Datos completos de una contratación para su propuesta, justificante y desglose.
-// Solo las partes del trabajo (o un admin) pueden verlos.
+// Solo las partes con acceso económico vigente (o un admin) pueden verlos.
 export async function obtenerDatosContratacion(trabajoId: string) {
   const supabase = await createClient()
   if (!supabase) return null
@@ -11,34 +11,41 @@ export async function obtenerDatosContratacion(trabajoId: string) {
   } = await supabase.auth.getUser()
   if (!user) return null
 
-  const { data: trabajo } = await supabase.from("trabajos").select("*").eq("id", trabajoId).maybeSingle()
-  if (!trabajo) return null
+  const { data: documento, error: errorDocumento } = await supabase.rpc("documento_contratacion", {
+    p_trabajo_id: trabajoId,
+  })
+  if (errorDocumento || !documento?.trabajo) return null
+  const trabajo = documento.trabajo
 
   // El rol admin se comprueba siempre, incluso si esa misma cuenta coincide
   // excepcionalmente con una de las partes. Inferirlo como "no es parte" hacía
   // que un admin participante no pudiera abrir las dos vistas documentales.
-  const { data: perfilActual } = await supabase
+  const { data: perfilActual, error: errorPerfil } = await supabase
     .from("profiles")
-    .select("es_admin")
+    .select("es_admin, cuenta_eliminada")
     .eq("id", user.id)
     .maybeSingle()
+  if (errorPerfil || !perfilActual || perfilActual.cuenta_eliminada) return null
   const esAdmin = !!perfilActual?.es_admin
-  if (trabajo.cliente_id !== user.id && trabajo.profesional_id !== user.id && !esAdmin) return null
+  const [clienteActual, proveedorActual] = await Promise.all([
+    supabase.rpc("empresa_puede_operar_trabajo", {
+      p_trabajo_id: trabajo.id, p_permiso: "ver_cobros", p_parte: "cliente",
+    }),
+    supabase.rpc("empresa_puede_operar_trabajo", {
+      p_trabajo_id: trabajo.id, p_permiso: "ver_cobros", p_parte: "proveedor",
+    }),
+  ])
+  if (clienteActual.error || proveedorActual.error) return null
+  // Los autores contractuales permanecen sellados. La consulta y su vista
+  // económica dependen del operador o administrador empresarial actual.
+  const esCliente = clienteActual.data === true
+  const esProfesional = proveedorActual.data === true
+  if (!esCliente && !esProfesional && !esAdmin) return null
 
-  const [clienteR, profesionalR, proDatosR, ofertaR, solicitudR, escrowR] = await Promise.all([
+  const [clienteR, profesionalR, proDatosR, escrowR] = await Promise.all([
     supabase.from("profiles").select("nombre, apellido, ubicacion").eq("id", trabajo.cliente_id).maybeSingle(),
     supabase.from("profiles").select("nombre, apellido, ubicacion").eq("id", trabajo.profesional_id).maybeSingle(),
     supabase.from("profesionales").select("titulo").eq("id", trabajo.profesional_id).maybeSingle(),
-    trabajo.oferta_id
-      ? supabase.from("ofertas").select("*").eq("id", trabajo.oferta_id).maybeSingle()
-      : Promise.resolve({ data: null } as any),
-    trabajo.solicitud_id
-      ? supabase
-          .from("solicitudes")
-          .select("titulo, descripcion, ubicacion, archivos")
-          .eq("id", trabajo.solicitud_id)
-          .maybeSingle()
-      : Promise.resolve({ data: null } as any),
     supabase
       .from("transacciones_escrow")
       .select("*")
@@ -46,7 +53,7 @@ export async function obtenerDatosContratacion(trabajoId: string) {
       .order("created_at", { ascending: false }),
   ])
 
-  const errorCarga = [clienteR, profesionalR, proDatosR, ofertaR, solicitudR, escrowR].find(
+  const errorCarga = [clienteR, profesionalR, proDatosR, escrowR].find(
     (resultado: any) => resultado?.error,
   )?.error
   if (errorCarga) return null
@@ -79,11 +86,9 @@ export async function obtenerDatosContratacion(trabajoId: string) {
 
   // Rol del que consulta: condiciona qué información económica se muestra
   // (cada parte solo ve su propia comisión; un admin lo ve todo).
-  const esCliente = trabajo.cliente_id === user.id
-  const esProfesional = trabajo.profesional_id === user.id
-
   // El correo ya no se lee de `profiles` (ver scripts/043). Va por RPC, que solo
-  // responde a las partes del trabajo y a un admin: justo quienes llegan aquí.
+  // devuelve contactos autorizados. Puede no devolver el contacto personal
+  // histórico a un operador nuevo; no se amplía ese permiso desde esta vista.
   const { data: contactos, error: errorContactos } = await supabase.rpc("contacto_perfiles", {
     p_ids: [trabajo.cliente_id, trabajo.profesional_id],
   })
@@ -97,8 +102,8 @@ export async function obtenerDatosContratacion(trabajoId: string) {
       ? { ...profesionalR.data, email: emailDe(trabajo.profesional_id) }
       : profesionalR.data,
     tituloProfesional: proDatosR.data?.titulo ?? null,
-    oferta: ofertaR.data,
-    solicitud: solicitudR.data,
+    oferta: documento.oferta,
+    solicitud: documento.solicitud,
     escrow,
     contratado,
     facturacionCliente: facturacionPor("cliente"),

@@ -1,5 +1,9 @@
 // Shared interface and taxonomy translations.
 export const EN_COMMON: Record<string, string> = {
+  "Fecha de cierre:": "Closing date:",
+  "Completados y cancelados": "Completed and cancelled",
+  "Ver propuesta": "View proposal",
+  "Ver conversación": "View conversation",
   "Abrir chat": "Open chat",
   "Abrir": "Open",
   "Profesionales": "Professionals",

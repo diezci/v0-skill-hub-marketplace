@@ -33,6 +33,17 @@ export type EstadoStripeConnect = {
   avisoTitularidad: string | null
   saldo: {
     saldos: SaldoStripePorMoneda[]
+    movimientos: Array<{
+      id: string
+      fecha: number
+      importe: number
+      comision: number
+      neto: number
+      moneda: string
+      estado: string
+      tipo: string
+    }> | null
+    hayMasMovimientos: boolean
     proximoIngreso: {
       importe: number
       moneda: string
@@ -63,6 +74,10 @@ type ContextoConnect = {
 }
 
 async function comprobarAccesoEmpresa(supabase: any, empresaId: string, gestionar = false): Promise<boolean> {
+  // A permission RPC may accept a still-signed JWT after its Auth session was revoked.
+  // Recheck the live session as well as company rights after every external request.
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) return false
   const { data: permiso, error } = await supabase.rpc("empresa_comprobar_permiso", { p_empresa_id: empresaId, p_permiso: "ver_cobros" })
   if (error || permiso !== true) return false
   if (!gestionar) return true
@@ -198,6 +213,14 @@ async function consultarSaldo(accountId: string) {
 
       saldo = {
         saldos,
+        movimientos: resultadoMovimientos.status === "fulfilled"
+          ? resultadoMovimientos.value.data.map((movimiento) => ({
+              id: movimiento.id, fecha: movimiento.created, importe: movimiento.amount,
+              comision: movimiento.fee, neto: movimiento.net, moneda: movimiento.currency,
+              estado: movimiento.status, tipo: movimiento.type,
+            }))
+          : null,
+        hayMasMovimientos: resultadoMovimientos.status === "fulfilled" && resultadoMovimientos.value.has_more,
         proximoIngreso,
         proximaDisponibilidad,
         calendario,

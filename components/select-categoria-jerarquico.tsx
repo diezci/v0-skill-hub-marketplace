@@ -47,7 +47,12 @@ export function SelectCategoriaJerarquico({
         </span>
         <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[min(24rem,90vw)] p-2 max-h-[70vh] overflow-y-auto">
+      <PopoverContent
+        align="start"
+        collisionPadding={8}
+        className="w-[min(24rem,90vw)] p-2 overflow-y-auto"
+        style={{ maxHeight: "min(70dvh, var(--radix-popover-content-available-height))" }}
+      >
         {opcionTodas !== undefined && (
           <button
             type="button"

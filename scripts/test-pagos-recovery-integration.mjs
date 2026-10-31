@@ -10,7 +10,7 @@ const root=process.cwd();
 const port=Number(process.env.DIIME_WORKFLOW_TEST_PORT || 55441);
 if(!Number.isInteger(port)||port<1024||port>65535)throw new Error('Invalid local test port');
 const runDir=path.join(root,'.build','workflow-verification-'+randomUUID());await fs.mkdir(runDir,{recursive:true});
-const server=new EmbeddedPostgres({databaseDir:path.join(runDir,'data'),user:'postgres',password:'workflow-local-only',port,persistent:false,postgresFlags:['-h','127.0.0.1'],onLog:()=>{},onError:m=>{if(String(m).includes('ERROR'))console.error(String(m))}});
+const server=new EmbeddedPostgres({databaseDir:path.join(runDir,'data'),user:'postgres',password:'workflow-local-only',port,persistent:false,initdbFlags:['--encoding=UTF8','--locale=C'],postgresFlags:['-h','127.0.0.1'],onLog:()=>{},onError:m=>{if(String(m).includes('ERROR'))console.error(String(m))}});
 const quote=x=>'"'+x.replaceAll('"','""')+'"';
 const schema=JSON.parse(await fs.readFile(path.join(root,'scripts/fixtures/workflow-schema-20260909.json'),'utf8'));
 const grants=JSON.parse(await fs.readFile(path.join(root,'scripts/fixtures/workflow-grants-20260909.json'),'utf8'));

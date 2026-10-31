@@ -1,4 +1,10 @@
 export const EN_DEMANDAS: Record<string, string> = {
+  "Publicar una copia": "Publish a copy",
+  "Publicar copia": "Publish copy",
+  "Copia publicada": "Copy published",
+  "Esta demanda conserva un contrato pagado. Sus términos no se pueden editar ni borrar; puedes publicar una copia con nuevas condiciones.": "This request has a paid contract in its history. Its terms cannot be edited or deleted; you can publish a copy with new terms.",
+  "Esta demanda conserva un contrato pagado. Publica una copia para cambiar las condiciones sin alterar el historial.": "This request has a paid contract in its history. Publish a copy to change the terms while preserving the original record.",
+  "Revisa las nuevas condiciones. La demanda y el contrato anteriores se conservarán sin cambios.": "Review the new terms. The original request and contract will remain unchanged.",
   "Crea tu cuenta para publicar una solicitud": "Create your account to post a request",
   "Regístrate o inicia sesión antes de completar el cuestionario de tu proyecto.": "Sign up or sign in before completing your project questionnaire.",
   "Filtros guardados": "Saved filters",

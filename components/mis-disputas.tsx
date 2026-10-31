@@ -41,6 +41,10 @@ const ESTADO_RETIRADA = {
 // el desenlace manda sobre el color (verde a favor, rojo en contra, ámbar si
 // fue parcial).
 function configResuelta(resolucion: string | null, soyCliente: boolean) {
+  if (resolucion === "cierre_bancario") return {
+    label: "Mediación cerrada tras conciliación bancaria", cls: "bg-muted text-muted-foreground border-border",
+    icon: CheckCircle2, caja: "border-border bg-muted/20", tituloCaja: "text-muted-foreground",
+  }
   const gane = (resolucion === "cliente" && soyCliente) || (resolucion === "proveedor" && !soyCliente)
   const perdi = (resolucion === "cliente" && !soyCliente) || (resolucion === "proveedor" && soyCliente)
   if (gane)
@@ -71,6 +75,7 @@ function configResuelta(resolucion: string | null, soyCliente: boolean) {
 // Cómo se le explica el desenlace a cada rol: el mismo fallo se lee distinto
 // según seas el cliente o el profesional.
 function textoResolucion(resolucion: string | null, soyCliente: boolean): string {
+  if (resolucion === "cierre_bancario") return "El banco devolvió el cargo íntegro. La mediación se ha cerrado sin movimientos adicionales ni una decisión comercial a favor de ninguna parte."
   if (resolucion === "cliente") {
     return soyCliente
       ? "Resuelta a tu favor: se te ha reembolsado el importe."
@@ -202,18 +207,21 @@ export default function MisDisputas({
   const enRevision = disputas.filter((d) => d.estado === "abierta")
   const cerradas = disputas.filter((d) => d.estado !== "abierta")
   const abiertas = enRevision.length
+  const contracargosAbiertos = enRevision.filter((d) => d.origen === "stripe" || d.stripe_disputa_id).length
+  const mediacionesAbiertas = abiertas - contracargosAbiertos
 
   const tarjeta = (d: any) => {
         // Mi papel en ESTA disputa, no el de la sección en la que estoy: si se
         // deduce de la sección, una disputa que perdiste como profesional se
         // anuncia como "Resuelta a tu favor" al verla desde Mis Solicitudes.
         const soyCliente: boolean = !!d.soy_cliente
+        const esContracargo = d.origen === "stripe" || !!d.stripe_disputa_id
         const estado =
           d.estado === "resuelta"
-            ? configResuelta(d.resolucion, soyCliente)
+            ? esContracargo ? { label: "Contracargo bancario conciliado", cls: "bg-muted text-muted-foreground border-border", icon: CheckCircle2 } : configResuelta(d.resolucion, soyCliente)
             : d.estado === "retirada"
               ? ESTADO_RETIRADA
-              : ESTADO_ABIERTA
+              : esContracargo ? { ...ESTADO_ABIERTA, label: "Contracargo bancario en revisión" } : ESTADO_ABIERTA
         const EstadoIcon = estado.icon
         const adjuntosSolicitante: string[] = Array.isArray(d.cancelacion_adjuntos_solicitante)
           ? d.cancelacion_adjuntos_solicitante
@@ -230,7 +238,7 @@ export default function MisDisputas({
                 <div className="min-w-0">
                   <h3 className="font-semibold truncate">{d.trabajo_titulo}</h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {d.la_abri_yo ? t("La abriste tú") : t("Abierta por la otra parte")}
+                    {esContracargo ? t("Expediente bancario gestionado en Stripe") : d.la_abri_yo ? t("La abriste tú") : t("Abierta por la otra parte")}
                     {d.otra_parte && ` · ${d.otra_parte.nombre ?? ""} ${d.otra_parte.apellido ?? ""}`.trimEnd()}
                     {" · "}
                     {formatFecha(d.created_at)}
@@ -246,6 +254,11 @@ export default function MisDisputas({
                 <p className="text-xs font-medium text-muted-foreground mb-0.5">{t("Motivo")}</p>
                 <p className="text-sm text-muted-foreground">{d.motivo}</p>
               </div>
+              {esContracargo && <div className="rounded-lg border bg-muted/20 p-3 text-sm space-y-1">
+                <p>{t("Resultado bancario")}: {d.stripe_disputa_estado === "won" ? t("Ganado") : d.stripe_disputa_estado === "lost" ? t("Perdido") : t("Pendiente de cierre")}</p>
+                {d.stripe_disputa_plazo && <p>{t("Plazo para aportar pruebas")}: {formatFecha(d.stripe_disputa_plazo)}</p>}
+                {d.resultado && <p>{d.resultado}</p>}
+              </div>}
 
               {hayPruebasCancelacion && (
                 <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
@@ -269,7 +282,7 @@ export default function MisDisputas({
 
               {d.estado === "resuelta" && "caja" in estado && "tituloCaja" in estado && (
                 <div className={`rounded-lg border p-3 ${estado.caja}`}>
-                  <p className={`text-xs font-medium mb-0.5 ${estado.tituloCaja}`}>{t("Decisión del equipo de Diime")}</p>
+                  <p className={`text-xs font-medium mb-0.5 ${estado.tituloCaja}`}>{t(d.resolucion === "cierre_bancario" ? "Cierre de mediación" : "Decisión del equipo de Diime")}</p>
                   <p className="text-sm text-muted-foreground">{t(textoResolucion(d.resolucion, soyCliente))}</p>
                   {d.resultado && (
                     <p className="text-sm text-muted-foreground mt-1">
@@ -299,7 +312,7 @@ export default function MisDisputas({
                   <Briefcase className="h-3.5 w-3.5" />{" "}{t("Aportar pruebas en el chat")}<ArrowRight className="h-3 w-3" />
                 </Link>
                 {/* Solo el que la abrió puede retirarla, y solo mientras esté abierta. */}
-                {d.la_abri_yo && d.estado === "abierta" && (
+                {!esContracargo && d.la_abri_yo && d.estado === "abierta" && (
                   <button
                     type="button"
                     onClick={() => setARetirar(d)}
@@ -316,10 +329,16 @@ export default function MisDisputas({
 
   return (
     <div className="space-y-4">
-      {abiertas > 0 && (
+      {contracargosAbiertos > 0 && (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-muted-foreground flex items-start gap-2">
           <Scale className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-          <span>{t(abiertas === 1 ? "Tienes {count} disputa en revisión. Mientras dure, el pago sigue confirmado y la transferencia bloqueada. Puedes aportar pruebas en el chat del trabajo." : "Tienes {count} disputas en revisión. Mientras duren, el pago sigue confirmado y la transferencia bloqueada. Puedes aportar pruebas en el chat del trabajo.", { count: abiertas })}</span>
+          <span>{t("Los contracargos bancarios se gestionan en Stripe y no se pueden retirar desde Diime. Las operaciones de esos pagos permanecen bloqueadas hasta su conciliación.")}</span>
+        </div>
+      )}
+      {mediacionesAbiertas > 0 && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-muted-foreground flex items-start gap-2">
+          <Scale className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+          <span>{t(mediacionesAbiertas === 1 ? "Tienes {count} disputa en revisión. Mientras dure, el pago sigue confirmado y la transferencia bloqueada. Puedes aportar pruebas en el chat del trabajo." : "Tienes {count} disputas en revisión. Mientras duren, el pago sigue confirmado y la transferencia bloqueada. Puedes aportar pruebas en el chat del trabajo.", { count: mediacionesAbiertas })}</span>
         </div>
       )}
 

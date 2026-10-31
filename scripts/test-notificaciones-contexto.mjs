@@ -43,6 +43,10 @@ function entorno(tablas = {}, opciones = {}) {
   const consultas = [], escrituras = []
   const cliente = {
     auth: { getUser: async () => ({ data: { user: usuarioId ? { id: usuarioId } : null }, error: null }) },
+    async rpc(nombre) {
+      assert.equal(nombre, "usuarios_incompatibles")
+      return { data: opciones.incompatibles || [], error: opciones.errorBloqueos || null }
+    },
     from(tabla) {
       const consulta = { tabla, filtros: [], orden: [], rango: null, limite: null, actualizacion: null, seleccion: null }
       const q = {

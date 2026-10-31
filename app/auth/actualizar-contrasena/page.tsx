@@ -10,8 +10,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import Link from "next/link"
 import { Lock, AlertCircle, CheckCircle2 } from "lucide-react"
+
+type Comprobacion = { estado: "comprobando" | "invalido" | "sinConexion" } | { estado: "listo"; usuarioId: string }
+
+function errorTemporal(error: unknown) {
+  const authError = error as { name?: string; status?: number }
+  return error instanceof TypeError || authError?.name === "AuthRetryableFetchError" || (authError?.status ?? 0) >= 500
+}
+
+function enlaceConError() {
+  const url = new URL(window.location.href)
+  const fragmento = new URLSearchParams(url.hash.slice(1))
+  return ["error", "error_code", "error_description"].some((clave) => url.searchParams.has(clave) || fragmento.has(clave))
+}
 
 export default function ActualizarContrasenaPage() {
   const t = useT()
@@ -21,9 +35,41 @@ export default function ActualizarContrasenaPage() {
   const [success, setSuccess] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const [comprobacion, setComprobacion] = useState<Comprobacion>({ estado: "comprobando" })
+
+  useEffect(() => {
+    let cancelado = false
+    const guardar = (resultado: Comprobacion) => { if (!cancelado) setComprobacion(resultado) }
+    guardar({ estado: "comprobando" })
+    async function comprobar() {
+      // An invalid link must never fall back to an unrelated existing session.
+      if (enlaceConError()) { guardar({ estado: "invalido" }); return }
+      try {
+        const { auth } = createClient()
+        const inicializacion = await auth.initialize()
+        if (inicializacion.error) {
+          guardar({ estado: errorTemporal(inicializacion.error) ? "sinConexion" : "invalido" })
+          return
+        }
+        // A successful PKCE exchange removes code. Without the originating
+        // verifier the SDK keeps it and may retain a previous browser session.
+        if (enlaceConError() || new URL(window.location.href).searchParams.has("code")) {
+          guardar({ estado: "invalido" }); return
+        }
+        const { data, error } = await auth.getUser()
+        if (error) { guardar({ estado: errorTemporal(error) ? "sinConexion" : "invalido" }); return }
+        guardar(data.user ? { estado: "listo", usuarioId: data.user.id } : { estado: "invalido" })
+      } catch (error) {
+        guardar({ estado: errorTemporal(error) ? "sinConexion" : "invalido" })
+      }
+    }
+    void comprobar()
+    return () => { cancelado = true }
+  }, [])
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (comprobacion.estado !== "listo" || enlaceConError()) return
     setIsLoading(true)
     setError(null)
 
@@ -42,6 +88,14 @@ export default function ActualizarContrasenaPage() {
     const supabase = createClient()
 
     try {
+      // Revalidate immediately before changing credentials, including account
+      // changes in another tab while the form was open.
+      const identidad = await supabase.auth.getUser()
+      if (identidad.error) throw identidad.error
+      if (!identidad.data.user || identidad.data.user.id !== comprobacion.usuarioId) {
+        setComprobacion({ estado: "invalido" })
+        return
+      }
       const { error } = await supabase.auth.updateUser({
         password: password,
       })
@@ -54,7 +108,16 @@ export default function ActualizarContrasenaPage() {
         router.push("/auth/login")
       }, 2000)
     } catch (error: unknown) {
-      setError(error instanceof Error ? t(error.message) : "Error al actualizar la contraseña")
+      const authError = error as { name?: string; code?: string; status?: number }
+      if (authError?.name === "AuthSessionMissingError" || authError?.status === 401 || authError?.status === 403) {
+        setComprobacion({ estado: "invalido" })
+      } else if (errorTemporal(error)) {
+        setError("No se ha podido conectar. Conservamos tus datos; vuelve a intentarlo.")
+      } else if (authError?.code === "same_password") {
+        setError("La nueva contraseña debe ser distinta de la anterior")
+      } else {
+        setError("No se ha podido actualizar la contraseña. Vuelve a intentarlo.")
+      }
     } finally {
       setIsLoading(false)
     }
@@ -69,7 +132,23 @@ export default function ActualizarContrasenaPage() {
             <CardDescription className="text-base">{t("Ingresa tu nueva contraseña")}</CardDescription>
           </CardHeader>
           <CardContent>
-            {!success ? (
+            {comprobacion.estado === "comprobando" ? (
+              <p role="status" className="text-center text-sm text-muted-foreground">{t("Comprobando enlace de recuperación...")}</p>
+            ) : comprobacion.estado === "invalido" || comprobacion.estado === "sinConexion" ? (
+              <div className="space-y-4" data-recuperacion-invalida>
+                <div role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700 flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" aria-hidden="true" />
+                  <p>{t(comprobacion.estado === "invalido"
+                    ? "El enlace no es válido, ha caducado o ya se ha utilizado. Solicita un nuevo enlace y ábrelo en el mismo navegador desde el que lo pediste."
+                    : "No se ha podido comprobar el enlace por un problema de conexión. Vuelve a intentarlo.")}</p>
+                </div>
+                {comprobacion.estado === "sinConexion" && (
+                  <Button className="w-full" onClick={() => window.location.reload()}>{t("Reintentar")}</Button>
+                )}
+                <Button asChild className="w-full"><Link href="/auth/recuperar-contrasena">{t("Solicitar nuevo enlace")}</Link></Button>
+                <Link href="/auth/login" className="block text-center text-sm text-primary underline">{t("Volver al inicio de sesión")}</Link>
+              </div>
+            ) : !success ? (
               <form onSubmit={handleUpdatePassword} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="password" className="text-sm font-medium">

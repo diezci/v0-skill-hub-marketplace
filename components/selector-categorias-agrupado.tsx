@@ -144,6 +144,7 @@ export function SelectorCategoriasAgrupado({
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder={t("Buscar servicio...")}
+            aria-label={t("Buscar servicio...")}
             className="pl-8"
           />
         </div>

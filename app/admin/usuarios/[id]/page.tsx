@@ -1,4 +1,5 @@
 import { getT } from "@/lib/i18n-servidor"
+import { CuentaRevisionPanel } from "@/components/cuenta-revision-panel"
 import Link from "next/link"
 import {
   AlertCircle,
@@ -127,6 +128,8 @@ export default async function AdminUsuarioDetallePage({ params }: { params: Prom
           </div>
         </CardContent>
       </Card>
+
+      {!usuario.es_admin && <CuentaRevisionPanel key={usuario.id} usuarioId={usuario.id} administracion />}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Card>

@@ -22,7 +22,23 @@ function loadModules(overrides = {}, ui = {}) {
   const responses = { ...defaults, ...overrides }
   const calls = []
   let user = { id: ownerId }
-  const client = { auth: { getUser: async () => ({ data: { user } }) }, rpc: async (name, args) => { calls.push({ name, args }); return { data: responses[name] ?? null, error: null } } }
+  const client = {
+    auth: { getUser: async () => ({ data: { user } }) },
+    rpc: async (name, args) => { calls.push({ name, args }); return { data: responses[name] ?? null, error: null } },
+    from(table) {
+      assert.equal(table, 'transacciones_escrow')
+      return { select(columns) {
+        assert.equal(columns, 'trabajo_id,estado,liquidacion_estado')
+        return { eq(field, state) {
+          assert.equal(field, 'estado'); assert.equal(state, 'liquidando')
+          return { async in(field, ids) {
+            assert.equal(field, 'trabajo_id'); calls.push({ table, columns, ids })
+            return { data: (ui.escrowRows || []).filter(e => ids.includes(e.trabajo_id) && e.estado === state), error: ui.escrowError || null }
+          } }
+        } }
+      } }
+    },
+  }
   function load(file) {
     const full = path.resolve(root, file)
     if (cache.has(full)) return cache.get(full).exports
@@ -89,6 +105,20 @@ test('workspace adapts cancellation side and the scoped dispute without adding p
   assert.equal(op.cancelacionRevision,'11111111-2222-3333-4444-555555555555')
   assert.deepEqual(op.disputaActual, incident)
   assert.equal(Object.hasOwn(op, 'notas_privadas_proveedor'), false)
+})
+
+test('workspace exposes only authenticated settlement status and fails visibly on read errors', async () => {
+  const source = { ...workspace, operaciones: { solicitudes: [], ofertas: [], trabajos: [{ id: 'work', titulo: 'Contrato', estado: 'cancelado', fecha: '2026-10-24', actor_usuario_id: ownerId, actor_nombre: 'Ana' }] } }
+  const h = loadModules({ empresa_workspace: source }, { escrowRows: [{ trabajo_id: 'work', estado: 'liquidando', liquidacion_estado: 'error', liquidacion_error: 'PRIVATE_PROVIDER_DIAGNOSIS', stripe_charge_id: 'ch_private', monto: 110 }, { trabajo_id: 'foreign', estado: 'liquidando', liquidacion_estado: 'error' }] })
+  const result = await h.load('lib/empresas/production-store.ts').espacioEmpresaReal()
+  assert.deepEqual(result.data.operaciones.trabajos[0].liquidacion, { estado: 'liquidando', liquidacion_estado: 'error' })
+  assert.equal(JSON.stringify(result.data).includes('PRIVATE_PROVIDER_DIAGNOSIS'), false)
+  assert.equal(JSON.stringify(result.data).includes('ch_private'), false)
+  assert.deepEqual(h.calls.find(c => c.table).ids, ['work'])
+  const failed = loadModules({ empresa_workspace: source }, { escrowError: { message: 'PRIVATE_DATABASE_ERROR' } })
+  const denied = await failed.load('lib/empresas/production-store.ts').espacioEmpresaReal()
+  assert.equal(denied.data, undefined)
+  assert.equal(denied.error, 'No se pudo consultar el estado de la liquidación.')
 })
 
 test('unauthenticated invite/workspace return login code and make no RPC call', async () => {

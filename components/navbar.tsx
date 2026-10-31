@@ -2,6 +2,7 @@
 
 import { SelectorIdioma, SelectorIdiomaMenu } from "@/components/selector-idioma"
 import { useT } from "@/components/idioma-provider"
+import { Capacitor } from "@capacitor/core"
 
 
 import { useState, useEffect, useRef } from "react"
@@ -171,20 +172,21 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
     return () => { activo = false; ++revision; subscription.unsubscribe() }
   }, [actorEmpresaLocal])
 
-  // Los admins solo deben ver el panel de administración. La única excepción
-  // es la vista de un perfil abierta expresamente desde la bandeja de
-  // verificaciones; sin esta excepción el perfil aparecía un instante y esta
-  // redirección devolvía inmediatamente la pestaña a /admin.
+  // Administrative document links and explicitly opened professional profiles
+  // are also valid destinations. Their server-side authorization still applies;
+  // redirecting them here made the document disappear after hydration.
   useEffect(() => {
     const esVistaPerfilDesdeAdmin =
       pathname?.startsWith("/profesional/") &&
       new URLSearchParams(window.location.search).get("vista_admin") === "1"
+    const esDocumentoContratacion = /^\/trabajos\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/factura\/?$/i.test(pathname || "")
     if (
       isAdmin &&
       pathname &&
       !pathname.startsWith("/admin") &&
       !pathname.startsWith("/auth") &&
-      !esVistaPerfilDesdeAdmin
+      !esVistaPerfilDesdeAdmin &&
+      !esDocumentoContratacion
     ) {
       router.replace("/admin")
     }
@@ -262,8 +264,13 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
       setIsAdmin(false)
       setIsProfessional(false)
       setIsOpen(false)
-      router.push("/")
-      router.refresh()
+      // AppChrome ya vacía el árbol privado y navega al recibir SIGNED_OUT.
+      // Otra navegación simultánea cancela la carga en WKWebView y puede
+      // activar la pantalla offline nativa en un cierre de sesión correcto.
+      if (!Capacitor.isNativePlatform()) {
+        router.push("/")
+        router.refresh()
+      }
     } catch {
       toast({ title: t("No se pudo cerrar la sesión"), description: t("Tu sesión sigue abierta. Comprueba la conexión y vuelve a intentarlo."), variant: "destructive" })
     } finally {

@@ -72,6 +72,27 @@ export function CobrosEmpresa({ empresaId, nombreEmpresa, puedeVer, esResponsabl
       </div>}
       {estado?.saldo?.proximoIngreso && <p className="text-sm">{t("Próximo ingreso al banco")}: {formatearImporteStripe(estado.saldo.proximoIngreso.importe, estado.saldo.proximoIngreso.moneda, idioma)} · {formatearFechaStripe(estado.saldo.proximoIngreso.llegada, idioma)}</p>}
       {estado?.saldoError && <p className="text-sm text-muted-foreground">{t(estado.saldoError)}</p>}
+      {estado?.saldo?.movimientos && <section className="space-y-2" aria-label={t("Movimientos de la cuenta de empresa")}>
+        <h3 className="font-medium">{t("Movimientos de la cuenta de empresa")}</h3>
+        <p className="text-sm text-muted-foreground">{t("Los movimientos de Stripe no equivalen a ingresos ya recibidos en el banco.")}</p>
+        {estado.saldo.movimientos.length === 0 ? <p className="text-sm">{t("Todavía no hay movimientos.")}</p> : <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <caption className="sr-only">{t("Movimientos de la cuenta de empresa")}</caption>
+            <thead><tr className="border-b">
+              {["Fecha", "Concepto", "Importe", "Comisión", "Neto", "Estado"].map((titulo) => <th key={titulo} scope="col" className="whitespace-nowrap px-2 py-2 font-medium">{t(titulo)}</th>)}
+            </tr></thead>
+            <tbody>{estado.saldo.movimientos.map((movimiento) => <tr key={movimiento.id} className="border-b" data-movimiento-id={movimiento.id}>
+              <td className="whitespace-nowrap px-2 py-2">{formatearFechaStripe(movimiento.fecha, idioma)}</td>
+              <td className="px-2 py-2">{t(movimiento.tipo === "payout" ? "Ingreso al banco" : movimiento.tipo === "refund" || movimiento.tipo === "payment_refund" ? "Devolución" : movimiento.tipo === "payment" || movimiento.tipo === "transfer" ? "Transferencia en Stripe" : "Movimiento en Stripe")}</td>
+              <td className="whitespace-nowrap px-2 py-2">{formatearImporteStripe(movimiento.importe, movimiento.moneda, idioma)}</td>
+              <td className="whitespace-nowrap px-2 py-2">{formatearImporteStripe(movimiento.comision, movimiento.moneda, idioma)}</td>
+              <td className="whitespace-nowrap px-2 py-2">{formatearImporteStripe(movimiento.neto, movimiento.moneda, idioma)}</td>
+              <td className="px-2 py-2">{t(movimiento.estado === "available" ? "Disponible" : "Pendiente")}</td>
+            </tr>)}</tbody>
+          </table>
+        </div>}
+        {estado.saldo.hayMasMovimientos && <p className="text-sm text-muted-foreground">{t("Se muestran los 100 movimientos más recientes.")}</p>}
+      </section>}
       {!esResponsablePrincipal && <p className="text-sm text-muted-foreground">{t("El responsable principal gestiona la cuenta bancaria y los datos de Stripe.")}</p>}
       <div className="flex flex-wrap gap-2">
         {esResponsablePrincipal && estado && !listo && <Button disabled={ocupado} onClick={() => void abrir("onboarding")}><ExternalLink className="mr-2 h-4 w-4" />{estado.conectado ? t("Completar datos en Stripe") : t("Activar cobros con Stripe")}</Button>}

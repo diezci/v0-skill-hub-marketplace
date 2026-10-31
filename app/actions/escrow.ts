@@ -62,7 +62,7 @@ export async function crearPagoEscrow(data: {
   // desde la oferta aceptada y la solicitud que la originó.
   const { data: trabajo, error: trabajoError } = await admin
     .from("trabajos")
-    .select("id, titulo, precio_acordado, profesional_id, cliente_id, estado, oferta_id, solicitud_id, pago_bloqueado, cancelacion_estado, empresa_cliente_id, empresa_proveedora_id, actor_contratacion_id, proveedor_cobros_usuario_id, proveedor_stripe_account_id")
+    .select("id, titulo, precio_acordado, profesional_id, cliente_id, estado, oferta_id, solicitud_id, pago_bloqueado, cancelacion_estado, empresa_cliente_id, empresa_proveedora_id, actor_contratacion_id, proveedor_cobros_usuario_id, proveedor_stripe_account_id, created_at")
     .eq("id", data.trabajo_id)
     .single()
 
@@ -72,6 +72,13 @@ export async function crearPagoEscrow(data: {
 
   if (!await puedePagarTrabajo(supabase, trabajo, user.id)) {
     return { error: await textoServidor("Solo el cliente puede realizar el pago") }
+  }
+
+  if (trabajo.estado === "pendiente_pago" && Date.now() - Date.parse(trabajo.created_at) >= 15 * 86400000) {
+    const { procesarCaducidadContrato } = await import("@/lib/plazos-workflow")
+    try { await procesarCaducidadContrato(admin, trabajo.id) }
+    catch { return { error: await textoServidor("Estamos comprobando el cierre del pago. Vuelve a consultar el contrato cuando termine la conciliación.") } }
+    return { codigo: "CHECKOUT_CERRADO", error: await textoServidor("El plazo de pago de 15 días ha vencido. Consulta el estado del contrato; para continuar será necesaria una nueva aceptación si ha caducado."), hrefContrato: `/trabajos/${trabajo.id}/factura` }
   }
 
   if (trabajo.estado !== "pendiente_pago" || trabajo.pago_bloqueado || trabajo.cancelacion_estado === "pendiente") {
@@ -240,6 +247,11 @@ export async function crearPagoEscrow(data: {
 
         if (sesionCoincide && anterior.client_secret) {
           if (!await puedePagarTrabajo(supabase, trabajo, user.id)) {
+            await stripe.checkout.sessions.expire(anterior.id)
+            const { error: cierreError } = await admin.rpc("diime_cerrar_intento", {
+              p_escrow: escrowAbierto.id, p_session: anterior.id,
+            })
+            if (cierreError) throw cierreError
             return { error: await textoServidor("Ya no puedes realizar pagos en nombre de esta empresa.") }
           }
           // La fila de escrow es la foto contractual del intento de pago. Si
@@ -415,6 +427,10 @@ export async function crearPagoEscrow(data: {
 
     if (!await puedePagarTrabajo(supabase, trabajo, user.id)) {
       if (session.status === "open") await stripe.checkout.sessions.expire(session.id)
+      const { error: cierreError } = await admin.rpc("diime_cerrar_intento", {
+        p_escrow: escrowNuevo.id, p_session: session.id,
+      })
+      if (cierreError) throw cierreError
       return { error: await textoServidor("Ya no puedes realizar pagos en nombre de esta empresa.") }
     }
 

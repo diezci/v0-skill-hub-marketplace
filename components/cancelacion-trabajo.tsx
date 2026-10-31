@@ -3,7 +3,7 @@
 import { useT, useIdioma } from "@/components/idioma-provider"
 import { localeDe } from "@/lib/i18n"
 
-import { type ChangeEvent, useEffect, useState } from "react"
+import { type ChangeEvent, useEffect, useId, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -61,6 +61,7 @@ interface CancelacionTrabajoProps {
 }
 
 export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionTrabajoProps) {
+  const campoId = useId()
   const t = useT()
   const { idioma } = useIdioma()
 
@@ -412,8 +413,9 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
             </DialogHeader>
             <div className="space-y-4 py-1">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">{t("Tus argumentos *")}</label>
+                <label htmlFor={`${campoId}-respuesta`} className="text-sm font-medium">{t("Tus argumentos *")}</label>
                 <Textarea
+                  id={`${campoId}-respuesta`}
                   placeholder={t("Explica por qué no estás de acuerdo con la cancelación...")}
                   value={razonRespuesta}
                   onChange={(event) => setRazonRespuesta(event.target.value)}
@@ -487,8 +489,9 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
             </DialogHeader>
             <div className="space-y-4 py-1">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">{t("Motivo *")}</label>
+                <label htmlFor={`${campoId}-editar`} className="text-sm font-medium">{t("Motivo *")}</label>
                 <Textarea
+                  id={`${campoId}-editar`}
                   placeholder={t("Explica por qué quieres cancelar...")}
                   value={razonEdicion}
                   onChange={(event) => setRazonEdicion(event.target.value)}
@@ -599,8 +602,9 @@ export function CancelacionTrabajo({ trabajo, onChange, variante }: CancelacionT
           <DialogDescription>{t("La cancelación debe ser de mutuo acuerdo: la otra parte recibirá un aviso y deberá aceptarla o rechazarla. Si la acepta y el trabajo ya estaba pagado, se devuelve al cliente el precio del servicio y Diime conserva los gastos de servicio del cliente cobrados al pagar. Si no se había pagado, no se mueve dinero. Si la rechaza, se abrirá una disputa que resolverá el equipo de Diime.")}</DialogDescription>
         </DialogHeader>
         <div className="space-y-1.5 py-1">
-          <label className="text-sm font-medium">{t("Motivo *")}</label>
+          <label htmlFor={`${campoId}-solicitar`} className="text-sm font-medium">{t("Motivo *")}</label>
           <Textarea
+            id={`${campoId}-solicitar`}
             placeholder={t("Explica brevemente por qué quieres cancelar...")}
             value={razon}
             onChange={(e) => setRazon(e.target.value)}

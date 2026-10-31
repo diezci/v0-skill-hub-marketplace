@@ -206,8 +206,9 @@ export default async function FacturaPage({
   const anio = new Date(escrow?.fecha_retencion || trabajo.created_at).getFullYear()
   const numero = `${contratado ? "JUST" : "PROP"}-${anio}-${String(trabajo.id).slice(0, 8).toUpperCase()}`
   const fechaEmision = escrow?.fecha_retencion || trabajo.created_at
+  const calendarioCondicionadoAlPago = !contratado && !["cancelado", "rechazado"].includes(trabajo.estado)
   const plazo = oferta?.tiempo_estimado
-    ? t("{cantidad} {unidad} desde el inicio del trabajo", { cantidad: oferta.tiempo_estimado, unidad: t(oferta.unidad_tiempo || "días") })
+    ? t(calendarioCondicionadoAlPago ? "{cantidad} {unidad} desde la confirmación del pago" : "{cantidad} {unidad} desde el inicio del trabajo", { cantidad: oferta.tiempo_estimado, unidad: t(oferta.unidad_tiempo || "días") })
     : t("Según lo acordado entre las partes")
 
   return (
@@ -333,11 +334,11 @@ export default async function FacturaPage({
             </div>
             <div className="flex flex-col gap-1 sm:block">
               <dt className="text-muted-foreground">{t("Fecha de inicio")}</dt>
-              <dd className="font-medium">{formatearFechaLarga(trabajo.fecha_inicio, idioma)}</dd>
+              <dd className="font-medium">{calendarioCondicionadoAlPago ? t("Al confirmarse el pago") : formatearFechaLarga(trabajo.fecha_inicio, idioma)}</dd>
             </div>
             <div className="flex flex-col gap-1 sm:block">
               <dt className="text-muted-foreground">{t("Entrega estimada")}</dt>
-              <dd className="font-medium">{formatearFechaLarga(trabajo.fecha_estimada_fin, idioma)}</dd>
+              <dd className="font-medium">{calendarioCondicionadoAlPago ? t("Se calcula al pagarse, según el plazo aceptado") : formatearFechaLarga(trabajo.fecha_estimada_fin, idioma)}</dd>
             </div>
             <div className="flex flex-col gap-1 sm:block">
               <dt className="text-muted-foreground">{t("Condiciones de pago")}</dt>

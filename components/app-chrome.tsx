@@ -16,6 +16,8 @@ import { EntornoEmpresasLocal } from "@/components/empresas/entorno-local"
 import type { ActorEmpresa } from "@/lib/empresas/types"
 import { useViewportAdaptable } from "@/hooks/use-viewport-adaptable"
 import { createClient } from "@/lib/supabase/client"
+import { cierreSesionSolicitado } from "@/lib/auth-logout"
+import { destinoAuthSeguro, EVENTO_REAUTENTICACION } from "@/lib/auth-redirect"
 import { useT } from "@/components/idioma-provider"
 
 // El panel de administración (/admin) tiene su propio layout completo con barra
@@ -26,22 +28,45 @@ export function AppChrome({ children, actorEmpresaLocal }: { children: React.Rea
   const t = useT()
   const pathname = usePathname()
   const esMensajes = pathname?.startsWith("/mensajes") ?? false
-  const [sesionCerrada, setSesionCerrada] = useState(false)
+  const [sesionCerrada, setSesionCerrada] = useState<string | null>(null)
 
   useEffect(() => {
     if (actorEmpresaLocal) return
+    const solicitar = (ruta: unknown) => {
+      if (cierreSesionSolicitado()) return
+      const destino = `/auth/login?next=${encodeURIComponent(destinoAuthSeguro(ruta))}`
+      // Auth and the submitting form may detect the same expiry. Keep the
+      // first precise destination so the login page cannot reload mid-entry.
+      setSesionCerrada(actual => actual ?? destino)
+    }
+    const reautenticar = (evento: Event) => solicitar((evento as CustomEvent<{ ruta?: unknown }>).detail?.ruta)
+    window.addEventListener(EVENTO_REAUTENTICACION, reautenticar)
+    let unsubscribe: (() => void) | undefined
     try {
       const { data } = createClient().auth.onAuthStateChange((evento) => {
         // SIGNED_OUT se emite cuando el SDK ha eliminado la sesión. Un fallo
         // de logout no lo emite: en ese caso se conserva la vista para reintentar.
-        if (evento === "SIGNED_OUT") setSesionCerrada(true)
+        // Invalid/expired links also emit SIGNED_OUT during SDK initialization.
+        // Keep their public recovery screen; private views still unmount first.
+        if (evento === "SIGNED_OUT" && !window.location.pathname.startsWith("/auth/")) {
+          if (cierreSesionSolicitado()) { setSesionCerrada("/"); return }
+          const destino = { ruta: `${window.location.pathname}${window.location.search}${window.location.hash}` }
+          // Forms save their actor-scoped drafts synchronously before this
+          // private tree unmounts, and may retain a precise resume destination.
+          window.dispatchEvent(new CustomEvent("diime:sesion-caducada", { detail: destino }))
+          solicitar(destino.ruta)
+        }
       })
-      return () => data.subscription.unsubscribe()
+      unsubscribe = () => data.subscription.unsubscribe()
     } catch { /* Una página pública puede funcionar sin Supabase configurado. */ }
+    return () => {
+      window.removeEventListener(EVENTO_REAUTENTICACION, reautenticar)
+      unsubscribe?.()
+    }
   }, [actorEmpresaLocal])
 
   useEffect(() => {
-    if (sesionCerrada) window.location.replace("/")
+    if (sesionCerrada) window.location.replace(sesionCerrada)
   }, [sesionCerrada])
 
   // El chat es una vista de aplicación, no una página larga. Marcamos el

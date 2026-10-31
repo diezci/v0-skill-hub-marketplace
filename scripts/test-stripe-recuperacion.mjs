@@ -5,7 +5,7 @@ import ts from 'typescript'
 function load(file, dependencies) {
  const exports={}
  vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,
-  {exports,require:name=>{if(name==='server-only')return {};if(name in dependencies)return dependencies[name];if(name==='@/lib/stripe-connect-identidad')return load('lib/stripe-connect-identidad.ts',dependencies);if(name==='@/lib/empresas/notificaciones')return load('lib/empresas/notificaciones.ts',dependencies);if(name==='@/lib/empresas/cobros')return load('lib/empresas/cobros.ts',dependencies);throw new Error(`Unexpected dependency ${name}`)}})
+  {exports,setTimeout,require:name=>{if(name==='server-only')return {};if(name in dependencies)return dependencies[name];if(name==='@/lib/stripe-connect-identidad')return load('lib/stripe-connect-identidad.ts',dependencies);if(name==='@/lib/empresas/notificaciones')return load('lib/empresas/notificaciones.ts',dependencies);if(name==='@/lib/empresas/cobros')return load('lib/empresas/cobros.ts',dependencies);throw new Error(`Unexpected dependency ${name}`)}})
  return exports
 }
 function fixture(total=110) {
@@ -32,7 +32,7 @@ await check('Transfer failure after refund resumes without refunding twice',asyn
 })
 await check('Database failure after Stripe movements recovers both original movements',async()=>{
  const f=fixture();let closes=0
- const fluent={update:()=>fluent,eq:()=>fluent,neq:async()=>({error:null})}
+ const fluent={update:()=>fluent,select:()=>fluent,eq:()=>fluent,neq:async()=>({error:null}),then:resolve=>resolve({data:[],error:null})}
  const admin={from:()=>fluent,rpc:async()=>++closes===1?{error:Error('Database interrupted')}:{data:{ok:true}}}
  const m=load('lib/flujo-pagos.ts',{'@/lib/stripe':{stripe:f.stripe},'@/lib/stripe-liquidacion':f.m,'@/lib/ofertas-perdedoras':{}})
  const escrow={id:'escrow_test',trabajo_id:'job_test',stripe_payment_intent_id:'pi_test',stripe_charge_id:'ch_test',monto:110,monto_reembolsado:40,pago_neto_proveedor:57,stripe_transfer_group:'group_test',liquidacion_operacion_id:'disputa_test',liquidacion_contexto:{destino:'acct_test',tipo:'disputa'}}
@@ -83,5 +83,45 @@ await check('Asynchronous unpaid Checkout remains blocked until Stripe resolves 
  const admin={from:()=>query,rpc:async()=>{throw Error('Should not mark as cancelled')}}
  const m=load('lib/flujo-pagos.ts',{'@/lib/stripe':{stripe:f.stripe},'@/lib/stripe-liquidacion':f.m,'@/lib/ofertas-perdedoras':{}})
  await assert.rejects(()=>m.cerrarCheckoutsPendientes(admin,'job_test'),/procesando/)
+})
+await check('Concurrent transfer conflict joins the exact existing movement without creating again',async()=>{
+ const f=fixture();let creates=0
+ f.stripe.transfers.create=async p=>{creates++;setTimeout(()=>f.transfers.push({...p,id:'tr_racing',amount_reversed:0}),50);throw Object.assign(Error('Another request in progress'),{statusCode:409,code:'idempotency_key_in_use'})}
+ const r=await f.m.ejecutarLiquidacionStripe(params);assert.equal(creates,1);assert.equal(f.transfers.length,1);assert.equal(r.transferId,'tr_racing')
+})
+await check('Concurrent refund conflict waits for succeeded refund before transfer',async()=>{
+ const f=fixture();let creates=0
+ f.stripe.refunds.create=async p=>{creates++;setTimeout(()=>f.refunds.push({...p,id:'re_racing',status:'succeeded'}),50);throw Object.assign(Error('Another request in progress'),{statusCode:409})}
+ const r=await f.m.ejecutarLiquidacionStripe(params);assert.equal(creates,1);assert.equal(f.refunds.length,1);assert.equal(r.refundId,'re_racing');assert.equal(f.transfers.length,1)
+})
+await check('Concurrent transfer recovery still rejects a different recipient',async()=>{
+ const f=fixture();let creates=0
+ f.stripe.transfers.create=async p=>{creates++;f.transfers.push({...p,id:'tr_wrong',destination:'acct_wrong',amount_reversed:0});throw Object.assign(Error('Concurrent request'),{statusCode:409})}
+ await assert.rejects(()=>f.m.ejecutarLiquidacionStripe(params),/no coincide/);assert.equal(creates,1);assert.equal(f.transfers.length,1)
+})
+await check('Concurrent transfer duplicates remain a reconciliation error',async()=>{
+ const f=fixture();let creates=0
+ f.stripe.transfers.create=async p=>{creates++;for(const id of ['tr_1','tr_2'])f.transfers.push({...p,id,amount_reversed:0});throw Object.assign(Error('Concurrent request'),{statusCode:409})}
+ await assert.rejects(()=>f.m.ejecutarLiquidacionStripe(params),/duplicados/);assert.equal(creates,1)
+})
+await check('Unresolved conflict remains pending with a clear message and no extra create',async()=>{
+ const f=fixture();let creates=0
+ f.stripe.transfers.create=async()=>{creates++;throw Object.assign(Error('Concurrent request'),{statusCode:409})}
+ await assert.rejects(()=>f.m.ejecutarLiquidacionStripe(params),/Otra petición está terminando/);assert.equal(creates,1);assert.equal(f.transfers.length,0)
+})
+await check('Cached capability rejection recovers with one stable successor key after restoration',async()=>{
+ const f=fixture(),keys=[];f.stripe.accounts={retrieve:async()=>({capabilities:{transfers:'active'}})}
+ f.stripe.transfers.create=async(p,o)=>{keys.push(o.idempotencyKey);if(o.idempotencyKey.endsWith(':v1'))throw Object.assign(Error('Cached capability rejection'),{statusCode:400,code:'insufficient_capabilities_for_transfer',headers:{'idempotent-replayed':'true','original-request':'req_original'}});const t={...p,id:'tr_restored',amount_reversed:0};f.transfers.push(t);return t}
+ await f.m.ejecutarLiquidacionStripe(params);await f.m.ejecutarLiquidacionStripe(params)
+ assert.deepEqual(keys,['disputa_test:transfer:v1','disputa_test:transfer:after:req_original']);assert.equal(f.refunds.length,1);assert.equal(f.transfers.length,1)
+})
+await check('Active restriction and ambiguous errors never rotate the transfer key',async()=>{
+ for(const variant of ['restricted','timeout','server','fresh400']){const f=fixture();let creates=0;f.stripe.accounts={retrieve:async()=>({capabilities:{transfers:'inactive'}})};f.stripe.transfers.create=async()=>{creates++;throw Object.assign(Error(variant),{statusCode:variant==='server'?500:variant==='timeout'?undefined:400,code:'insufficient_capabilities_for_transfer',headers:{'idempotent-replayed':variant==='fresh400'?'false':'true','original-request':'req_original'}})};await assert.rejects(()=>f.m.ejecutarLiquidacionStripe(params));assert.equal(creates,1);assert.equal(f.refunds.length,1);assert.equal(f.transfers.length,0)}
+})
+await check('Concurrent successor-key transfer is recovered rather than duplicated',async()=>{
+ const f=fixture();let creates=0;f.stripe.accounts={retrieve:async()=>({capabilities:{transfers:'active'}})};f.stripe.transfers.create=async(p,o)=>{creates++;if(o.idempotencyKey.endsWith(':v1'))throw Object.assign(Error('Cached rejection'),{statusCode:400,code:'insufficient_capabilities_for_transfer',headers:{'idempotent-replayed':'true','original-request':'req_original'}});setTimeout(()=>f.transfers.push({...p,id:'tr_successor',amount_reversed:0}),50);throw Object.assign(Error('Concurrent successor'),{statusCode:409,code:'idempotency_key_in_use'})};const r=await f.m.ejecutarLiquidacionStripe(params);assert.equal(r.transferId,'tr_successor');assert.equal(creates,2);assert.equal(f.transfers.length,1)
+})
+await check('Cached insufficient balance resumes only after real available funds cover the transfer',async()=>{
+ for(const available of [0,6000]){const f=fixture(),keys=[];f.stripe.balance={retrieve:async()=>({available:[{currency:'eur',amount:available}]})};f.stripe.transfers.create=async(p,o)=>{keys.push(o.idempotencyKey);if(o.idempotencyKey.endsWith(':v1'))throw Object.assign(Error('Cached insufficient balance'),{statusCode:400,code:'balance_insufficient',headers:{'idempotent-replayed':'true','original-request':'req_balance'}});const t={...p,id:'tr_funded',amount_reversed:0};f.transfers.push(t);return t};if(available){await f.m.ejecutarLiquidacionStripe(params);assert.equal(f.transfers.length,1);assert.equal(keys[1],'disputa_test:transfer:after:req_balance')}else{await assert.rejects(()=>f.m.ejecutarLiquidacionStripe(params));assert.equal(keys.length,1);assert.equal(f.transfers.length,0)}assert.equal(f.refunds.length,1)}
 })
 console.log(`${passed} isolated Stripe recovery scenarios passed (no network calls).`)

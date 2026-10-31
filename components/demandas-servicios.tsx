@@ -1,5 +1,7 @@
 "use client"
 
+import { solicitarReautenticacion } from "@/lib/auth-redirect"
+
 import { SelectorIdentidadEmpresa } from "@/components/selector-identidad-empresa"
 import { IdentidadEmpresa } from "@/components/identidad-empresa"
 import { useT, useIdioma } from "@/components/idioma-provider"
@@ -50,6 +52,8 @@ import { obtenerSolicitudesAbiertas } from "@/app/actions/solicitudes"
 import { crearConversacion } from "@/app/actions/messages"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import { isAuthRetryableFetchError } from "@supabase/supabase-js"
+import { almacenBorradorOferta, guardarBorradorOferta, leerBorradorOferta, borrarBorradorOferta } from "@/lib/borrador-oferta"
 import { PROVINCIAS_ES } from "@/lib/provincias"
 import { SelectCategoriaJerarquico } from "@/components/select-categoria-jerarquico"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
@@ -134,6 +138,7 @@ export default function DemandasServicios() {
   const avisosMostrados = useRef(new Set<string>())
   const enlaceAbierto = useRef("")
   const searchParams = useSearchParams()
+  const solicitudDelEnlace = searchParams.get("solicitud") || undefined
 
   const [empresaId, setEmpresaId] = useState<string | null>(null)
   const [dialogAbierto, setDialogAbierto] = useState(false)
@@ -146,6 +151,9 @@ export default function DemandasServicios() {
   const cuentaAvisos = useRef<string | null>(null)
   const router = useRouter()
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
+  const [adjuntosPendientes, setAdjuntosPendientes] = useState<string[]>([])
+  const borradorRestaurado = useRef("")
+  const autorBorrador = useRef<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   // Aceptación explícita de los gastos de servicio, requerida en cada oferta.
   const [aceptaGastos, setAceptaGastos] = useState(false)
@@ -180,6 +188,21 @@ export default function DemandasServicios() {
   })
 
   useEffect(() => {
+    const autor = autorBorrador.current
+    if (!dialogAbierto || !demandaSeleccionada || !autor || (usuarioActualId && usuarioActualId !== autor)) return
+    const guardar = () => guardarBorradorOferta(almacenBorradorOferta(), {
+      usuarioId: autor, solicitudId: demandaSeleccionada.id, empresaId,
+      valores: formData, adjuntos: [...adjuntosPendientes, ...attachedFiles.map(file => file.name)],
+    })
+    guardar()
+    const caducada = (evento: Event) => {
+      if (guardar()) (evento as CustomEvent<{ ruta: string }>).detail.ruta = `/demandas?solicitud=${demandaSeleccionada.id}&reanudarOferta=1`
+    }
+    window.addEventListener("diime:sesion-caducada", caducada)
+    return () => window.removeEventListener("diime:sesion-caducada", caducada)
+  }, [dialogAbierto, demandaSeleccionada, empresaId, formData, adjuntosPendientes, attachedFiles, usuarioActualId])
+
+  useEffect(() => {
     let activo = true
     let revisionSesion = 0
     const supabase = createClient()
@@ -192,7 +215,7 @@ export default function DemandasServicios() {
       try {
         const [{ data: { user } }, result] = await Promise.all([
           supabase.auth.getUser(),
-          obtenerSolicitudesAbiertas(),
+          obtenerSolicitudesAbiertas(solicitudDelEnlace),
         ])
         if (!activo) return
         if (revision === revisionSesion) setUsuarioActualId(user?.id ?? null)
@@ -208,7 +231,7 @@ export default function DemandasServicios() {
       if (activo) setUsuarioActualId(session?.user.id ?? null)
     })
     return () => { activo = false; data.subscription.unsubscribe() }
-  }, [])
+  }, [solicitudDelEnlace])
 
   useEffect(() => {
     if (cuentaAvisos.current && cuentaAvisos.current !== usuarioActualId) {
@@ -218,6 +241,25 @@ export default function DemandasServicios() {
     }
     cuentaAvisos.current = usuarioActualId
   }, [usuarioActualId])
+
+  useEffect(() => {
+    const autor = autorBorrador.current
+    // Session expiry keeps the draft available for reauthentication. A
+    // different signed-in account must not see that actor's in-memory form.
+    if (!usuarioActualId || !autor || usuarioActualId === autor) return
+    if (dialogAbierto && demandaSeleccionada) guardarBorradorOferta(almacenBorradorOferta(), {
+      usuarioId: autor, solicitudId: demandaSeleccionada.id, empresaId,
+      valores: formData, adjuntos: [...adjuntosPendientes, ...attachedFiles.map(file => file.name)],
+    })
+    autorBorrador.current = null
+    borradorRestaurado.current = ""
+    setDialogAbierto(false)
+    setFormData({ precio: "", duracion: "", unidadTiempo: "dias", descripcion: "", materiales: "" })
+    setAttachedFiles([])
+    setAdjuntosPendientes([])
+    setAceptaGastos(false)
+    setEmpresaId(null)
+  }, [usuarioActualId, dialogAbierto, demandaSeleccionada, empresaId, formData, adjuntosPendientes, attachedFiles])
 
   // Notification links open the exact request even when saved filters exclude it.
   useEffect(() => {
@@ -236,6 +278,25 @@ export default function DemandasServicios() {
     setDemandaSeleccionada(demanda)
     setDialogDetalles(true)
   }, [searchParams, loading, demandas, t])
+
+  useEffect(() => {
+    const solicitudId = searchParams.get("solicitud")
+    if (loading || !usuarioActualId || !solicitudId || searchParams.get("reanudarOferta") !== "1") return
+    const clave = `${usuarioActualId}:${solicitudId}`
+    if (borradorRestaurado.current === clave) return
+    const borrador = leerBorradorOferta(almacenBorradorOferta(), usuarioActualId, solicitudId)
+    const demanda = demandas.find(item => item.id === solicitudId)
+    if (!borrador || !demanda) return
+    borradorRestaurado.current = clave
+    autorBorrador.current = usuarioActualId
+    setDemandaSeleccionada(demanda)
+    setFormData(borrador.valores)
+    setEmpresaId(borrador.empresaId)
+    setAdjuntosPendientes(borrador.adjuntos)
+    setAceptaGastos(false)
+    setDialogDetalles(false)
+    setDialogAbierto(true)
+  }, [searchParams, usuarioActualId, loading, demandas])
 
   // Entering the section leaves badges intact. Only the opened request's notices
   // are acknowledged, with their full context retained inside the details dialog.
@@ -340,7 +401,7 @@ export default function DemandasServicios() {
       } = await supabase.auth.getUser()
       if (!user) {
         toast({ title: t("Inicia sesión"), description: t("Necesitas una cuenta para escribir al cliente.") })
-        router.push(`/auth/login?next=${encodeURIComponent(`/demandas?solicitud=${demanda.id}`)}`)
+        solicitarReautenticacion(`/demandas?solicitud=${demanda.id}`)
         return
       }
       if (user.id === demanda.cliente_id) {
@@ -368,10 +429,11 @@ export default function DemandasServicios() {
     try {
       const { data: { user } } = await createClient().auth.getUser()
       if (!user) {
-        router.push(`/auth/login?next=${encodeURIComponent(`/demandas?solicitud=${demanda.id}`)}`)
+        solicitarReautenticacion(`/demandas?solicitud=${demanda.id}`)
         return
       }
       setDemandaSeleccionada(demanda)
+      autorBorrador.current = user.id
       // La aceptación de gastos es por oferta: se pide de nuevo cada vez.
       setAceptaGastos(false)
       setDialogAbierto(true)
@@ -403,6 +465,34 @@ export default function DemandasServicios() {
     setIsSubmitting(true)
 
     try {
+      // getUser may synchronously emit SIGNED_OUT before resolving. Persist
+      // before invoking it so AppChrome can safely unmount private content.
+      if (autorBorrador.current) guardarBorradorOferta(almacenBorradorOferta(), {
+        usuarioId: autorBorrador.current, solicitudId: demandaSeleccionada.id, empresaId,
+        valores: formData, adjuntos: [...adjuntosPendientes, ...attachedFiles.map(file => file.name)],
+      })
+      // Validate before uploading or sending. Preserve the draft under its
+      // original actor, so a different account cannot inherit their proposal.
+      const supabase = createClient()
+      const { data: { user }, error } = await supabase.auth.getUser()
+      if (error && isAuthRetryableFetchError(error)) throw error
+      if (error || !user || user.id !== autorBorrador.current) {
+        const autor = autorBorrador.current
+        const guardado = autor && guardarBorradorOferta(almacenBorradorOferta(), {
+          usuarioId: autor, solicitudId: demandaSeleccionada.id, empresaId,
+          valores: formData, adjuntos: [...adjuntosPendientes, ...attachedFiles.map(file => file.name)],
+        })
+        if (!guardado) {
+          toast({ title: t("Error"), description: t("No se pudo guardar el borrador. Mantén esta página abierta e inicia sesión en otra pestaña antes de reintentar."), variant: "destructive" })
+          return
+        }
+        solicitarReautenticacion(`/demandas?solicitud=${demandaSeleccionada.id}&reanudarOferta=1`)
+        return
+      }
+      if (adjuntosPendientes.length) {
+        toast({ title: t("Faltan los archivos del borrador"), description: t("Vuelve a adjuntarlos o descártalos antes de enviar. No hemos creado una nueva oferta."), variant: "destructive" })
+        return
+      }
       const uploadResults = await Promise.all(attachedFiles.map((file) => uploadFile(file)))
       // Si falla una subida no se envía la oferta: mandarla sin los adjuntos
       // dejaría al profesional creyendo que el cliente los ha recibido.
@@ -432,6 +522,7 @@ export default function DemandasServicios() {
       if (result.error) {
         toast({ title: t("Error"), description: t(result.error), variant: "destructive" })
       } else {
+        borrarBorradorOferta(almacenBorradorOferta(), user.id, demandaSeleccionada.id)
         toast({ title: t("Oferta enviada"), description: t("Tu presupuesto ha sido enviado correctamente.") })
         setDialogAbierto(false)
         setFormData({ precio: "", duracion: "", unidadTiempo: "dias", descripcion: "", materiales: "" })
@@ -440,14 +531,16 @@ export default function DemandasServicios() {
       }
     } catch (error) {
       toast({ title: t("Error"), description: t("No se pudo enviar la oferta"), variant: "destructive" })
+    } finally {
+      setIsSubmitting(false)
     }
-
-    setIsSubmitting(false)
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      setAttachedFiles([...attachedFiles, ...Array.from(e.target.files)])
+      const nuevos = Array.from(e.target.files)
+      setAttachedFiles([...attachedFiles, ...nuevos])
+      setAdjuntosPendientes(actuales => actuales.filter(nombre => !nuevos.some(file => file.name === nombre)))
     }
   }
 
@@ -986,7 +1079,7 @@ export default function DemandasServicios() {
       </Dialog>
 
       {/* Dialog Enviar Oferta */}
-      <Dialog open={dialogAbierto} onOpenChange={setDialogAbierto}>
+      <Dialog open={dialogAbierto && (!usuarioActualId || usuarioActualId === autorBorrador.current)} onOpenChange={setDialogAbierto}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t("Enviar presupuesto")}</DialogTitle>
@@ -1069,6 +1162,7 @@ export default function DemandasServicios() {
             <div className="space-y-2">
               <Label htmlFor="file-upload">{t("Archivos adjuntos (opcional)")}</Label>
               <div className="flex flex-wrap gap-2">
+                {adjuntosPendientes.map((nombre, i) => <Badge key={`pendiente-${i}`} variant="outline">{nombre} <button type="button" aria-label={`${t("Quitar archivo")}: ${nombre}`} onClick={() => setAdjuntosPendientes(actuales => actuales.filter((_, j) => j !== i))}><X className="h-3 w-3" /></button></Badge>)}
                 {attachedFiles.map((file, i) => (
                   <Badge key={i} variant="secondary" className="gap-1">
                     {file.name}

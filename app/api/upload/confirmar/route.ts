@@ -5,6 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { ID_ARCHIVO, validarArchivo } from "@/lib/archivos"
 import { streamArchivoPrivado, usuarioParaSubida } from "@/lib/archivos-servidor"
 
+import { autorizarConversacionSubida } from "@/lib/upload-conversation"
+
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 export async function POST(request: Request) {
@@ -13,6 +15,8 @@ export async function POST(request: Request) {
   const admin = createAdminClient()
   if (!admin) return NextResponse.json({ error: "Almacenamiento no disponible. Inténtalo más tarde." }, { status: 503 })
   const body = await request.json().catch(() => null)
+  const acceso = await autorizarConversacionSubida(actor.supabase, actor.user.id, body?.conversacionId)
+  if (acceso) return NextResponse.json({ error: acceso.error }, { status: acceso.status })
   if (!body || typeof body.id !== "string" || !ID_ARCHIVO.test(body.id)) return NextResponse.json({ error: "Subida no disponible." }, { status: 404 })
   const { data: pendiente, error } = await admin.from("archivos_subidas_pendientes").select("*")
     .eq("id", body.id).eq("propietario_id", actor.user.id).maybeSingle()

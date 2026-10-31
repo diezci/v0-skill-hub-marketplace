@@ -27,6 +27,7 @@ import {
 
 export async function crearOferta(formData: {
   empresa_id?: string | null
+  oferta_origen_id?: string | null
   solicitud_id: string
   precio: number
   tiempo_estimado: number
@@ -52,6 +53,14 @@ export async function crearOferta(formData: {
 
   const errorEmpresa = await validarEmpresaOperacion(supabase, formData.empresa_id)
   if (errorEmpresa) return { error: await textoServidor(errorEmpresa) }
+
+  if (formData.oferta_origen_id) {
+    const { data: origen, error } = await supabase.rpc("empresa_oferta_sustitucion_contexto", { p_oferta_id: formData.oferta_origen_id })
+    if (error || !origen) return { error: await textoServidor(error?.message || "No tienes permiso para sustituir esta oferta") }
+    if (origen.empresa_id !== formData.empresa_id || origen.solicitud_id !== formData.solicitud_id) {
+      return { error: await textoServidor("La sustitución debe conservar la empresa y la solicitud con un nuevo profesional") }
+    }
+  }
 
   if (typeof formData.descripcion !== "string" || !formData.descripcion.trim()) {
     return { error: await textoServidor("La descripción de la oferta no puede estar vacía.") }
@@ -114,7 +123,7 @@ export async function crearOferta(formData: {
   // el posible error de RLS. Solo una oferta viva debe bloquear una nueva puja.
   const { data: existingOffers, error: existingOffersError } = await supabase
     .from("ofertas")
-    .select("id, estado, empresa_id")
+    .select("id, estado, empresa_id, oferta_origen_id")
     .eq("solicitud_id", formData.solicitud_id)
     .eq("profesional_id", user.id)
     .order("updated_at", { ascending: false })
@@ -122,7 +131,7 @@ export async function crearOferta(formData: {
   if (existingOffersError) return { error: await textoServidor(existingOffersError.message) }
 
   const ofertasCerradas = (existingOffers || []).filter((oferta: any) =>
-    ["retirada", "rechazada"].includes(oferta.estado) && (oferta.empresa_id ?? null) === (formData.empresa_id ?? null),
+    !oferta.oferta_origen_id && ["retirada", "rechazada"].includes(oferta.estado) && (oferta.empresa_id ?? null) === (formData.empresa_id ?? null),
   )
   const existingActiveOffer = (existingOffers || []).find(
     (oferta: any) => !["retirada", "rechazada"].includes(oferta.estado),
@@ -153,6 +162,7 @@ export async function crearOferta(formData: {
 
   const ahora = new Date().toISOString()
   const camposOferta = {
+    oferta_origen_id: formData.oferta_origen_id || null,
     empresa_id: formData.empresa_id || null,
     profesional_id: user.id,
     solicitud_id: formData.solicitud_id,
@@ -171,7 +181,7 @@ export async function crearOferta(formData: {
     estado: "pendiente",
   }
 
-  const resultado = ofertaReutilizable
+  const resultado = ofertaReutilizable && !formData.oferta_origen_id
     ? await supabase
         .from("ofertas")
         .update({ ...camposOferta, created_at: ahora, updated_at: ahora })
@@ -185,6 +195,9 @@ export async function crearOferta(formData: {
   const { data, error } = resultado
 
   if (error) {
+    if (error.code === "23505") {
+      return { error: await textoServidor("Ya has enviado una oferta para esta solicitud.") }
+    }
     return { error: await textoServidor(error.message) }
   }
 
@@ -271,11 +284,13 @@ export async function obtenerMisOfertas() {
     cancelacion_adjuntos_respuesta: string[]
   }
   const trabajosPorOferta: Record<string, TrabajoOferta> = {}
-  if (idsAceptadas.length > 0) {
+  // PostgREST codifica el filtro IN en la URL. Acotarlo evita un HTTP 414
+  // cuando el profesional acumula cientos de ofertas aceptadas.
+  for (let inicio = 0; inicio < idsAceptadas.length; inicio += 50) {
     const { data: trabajosDeOfertas, error: trabajosError } = await supabase
       .from("trabajos")
       .select("id, estado, oferta_id, cliente_id, profesional_id, cancelacion_estado, cancelacion_solicitada_por, cancelacion_razon, cancelacion_revision, cancelacion_adjuntos_solicitante, cancelacion_respuesta_razon, cancelacion_adjuntos_respuesta")
-      .in("oferta_id", idsAceptadas)
+      .in("oferta_id", idsAceptadas.slice(inicio, inicio + 50))
       .order("created_at", { ascending: false })
     if (trabajosError) return { error: await textoServidor("No se pudo consultar el estado de tus contratos. Inténtalo de nuevo.") }
     for (const t of (trabajosDeOfertas || []) as TrabajoOferta[]) {

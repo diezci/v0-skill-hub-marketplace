@@ -15,7 +15,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Mail, Lock, AlertCircle } from "lucide-react"
-import { destinoAuthSeguro } from "@/lib/auth-redirect"
+import { destinoAuthSeguro, destinoTrasConfirmacion } from "@/lib/auth-redirect"
 import { BotonesOAuth } from "@/components/botones-oauth"
 
 export default function LoginPage() {
@@ -24,11 +24,21 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [correoPendiente, setCorreoPendiente] = useState(false)
+  const [reenviando, setReenviando] = useState(false)
+  const [correoReenviado, setCorreoReenviado] = useState(false)
+  const [desdeConfirmacion, setDesdeConfirmacion] = useState(false)
   const [emailError, setEmailError] = useState<string | null>(null)
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const router = useRouter()
   const [siguiente, setSiguiente] = useState("")
-  useEffect(() => { setSiguiente(destinoAuthSeguro(new URLSearchParams(window.location.search).get("next"), "")) }, [])
+  const [oauthCancelado, setOauthCancelado] = useState(false)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    setSiguiente(destinoAuthSeguro(params.get("next"), ""))
+    setDesdeConfirmacion(params.get("confirmacion") === "1")
+    setOauthCancelado(params.get("oauth") === "cancelled")
+  }, [])
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -70,21 +80,52 @@ export default function LoginPage() {
     const supabase = createClient()
     setIsLoading(true)
     setError(null)
+    setCorreoPendiente(false)
+    setCorreoReenviado(false)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
       if (error) throw error
-      const requested = new URLSearchParams(window.location.search).get("next")
-      const destination = destinoAuthSeguro(requested)
+      const params = new URLSearchParams(window.location.search)
+      const requested = params.get("next")
+      const destination = params.get("confirmacion") === "1"
+        ? destinoTrasConfirmacion(requested, data.user?.user_metadata?.registro_next)
+        : destinoAuthSeguro(requested)
       router.push(destination)
       router.refresh()
     } catch (error: unknown) {
-      setError(error instanceof Error ? t(error.message) : "Error al iniciar sesión")
+      const pendiente = typeof error === "object" && error !== null && "code" in error && error.code === "email_not_confirmed"
+      setCorreoPendiente(pendiente)
+      setError(pendiente ? "Tu correo todavía no está confirmado. Revisa el mensaje de confirmación o solicita otro enlace." : error instanceof Error ? t(error.message) : "Error al iniciar sesión")
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const reenviarConfirmacion = async () => {
+    if (reenviando || !correoPendiente) return
+    setReenviando(true)
+    setCorreoReenviado(false)
+    setError(null)
+    try {
+      // This SDK's resend uses an implicit confirmation link, not a PKCE code.
+      // Confirm the email, then ask for the existing password before resuming.
+      const callback = new URL("/auth/login", window.location.origin)
+      callback.searchParams.set("confirmacion", "1")
+      const destino = destinoAuthSeguro(new URLSearchParams(window.location.search).get("next"), "")
+      if (destino) callback.searchParams.set("next", destino)
+      const { error } = await createClient().auth.resend({
+        type: "signup", email: email.trim(), options: { emailRedirectTo: callback.toString() },
+      })
+      if (error) throw error
+      setCorreoReenviado(true)
+    } catch {
+      setError("No se pudo reenviar el correo. Inténtalo de nuevo en unos momentos.")
+    } finally {
+      setReenviando(false)
     }
   }
 
@@ -106,6 +147,8 @@ export default function LoginPage() {
             <CardDescription className="text-base">{t("Inicia sesión para acceder a tu cuenta")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {oauthCancelado && <p role="status" className="text-sm text-muted-foreground">{t("Has cancelado el inicio de sesión. Puedes intentarlo de nuevo o usar tu email.")}</p>}
+            {desdeConfirmacion && <p role="status" className="text-sm text-muted-foreground">{t("Entra con tu contraseña para continuar con el registro.")}</p>}
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm font-medium">
@@ -119,8 +162,12 @@ export default function LoginPage() {
                     placeholder={t("tu@email.com")}
                     className={`pl-10 ${emailError ? "border-red-500" : ""}`}
                     value={email}
+                    disabled={isLoading || reenviando}
                     onChange={(e) => {
                       setEmail(e.target.value)
+                      setCorreoPendiente(false)
+                      setCorreoReenviado(false)
+                      setError(null)
                       if (emailError) validateEmail(e.target.value)
                     }}
                     onBlur={() => validateEmail(email)}
@@ -166,13 +213,22 @@ export default function LoginPage() {
               </div>
 
               {error && (
-                <div className="text-sm text-red-500 bg-red-50 p-3 rounded-lg flex items-start gap-2">
+                <div role="alert" className="text-sm text-red-500 bg-red-50 p-3 rounded-lg flex items-start gap-2">
                   <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                   <span>{t(error)}</span>
                 </div>
               )}
 
-              <Button type="submit" className="w-full h-11" disabled={isLoading}>
+              {correoPendiente && (
+                <div className="space-y-2">
+                  <Button type="button" variant="outline" className="w-full" disabled={isLoading || reenviando} onClick={reenviarConfirmacion}>
+                    {reenviando ? t("Reenviando...") : t("Reenviar correo de confirmación")}
+                  </Button>
+                  {correoReenviado && <p role="status" className="text-sm text-emerald-700">{t("Hemos enviado otro enlace de confirmación. Revisa tu correo para continuar.")}</p>}
+                </div>
+              )}
+
+              <Button type="submit" className="w-full h-11" disabled={isLoading || reenviando}>
                 {isLoading ? t("Iniciando sesión...") : t("Iniciar Sesión")}
               </Button>
             </form>

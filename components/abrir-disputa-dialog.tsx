@@ -2,7 +2,7 @@
 
 import { useT } from "@/components/idioma-provider"
 
-import { useState } from "react"
+import { useId, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -28,10 +28,12 @@ interface AbrirDisputaDialogProps {
 }
 
 export function AbrirDisputaDialog({ trabajoId, rol, trigger, onCreated }: AbrirDisputaDialogProps) {
+  const motivoId = useId()
   const t = useT()
 
   const [open, setOpen] = useState(false)
   const [motivo, setMotivo] = useState("")
+  const [motivoInvalido, setMotivoInvalido] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const { toast } = useToast()
   const router = useRouter()
@@ -43,7 +45,7 @@ export function AbrirDisputaDialog({ trabajoId, rol, trigger, onCreated }: Abrir
 
   const handleSubmit = async () => {
     if (!motivo.trim()) {
-      toast({ title: t("Falta el motivo"), description: t("Describe qué ha ocurrido."), variant: "destructive" })
+      setMotivoInvalido(true)
       return
     }
     setSubmitting(true)
@@ -57,6 +59,7 @@ export function AbrirDisputaDialog({ trabajoId, rol, trigger, onCreated }: Abrir
       })
       setOpen(false)
       setMotivo("")
+      setMotivoInvalido(false)
       onCreated?.()
       router.refresh()
     }
@@ -71,7 +74,7 @@ export function AbrirDisputaDialog({ trabajoId, rol, trigger, onCreated }: Abrir
             <Scale className="h-4 w-4" />{t("Abrir disputa")}</Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Scale className="h-5 w-5 text-amber-600" />{t("Abrir una disputa")}</DialogTitle>
@@ -79,13 +82,17 @@ export function AbrirDisputaDialog({ trabajoId, rol, trigger, onCreated }: Abrir
         </DialogHeader>
 
         <div className="space-y-1.5 py-2">
-          <label className="text-sm font-medium">{t("Motivo de la disputa")}</label>
+          <label htmlFor={motivoId} className="text-sm font-medium">{t("Motivo de la disputa")}</label>
           <Textarea
+            id={motivoId}
+            aria-invalid={motivoInvalido || undefined}
+            aria-describedby={motivoInvalido ? `${motivoId}-error` : undefined}
             placeholder={placeholder}
             value={motivo}
-            onChange={(e) => setMotivo(e.target.value)}
+            onChange={(e) => { setMotivo(e.target.value); setMotivoInvalido(false) }}
             rows={5}
           />
+          {motivoInvalido && <p id={`${motivoId}-error`} role="alert" className="text-sm text-destructive"><span>{t("Falta el motivo")}</span>{" "}{t("Describe qué ha ocurrido.")}</p>}
           <p className="text-xs text-muted-foreground">{t("Aporta el máximo detalle. Las fotos y mensajes del trabajo se incluyen automáticamente como pruebas.")}</p>
           <p className="text-[11px] text-muted-foreground/80 leading-snug border-t pt-2 mt-1">{t("La resolución de Diime es una mediación privada entre las partes y")}{" "}
             <span className="font-medium">{t("no impide ni sustituye")}</span>{" "}{t("cualquier otra acción legal que puedas emprender por tu cuenta fuera de la plataforma.")}</p>

@@ -1,4 +1,5 @@
 import { getT } from "@/lib/i18n-servidor"
+import { CuentaRevisionPanel } from "@/components/cuenta-revision-panel"
 import { SelectorIdioma } from "@/components/selector-idioma"
 import type { Metadata } from "next"
 import Link from "next/link"
@@ -73,6 +74,7 @@ export default async function MiCuentaPage() {
       </div>
 
       <div className="space-y-6">
+        <CuentaRevisionPanel key={user.id} usuarioId={user.id} />
         <Card>
           <CardHeader><CardTitle>{t("Idioma")}</CardTitle><CardDescription>{t("Elige el idioma de Diime")}</CardDescription></CardHeader>
           <CardContent><SelectorIdioma /></CardContent>

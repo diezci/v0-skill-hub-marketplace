@@ -38,21 +38,19 @@ export async function obtenerMiVerificacionProfesional(): Promise<{ data?: MiVer
   const contexto = await contextoAutenticado()
   if ("error" in contexto) return { error: await textoServidor(contexto.error) }
   const { supabase, user } = contexto
-  const [perfilRes, profesionalRes, solicitudRes] = await Promise.all([
-    supabase.from("profiles").select("verificado, empresa_id").eq("id", user.id).maybeSingle(),
+  const [perfilRes, profesionalRes, solicitudRes, miembroRes] = await Promise.all([
+    supabase.from("profiles").select("verificado").eq("id", user.id).maybeSingle(),
     supabase.from("profesionales").select("id").eq("id", user.id).maybeSingle(),
     supabase.from("solicitudes_verificacion_profesional").select(CAMPOS_SOLICITUD).eq("profesional_id", user.id).maybeSingle(),
+    supabase.rpc("empresa_contexto_actual"),
   ])
-  if (perfilRes.error || profesionalRes.error || solicitudRes.error) {
+  if (perfilRes.error || profesionalRes.error || solicitudRes.error || miembroRes.error) {
     return { error: await textoServidor("No se pudo cargar tu verificación. Inténtalo de nuevo.") }
   }
   if (!perfilRes.data || !profesionalRes.data) return { error: await textoServidor("Primero completa tu perfil profesional.") }
-  let empresa: MiVerificacionProfesional["empresa"] = null
-  if (perfilRes.data.empresa_id) {
-    const resultado = await supabase.from("empresas").select("id, nombre").eq("id", perfilRes.data.empresa_id).maybeSingle()
-    if (resultado.error || !resultado.data) return { error: await textoServidor("No se pudo comprobar la empresa de tu perfil.") }
-    empresa = resultado.data
-  }
+  const empresa: MiVerificacionProfesional["empresa"] = miembroRes.data?.id
+    ? { id: miembroRes.data.id, nombre: miembroRes.data.nombre }
+    : null
   return {
     data: {
       verificado: !!perfilRes.data.verificado,

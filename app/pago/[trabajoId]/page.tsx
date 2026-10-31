@@ -184,6 +184,7 @@ export default function PagoPage() {
                 <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 space-y-2">
                   <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
                     <ShieldCheck className="h-4 w-4" />{" "}{t("Tu dinero está protegido")}</p>
+                  <p className="text-sm text-muted-foreground">{t("El plazo del servicio empieza cuando se confirma el pago.")}</p>
                   <p className="text-sm text-muted-foreground">{t("El pago al profesional queda aplazado hasta que confirmes la entrega o se resuelva una disputa. Si hay un problema, puedes solicitar la mediación de Diime.")}</p>
                 </div>
 
@@ -193,19 +194,19 @@ export default function PagoPage() {
                   <div className="space-y-3">
                     <h3 className="font-medium text-sm">{t("Desglose del pago")}</h3>
                     <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
+                      <div className="flex justify-between gap-3">
                         <span className="text-muted-foreground">{t("Precio final del servicio")}</span>
-                        <span>{formatearPrecio(desglose.precioBase, idioma)}</span>
+                        <span className="shrink-0">{formatearPrecio(desglose.precioBase, idioma)}</span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between gap-3">
                         <span className="text-muted-foreground">{t("Gastos de servicio Diime (")}{PLATFORM_CONFIG.comisionClientePorcentaje}{t("%; IVA del")}{" "}
                           {PLATFORM_CONFIG.ivaDiimePorcentaje}{t("% incluido)")}</span>
-                        <span>{formatearPrecio(desglose.comisionCliente, idioma)}</span>
+                        <span className="shrink-0">{formatearPrecio(desglose.comisionCliente, idioma)}</span>
                       </div>
                       <Separator />
-                      <div className="flex justify-between font-semibold text-base">
+                      <div className="flex justify-between gap-3 font-semibold text-base">
                         <span>{t("Total a pagar")}</span>
-                        <span className="text-primary">{formatearPrecio(desglose.totalCliente, idioma)}</span>
+                        <span className="shrink-0 text-primary">{formatearPrecio(desglose.totalCliente, idioma)}</span>
                       </div>
                     </div>
                     <p className="text-xs text-muted-foreground">{t("Si canceláis de mutuo acuerdo después de pagar, se te devuelve el precio del servicio. Diime conserva los gastos de servicio del cliente: {comision}.", { comision: formatearPrecio(desglose.comisionCliente, idioma) })}</p>

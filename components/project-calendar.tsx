@@ -1,5 +1,7 @@
 "use client"
 
+import { calendarDateKey } from "@/lib/calendar-work-dates"
+
 import { useT, useIdioma } from "@/components/idioma-provider"
 import { localeDe } from "@/lib/i18n"
 
@@ -27,6 +29,7 @@ import {
 } from "@/app/actions/calendario"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { calendarDate, calendarTime, calendarInstant, validateCalendarEvent } from "@/lib/calendar-events"
 
 const DIAS_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
 const MESES = [
@@ -117,11 +120,12 @@ type CalendarItem = {
   titulo: string
   tipo: "trabajo_entrega" | "trabajo_inicio" | "servicio_entrega" | "servicio_inicio" | "evento"
   fecha: string
+  fechaFin?: string
   color: string
   meta?: string
 }
 
-export function ProjectCalendar() {
+export function ProjectCalendar({ personalOnly = false }: { personalOnly?: boolean }) {
   const t = useT()
   const { idioma } = useIdioma()
 
@@ -130,6 +134,7 @@ export function ProjectCalendar() {
   const [eventos, setEventos] = useState<EventoCalendario[]>([])
   const [currentDate, setCurrentDate] = useState(new Date())
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -138,6 +143,8 @@ export function ProjectCalendar() {
     descripcion: "",
     fecha_inicio: toDateStr(new Date()),
     fecha_fin: "",
+    hora_inicio: "09:00",
+    hora_fin: "10:00",
     color: "emerald",
     todo_el_dia: true,
     ubicacion: "",
@@ -155,15 +162,22 @@ export function ProjectCalendar() {
 
   async function loadAll() {
     setLoading(true)
-    const [t, s, e] = await Promise.all([
-      obtenerTrabajosCalendario(),
-      obtenerServiciosSolicitados(),
-      obtenerEventosCalendario(),
-    ])
-    if (t.data) setTrabajos(t.data)
-    if (s.data) setServicios(s.data)
-    if (e.data) setEventos(e.data)
-    setLoading(false)
+    setLoadError(false)
+    try {
+      const [trabajosResult, serviciosResult, eventosResult] = await Promise.all([
+        personalOnly ? Promise.resolve({ data: [], error: undefined }) : obtenerTrabajosCalendario(),
+        personalOnly ? Promise.resolve({ data: [], error: undefined }) : obtenerServiciosSolicitados(),
+        obtenerEventosCalendario(),
+      ])
+      if (trabajosResult.error || serviciosResult.error || eventosResult.error) throw new Error("calendar-events-load")
+      setTrabajos(trabajosResult.data)
+      setServicios(serviciosResult.data)
+      setEventos(eventosResult.data)
+    } catch {
+      setLoadError(true)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const items = useMemo<CalendarItem[]>(() => {
@@ -175,7 +189,7 @@ export function ProjectCalendar() {
           id: `t-ini-${trabajo.id}`,
           titulo,
           tipo: "trabajo_inicio",
-          fecha: trabajo.fecha_inicio.split("T")[0],
+          fecha: calendarDateKey(trabajo.fecha_inicio),
           color: "blue",
           meta: t("Inicio del trabajo"),
         })
@@ -191,7 +205,7 @@ export function ProjectCalendar() {
             id: `t-fin-${trabajo.id}`,
             titulo,
             tipo: "trabajo_entrega",
-            fecha: String(fechaCierre).split("T")[0],
+            fecha: calendarDateKey(String(fechaCierre)),
             color: cerrado ? (trabajo.estado === "cancelado" ? "red" : "emerald") : "amber",
             meta: cerrado ? (trabajo.estado === "cancelado" ? t("Cancelado") : t("Completado")) : t("Entrega prevista"),
           })
@@ -205,7 +219,7 @@ export function ProjectCalendar() {
           id: `s-ini-${s.id}`,
           titulo,
           tipo: "servicio_inicio",
-          fecha: s.fecha_inicio.split("T")[0],
+          fecha: calendarDateKey(s.fecha_inicio),
           color: "cyan",
           meta: t("Inicio del servicio"),
         })
@@ -215,7 +229,7 @@ export function ProjectCalendar() {
           id: `s-fin-${s.id}`,
           titulo,
           tipo: "servicio_entrega",
-          fecha: s.fecha_estimada_fin.split("T")[0],
+          fecha: calendarDateKey(s.fecha_estimada_fin),
           color: "rose",
           meta: t("Recepción prevista"),
         })
@@ -226,9 +240,10 @@ export function ProjectCalendar() {
         id: `e-${ev.id}`,
         titulo: ev.titulo,
         tipo: "evento",
-        fecha: ev.fecha_inicio.split("T")[0],
+        fecha: calendarDate(ev.fecha_inicio, ev.todo_el_dia),
+        fechaFin: ev.fecha_fin ? calendarDate(ev.fecha_fin, ev.todo_el_dia) : undefined,
         color: ev.color || "emerald",
-        meta: ev.descripcion || undefined,
+        meta: [!ev.todo_el_dia ? `${calendarTime(ev.fecha_inicio)}${ev.fecha_fin ? ` – ${calendarTime(ev.fecha_fin)}` : ""}` : "", ev.descripcion].filter(Boolean).join(" · ") || undefined,
       })
     })
     return list
@@ -251,7 +266,7 @@ export function ProjectCalendar() {
 
   function itemsOnDay(date: Date) {
     const s = toDateStr(date)
-    return items.filter((i) => i.fecha === s)
+    return items.filter((i) => i.fecha <= s && (i.fechaFin || i.fecha) >= s)
   }
 
   function isToday(d: Date) {
@@ -266,6 +281,8 @@ export function ProjectCalendar() {
       descripcion: "",
       fecha_inicio: toDateStr(date || new Date()),
       fecha_fin: "",
+    hora_inicio: "09:00",
+    hora_fin: "10:00",
       color: "emerald",
       todo_el_dia: true,
       ubicacion: "",
@@ -278,8 +295,10 @@ export function ProjectCalendar() {
     setForm({
       titulo: ev.titulo,
       descripcion: ev.descripcion || "",
-      fecha_inicio: ev.fecha_inicio.split("T")[0],
-      fecha_fin: ev.fecha_fin ? ev.fecha_fin.split("T")[0] : "",
+      fecha_inicio: calendarDate(ev.fecha_inicio, ev.todo_el_dia),
+      fecha_fin: ev.fecha_fin ? calendarDate(ev.fecha_fin, ev.todo_el_dia) : "",
+      hora_inicio: ev.todo_el_dia ? "09:00" : calendarTime(ev.fecha_inicio),
+      hora_fin: ev.todo_el_dia || !ev.fecha_fin ? "10:00" : calendarTime(ev.fecha_fin),
       color: ev.color || "emerald",
       todo_el_dia: ev.todo_el_dia,
       ubicacion: ev.ubicacion || "",
@@ -292,16 +311,25 @@ export function ProjectCalendar() {
       toast({ title: t("Falta el título"), description: t("Pon un nombre al evento"), variant: "destructive" })
       return
     }
-    setSaving(true)
+    const start = form.todo_el_dia ? form.fecha_inicio : calendarInstant(form.fecha_inicio, form.hora_inicio)
+    const endDay = form.fecha_fin || (form.todo_el_dia ? "" : form.fecha_inicio)
+    const end = endDay ? (form.todo_el_dia ? endDay : calendarInstant(endDay, form.hora_fin)) : null
+    if (!start || (endDay && !end)) {
+      toast({ title: t("Error"), description: t("Indica fechas y horas locales válidas."), variant: "destructive" })
+      return
+    }
     const payload = {
       titulo: form.titulo.trim(),
       descripcion: form.descripcion.trim() || undefined,
-      fecha_inicio: form.fecha_inicio,
-      fecha_fin: form.fecha_fin || null,
+      fecha_inicio: start,
+      fecha_fin: end,
       color: form.color,
       todo_el_dia: form.todo_el_dia,
       ubicacion: form.ubicacion.trim() || undefined,
     }
+    const invalid = validateCalendarEvent(payload)
+    if (invalid) { toast({ title: t("Error"), description: t(invalid), variant: "destructive" }); return }
+    setSaving(true)
     const result = editingId
       ? await actualizarEventoCalendario(editingId, payload)
       : await crearEventoCalendario(payload)
@@ -331,7 +359,7 @@ export function ProjectCalendar() {
 
   const proximos = useMemo(() => {
     const today = toDateStr(new Date())
-    return [...items].filter((i) => i.fecha >= today).sort((a, b) => a.fecha.localeCompare(b.fecha)).slice(0, 6)
+    return [...items].filter((i) => (i.fechaFin || i.fecha) >= today).sort((a, b) => a.fecha.localeCompare(b.fecha)).slice(0, 6)
   }, [items])
 
   if (loading) {
@@ -341,6 +369,11 @@ export function ProjectCalendar() {
       </Card>
     )
   }
+
+  if (loadError) return <Card><CardContent role="alert" className="p-6 space-y-3">
+    <p>{t("No se pudieron cargar tus eventos.")}</p>
+    <Button onClick={loadAll}>{t("Reintentar")}</Button>
+  </CardContent></Card>
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
@@ -405,10 +438,9 @@ export function ProjectCalendar() {
               const isHoliday = Boolean(festivoNombre)
               const today = isToday(date)
               return (
-                <button
-                  type="button"
+                <div
                   key={idx}
-                  onClick={() => openNewEvent(date)}
+                  data-calendar-date={toDateStr(date)}
                   title={festivoNombre ? t(festivoNombre) : undefined}
                   className={cn(
                     "group relative min-h-[96px] p-2 rounded-lg border text-left transition-all flex flex-col gap-1.5",
@@ -421,7 +453,7 @@ export function ProjectCalendar() {
                     today && "ring-2 ring-emerald-500 ring-offset-1 ring-offset-background border-emerald-500/40",
                   )}
                 >
-                  <div className="flex items-center justify-between gap-1">
+                  <button type="button" onClick={() => openNewEvent(date)} aria-label={`${t("Añadir evento")} ${toDateStr(date)}`} className="flex items-center justify-between gap-1">
                     <span
                       className={cn(
                         "inline-flex items-center justify-center text-xs font-semibold transition-colors",
@@ -438,7 +470,7 @@ export function ProjectCalendar() {
                         aria-label={t("Festivo: {name}", { name: t(festivoNombre || "") })}
                       />
                     )}
-                  </div>
+                  </button>
                   {isCurrentMonth && isHoliday && (
                     <span className="text-[9px] font-medium text-rose-700/80 dark:text-rose-300/80 leading-tight truncate uppercase tracking-wide">
                       {festivoNombre && t(festivoNombre)}
@@ -446,8 +478,11 @@ export function ProjectCalendar() {
                   )}
                   <div className="flex flex-col gap-1 overflow-hidden">
                     {dayItems.slice(0, 3).map((it) => (
-                      <div
+                      <button
+                        type="button"
                         key={it.id}
+                        data-calendar-event={it.id}
+                        onClick={() => { const event = eventos.find(e => `e-${e.id}` === it.id); if (event) openEditEvent(event) }}
                         className={cn(
                           "text-[10.5px] font-medium px-1.5 py-1 rounded-md text-white truncate leading-tight shadow-sm",
                           colorClass(it.color),
@@ -455,20 +490,21 @@ export function ProjectCalendar() {
                         title={`${it.titulo}${it.meta ? ` - ${it.meta}` : ""}`}
                       >
                         {it.titulo}
-                      </div>
+                      </button>
                     ))}
                     {dayItems.length > 3 && (
                       <div className="text-[10px] text-muted-foreground font-medium px-1">
                         +{dayItems.length - 3}{" "}{t("más")}</div>
                     )}
                   </div>
-                </button>
+                </div>
               )
             })}
           </div>
 
           {/* Leyenda */}
           <div className="flex flex-wrap gap-x-4 gap-y-2 mt-5 pt-4 border-t text-xs text-muted-foreground">
+            {!personalOnly && <>
             <span className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />{" "}{t("Inicio trabajo")}</span>
             <span className="flex items-center gap-1.5">
@@ -477,6 +513,7 @@ export function ProjectCalendar() {
               <span className="h-2.5 w-2.5 rounded-full bg-cyan-500" />{" "}{t("Inicio servicio")}</span>
             <span className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full bg-rose-500" />{" "}{t("Recepción servicio")}</span>
+            </>}
             <span className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />{" "}{t("Evento personal")}</span>
             <span className="flex items-center gap-1.5">
@@ -510,7 +547,7 @@ export function ProjectCalendar() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{it.titulo}</p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(it.fecha).toLocaleDateString(localeDe(idioma), { day: "numeric", month: "short" })}
+                        {new Date(it.fecha + "T12:00:00").toLocaleDateString(localeDe(idioma), { day: "numeric", month: "short" })}
                         {it.meta ? ` · ${it.meta}` : ""}
                       </p>
                     </div>
@@ -526,6 +563,7 @@ export function ProjectCalendar() {
             <CardTitle className="text-base">{t("Resumen")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
+            {!personalOnly && <>
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2 text-muted-foreground">
                 <Briefcase className="h-4 w-4" />{" "}{t("Trabajos")}</span>
@@ -536,6 +574,7 @@ export function ProjectCalendar() {
                 <ShoppingBag className="h-4 w-4" />{" "}{t("Servicios")}</span>
               <Badge variant="outline">{servicios.length}</Badge>
             </div>
+            </>}
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2 text-muted-foreground">
                 <CalendarDays className="h-4 w-4" />{" "}{t("Eventos personales")}</span>
@@ -590,6 +629,18 @@ export function ProjectCalendar() {
                 onCheckedChange={(v) => setForm({ ...form, todo_el_dia: v === true })}
               />
             </div>
+            {!form.todo_el_dia && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="hora_inicio">{t("Hora de inicio")}</Label>
+                  <Input id="hora_inicio" type="time" value={form.hora_inicio} onChange={e => setForm({ ...form, hora_inicio: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="hora_fin">{t("Hora de fin")}</Label>
+                  <Input id="hora_fin" type="time" value={form.hora_fin} onChange={e => setForm({ ...form, hora_fin: e.target.value })} />
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="ubicacion" className="flex items-center gap-1.5">
                 <MapPin className="h-3.5 w-3.5" />{" "}{t("Ubicación")}</Label>

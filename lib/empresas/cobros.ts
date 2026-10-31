@@ -10,8 +10,12 @@ export type TrabajoCobros = {
   proveedor_cobros_usuario_id?: string | null; proveedor_stripe_account_id?: string | null
 }
 
-/** The RPC checks the current assigned operator and granular financial authority. */
+/** Recheck the live session as well as current operator and financial authority. */
 export async function puedePagarTrabajo(supabase: any, trabajo: TrabajoCobros, usuarioId: string) {
+  // A signed JWT can still pass RLS after logout. Never disclose a delayed
+  // Checkout response using only the user captured before the Stripe request.
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || user?.id !== usuarioId) return false
   if (!trabajo.empresa_cliente_id) return trabajo.cliente_id === usuarioId
   const { data, error } = await supabase.rpc("empresa_puede_operar_trabajo", {
     p_trabajo_id: trabajo.id, p_permiso: "gestionar_cobros", p_parte: "cliente",

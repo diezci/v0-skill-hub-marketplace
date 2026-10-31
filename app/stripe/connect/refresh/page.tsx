@@ -5,13 +5,15 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { crearEnlaceOnboardingStripe, crearEnlaceOnboardingStripeEmpresa } from "@/app/actions/stripe-connect"
 import { StripeConnectRetornoNativo } from "@/components/stripe-connect-retorno-nativo"
+import { createClient } from "@/lib/supabase/server"
+import { destinoAuthSeguro } from "@/lib/auth-redirect"
 
 function primerValor(valor?: string | string[]) {
   return Array.isArray(valor) ? valor[0] : valor
 }
 
 function rutaSegura(valor?: string) {
-  return valor?.startsWith("/") && !valor.startsWith("//") ? valor : "/cobros"
+  return destinoAuthSeguro(valor, "/cobros")
 }
 
 export default async function StripeConnectRefreshPage({
@@ -31,6 +33,13 @@ export default async function StripeConnectRefreshPage({
   // Los Account Links son de un solo uso. En web conservamos la sesión y
   // generamos automáticamente uno nuevo, tal como recomienda Stripe.
   const empresaId = primerValor(parametros.empresa)
+  const supabase = await createClient()
+  const usuario = supabase ? await supabase.auth.getUser() : null
+  if (!usuario?.data.user) {
+    const retorno = new URLSearchParams({ volver: volverA })
+    if (empresaId) retorno.set("empresa", empresaId)
+    redirect(`/auth/login?next=${encodeURIComponent(`/stripe/connect/refresh?${retorno}`)}`)
+  }
   const resultado = empresaId
     ? await crearEnlaceOnboardingStripeEmpresa(empresaId, { volverA })
     : await crearEnlaceOnboardingStripe({ volverA })

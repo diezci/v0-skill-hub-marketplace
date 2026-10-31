@@ -34,6 +34,22 @@ export function crearTransferGroup(trabajoId: string) {
   return `diime_trabajo_${trabajoId}`
 }
 
+/** Stripe's disputed flag survives a win. Every actual case still needs an audited local reconciliation. */
+export async function comprobarContracargosParaLiquidacion(chargeId: string, conciliados: readonly string[] = []) {
+  const charge = await stripe.charges.retrieve(chargeId)
+  if (!charge.disputed) return
+  if (!conciliados.length) throw new Error("El cargo tiene un contracargo bancario; requiere conciliación en Stripe antes de mover fondos.")
+  let total = 0
+  for await (const dispute of stripe.disputes.list({ charge: chargeId, limit: 100 })) {
+    total++
+    if (idStripe(dispute.charge) !== chargeId || dispute.livemode !== charge.livemode ||
+        dispute.status !== "won" || !conciliados.includes(dispute.id)) {
+      throw new Error("El cargo tiene un contracargo pendiente de ganar o conciliar.")
+    }
+  }
+  if (!total) throw new Error("No se pudo verificar el resultado de los contracargos del cargo.")
+}
+
 export async function obtenerCargoDePaymentIntent(paymentIntentId: string) {
   const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId)
   const cargo = paymentIntent.latest_charge
@@ -68,6 +84,22 @@ async function buscarMovimientoPorOperacion<T extends { id: string; metadata?: R
   return movimientos[0]
 }
 
+async function crearORecuperarMovimiento<T>(crear: () => Promise<T>, recuperar: () => Promise<T | undefined>): Promise<T> {
+  try {
+    return await crear()
+  } catch (error: any) {
+    if (error?.statusCode !== 409 && error?.code !== "idempotency_key_in_use") throw error
+    // Another worker owns the same Stripe operation. Read its result; never
+    // submit a second create, change the key or report an unconfirmed movement.
+    for (let intento = 0; intento < 6; intento++) {
+      const movimiento = await recuperar()
+      if (movimiento) return movimiento
+      await new Promise((resolve) => setTimeout(resolve, 300))
+    }
+    throw new Error("Otra petición está terminando esta liquidación. Actualiza el estado y reintenta la misma operación si sigue pendiente.")
+  }
+}
+
 /** Ejecuta los dos únicos movimientos permitidos por una liquidación. */
 export async function ejecutarLiquidacionStripe(params: {
   paymentIntentId: string
@@ -79,6 +111,8 @@ export async function ejecutarLiquidacionStripe(params: {
   /** Only a persisted, administrator-authorized retry may replace this failed Refund. */
   reintentarTrasRefundId?: string | null
   transferId?: string | null
+  /** IDs read by the backend from completed local bank reconciliations. */
+  contracargosGanadosConciliados?: string[]
   reembolsoCliente: number
   netoProveedor: number
   operacionId: string
@@ -105,8 +139,7 @@ export async function ejecutarLiquidacionStripe(params: {
     throw new Error("El total cobrado en Stripe no coincide con el reparto guardado.")
   }
   const chargeId = params.chargeId || chargeDelIntent
-  const charge = await stripe.charges.retrieve(chargeId)
-  if (charge.disputed) throw new Error("El cargo tiene un contracargo bancario; requiere conciliación en Stripe antes de mover fondos.")
+  await comprobarContracargosParaLiquidacion(chargeId, params.contracargosGanadosConciliados)
   let refundId: string | null = null
   let refundStatus: string | null = null
   let transferId: string | null = null
@@ -143,8 +176,8 @@ export async function ejecutarLiquidacionStripe(params: {
       // La idempotencia de Stripe puede caducar. La metadata permite recuperar
       // el movimiento original incluso tras ese plazo o tras una caída entre
       // Stripe y la escritura final en nuestra base de datos.
-      if ((await stripe.charges.retrieve(chargeId)).disputed) throw new Error("El cargo recibió un contracargo; no se emitirá otro reembolso.")
-      refundCreado = await stripe.refunds.create(
+      await comprobarContracargosParaLiquidacion(chargeId, params.contracargosGanadosConciliados)
+      refundCreado = await crearORecuperarMovimiento<Stripe.Refund>(() => stripe.refunds.create(
         {
           payment_intent: params.paymentIntentId,
           amount: reembolsoCentimos,
@@ -157,7 +190,14 @@ export async function ejecutarLiquidacionStripe(params: {
           },
         },
         { idempotencyKey: params.reintentarTrasRefundId ? `${params.operacionId}:refund:retry:${params.reintentarTrasRefundId}` : `${params.operacionId}:refund:v1` },
-      )
+      ), async () => {
+        const movimientos = await buscarMovimientosPorOperacion(
+          (cursor) => stripe.refunds.list({ payment_intent: params.paymentIntentId, limit: 100, ...(cursor ? { starting_after: cursor } : {}) }), params.operacionId,
+        )
+        const activos = movimientos.filter((r) => !esTerminal(r))
+        if (activos.length > 1) throw new Error("Stripe contiene reembolsos activos duplicados; requiere conciliación.")
+        return activos[0]
+      })
     }
     if (
       refundCreado.amount !== reembolsoCentimos ||
@@ -178,12 +218,11 @@ export async function ejecutarLiquidacionStripe(params: {
   }
 
   if (transferenciaCentimos > 0) {
-    if ((await stripe.charges.retrieve(chargeId)).disputed) {
-      throw new Error("El cargo recibió un contracargo; no se ha emitido la transferencia.")
-    }
+    await comprobarContracargosParaLiquidacion(chargeId, params.contracargosGanadosConciliados)
     if (!params.connectedAccountId) {
       throw new Error("El profesional no tiene una cuenta Stripe Connect preparada para recibir el pago.")
     }
+    const cuentaDestino = params.connectedAccountId
     if (!chargeId) {
       throw new Error("Stripe no ha devuelto el cargo asociado al pago; no se puede transferir de forma segura.")
     }
@@ -197,11 +236,11 @@ export async function ejecutarLiquidacionStripe(params: {
         params.operacionId,
       )
       if (!transfer) {
-        transfer = await stripe.transfers.create(
+        const crearTransferencia = (idempotencyKey: string) => crearORecuperarMovimiento<Stripe.Transfer>(() => stripe.transfers.create(
           {
             amount: transferenciaCentimos,
             currency: "eur",
-            destination: params.connectedAccountId,
+            destination: cuentaDestino,
             source_transaction: chargeId,
             transfer_group: params.transferGroup,
             metadata: {
@@ -210,10 +249,47 @@ export async function ejecutarLiquidacionStripe(params: {
               transferencia_centimos: String(transferenciaCentimos),
             },
           },
-          { idempotencyKey: `${params.operacionId}:transfer:v1` },
-        )
+          { idempotencyKey },
+        ), () => buscarMovimientoPorOperacion(
+          (cursor) => stripe.transfers.list({ transfer_group: params.transferGroup, limit: 100, ...(cursor ? { starting_after: cursor } : {}) }),
+          params.operacionId,
+        ))
+        let clave = `${params.operacionId}:transfer:v1`
+        for (let intento = 0; intento < 4; intento++) {
+          try {
+            transfer = await crearTransferencia(clave)
+            break
+          } catch (error: any) {
+            // Stripe caches this definitive rejection even after Connect is
+            // re-enabled. Only replace a replayed, side-effect-free capability
+            // rejection; timeouts, 5xx and ambiguous outcomes keep the old key.
+            const original = error?.headers?.["original-request"]
+            if (intento === 3 || error?.statusCode !== 400 ||
+                !["insufficient_capabilities_for_transfer", "balance_insufficient"].includes(error?.code) ||
+                error?.headers?.["idempotent-replayed"] !== "true" ||
+                typeof original !== "string" || !/^req_[A-Za-z0-9]+$/.test(original)) throw error
+            transfer = await buscarMovimientoPorOperacion(
+              (cursor) => stripe.transfers.list({ transfer_group: params.transferGroup, limit: 100, ...(cursor ? { starting_after: cursor } : {}) }),
+              params.operacionId,
+            )
+            if (transfer) break
+            if (error.code === "insufficient_capabilities_for_transfer") {
+              const cuenta = await stripe.accounts.retrieve(cuentaDestino)
+              if (cuenta.capabilities?.transfers !== "active") throw error
+            } else {
+              const saldo = await stripe.balance.retrieve()
+              const disponible = saldo.available.filter((item) => item.currency === "eur").reduce((total, item) => total + item.amount, 0)
+              if (disponible < transferenciaCentimos) throw error
+            }
+            await comprobarContracargosParaLiquidacion(chargeId, params.contracargosGanadosConciliados)
+            // Concurrent retries derive the same successor key from Stripe's
+            // original rejected request, including after a local process crash.
+            clave = `${params.operacionId}:transfer:after:${original}`
+          }
+        }
       }
     }
+    if (!transfer) throw new Error("La transferencia sigue pendiente de conciliación.")
     if (
       transfer.amount !== transferenciaCentimos ||
       transfer.currency !== "eur" ||

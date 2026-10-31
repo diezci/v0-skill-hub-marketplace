@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { BUCKET_ADJUNTOS, MAX_ARCHIVO_BYTES, validarArchivo } from "@/lib/archivos"
 
+import { autorizarConversacionSubida } from "@/lib/upload-conversation"
+
 export const runtime = "nodejs"
 
 export async function POST(request: NextRequest) {
@@ -18,6 +20,8 @@ export async function POST(request: NextRequest) {
     const length = Number(request.headers.get("content-length"))
     if (length > MAX_ARCHIVO_BYTES + 1024 * 1024) return NextResponse.json({ error: "Archivo demasiado grande." }, { status: 413 })
     const formData = await request.formData()
+    const acceso = await autorizarConversacionSubida(supabase, user.id, formData.get("conversacionId"))
+    if (acceso) return NextResponse.json({ error: acceso.error }, { status: acceso.status })
     const file = formData.get("file")
 
     if (!(file instanceof File)) {

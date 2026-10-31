@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { enviarAlertaOperativaDiaria } from "@/lib/operaciones"
 import { limpiarSubidasPendientes } from "@/lib/archivos-servidor"
+import { procesarPlazosWorkflow } from "@/lib/plazos-workflow"
 
 export const dynamic = "force-dynamic"
 
@@ -12,10 +13,12 @@ export async function GET(request: Request) {
   }
 
   try {
+    const plazos = await procesarPlazosWorkflow()
     const subidas = await limpiarSubidasPendientes()
     const resultado = await enviarAlertaOperativaDiaria()
     return NextResponse.json({
       ok: true,
+      plazos,
       subidas,
       enviado: resultado.enviado,
       motivo: resultado.enviado ? undefined : resultado.motivo,

@@ -14,6 +14,7 @@ import { evaluarContenidoSolicitud } from "@/lib/moderacion"
 import { CATEGORIAS_SERVICIO_NOMBRES } from "@/lib/categorias"
 import { esFechaISOValida, fechaHoyEnEspana } from "@/lib/urgencias"
 import { esRangoPresupuestoValido } from "@/lib/precios"
+import { seleccionarContratoVigente, seleccionarEscrowContrato } from "@/lib/historial-contratos"
 
 function claveCategoria(nombre: string) {
   return nombre
@@ -51,8 +52,22 @@ function textoSolicitud(
   return { valor: limpio }
 }
 
+export async function obtenerSolicitudEnviada(envioId: string) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(envioId)) {
+    return { error: await textoServidor("El identificador de envío no es válido. Recarga el formulario.") }
+  }
+  const supabase = await createClient()
+  if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.is_anonymous) return { error: await textoServidor("No autenticado") }
+  const { data, error } = await supabase.from("solicitudes").select("*").eq("id", envioId).eq("cliente_id", user.id).maybeSingle()
+  if (error) return { error: await textoServidor(error.message) }
+  return { data, reutilizado: Boolean(data) }
+}
+
 export async function crearSolicitud(formData: {
   empresa_id?: string | null
+  idempotency_key?: string
   titulo: string
   descripcion: string
   categoria_id: string // This is actually the category name
@@ -73,6 +88,17 @@ export async function crearSolicitud(formData: {
   } = await supabase.auth.getUser()
   if (!user || user.is_anonymous) {
     return { error: await textoServidor("No autenticado. Por favor inicia sesión para publicar un proyecto.") }
+  }
+
+  // A stable submission UUID also serves as the row key. PostgreSQL's primary
+  // key resolves concurrent retries atomically without a second invitation.
+  const envioId = formData.idempotency_key
+  if (envioId !== undefined && (typeof envioId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(envioId))) {
+    return { error: await textoServidor("El identificador de envío no es válido. Recarga el formulario.") }
+  }
+  if (envioId) {
+    const { data: existente } = await supabase.from("solicitudes").select("*").eq("id", envioId).eq("cliente_id", user.id).maybeSingle()
+    if (existente) return { data: existente, reutilizado: true }
   }
 
   const errorEmpresa = await validarEmpresaOperacion(supabase, formData.empresa_id)
@@ -153,6 +179,7 @@ export async function crearSolicitud(formData: {
   const { data, error } = await supabase
     .from("solicitudes")
     .insert({
+      ...(envioId ? { id: envioId } : {}),
       cliente_id: user.id,
       empresa_id: formData.empresa_id || null,
       titulo: titulo.valor,
@@ -170,6 +197,10 @@ export async function crearSolicitud(formData: {
     .single()
 
   if (error) {
+    if (envioId && error.code === "23505") {
+      const { data: existente } = await supabase.from("solicitudes").select("*").eq("id", envioId).eq("cliente_id", user.id).maybeSingle()
+      if (existente) return { data: existente, reutilizado: true }
+    }
     console.error("[v0] Error creating solicitud:", error)
     return { error: await textoServidor(error.message) }
   }
@@ -393,6 +424,10 @@ export async function actualizarSolicitud(
     return { error: await textoServidor("No puedes editar esta demanda mientras tenga una oferta aceptada o un trabajo activo.") }
   }
 
+  const historico = await demandaConPagoHistorico(supabase, id)
+  if (historico.error) return { error: await textoServidor(historico.error) }
+  if (historico.pagado) return { error: await textoServidor("Esta demanda conserva un contrato pagado. Publica una copia para cambiar las condiciones sin alterar el historial.") }
+
   // El selector trabaja con el nombre legible, pero la demanda guarda la FK a
   // `categorias`. Resolverla aquí evita intentar escribir un texto en una
   // columna UUID y mantiene el contrato usado al publicar una demanda.
@@ -483,20 +518,32 @@ export async function actualizarSolicitud(
   return { data }
 }
 
-// Avisa a los profesionales con una puja viva en una demanda. Se usa al editarla
-// y al borrarla: en los dos casos han dedicado tiempo a preparar una oferta y se
-// quedaban sin enterarse de nada.
+async function demandaConPagoHistorico(supabase: any, id: string) {
+  const { data, error } = await supabase.from("trabajos")
+    .select("transacciones_escrow(estado, fecha_retencion)").eq("solicitud_id", id)
+  return { error: error?.message, pagado: (data || []).some((t: any) =>
+    (t.transacciones_escrow || []).some((e: any) => e.fecha_retencion ||
+      ["retenido", "fondos_retenidos", "liberado", "completado", "reembolsado", "disputa"].includes(e.estado))) }
+}
+
+// Conserva los destinatarios antes del DELETE en cascada; enviar el aviso se
+// reserva para después de confirmar que la operación realmente se completó.
+async function destinatariosConPuja(supabase: any, solicitudId: string) {
+  const { data: ofertas, error } = await supabase
+    .from("ofertas")
+    .select("profesional_id")
+    .eq("solicitud_id", solicitudId)
+    .in("estado", ["pendiente", "enviada", "en_negociacion"])
+  const destinatarios = [...new Set(((ofertas as any[] | null) || []).map((o) => o.profesional_id).filter(Boolean))] as string[]
+  return { destinatarios, error }
+}
+
 async function avisarAQuienHaPujado(
   supabase: any,
   aviso: { solicitudId: string; tipo: string; titulo: string; mensaje: string; link: string },
+  destinatariosPrevios?: string[],
 ) {
-  const { data: ofertas } = await supabase
-    .from("ofertas")
-    .select("profesional_id")
-    .eq("solicitud_id", aviso.solicitudId)
-    .in("estado", ["pendiente", "enviada", "en_negociacion"])
-
-  const destinatarios = [...new Set(((ofertas as any[] | null) || []).map((o) => o.profesional_id).filter(Boolean))]
+  const destinatarios = destinatariosPrevios ?? (await destinatariosConPuja(supabase, aviso.solicitudId)).destinatarios
   if (destinatarios.length === 0) return
 
   await createAdminClient()?.from("notificaciones").insert(
@@ -510,7 +557,6 @@ async function avisarAQuienHaPujado(
     })),
   )
 
-  // Alta masiva: no pasa por `crearNotificacion`, así que el correo va aquí.
   const { enviarAvisoPorEmail } = await import("@/lib/emails/enviar")
   for (const usuarioId of destinatarios) {
     await enviarAvisoPorEmail({ usuarioId, ...aviso })
@@ -539,19 +585,33 @@ export async function eliminarSolicitud(id: string) {
     return { error: await textoServidor("No puedes borrar una demanda con un trabajo en curso.") }
   }
 
-  // El aviso va ANTES del borrado: `ofertas.solicitud_id` es ON DELETE CASCADE,
-  // así que después ya no habría a quién avisar. Sin esto, la puja de un
-  // profesional desaparecía de su lista sin explicación.
+  const historico = await demandaConPagoHistorico(supabase, id)
+  if (historico.error) return { error: await textoServidor(historico.error) }
+  if (historico.pagado) return { error: await textoServidor("Esta demanda conserva un contrato pagado. Publica una copia para cambiar las condiciones sin alterar el historial.") }
+
+  const { destinatarios, error: errorDestinatarios } = await destinatariosConPuja(supabase, id)
+  if (errorDestinatarios) return { error: await textoServidor(errorDestinatarios.message) }
+
+  const { data: borradas, error } = await supabase
+    .from("solicitudes")
+    .delete()
+    .eq("id", id)
+    .eq("cliente_id", user.id)
+    .select("id")
+  if (error) return { error: await textoServidor(error.message) }
+  // Una petición concurrente o un cambio de permisos puede dejar cero filas
+  // afectadas sin error SQL. Tampoco debe anunciar una retirada que no hizo.
+  if (!borradas?.some((fila: { id: string }) => fila.id === id)) {
+    return { error: await textoServidor("No tienes permiso para borrar esta demanda.") }
+  }
+
   await avisarAQuienHaPujado(supabase, {
     solicitudId: id,
     tipo: "demanda_retirada",
     titulo: "Han retirado una demanda en la que pujaste",
     mensaje: `El cliente ha borrado "${solicitud.titulo}", así que tu oferta ya no sigue adelante. Puedes seguir pujando en otras demandas.`,
     link: construirLinkNotificacion({ seccion: "/mis-ofertas", solicitudId: id, aspecto: "demanda_retirada" }),
-  })
-
-  const { error } = await supabase.from("solicitudes").delete().eq("id", id).eq("cliente_id", user.id)
-  if (error) return { error: await textoServidor(error.message) }
+  }, destinatarios)
 
   revalidatePath("/mis-solicitudes")
   revalidatePath("/mis-ofertas")
@@ -605,15 +665,21 @@ export async function obtenerMisSolicitudes() {
   return { data: enriquecidas }
 }
 
-export async function obtenerSolicitudesAbiertas() {
+export async function obtenerSolicitudesAbiertas(solicitudId?: string) {
+  if (solicitudId !== undefined &&
+      (typeof solicitudId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(solicitudId))) {
+    return { data: [] }
+  }
   const supabase = await createClient()
   if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
-  const { data, error } = await supabase
+  let consulta = supabase
     .from("solicitudes")
     .select("*")
     .eq("estado", "abierta")
     .order("created_at", { ascending: false })
+  if (solicitudId) consulta = consulta.eq("id", solicitudId)
+  const { data, error } = await consulta
 
   if (error) {
     console.error("[v0] Error en obtenerSolicitudesAbiertas:", error)
@@ -702,6 +768,7 @@ export async function obtenerSolicitudesPorUsuario() {
           created_at,
           profesional_id,
           empresa_id,
+          oferta_origen_id,
           actor_usuario_id,
           archivos,
           materiales_incluidos,
@@ -754,23 +821,23 @@ export async function obtenerSolicitudesPorUsuario() {
       // Get the active trabajo for this solicitud (if any) with its escrow,
       // professional info and updates so the "En Progreso" tab can render the
       // confirm/release/reject actions for real data (not only mock data).
-      const { data: trabajoRow } = await supabase
+      const { data: contratos, error: contratosError } = await supabase
         .from("trabajos")
-        .select("*")
+        .select("*, transacciones_escrow(estado, fecha_retencion)")
         .eq("solicitud_id", solicitud.id)
         .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle()
+      if (contratosError) throw new Error("No se pudo cargar el historial de contratación.")
+      const trabajoRow = seleccionarContratoVigente(contratos || [])
 
       let trabajo: any = null
       if (trabajoRow) {
-        const { data: escrow } = await supabase
+        const { data: escrows, error: escrowsError } = await supabase
           .from("transacciones_escrow")
-          .select("id, estado, monto, liquidacion_estado, liquidacion_contexto")
+          .select("id, estado, monto, fecha_retencion, liquidacion_estado, liquidacion_contexto")
           .eq("trabajo_id", trabajoRow.id)
           .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle()
+        if (escrowsError) throw new Error("No se pudo comprobar el pago del contrato.")
+        const escrow = seleccionarEscrowContrato(escrows || [])
 
         // La oferta aceptada del trabajo: sus adjuntos y condiciones deben
         // seguir visibles para el cliente después de la contratación.
@@ -802,7 +869,7 @@ export async function obtenerSolicitudesPorUsuario() {
 
         // Defensa adicional durante despliegues escalonados: nunca serializar
         // el antiguo campo privado en la respuesta destinada al cliente.
-        const { notas_privadas_proveedor: _notasPrivadas, ...trabajoCompartido } = trabajoRow
+        const { notas_privadas_proveedor: _notasPrivadas, transacciones_escrow: _resumenPagos, ...trabajoCompartido } = trabajoRow
         trabajo = {
           ...trabajoCompartido,
           escrow: escrow ? { id: escrow.id, estado: escrow.estado, monto: escrow.monto, liquidacion_estado: escrow.liquidacion_estado, confirmacion_en_curso: escrow.liquidacion_contexto?.tipo === "confirmacion" } : null,
@@ -823,6 +890,8 @@ export async function obtenerSolicitudesPorUsuario() {
         empresa: empresasSolicitudes[solicitud.empresa_id] || null,
         categoria: solicitud.categoria_id ? mapaCategorias[solicitud.categoria_id] || null : null,
         ofertas: ofertasWithProfesional,
+        historial_pagado: (contratos || []).some((t: any) => (t.transacciones_escrow || []).some((e: any) =>
+          e.fecha_retencion || ["retenido", "fondos_retenidos", "liberado", "completado", "reembolsado", "disputa"].includes(e.estado))),
         trabajo,
       }
     }),

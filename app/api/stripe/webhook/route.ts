@@ -5,6 +5,7 @@ import { NextResponse } from "next/server"
 import { conciliarSesionPagada, liquidarPagoReclamado } from "@/lib/flujo-pagos"
 import { registrarEventoOperativo } from "@/lib/operaciones"
 import { errorIdentidadCuentaStripe, errorIdentidadCuentaStripeEmpresa } from "@/lib/stripe-connect-identidad"
+import { actualizarContracargoStripe } from "@/lib/stripe-contracargos"
 
 function getAdminClient() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -65,11 +66,14 @@ async function registrarEvento(event: Stripe.Event) {
 
 async function terminarEvento(event: Stripe.Event, error?: unknown) {
   const supabase = getAdminClient()
+  const mensajeError = error && typeof error === "object" && "message" in error && typeof error.message === "string"
+    ? error.message.trim().slice(0, 2000) || "Error no identificado"
+    : "Error no identificado"
   await supabase
     .from("stripe_eventos_webhook")
     .update(
       error
-        ? { estado: "error", ultimo_error: error instanceof Error ? error.message : "Error no identificado" }
+        ? { estado: "error", ultimo_error: mensajeError }
         : { estado: "completado", ultimo_error: null, procesado_at: new Date().toISOString() },
     )
     .eq("id", event.id)
@@ -198,16 +202,10 @@ export async function POST(request: Request) {
         break
       }
 
-      case "charge.dispute.created": {
-        const disputaStripe = event.data.object
-        const paymentIntentId = typeof disputaStripe.payment_intent === "string"
-          ? disputaStripe.payment_intent
-          : disputaStripe.payment_intent?.id
-        if (!paymentIntentId) break
-        const { data: disputa, error: disputaError } = await supabase.rpc("diime_registrar_contracargo", {
-          p_payment_intent: paymentIntentId, p_stripe_disputa: disputaStripe.id,
-        })
-        if (disputaError) throw disputaError
+      case "charge.dispute.created":
+      case "charge.dispute.updated":
+      case "charge.dispute.closed": {
+        const { disputa } = await actualizarContracargoStripe(supabase, event.data.object.id, event)
         const { data: admins } = await supabase.from("profiles").select("id").eq("es_admin", true)
         if (admins?.length) {
           await supabase.from("notificaciones").insert(
@@ -215,7 +213,7 @@ export async function POST(request: Request) {
               usuario_id: a.id,
               tipo: "disputa_abierta_admin",
               titulo: "Contracargo bancario en Stripe",
-              mensaje: `El pago del trabajo ${disputa.trabajo_id} tiene un contracargo. Revísalo inmediatamente en Stripe y en Diime.`,
+              mensaje: `El contracargo del trabajo ${disputa.trabajo_id} figura como ${disputa.stripe_disputa_estado}. Revisa su plazo y concilia su resultado en Diime.`,
               link: "/admin/disputas",
               leida: false,
             })),

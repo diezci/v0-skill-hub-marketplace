@@ -104,6 +104,7 @@ export async function registrarUsuario(formData: {
         nombre: formData.nombre,
         apellido: formData.apellido,
         tipo_entidad: formData.tipoEntidad,
+        registro_next: siguiente,
         documento: documentoDeLaPersona,
         registro_empresa: registroEmpresa,
         telefono: formData.telefono,

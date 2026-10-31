@@ -4,6 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { BUCKET_ADJUNTOS, validarMetadatosArchivo } from "@/lib/archivos"
 import { limpiarSubidasPendientes, usuarioParaSubida } from "@/lib/archivos-servidor"
 
+import { autorizarConversacionSubida } from "@/lib/upload-conversation"
+
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 export async function POST(request: Request) {
@@ -12,6 +14,8 @@ export async function POST(request: Request) {
   const admin = createAdminClient()
   if (!admin) return NextResponse.json({ error: "Almacenamiento no disponible. Inténtalo más tarde." }, { status: 503 })
   const body = await request.json().catch(() => null)
+  const acceso = await autorizarConversacionSubida(actor.supabase, actor.user.id, body?.conversacionId)
+  if (acceso) return NextResponse.json({ error: acceso.error }, { status: acceso.status })
   if (!body || typeof body.nombre !== "string" || typeof body.bytes !== "number" || (body.purpose !== undefined && body.purpose !== "imagen_publica")) {
     return NextResponse.json({ error: "Datos de archivo no válidos." }, { status: 400 })
   }

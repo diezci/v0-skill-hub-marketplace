@@ -35,6 +35,8 @@ import { useRouter } from "next/navigation"
 import { formatearFecha } from "@/lib/utils"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
 import { calcularLiquidacion } from "@/lib/liquidacion"
+import { conciliarContracargoAdmin } from "@/app/actions/admin-pagos"
+import { cerrarMediacionTrasContracargo } from "@/app/actions/mediacion-bancaria"
 
 const ESTADO_TRABAJO: Record<string, string> = {
   pendiente_pago: "Pendiente de pago",
@@ -129,6 +131,29 @@ export default function AdminDisputesPage() {
     setIsSubmitting(false)
   }
 
+  const handleConciliarContracargo = async () => {
+    if (!detalle || isSubmitting) return
+    if (!window.confirm(t("Se verificará el cierre en Stripe. Si el contracargo se perdió, se recuperará la transferencia previa al proveedor cuando corresponda. No se emitirá otro reembolso. ¿Continuar?"))) return
+    setIsSubmitting(true)
+    try {
+      const result = await conciliarContracargoAdmin(detalle.disputa.id, detalle.disputa.stripe_disputa_id)
+      if (result.error) toast({ title: t("Error"), description: t(result.error), variant: "destructive" })
+      await abrirDetalle(detalle.disputa.id)
+      await cargarDisputas()
+    } finally { setIsSubmitting(false) }
+  }
+
+  const handleCerrarMediacionBancaria = async () => {
+    if (!detalle || isSubmitting || !nota.trim()) return
+    if (!window.confirm(t("Se cerrará la mediación y se conservarán su motivo y sus pruebas. No se moverán fondos. ¿Continuar?"))) return
+    setIsSubmitting(true)
+    try {
+      const result = await cerrarMediacionTrasContracargo(detalle.disputa.id, detalle.escrow?.liquidacion_contexto?.disputaId, nota)
+      if (result.error) toast({ title: t("Error"), description: result.error, variant: "destructive" })
+      await Promise.all([abrirDetalle(detalle.disputa.id), cargarDisputas()])
+    } finally { setIsSubmitting(false) }
+  }
+
   const cambiarResponsable = async (asignar: boolean) => {
     if (!detalle) return
     setAsignando(true)
@@ -149,7 +174,15 @@ export default function AdminDisputesPage() {
   // ---------- Vista de detalle ----------
   if (detalle) {
     const { disputa, trabajo, cliente, profesional, escrow, solicitud, oferta, mensajes, actualizaciones } = detalle
+    const empresaCliente = detalle.facturacion?.find((f: any) => f.parte === "cliente")?.empresa_nombre
+    const empresaProveedora = detalle.facturacion?.find((f: any) => f.parte === "profesional")?.empresa_nombre
     const esContracargo = disputa.origen === "stripe" || Boolean(disputa.stripe_disputa_id)
+    const esCierreBancario = disputa.resolucion === "cierre_bancario"
+    const puedeCerrarMediacionBancaria = !esContracargo && ["abierta", "en_revision"].includes(disputa.estado)
+      && escrow?.estado === "reembolsado" && escrow.liquidacion_estado === "completada"
+      && escrow.liquidacion_contexto?.tipo === "contracargo" && escrow.liquidacion_contexto?.resultado === "lost"
+      && !!escrow.liquidacion_contexto?.disputaId && Number(escrow.monto_reembolsado) === Number(escrow.monto)
+      && !escrow.stripe_refund_id && !escrow.stripe_transfer_id && !escrow.stripe_disputa_id
     const esMediacionSinPago = !escrow && disputa.estado_trabajo_previo === "pendiente_pago"
     const requiereConciliacion = !escrow && !esMediacionSinPago
     const base = Number(escrow?.monto_base ?? 0)
@@ -244,7 +277,8 @@ export default function AdminDisputesPage() {
                   <AvatarFallback>{cliente?.nombre?.[0]}</AvatarFallback>
                 </Avatar>
                 <div className="min-w-0">
-                  <p className="font-medium truncate">{cliente?.nombre} {cliente?.apellido}</p>
+                  {empresaCliente && <p className="font-medium break-words">{empresaCliente}</p>}
+                  <p className={empresaCliente ? "text-xs text-muted-foreground" : "font-medium truncate"}>{empresaCliente && `${t("Representante contractual")}: `}{cliente?.nombre} {cliente?.apellido}</p>
                   <p className="text-xs text-muted-foreground truncate">{cliente?.email}</p>
                 </div>
               </CardContent>
@@ -261,7 +295,8 @@ export default function AdminDisputesPage() {
                   <AvatarFallback>{profesional?.nombre?.[0]}</AvatarFallback>
                 </Avatar>
                 <div className="min-w-0">
-                  <p className="font-medium truncate">{profesional?.nombre} {profesional?.apellido}</p>
+                  {empresaProveedora && <p className="font-medium break-words">{empresaProveedora}</p>}
+                  <p className={empresaProveedora ? "text-xs text-muted-foreground" : "font-medium truncate"}>{empresaProveedora && `${t("Representante contractual")}: `}{profesional?.nombre} {profesional?.apellido}</p>
                   <p className="text-xs text-muted-foreground truncate">{profesional?.email}</p>
                 </div>
               </CardContent>
@@ -393,18 +428,21 @@ export default function AdminDisputesPage() {
                   <p className="text-sm text-muted-foreground">{t("No hay mensajes registrados.")}</p>
                 )}
                 {mensajes.map((m: any) => {
-                  const esCliente = m.remitente_id === cliente?.id
+                  const esCliente = m.empresa_id
+                    ? m.empresa_id === trabajo?.empresa_cliente_id
+                    : m.remitente_id === cliente?.id
                   return (
-                    <div key={m.id} className={`flex ${esCliente ? "justify-start" : "justify-end"}`}>
+                    <div key={`${m.origen_chat || "personal"}:${m.id}`} className={`flex ${esCliente ? "justify-start" : "justify-end"}`}>
                       <div
                         className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
                           esCliente ? "bg-muted" : "bg-primary/10"
                         }`}
                       >
                         <p className="text-[11px] font-medium mb-0.5 text-muted-foreground">
-                          {esCliente ? cliente?.nombre : profesional?.nombre} · {fechaHora(m.created_at, idioma)}
+                          {m.remitente_nombre || (esCliente ? cliente?.nombre : profesional?.nombre)} · {fechaHora(m.created_at, idioma)}
                         </p>
-                        {m.contenido}
+                        <p className="whitespace-pre-wrap break-words">{m.contenido}</p>
+                        {m.archivo_url && <div className="mt-2"><AdjuntosLista archivos={[m.archivo_url]} /></div>}
                       </div>
                     </div>
                   )
@@ -461,14 +499,39 @@ export default function AdminDisputesPage() {
           </Card>
 
           {/* Panel de resolución */}
-          {["abierta", "en_revision"].includes(disputa.estado) && (esContracargo || requiereConciliacion) ? (
+          {(esContracargo || (["abierta", "en_revision"].includes(disputa.estado) && requiereConciliacion)) ? (
             <Card className="border-amber-500/40">
               <CardHeader><CardTitle className="text-base">{esContracargo ? t("Gestionar contracargo bancario") : t("Conciliar el pago de este expediente")}</CardTitle></CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <p>{esContracargo
                   ? t("La entidad bancaria está disputando este cargo. Revisa su plazo y presenta las pruebas en Stripe. Antes de emitir otros movimientos, concilia el resultado bancario y las transferencias ya realizadas.")
                   : t("El expediente no tiene un pago identificado con seguridad. Revisa el cargo en Stripe y vincúlalo al expediente antes de resolver; los intentos abandonados no son dinero retenido.")}</p>
-                <a className="underline font-medium" href="https://dashboard.stripe.com/disputes" target="_blank" rel="noopener noreferrer">{t("Abrir disputas en Stripe")}</a>
+                {detalle.stripe_dashboard_url && <a className="underline font-medium" href={detalle.stripe_dashboard_url} target="_blank" rel="noopener noreferrer">{t("Abrir disputas en Stripe")}</a>}
+                {esContracargo && <div className="space-y-2">
+                  <p>{t("Expediente bancario")}: <span className="break-all font-mono">{disputa.stripe_disputa_id}</span></p>
+                  <p>{t("Resultado bancario")}: {disputa.stripe_disputa_estado === "won" ? t("Ganado") : disputa.stripe_disputa_estado === "lost" ? t("Perdido") : t("Pendiente de cierre")}</p>
+                  {disputa.stripe_disputa_plazo && <p>{t("Plazo para aportar pruebas")}: {fechaHora(disputa.stripe_disputa_plazo, idioma)}</p>}
+                  {disputa.stripe_transfer_reversal_id && <p>{t("Recuperación de transferencia")}: <span className="break-all font-mono">{disputa.stripe_transfer_reversal_id}</span></p>}
+                  {disputa.contracargo_conciliacion?.estado === "completada"
+                    ? <Badge>{t("Conciliación completada")}</Badge>
+                    : <Button onClick={handleConciliarContracargo} disabled={isSubmitting}>
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{t("Verificar y conciliar cierre bancario")}
+                      </Button>}
+                </div>}
+              </CardContent>
+            </Card>
+          ) : puedeCerrarMediacionBancaria ? (
+            <Card>
+              <CardHeader><CardTitle className="text-base">{t("Cerrar mediación sin mover fondos")}</CardTitle></CardHeader>
+              <CardContent className="space-y-4 text-sm">
+                <p>{t("El banco ya ha devuelto el cargo íntegro. Este cierre conserva la mediación y sus pruebas sin adjudicar el servicio a ninguna parte.")}</p>
+                <div className="space-y-1.5">
+                  <label htmlFor="motivo-cierre-bancario" className="font-medium">{t("Motivo del cierre *")}</label>
+                  <Textarea id="motivo-cierre-bancario" rows={3} maxLength={2000} value={nota} onChange={(e) => setNota(e.target.value)} />
+                </div>
+                <Button onClick={handleCerrarMediacionBancaria} disabled={isSubmitting || !nota.trim()}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{t("Cerrar mediación sin mover fondos")}
+                </Button>
               </CardContent>
             </Card>
           ) : ["abierta", "en_revision"].includes(disputa.estado) ? (
@@ -553,16 +616,16 @@ export default function AdminDisputesPage() {
               </CardContent>
             </Card>
           ) : (
-            <Card className="border-emerald-500/30 bg-emerald-500/5">
+            <Card className={esCierreBancario ? "border-border bg-muted/20" : "border-emerald-500/30 bg-emerald-500/5"}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-500" /> {" "}{t("Disputa resuelta")}</CardTitle>
+                  <CheckCircle2 className={`h-4 w-4 ${esCierreBancario ? "text-muted-foreground" : "text-emerald-500"}`} /> {" "}{t(esCierreBancario ? "Mediación cerrada tras conciliación bancaria" : "Disputa resuelta")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-1 text-sm">
                 <p>
                   {t("Resolución:")}{" "}
                   <span className="font-medium">
-                    {disputa.resolucion === "cliente"
+                    {esCierreBancario ? t("Cierre sin movimientos de fondos") : disputa.resolucion === "cliente"
                       ? (esMediacionSinPago ? t("Contratación cancelada sin pago") : t("Reembolso al cliente"))
                       : disputa.resolucion === "proveedor"
                         ? (esMediacionSinPago ? t("Contratación mantenida; pendiente de pago") : t("Pago liberado al proveedor"))
