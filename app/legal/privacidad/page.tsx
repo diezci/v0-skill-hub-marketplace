@@ -13,7 +13,7 @@ export default async function Privacidad() {
   return (
     <div className="container mx-auto px-4 py-16 max-w-3xl">
       <h1 className="text-3xl font-bold mb-2">{t("Política de privacidad")}</h1>
-      <p className="text-sm text-muted-foreground mb-10">{t("Última actualización: septiembre 2026")}</p>
+      <p className="text-sm text-muted-foreground mb-10">{t("Última actualización: noviembre 2026")}</p>
       <div className="prose prose-neutral dark:prose-invert max-w-none space-y-8 text-muted-foreground leading-relaxed">
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">{t("1. Responsable del tratamiento")}</h2>
@@ -24,6 +24,15 @@ export default async function Privacidad() {
           <h2 className="text-lg font-semibold text-foreground mb-2">{t("2. Datos que recogemos")}</h2>
           <p>
             {t("Recogemos nombre, apellidos, email, teléfono, DNI/NIE, provincia o ubicación indicada manualmente, foto de perfil, datos de empresa cuando corresponda, confirmaciones legales, contenido publicado, mensajes, archivos, eventos del calendario de Diime, incidencias, valoraciones e historial de transacciones. Para acreditar el requisito de edad guardamos la fecha y la versión del texto que confirmaste; no te pedimos ni almacenamos tu fecha de nacimiento. También se generan datos técnicos necesarios para prestar y proteger el servicio, como dirección IP, tipo de dispositivo, páginas solicitadas y registros de error. En la app móvil se generan identificadores de instalación y tokens de notificaciones. Cuando activas los avisos con una sesión iniciada, el token se asocia a tu cuenta para enviarte mensajes, ofertas y novedades de tus trabajos; no se utiliza como identificador publicitario.")}</p>
+        </section>
+        <section>
+          <h2 className="text-lg font-semibold text-foreground mb-2">{t("2.1. Inicio de sesión con Google")}</h2>
+          <div className="space-y-4">
+            <p>{t("Si eliges «Continuar con Google», Google facilita a Diime el identificador de tu cuenta, tu nombre, tu dirección de correo electrónico y, si está disponible, tu foto de perfil. Usamos estos datos para autenticarte, crear o vincular tu cuenta de Diime y completar tu perfil. Este acceso no permite leer tus correos, contactos, calendarios ni archivos de Google.")}</p>
+            <p>{t("La autenticación se realiza mediante Google y Supabase; Diime no recibe tu contraseña de Google. Los datos de autenticación y perfil se almacenan en Supabase para gestionar tu acceso a Diime. Las comunicaciones del inicio de sesión utilizan HTTPS.")}</p>
+            <p>{t("Tu nombre y foto de perfil pueden mostrarse a otros usuarios en los perfiles y las interacciones de Diime, como solicitudes y mensajes. Los proveedores descritos en el apartado 6 solo tratan los datos necesarios para sus funciones. No vendemos los datos obtenidos de Google ni los utilizamos para publicidad.")}</p>
+            <p>{t("A estos datos se les aplican los plazos y excepciones de conservación del apartado 5. Puedes solicitar su eliminación mediante las opciones del apartado 7. También puedes retirar el acceso de Diime desde las conexiones de terceros de tu cuenta de Google; hacerlo no elimina por sí solo tu cuenta ni los datos ya guardados en Diime.")}</p>
+          </div>
         </section>
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">{t("3. Finalidad del tratamiento")}</h2>
