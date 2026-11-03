@@ -30,6 +30,7 @@ export const EN_EMPRESAS: Record<string, string> = {
   "Verificación retirada": "Verification withdrawn",
   "Vista previa del perfil": "Preview profile",
   "Editar perfil de empresa": "Edit company profile",
+  "Puedes editar el perfil aquí mismo y guardar los cambios para actualizar la vista previa.": "You can edit the profile here and save your changes to update the preview.",
   "Esta vista muestra los cambios guardados. Guarda la edición antes de actualizarla.": "This view shows saved changes. Save your edits before refreshing it.",
   "Volver a Mi empresa": "Back to My company",
   "Vista previa privada": "Private preview",

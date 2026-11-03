@@ -20,7 +20,7 @@ import { guardarPerfilEmpresa, invitarMiembroEmpresa, actualizarMiembroEmpresa, 
 import { PERMISOS_EMPRESA, PERMISOS_MIEMBRO, NOMBRES_ROL_EMPRESA, type EspacioEmpresa, type MiembroEmpresa, type PermisosEmpresa, type RolEmpresa, type ResultadoEmpresa } from "@/lib/empresas/types"
 import { EmpresaWorkspaceReal } from "@/components/empresas/empresa-workspace-real"
 import { CobrosEmpresaLocal } from "@/components/empresas/cobros-empresa-local"
-import type { OperacionInicialEmpresa } from "@/lib/empresas/types"
+import type { EmpresaPublica, OperacionInicialEmpresa } from "@/lib/empresas/types"
 
 const ESTADOS = { borrador: "Pendiente de acreditar", en_revision: "En revisión", verificada: "Representación verificada", requiere_informacion: "Necesita información" }
 const selectClass = "h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
@@ -41,8 +41,8 @@ function PermissionFields({ permisos, onChange, limites, disabled = false }: { p
   </div>
 }
 
-export function EmpresaWorkspace({ espacio, mostrarCobrosIniciales = false, operacionInicial }: { espacio: EspacioEmpresa; mostrarCobrosIniciales?: boolean; operacionInicial?: OperacionInicialEmpresa }) {
-  return espacio.local ? <EmpresaWorkspaceLocal espacio={espacio} /> : <EmpresaWorkspaceReal espacio={espacio} mostrarCobrosIniciales={mostrarCobrosIniciales} operacionInicial={operacionInicial} />
+export function EmpresaWorkspace({ espacio, perfilPublico = null, mostrarCobrosIniciales = false, operacionInicial }: { espacio: EspacioEmpresa; perfilPublico?: EmpresaPublica | null; mostrarCobrosIniciales?: boolean; operacionInicial?: OperacionInicialEmpresa }) {
+  return espacio.local ? <EmpresaWorkspaceLocal espacio={espacio} /> : <EmpresaWorkspaceReal espacio={espacio} perfilPublico={perfilPublico} mostrarCobrosIniciales={mostrarCobrosIniciales} operacionInicial={operacionInicial} />
 }
 
 function EmpresaWorkspaceLocal({ espacio }: { espacio: EspacioEmpresa }) {
