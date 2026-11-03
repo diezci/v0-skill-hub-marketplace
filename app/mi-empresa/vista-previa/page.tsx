@@ -4,7 +4,7 @@ import { redirect } from "next/navigation"
 import { Eye } from "lucide-react"
 import { VistaPreviaEmpresa } from "@/components/empresas/vista-previa-empresa"
 import { Button } from "@/components/ui/button"
-import { vistaPreviaEmpresaReal } from "@/lib/empresas/production-store"
+import { espacioEmpresaReal, vistaPreviaEmpresaReal } from "@/lib/empresas/production-store"
 import { getT } from "@/lib/i18n-servidor"
 
 export const dynamic = "force-dynamic"
@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function VistaPreviaEmpresaPage() {
-  const [resultado, { t }] = await Promise.all([vistaPreviaEmpresaReal(), getT()])
+  const [resultado, espacio, { t }] = await Promise.all([vistaPreviaEmpresaReal(), espacioEmpresaReal().catch(() => null), getT()])
   if (resultado.codigo === "NO_AUTENTICADO") redirect("/auth/login?next=%2Fmi-empresa%2Fvista-previa")
   if (resultado.codigo === "SIN_EMPRESA") redirect("/mi-empresa")
   if (resultado.error || !resultado.data) return <div className="mx-auto max-w-xl px-4 py-16 text-center">
@@ -24,5 +24,6 @@ export default async function VistaPreviaEmpresaPage() {
     <p className="mt-3 text-sm text-muted-foreground">{t(resultado.error || "No se pudo cargar la vista previa de la empresa.")}</p>
     <Button asChild variant="outline" className="mt-6"><Link href="/mi-empresa">{t("Volver a Mi empresa")}</Link></Button>
   </div>
-  return <VistaPreviaEmpresa datos={resultado.data} />
+  const puedeEditar = espacio?.data?.empresa.id === resultado.data.empresa.id && espacio?.data?.miembroActual?.permisos.perfil === true
+  return <VistaPreviaEmpresa datos={resultado.data} puedeEditar={puedeEditar} />
 }

@@ -1,13 +1,13 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowLeft, Eye } from "lucide-react"
+import { ArrowLeft, Eye, Pencil } from "lucide-react"
 import PerfilEmpresa from "@/components/empresas/perfil-empresa"
 import { useT } from "@/components/idioma-provider"
 import { Button } from "@/components/ui/button"
 import type { EmpresaPublica } from "@/lib/empresas/types"
 
-export function VistaPreviaEmpresa({ datos }: { datos: EmpresaPublica }) {
+export function VistaPreviaEmpresa({ datos, puedeEditar = false }: { datos: EmpresaPublica; puedeEditar?: boolean }) {
   const t = useT()
   const publicada = datos.empresa.estadoVerificacion === "verificada"
 
@@ -20,7 +20,10 @@ export function VistaPreviaEmpresa({ datos }: { datos: EmpresaPublica }) {
           <p className="text-xs leading-relaxed text-muted-foreground">{t("Esta vista muestra los cambios guardados. Guarda la edición antes de actualizarla.")}</p>
           <p id="empresa-vista-previa-contacto" className="text-xs leading-relaxed text-muted-foreground">{t("Los botones de contacto están desactivados en esta vista previa.")}</p>
         </div>
-        <Button asChild variant="outline" size="sm" className="shrink-0"><Link href="/mi-empresa"><ArrowLeft className="size-4" />{t("Volver a Mi empresa")}</Link></Button>
+        <div className="flex shrink-0 flex-col gap-2">
+          {puedeEditar && <Button asChild size="sm"><Link href="/mi-empresa#perfil-empresa"><Pencil className="size-4" aria-hidden="true" />{t("Editar perfil de empresa")}</Link></Button>}
+          <Button asChild variant="outline" size="sm"><Link href="/mi-empresa"><ArrowLeft className="size-4" aria-hidden="true" />{t("Volver a Mi empresa")}</Link></Button>
+        </div>
       </aside>
     </div>
     <PerfilEmpresa datos={datos} vistaPrevia />

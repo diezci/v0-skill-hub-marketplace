@@ -29,6 +29,7 @@ export const EN_EMPRESAS: Record<string, string> = {
   "La representación de la empresa debe estar verificada antes de iniciar una nueva operación": "The company representation must be verified before starting a new operation",
   "Verificación retirada": "Verification withdrawn",
   "Vista previa del perfil": "Preview profile",
+  "Editar perfil de empresa": "Edit company profile",
   "Esta vista muestra los cambios guardados. Guarda la edición antes de actualizarla.": "This view shows saved changes. Save your edits before refreshing it.",
   "Volver a Mi empresa": "Back to My company",
   "Vista previa privada": "Private preview",

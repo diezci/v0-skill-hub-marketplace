@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useTransition, type FormEvent } from "react"
+import { useEffect, useRef, useState, useTransition, type FormEvent } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Activity, ArrowUpRight, BriefcaseBusiness, Building2, Check, ClipboardList, Copy, Eye, EyeOff, LayoutGrid, Loader2, MapPin, MessageSquare, ShieldCheck, SlidersHorizontal, UserPlus, Users, Wallet, Wrench } from "lucide-react"
+import { Activity, ArrowUpRight, BriefcaseBusiness, Building2, Check, ClipboardList, Copy, Eye, EyeOff, LayoutGrid, Loader2, MapPin, MessageSquare, Pencil, ShieldCheck, SlidersHorizontal, UserPlus, Users, Wallet, Wrench } from "lucide-react"
 import { actualizarMiembroEmpresa, cancelarInvitacionEmpresa, invitarMiembroEmpresa, revocarMiembroEmpresa } from "@/app/actions/empresa-workspace"
 import { useIdioma, useT } from "@/components/idioma-provider"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -39,6 +39,9 @@ export function EmpresaWorkspaceReal({ espacio, mostrarCobrosIniciales = false, 
   const puedePrevisualizar = principal || miembroActual?.rol === "administrador" || puedePerfil
   const puedeVerCobros = !!miembroActual?.permisos.ver_cobros
   const verificada = empresa.estadoVerificacion === "verificada"
+  const [pestana, setPestana] = useState(mostrarCobrosIniciales && puedeVerCobros ? "cobros" : operacionInicial ? "operaciones" : "perfil")
+  const [solicitudEdicion, setSolicitudEdicion] = useState(0)
+  const nombreEmpresaInput = useRef<HTMLInputElement>(null)
   const [editor, setEditor] = useState<MiembroEmpresa | "invitacion" | null>(null)
   const [email, setEmail] = useState("")
   const [cargo, setCargo] = useState("")
@@ -55,6 +58,15 @@ export function EmpresaWorkspaceReal({ espacio, mostrarCobrosIniciales = false, 
   const activos = miembros.filter((m) => m.estado === "activo")
   const invitaciones = espacio.invitaciones.filter((i) => i.estado === "pendiente" && new Date(i.expiraEn).getTime() > Date.now())
   const fecha = (valor: string) => new Date(valor).toLocaleDateString(localeDe(idioma), { day: "numeric", month: "short", year: "numeric" })
+
+  useEffect(() => {
+    if (solicitudEdicion > 0) nombreEmpresaInput.current?.focus()
+  }, [solicitudEdicion])
+
+  function editarPerfil() {
+    setPestana("perfil")
+    setSolicitudEdicion((actual) => actual + 1)
+  }
 
   function ejecuta(action: () => Promise<ResultadoEmpresa<unknown>>, confirmacion: string, completar?: () => void) {
     setError(""); setMensaje("")
@@ -109,7 +121,7 @@ export function EmpresaWorkspaceReal({ espacio, mostrarCobrosIniciales = false, 
             <Avatar className="size-16 shrink-0 rounded-2xl border border-white/20 bg-white shadow-sm sm:size-20"><AvatarImage src={empresa.logoUrl} alt={empresa.nombre} className="object-contain p-1" /><AvatarFallback className="rounded-2xl bg-emerald-50 text-emerald-900"><Building2 aria-hidden="true" className="size-8" /></AvatarFallback></Avatar>
             <div className="min-w-0"><h1 className="break-words text-2xl leading-tight font-semibold tracking-tight sm:text-3xl">{empresa.nombre}</h1><p className="mt-2 max-w-lg text-sm leading-relaxed text-emerald-100/85">{t("Gestiona tu perfil, tu equipo y tus operaciones.")}</p><div className="mt-3 flex flex-wrap gap-2"><Badge className="border-white/20 bg-white/10 text-white">{t(miembroActual ? NOMBRES_ROL_EMPRESA[miembroActual.rol] : "Administrador de plataforma")}</Badge><Badge className="gap-1.5 border-white/20 bg-white/10 text-white">{verificada && <ShieldCheck aria-hidden="true" className="size-3.5" />}{t(ESTADOS_VERIFICACION_EMPRESA[empresa.estadoVerificacion])}</Badge></div></div>
           </div>
-          <div className="flex shrink-0 flex-wrap gap-2">{puedePrevisualizar && <Button asChild variant="outline" size="sm" className="min-h-10 border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white"><Link href="/mi-empresa/vista-previa"><Eye aria-hidden="true" className="size-4" />{t("Vista previa del perfil")}</Link></Button>}{verificada && <Button asChild variant="outline" size="sm" className="min-h-10 border-white bg-white text-emerald-950 hover:bg-emerald-50 hover:text-emerald-950 dark:bg-white dark:text-emerald-950 dark:hover:bg-emerald-50"><Link href={`/empresa/${encodeURIComponent(empresa.id)}`}>{t("Ver perfil público")}<ArrowUpRight aria-hidden="true" className="size-4" /></Link></Button>}{miembroActual?.permisos.mensajes && <Button asChild variant="outline" size="sm" className="min-h-10 border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white"><Link href={`/mensajes?empresa=${encodeURIComponent(empresa.id)}`}><MessageSquare aria-hidden="true" className="size-4" />{t("Mensajes")}</Link></Button>}</div>
+          <div className="flex shrink-0 flex-wrap gap-2 lg:max-w-[52%] lg:justify-end">{puedePerfil && <Button type="button" size="sm" className="min-h-10 border border-white bg-white text-emerald-950 hover:bg-emerald-50" onClick={editarPerfil}><Pencil aria-hidden="true" className="size-4" />{t("Editar perfil de empresa")}</Button>}{puedePrevisualizar && <Button asChild variant="outline" size="sm" className="min-h-10 border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white"><Link href="/mi-empresa/vista-previa"><Eye aria-hidden="true" className="size-4" />{t("Vista previa del perfil")}</Link></Button>}{verificada && <Button asChild variant="outline" size="sm" className="min-h-10 border-white bg-white text-emerald-950 hover:bg-emerald-50 hover:text-emerald-950 dark:bg-white dark:text-emerald-950 dark:hover:bg-emerald-50"><Link href={`/empresa/${encodeURIComponent(empresa.id)}`}>{t("Ver perfil público")}<ArrowUpRight aria-hidden="true" className="size-4" /></Link></Button>}{miembroActual?.permisos.mensajes && <Button asChild variant="outline" size="sm" className="min-h-10 border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white"><Link href={`/mensajes?empresa=${encodeURIComponent(empresa.id)}`}><MessageSquare aria-hidden="true" className="size-4" />{t("Mensajes")}</Link></Button>}</div>
         </div>
       </div>
       <dl className="grid grid-cols-3 divide-x bg-card px-1 py-4 sm:px-4 sm:py-5">
@@ -117,7 +129,7 @@ export function EmpresaWorkspaceReal({ espacio, mostrarCobrosIniciales = false, 
       </dl>
     </header>
     {error && <p role="alert" className="rounded-lg border border-destructive/25 bg-destructive/5 p-3 text-sm text-destructive">{t(error)}</p>}{mensaje && <p role="status" className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-3 text-sm text-emerald-700 dark:text-emerald-400">{t(mensaje)}</p>}
-    <Tabs defaultValue={mostrarCobrosIniciales && puedeVerCobros ? "cobros" : operacionInicial ? "operaciones" : "perfil"} className="min-w-0 gap-6">
+    <Tabs value={pestana} onValueChange={setPestana} className="min-w-0 gap-6">
       <div className={`${styles.navigation} max-w-full overflow-x-auto rounded-2xl border bg-card p-1.5`}><TabsList aria-label={t("Gestión de empresa")} className="h-auto w-max min-w-full justify-start gap-1 rounded-none bg-transparent p-0">
         <TabsTrigger value="perfil" className={tabClass}><LayoutGrid aria-hidden="true" className="size-4" />{t("Perfil")}</TabsTrigger>
         <TabsTrigger value="equipo" className={tabClass}><Users aria-hidden="true" className="size-4" />{t("Equipo")}<span className="ml-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] tabular-nums">{activos.length}</span></TabsTrigger>
@@ -125,7 +137,7 @@ export function EmpresaWorkspaceReal({ espacio, mostrarCobrosIniciales = false, 
         <TabsTrigger value="actividad" className={tabClass}><Activity aria-hidden="true" className="size-4" />{t("Actividad")}</TabsTrigger>
         {puedeVerCobros && <TabsTrigger value="cobros" className={tabClass}><Wallet aria-hidden="true" className="size-4" />{t("Cobros")}</TabsTrigger>}
       </TabsList></div>
-      <TabsContent value="perfil" className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]"><PerfilEmpresaEditor key={empresa.id} empresa={empresa} puedeEditar={puedePerfil} /><aside className="min-w-0"><VerificacionEmpresa espacio={espacio} /></aside></TabsContent>
+      <TabsContent value="perfil" forceMount hidden={pestana !== "perfil"} className="grid min-w-0 items-start gap-5 data-[state=inactive]:hidden xl:grid-cols-[minmax(0,1fr)_340px]"><PerfilEmpresaEditor key={empresa.id} empresa={empresa} puedeEditar={puedePerfil} nombreInputRef={nombreEmpresaInput} /><aside className="min-w-0"><VerificacionEmpresa espacio={espacio} /></aside></TabsContent>
       <TabsContent value="equipo" className="space-y-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><h2 className="text-lg font-semibold">{t("Equipo")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("Cada persona accede con su cuenta y actúa según los permisos que le concedas.")}</p><p className="mt-2 text-xs text-muted-foreground">{t("No hace falta tener un perfil profesional público para gestionar la empresa.")}</p></div>{puedeEquipo && <Button className="shrink-0" onClick={() => abrir()} disabled={pending}><UserPlus className="size-4" />{t("Invitar miembro")}</Button>}</div>
         {enlace && <Card><CardContent className="space-y-3"><p className="text-sm font-medium">{t("Invitación creada. Comparte el enlace con la persona indicada.")}</p><div className="flex flex-col gap-2 sm:flex-row"><Input aria-label={t("Enlace de invitación")} readOnly value={enlace} onFocus={(e) => e.target.select()} /><Button variant="outline" onClick={async () => { try { await navigator.clipboard.writeText(enlace); setCopiado(true) } catch { setError("No se pudo copiar automáticamente. Selecciona y copia el enlace.") } }}>{copiado ? <Check className="size-4" /> : <Copy className="size-4" />}{t(copiado ? "Copiado" : "Copiar enlace")}</Button></div><p className="text-xs text-muted-foreground">{t("No se ha enviado ningún correo. El enlace es personal, de un solo uso y caduca en 7 días.")}</p></CardContent></Card>}
         <div className="grid items-start gap-4 lg:grid-cols-2">{activos.map((miembro) => <article key={miembro.id} className="min-w-0 rounded-2xl border bg-card p-5 shadow-sm sm:p-6"><div className="flex flex-col gap-4 sm:flex-row sm:items-start"><div className="flex min-w-0 flex-1 items-start gap-3"><Avatar className="size-11 shrink-0"><AvatarImage src={miembro.fotoUrl} alt={miembro.nombre} /><AvatarFallback>{miembro.nombre.split(" ").slice(0, 2).map((p) => p[0]).join("")}</AvatarFallback></Avatar><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="break-words font-semibold">{miembro.nombre}</h3>{miembro.usuarioId === actor.id && <Badge variant="secondary">{t("Tú")}</Badge>}</div>{miembro.email && <p className="mt-1 break-all text-xs text-muted-foreground">{miembro.email}</p>}<p className="mt-1 text-sm">{miembro.cargo || t("Sin cargo indicado")}</p><p className="mt-1 text-xs text-muted-foreground">{t(NOMBRES_ROL_EMPRESA[miembro.rol])}</p></div></div>{puedeEditar(miembro) && <Button variant="outline" size="sm" disabled={pending} onClick={() => abrir(miembro)}><SlidersHorizontal className="size-4" />{t("Gestionar miembro")}</Button>}</div><div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-3"><span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">{miembro.perfilPublico ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}{t(miembro.perfilPublico ? "Visible en el equipo público" : "Solo visible dentro de la empresa")}</span>{miembro.tienePerfilProfesional && <Link className="text-xs font-medium text-primary hover:underline" href={`/profesional/${encodeURIComponent(miembro.usuarioId)}`}>{t("Ver perfil profesional")}</Link>}</div><div className="mt-3 flex flex-wrap gap-1.5">{PERMISOS_EMPRESA.filter(({ clave }) => miembro.permisos[clave]).map(({ clave, titulo }) => <Badge key={clave} variant="secondary" className="max-w-full whitespace-normal text-xs font-normal">{t(titulo)}</Badge>)}</div></article>)}</div>

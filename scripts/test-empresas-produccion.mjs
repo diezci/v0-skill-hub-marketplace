@@ -201,6 +201,13 @@ test('private preview links follow management permissions and preserve verified 
       const espacio = { ...base, empresa: { ...base.empresa, estadoVerificacion }, miembroActual: { ...base.miembroActual, rol, permisos: { ...base.miembroActual.permisos, perfil } } }
       const h = workspaceHarness(load, espacio)
       const tree = h.render()
+      assert.equal(!!h.button(tree, 'Editar perfil de empresa'), perfil, `Edit access follows the profile permission: ${rol}/${perfil}`)
+      if (perfil) {
+        const tabs = h.all(tree, n => typeof n.props?.onValueChange === 'function')[0]
+        tabs.props.onValueChange('equipo')
+        h.button(h.render(), 'Editar perfil de empresa').props.onClick()
+        assert.equal(h.all(h.render(), n => typeof n.props?.onValueChange === 'function')[0].props.value, 'perfil')
+      }
       const previewLinks = h.all(tree, n => n.props?.href === '/mi-empresa/vista-previa')
       assert.equal(previewLinks.length, allowed ? 1 : 0, `${rol}/${perfil}/${estadoVerificacion}`)
       if (allowed) {
@@ -232,6 +239,10 @@ test('preview reuses the public profile, reflects verification truth and cannot 
     assert.match(html, /disabled=""[^>]*aria-describedby="empresa-vista-previa-contacto"/)
     assert.equal(html.includes('Tu empresa todavía no es pública.'), estadoVerificacion !== 'verificada')
     assert.equal(html.includes('Empresa verificada'), estadoVerificacion === 'verificada')
+    assert.doesNotMatch(html, /Editar perfil de empresa/)
+    const editableHtml = renderToStaticMarkup(React.createElement(VistaPreviaEmpresa, { datos: value, puedeEditar: true }))
+    assert.match(editableHtml, /href="\/mi-empresa#perfil-empresa"/)
+    assert.match(editableHtml, /Editar perfil de empresa/)
   }
   for (const local of [true, false]) {
     const contact = SolicitarPresupuestoEmpresa({ datos: { ...datos, local }, vistaPrevia: true })
@@ -244,9 +255,10 @@ test('preview reuses the public profile, reflects verification truth and cannot 
 
 test('private preview route uses generic noindex metadata and redirects unauthenticated users before rendering company data', async () => {
   let result = { codigo: 'NO_AUTENTICADO', error: 'Debes iniciar sesión' }
+  let workspaceResult = { error: 'Debes iniciar sesión' }
   let reads = 0
   const { load } = loadModules({}, { mockModules: {
-    '@/lib/empresas/production-store': { vistaPreviaEmpresaReal: async () => { reads++; return result } },
+    '@/lib/empresas/production-store': { vistaPreviaEmpresaReal: async () => { reads++; return result }, espacioEmpresaReal: async () => workspaceResult },
     '@/lib/i18n-servidor': { getT: async () => ({ t: value => value }) },
     'next/navigation': { redirect: url => { throw new Error(`redirect:${url}`) } },
   } })
@@ -261,6 +273,15 @@ test('private preview route uses generic noindex metadata and redirects unauthen
   const html = renderToStaticMarkup(await route.default())
   assert.match(html, /Vista previa no disponible/)
   assert.doesNotMatch(html, /Contactar empresa|Portfolio|Empresa de prueba/)
+  result = { data: { empresa: { id: empresaId } } }
+  for (const [id, perfil, allowed] of [[empresaId, true, true], [empresaId, false, false], ['otra-empresa', true, false]]) {
+    workspaceResult = { data: { empresa: { id, nif: 'PRIVADO' }, miembroActual: { email: 'privado@example.test', permisos: { perfil } }, actividad: ['PRIVADA'] } }
+    const page = await route.default()
+    assert.equal(page.props.puedeEditar, allowed)
+    assert.deepEqual(Object.keys(page.props).sort(), ['datos', 'puedeEditar'], 'Only the public DTO and edit flag reach the preview client')
+  }
+  workspaceResult = { error: 'No se pudo consultar el acceso' }
+  assert.equal((await route.default()).props.puedeEditar, false)
 })
 
 test('real owner can invite an administrator with explicit permissions and optional public visibility', async () => {
