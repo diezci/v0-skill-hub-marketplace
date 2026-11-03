@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { empresaLocalStore, validarCoberturaEmpresa, validarPreferenciasEmpresa } from "@/lib/empresas/local-store"
+import { empresaLocalStore, validarCoberturaEmpresa, validarPreferenciasEmpresa, validarDatosProfesionalesEmpresa } from "@/lib/empresas/local-store"
 import { esEmpresasLocal, obtenerActorEmpresaLocal } from "@/lib/empresas/service"
 import type { InputActualizarMiembro, InputMiembro, InputPerfilEmpresa } from "@/lib/empresas/local-store"
 import { rpcEmpresa, verificacionReal } from "@/lib/empresas/production-store"
@@ -45,6 +45,20 @@ export async function guardarPerfilEmpresa(input: InputPerfilEmpresa): Promise<R
   if (cobertura.error) return { error: cobertura.error }
   const preferencias = validarPreferenciasEmpresa(input)
   if (preferencias.error) return { error: preferencias.error }
+  const profesionales = validarDatosProfesionalesEmpresa(input)
+  if (profesionales.error) return { error: profesionales.error }
+  if (!esEmpresasLocal() && profesionales.data) {
+    if (!cobertura.data) return { error: "Selecciona al menos una provincia válida de la lista." }
+    if (typeof input.ubicacion !== "string" || input.ubicacion.length > 200 || /[\u0000-\u001f\u007f]/.test(input.ubicacion)) return { error: "Revisa la ubicación de la empresa." }
+    return ejecutarReal("empresa_editar_perfil_profesional", {
+      p_nombre: input.nombre, p_descripcion: input.descripcion, p_ubicacion: input.ubicacion.trim(),
+      p_sitio_web: input.web, p_logo: input.logoUrl || null, p_servicios: cobertura.data.servicios, p_provincias: cobertura.data.provincias,
+      p_portada: input.portadaUrl || null, p_presupuesto_min_interes: preferencias.data?.presupuestoMinInteres ?? null,
+      p_presupuesto_max_interes: preferencias.data?.presupuestoMaxInteres ?? null,
+      p_actualizar_portada: input.portadaUrl !== undefined, p_actualizar_presupuesto: preferencias.data !== null,
+      p_datos_profesionales: profesionales.data,
+    })
+  }
   if (!esEmpresasLocal() && (input.portadaUrl !== undefined || preferencias.data)) {
     if (!cobertura.data) return { error: "Selecciona al menos una provincia válida de la lista." }
     return ejecutarReal("empresa_editar_perfil_completo", {

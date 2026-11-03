@@ -13,6 +13,17 @@ export interface EmpresaFicha {
   descripcion: string
   web: string
   ubicacion: string
+  titulo?: string
+  telefono?: string
+  emailContacto?: string
+  tarifaHora?: number | null
+  anosExperiencia?: number
+  tiempoRespuesta?: string
+  disponible?: boolean
+  habilidades?: string[]
+  certificaciones?: string[]
+  idiomas?: string[]
+  proyectosCompletados?: number
   provincias?: string[]
   servicios: string[]
   logoUrl?: string
@@ -51,6 +62,10 @@ export interface TrabajoEmpresa {
   fecha: string
   participantesIds: string[]
   imagen?: string
+  imagenes?: string[]
+  duracion?: string
+  contextoProveedor?: string
+  creadoEn?: string
 }
 export interface ResenaEmpresa {
   id: string

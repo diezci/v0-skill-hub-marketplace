@@ -101,5 +101,5 @@ await test('Upload and cleanup failures are sanitized and never return a success
  for(const opts of [{putError:true},{revoked:true,deleteError:true}]){const f=scenario(opts),r=await f.run();assert.equal(r.status,500);assert.equal(r.body.url,undefined);assert.ok(!JSON.stringify(r).includes('secret'));assert.ok(f.calls.filter(c=>c[0]==='log').every(c=>!c[1].includes('secret')))}
 })
 }
-for(const image of ['logo','portada']){activeImage=image;await runSuite()}
-console.log(`${count} company logo/cover upload scenarios passed without network or real uploads.`)
+for(const image of ['logo','portada','portfolio']){activeImage=image;await runSuite()}
+console.log(`${count} company logo/cover/portfolio upload scenarios passed without network or real uploads.`)

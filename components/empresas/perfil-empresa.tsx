@@ -1,37 +1,32 @@
 "use client"
 
-import { useEffect, useState, type FormEvent, type ReactNode } from "react"
-import Link from "next/link"
+import { useState, type FormEvent } from "react"
 import { useRouter } from "next/navigation"
 import { crearConversacionEmpresa } from "@/app/actions/messages"
 import { createClient } from "@/lib/supabase/client"
 import Image from "next/image"
-import { ArrowLeft, ArrowRight, BadgeCheck, Building2, CheckCircle2, ChevronRight, ClipboardList, ExternalLink, Globe, Hammer, Loader2, MapPin, MessageSquare, Star, Users } from "lucide-react"
+import { ArrowRight, CheckCircle2, Hammer, Loader2, MapPin, MessageSquare, Users } from "lucide-react"
 import { solicitarPresupuestoEmpresa } from "@/app/actions/empresa-workspace"
 import { useIdioma, useT } from "@/components/idioma-provider"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ProfileHeader, ProfileHeaderAvatar } from "@/components/profile-header"
-import { SelectorCategorias, SelectorProvincias } from "@/components/selector-cobertura"
+import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
+import PerfilProfesionalPublico from "@/components/perfil-profesional-publico"
+import { EquipoEmpresa } from "@/components/empresas/equipo-empresa"
+import { perfilProfesionalDeEmpresa } from "@/lib/empresas/perfil-profesional"
 import { localeDe } from "@/lib/i18n"
 import type { EmpresaPublica, TrabajoEmpresa } from "@/lib/empresas/types"
+
+export { InicialesEmpresa } from "@/components/empresas/equipo-empresa"
 
 export function webPublicaSegura(web: string): string | null {
   try {
     const url = new URL(web)
     return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password ? url.href : null
   } catch { return null }
-}
-
-export function InicialesEmpresa({ nombre, className = "", fotoUrl }: { nombre: string; className?: string; fotoUrl?: string }) {
-  return <Avatar className={className}><AvatarImage src={fotoUrl} alt={nombre} /><AvatarFallback className="bg-muted text-foreground">{nombre.split(" ").filter(Boolean).slice(0, 2).map((parte) => parte[0]).join("")}</AvatarFallback></Avatar>
 }
 
 function Fecha({ fecha }: { fecha: string }) {
@@ -59,7 +54,7 @@ export function TrabajoEmpresaCard({ trabajo, participacion = false }: { trabajo
   )
 }
 
-function ContactarEmpresa({ datos, className }: { datos: EmpresaPublica; className?: string }) {
+export function ContactarEmpresa({ datos, className, texto = "Contactar empresa" }: { datos: EmpresaPublica; className?: string; texto?: string }) {
   const t = useT()
   const router = useRouter()
   const [pending, setPending] = useState(false)
@@ -77,7 +72,7 @@ function ContactarEmpresa({ datos, className }: { datos: EmpresaPublica; classNa
     } catch { setError("No se pudo abrir el chat.") }
     finally { setPending(false) }
   }
-  return <div className={className}><Button className="w-full" onClick={contactar} disabled={pending}>{pending ? <Loader2 className="size-4 animate-spin" /> : <MessageSquare className="size-4" />}{t("Contactar empresa")}</Button>{error && <p role="alert" className="mt-2 text-sm text-destructive">{t(error)}</p>}</div>
+  return <div className={className}><Button className="w-full" onClick={contactar} disabled={pending}>{pending ? <Loader2 className="size-4 animate-spin" /> : <MessageSquare className="size-4" />}{t(texto)}</Button>{error && <p role="alert" className="mt-2 text-sm text-destructive">{t(error)}</p>}</div>
 }
 
 export function SolicitarPresupuestoEmpresa({ datos, className, vistaPrevia = false }: { datos: EmpresaPublica; className?: string; vistaPrevia?: boolean }) {
@@ -125,102 +120,24 @@ function SolicitarPresupuestoEmpresaLocal({ datos, className }: { datos: Empresa
   </>
 }
 
-export type CamposEdicionEmpresa = {
-  nombre: ReactNode
-  logotipo: ReactNode
-  portada: ReactNode
-  descripcion: ReactNode
-  servicios: ReactNode
-  zona: ReactNode
-  web: ReactNode
-}
-
-export default function PerfilEmpresa({ datos, vistaPrevia = false, integrado = false, acciones, edicion, estado, preferencias, lateral }: {
+export default function PerfilEmpresa({ datos, vistaPrevia = false, integrado = false }: {
   datos: EmpresaPublica
   vistaPrevia?: boolean
   integrado?: boolean
-  acciones?: ReactNode
-  edicion?: CamposEdicionEmpresa
-  estado?: ReactNode
-  preferencias?: ReactNode
-  lateral?: ReactNode
 }) {
   const t = useT()
-  const { empresa, trabajos, resenas } = datos
-  const miembros = datos.miembros.filter((miembro) => miembro.perfilPublico)
-  const [verificacionAbierta, setVerificacionAbierta] = useState(false)
-  const [pestana, setPestana] = useState("empresa")
-  const editando = !!edicion
-  useEffect(() => { if (editando) setPestana("empresa") }, [editando])
-  const totalResenas = datos.totalResenas ?? resenas.length
-  const rating = totalResenas > 0 ? (datos.ratingPromedio ?? (resenas.length ? resenas.reduce((suma, resena) => suma + resena.puntuacion, 0) / resenas.length : null)) : null
-  const web = webPublicaSegura(empresa.web)
-
-  return <div className={integrado ? "min-w-0 space-y-6" : "container mx-auto space-y-6 px-4 py-8"}>
-    {!integrado && <nav aria-label={t("Navegación del perfil")} className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
-      <Link href="/profesionales" className="flex shrink-0 items-center gap-1.5 hover:text-foreground"><ArrowLeft className="size-4" />{t("Profesionales")}</Link>
-      <ChevronRight className="size-3.5 shrink-0" /><span className="truncate">{empresa.nombre}</span>
-    </nav>}
-
-    <ProfileHeader coverUrl={empresa.portadaUrl} coverAlt={t("Cover")} coverActions={edicion?.portada}
-      avatar={<ProfileHeaderAvatar src={empresa.logoUrl} alt={empresa.nombre} fallback={<Building2 className="size-10 text-muted-foreground" />} />}
-      avatarActions={edicion?.logotipo}>
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="min-w-0 space-y-2">
-          {edicion ? edicion.nombre : <h1 className="break-words text-2xl font-bold md:text-3xl">{empresa.nombre}</h1>}
-          <p className="text-lg text-muted-foreground">{t("Empresa")}</p>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1"><ClipboardList className="size-4" />{trabajos.length} {t("Trabajos")}</span>
-            <span className="flex items-center gap-1"><Users className="size-4" />{miembros.length} {t("Miembros")}</span>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            {rating !== null ? <span className="flex items-center gap-1"><Star className="size-5 fill-amber-500 text-amber-500" /><strong className="text-lg">{rating.toFixed(1)}</strong><span className="text-muted-foreground">({totalResenas} {t("valoraciones")})</span></span> : <span className="text-sm text-muted-foreground">{t("Todavía sin valoraciones")}</span>}
-            {empresa.estadoVerificacion === "verificada" && <button type="button" onClick={() => setVerificacionAbierta(true)} className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Badge className="gap-1 border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"><BadgeCheck className="size-3.5" />{t("Empresa verificada")}</Badge></button>}
-          </div>
-        </div>
-        {acciones || (!editando && <SolicitarPresupuestoEmpresa datos={datos} vistaPrevia={vistaPrevia} />)}
-      </div>
-      {estado && <div className="mt-4">{estado}</div>}
-    </ProfileHeader>
+  const { idioma } = useIdioma()
+  return <div className={integrado ? "min-w-0" : "container mx-auto px-4 py-8"}>
+    <PerfilProfesionalPublico
+      perfil={perfilProfesionalDeEmpresa(datos, localeDe(idioma))}
+      empresa={{
+        equipo: <EquipoEmpresa datos={datos} />,
+        acciones: datos.local || vistaPrevia
+          ? <SolicitarPresupuestoEmpresa datos={datos} vistaPrevia={vistaPrevia} className="flex-1 sm:flex-none" />
+          : <ContactarEmpresa datos={datos} texto="Enviar mensaje" className="flex-1 sm:flex-none" />,
+        vistaPrevia,
+      }}
+    />
     {vistaPrevia && <p id="empresa-vista-previa-contacto" className="sr-only">{t("Los botones de contacto están desactivados en esta vista previa.")}</p>}
-
-    <div className="grid grid-cols-1 gap-6 px-4 md:px-0 lg:grid-cols-3">
-    <div className="min-w-0 space-y-6 lg:col-span-2">
-    <Tabs value={editando ? "empresa" : pestana} onValueChange={setPestana} className="w-full">
-      <TabsList className="h-auto w-full justify-start rounded-none border-b bg-transparent p-0">{[{ valor: "empresa", titulo: "Perfil" }, { valor: "trabajos", titulo: "Portfolio" }, { valor: "resenas", titulo: "Valoraciones" }, { valor: "equipo", titulo: "Equipo" }].map(({ valor, titulo }) => <TabsTrigger key={valor} value={valor} disabled={editando && valor !== "empresa"} className="min-w-0 rounded-none border-b-2 border-transparent px-2 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent sm:px-3 sm:text-sm">{t(titulo)}</TabsTrigger>)}</TabsList>
-      <TabsContent value="empresa" className="space-y-6 pt-6">
-        <Card><CardHeader><CardTitle className="text-lg">{t("Descripción")}</CardTitle></CardHeader><CardContent>{edicion ? edicion.descripcion : <p className="whitespace-pre-line leading-relaxed text-muted-foreground">{empresa.descripcion || t("La empresa todavía no ha añadido su presentación.")}</p>}</CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-lg">{t("Servicios")}{editando && <span className="ml-1 text-destructive">*</span>}</CardTitle></CardHeader><CardContent>{edicion ? edicion.servicios : empresa.servicios.length ? <SelectorCategorias seleccionadas={empresa.servicios} onChange={() => {}} disabled /> : <p className="text-sm text-muted-foreground">{t("Todavía no has elegido servicios.")}</p>}</CardContent></Card>
-        <Card><CardHeader><CardTitle className="flex items-center gap-2 text-lg"><MapPin className="size-5 text-primary" />{t("Zona de trabajo")}{editando && <span className="text-destructive">*</span>}</CardTitle></CardHeader><CardContent>{edicion ? edicion.zona : empresa.provincias?.length ? <SelectorProvincias seleccionadas={empresa.provincias} onChange={() => {}} disabled /> : <p className="text-sm text-muted-foreground">{empresa.ubicacion || t("Todavía no has elegido provincias.")}</p>}</CardContent></Card>
-        {(web || edicion) && <Card><CardHeader><CardTitle className="text-lg">{t("Contacto")}</CardTitle></CardHeader><CardContent><div className="flex items-center gap-3"><Globe className="size-5 shrink-0 text-muted-foreground" />{edicion ? edicion.web : web && <a href={web} target="_blank" rel="noopener noreferrer" className="flex min-w-0 items-center gap-2 text-sm text-primary hover:underline"><span className="break-all">{new URL(web).hostname.replace(/^www\./, "")}</span><ExternalLink className="size-3.5 shrink-0" /><span className="sr-only">{t("Se abre en otra pestaña")}</span></a>}</div></CardContent></Card>}
-        {preferencias}
-      </TabsContent>
-      <TabsContent value="trabajos" className="space-y-4">
-        <p className="text-sm text-muted-foreground">{t("Trabajos realizados por {empresa}.", { empresa: empresa.nombre })}</p>
-        {trabajos.length ? <div className="grid gap-4 sm:grid-cols-2">{trabajos.map((trabajo) => <TrabajoEmpresaCard key={trabajo.id} trabajo={trabajo} />)}</div> : <EstadoVacio icono="trabajos" titulo={t("Todavía no hay trabajos publicados")} descripcion={t("La empresa podrá mostrar aquí sus proyectos terminados.")} />}
-      </TabsContent>
-      <TabsContent value="resenas" className="space-y-4">
-        <p className="text-sm text-muted-foreground">{t("Valoraciones de servicios contratados a esta empresa.")}</p>
-        {resenas.length ? resenas.map((resena) => <Card key={resena.id}><CardContent>
-          <div className="flex flex-wrap items-start justify-between gap-3"><div className="flex items-center gap-3"><InicialesEmpresa nombre={resena.autor} className="size-10" /><div><h3 className="text-sm font-medium">{resena.autor}</h3><p className="text-xs text-muted-foreground"><Fecha fecha={resena.fecha} /></p></div></div><span className="flex gap-0.5" aria-label={t("{cantidad} de 5 estrellas", { cantidad: resena.puntuacion })}>{Array.from({ length: 5 }, (_, indice) => <Star key={indice} className={`size-4 ${indice < resena.puntuacion ? "fill-amber-500 text-amber-500" : "text-muted-foreground/25"}`} />)}</span></div>
-          <p className="mt-4 text-sm leading-relaxed">{resena.comentario}</p><p className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground"><Building2 className="size-3.5 shrink-0" />{trabajos.find((trabajo) => (trabajo.trabajoId || trabajo.id) === resena.trabajoId)?.titulo || t("Servicio de la empresa")}</p>
-        </CardContent></Card>) : <EstadoVacio icono="resenas" titulo={t("Todavía no hay valoraciones")} descripcion={t("Las valoraciones de sus clientes aparecerán aquí.")} />}
-      </TabsContent>
-      <TabsContent value="equipo" className="space-y-4">
-        <p className="text-sm text-muted-foreground">{t("Personas que la empresa presenta en su equipo público.")}</p>
-        {miembros.length ? <div className="grid gap-4 sm:grid-cols-2">{miembros.map((miembro) => <article key={miembro.id} className="rounded-xl border bg-card p-5 shadow-sm">
-          <div className="flex items-start gap-3"><InicialesEmpresa nombre={miembro.nombre} fotoUrl={miembro.fotoUrl} className="size-12 shrink-0" /><div className="min-w-0"><h3 className="break-words font-semibold">{miembro.nombre}</h3><p className="mt-1 break-words text-sm text-muted-foreground">{miembro.cargo}</p></div></div>{miembro.bio && <p className="mt-4 line-clamp-3 text-sm leading-relaxed text-muted-foreground">{miembro.bio}</p>}{(datos.local || miembro.tienePerfilProfesional) && <Link href={`/profesional/${encodeURIComponent(miembro.usuarioId)}`} className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline">{t("Ver perfil profesional")}<ArrowRight className="size-4" /></Link>}
-        </article>)}</div> : <EstadoVacio icono="equipo" titulo={t("El equipo todavía no es público")} descripcion={t("Puedes solicitar un presupuesto directamente a la empresa.")} />}
-      </TabsContent>
-    </Tabs>
-    </div>
-    <aside className="min-w-0 space-y-6">{lateral || <Card><CardHeader><CardTitle className="text-lg">{t("Proveedor del servicio")}</CardTitle></CardHeader><CardContent className="space-y-3"><p className="break-words font-medium">{empresa.razonSocial}</p><p className="text-sm leading-relaxed text-muted-foreground">{t("Te atienden las personas autorizadas de su equipo.")}</p></CardContent></Card>}</aside>
-    </div>
-    <Dialog open={verificacionAbierta} onOpenChange={setVerificacionAbierta}><DialogContent><DialogHeader><DialogTitle className="flex items-center gap-2 pr-5"><BadgeCheck className="size-5 shrink-0 text-emerald-600" />{t("Qué significa «Empresa verificada»")}</DialogTitle><DialogDescription>{t("Identidad de la empresa y representación comprobadas.")}</DialogDescription></DialogHeader><p className="text-sm leading-relaxed">{t("Se han revisado los datos de la empresa y la autorización de la persona responsable de su cuenta en Diime. Este distintivo no certifica la calidad del servicio: consulta sus trabajos y las reseñas de sus clientes.")}</p>{datos.local && <p className="rounded-lg bg-muted p-3 text-xs leading-relaxed text-muted-foreground">{t("En este entorno local la verificación es una simulación. No acredita a una empresa real.")}</p>}<Button variant="outline" onClick={() => setVerificacionAbierta(false)}>{t("Entendido")}</Button></DialogContent></Dialog>
   </div>
-}
-
-function EstadoVacio({ icono, titulo, descripcion }: { icono: "trabajos" | "resenas" | "equipo"; titulo: string; descripcion: string }) {
-  const Icono = icono === "trabajos" ? ClipboardList : icono === "resenas" ? Star : Users
-  return <Card><CardContent className="py-8 text-center"><Icono className="mx-auto mb-3 size-7 text-muted-foreground" /><h3 className="text-sm font-medium">{titulo}</h3><p className="mt-2 text-sm text-muted-foreground">{descripcion}</p></CardContent></Card>
 }

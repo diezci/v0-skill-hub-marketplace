@@ -116,11 +116,12 @@ export function EmpresaWorkspaceReal({ espacio, perfilPublico: datosPerfilPublic
         <TabsTrigger value="perfil" className={tabClass}><LayoutGrid aria-hidden="true" className="size-4" />{t("Perfil")}</TabsTrigger>
         <TabsTrigger value="equipo" className={tabClass}><Users aria-hidden="true" className="size-4" />{t("Equipo")}<span className="ml-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] tabular-nums">{activos.length}</span></TabsTrigger>
         <TabsTrigger value="operaciones" className={tabClass}><BriefcaseBusiness aria-hidden="true" className="size-4" />{t("Operaciones")}</TabsTrigger>
+        <TabsTrigger value="verificacion" className={tabClass}>{t("Verificación")}</TabsTrigger>
         <TabsTrigger value="actividad" className={tabClass}><Activity aria-hidden="true" className="size-4" />{t("Actividad")}</TabsTrigger>
         {puedeVerCobros && <TabsTrigger value="cobros" className={tabClass}><Wallet aria-hidden="true" className="size-4" />{t("Cobros")}</TabsTrigger>}
       </TabsList></div>
       <TabsContent value="perfil" forceMount hidden={pestana !== "perfil"} className="min-w-0 space-y-6 data-[state=inactive]:hidden">
-        {datosPerfilPublico ? <PerfilEmpresaEditor key={empresa.id} datos={datosPerfilPublico} puedeEditar={puedePerfil} integrado lateral={<VerificacionEmpresa espacio={espacio} />} /> : <Card>
+        {datosPerfilPublico ? <PerfilEmpresaEditor key={empresa.id} datos={datosPerfilPublico} puedeEditar={puedePerfil} integrado /> : <Card>
           <CardHeader><CardTitle className="text-lg">{empresa.nombre}</CardTitle></CardHeader>
           <CardContent className="space-y-5">
             <section><h2 className="mb-2 text-sm font-semibold">{t("Descripción")}</h2><p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{empresa.descripcion || t("La empresa todavía no ha añadido su presentación.")}</p></section>
@@ -129,7 +130,6 @@ export function EmpresaWorkspaceReal({ espacio, perfilPublico: datosPerfilPublic
             {puedePrevisualizar ? <div className="space-y-3 rounded-lg border bg-muted/30 p-4"><p role="status" className="text-sm text-muted-foreground">{t("No se pudo cargar la vista previa de la empresa.")}</p><Button type="button" variant="outline" size="sm" onClick={() => router.refresh()}>{t("Reintentar")}</Button></div> : <p className="text-sm text-muted-foreground">{t("Tu acceso permite consultar el perfil. Para editarlo necesitas permiso.")}</p>}
           </CardContent>
         </Card>}
-        {!datosPerfilPublico && <VerificacionEmpresa espacio={espacio} />}
       </TabsContent>
       <TabsContent value="equipo" className="space-y-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><h2 className="text-lg font-semibold">{t("Equipo")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("Cada persona accede con su cuenta y actúa según los permisos que le concedas.")}</p><p className="mt-2 text-xs text-muted-foreground">{t("No hace falta tener un perfil profesional público para gestionar la empresa.")}</p></div>{puedeEquipo && <Button className="shrink-0" onClick={() => abrir()} disabled={pending}><UserPlus className="size-4" />{t("Invitar miembro")}</Button>}</div>
         {enlace && <Card><CardContent className="space-y-3"><p className="text-sm font-medium">{t("Invitación creada. Comparte el enlace con la persona indicada.")}</p><div className="flex flex-col gap-2 sm:flex-row"><Input aria-label={t("Enlace de invitación")} readOnly value={enlace} onFocus={(e) => e.target.select()} /><Button variant="outline" onClick={async () => { try { await navigator.clipboard.writeText(enlace); setCopiado(true) } catch { setError("No se pudo copiar automáticamente. Selecciona y copia el enlace.") } }}>{copiado ? <Check className="size-4" /> : <Copy className="size-4" />}{t(copiado ? "Copiado" : "Copiar enlace")}</Button></div><p className="text-xs text-muted-foreground">{t("No se ha enviado ningún correo. El enlace es personal, de un solo uso y caduca en 7 días.")}</p></CardContent></Card>}
@@ -138,6 +138,7 @@ export function EmpresaWorkspaceReal({ espacio, perfilPublico: datosPerfilPublic
         <p className="text-xs leading-relaxed text-muted-foreground">{t("El rol de administrador de la cuenta no acredita la representación legal de la empresa.")}</p>
       </TabsContent>
       <TabsContent value="operaciones"><OperacionesEmpresa espacio={espacio} operacionInicial={operacionInicial} /></TabsContent>
+      <TabsContent value="verificacion"><VerificacionEmpresa espacio={espacio} /></TabsContent>
       <TabsContent value="actividad"><ActividadEmpresaPanel espacio={espacio} /></TabsContent>
       {puedeVerCobros && <TabsContent value="cobros"><CobrosEmpresa key={empresa.id} empresaId={empresa.id} nombreEmpresa={empresa.nombre} puedeVer={puedeVerCobros} esResponsablePrincipal={principal} /></TabsContent>}
     </Tabs>
