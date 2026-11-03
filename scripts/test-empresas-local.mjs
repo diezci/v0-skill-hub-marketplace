@@ -34,8 +34,9 @@ test('DTO público contiene solo empresa y miembros públicos, sin credenciales 
   const store = await nuevo()
   const publico = await store.publica('reformas-garcia')
   assert.ok(publico.local)
+  assert.equal(publico.empresa.nif, "B00000000")
   const texto = JSON.stringify(publico)
-  for (const campo of ['"email"', '"nif"', '"permisos"', '"rol"', 'tokenHash', 'documentoNombre', 'representanteNombre']) assert.equal(texto.includes(campo), false, campo)
+  for (const campo of ['"email"', '"permisos"', '"rol"', 'tokenHash', 'documentoNombre', 'representanteNombre']) assert.equal(texto.includes(campo), false, campo)
   assert.equal(publico.resenas.length, 3)
   assert.ok(publico.resenas.every((r) => publico.trabajos.some((t) => t.id === r.trabajoId)))
   assert.equal(await store.publica('otra-empresa'), null)
@@ -143,7 +144,7 @@ test('miembro sin gestión solo ve su información y solicitudes asignadas', asy
   assert.equal(espacio.miembros[0].usuarioId, 'mario')
   assert.deepEqual(espacio.invitaciones, [])
   assert.deepEqual(espacio.solicitudes, [])
-  assert.equal(espacio.empresa.nif, '')
+  assert.equal(espacio.empresa.nif, 'B00000000')
   assert.equal(espacio.verificacion, null)
 })
 
@@ -243,4 +244,32 @@ test('perfil profesional de empresa persiste completo sin confundir ubicación y
   error(await store.guardarPerfil(actores.mario, cambios), /permiso/)
   correcto(await store.guardarPerfil(actores.owner, { ...cambios, tarifaHora: null, emailContacto: '', telefono: '', habilidades: [], certificaciones: [], idiomas: [] }))
   assert.equal(correcto(await store.espacio(actores.owner)).empresa.tarifaHora, null)
+})
+
+
+test('domicilio empresarial persiste separado de identidad y cobertura, con privacidad y validación', async () => {
+  const store = await nuevo()
+  const empresa = correcto(await store.espacio(actores.owner)).empresa
+  const domicilio = 'Calle Ejemplo 12, 2.º A\n48001 Bilbao, Bizkaia'
+  const input = { ...empresa, nombre: 'Nueva marca', domicilio: `  ${domicilio}  `, provincias: ['Bizkaia'], servicios: ['Fontanería'], ubicacion: 'Madrid' }
+  correcto(await store.guardarPerfil(actores.ana, input))
+  const reloaded = new EmpresaLocalStore(store.directorio)
+  const saved = correcto(await reloaded.espacio(actores.owner)).empresa
+  const publicCompany = (await reloaded.publica(empresa.id)).empresa
+  assert.equal(saved.domicilio, domicilio)
+  assert.equal(publicCompany.domicilio, domicilio)
+  assert.equal(publicCompany.nif, empresa.nif)
+  assert.equal(publicCompany.razonSocial, empresa.razonSocial)
+  assert.equal(saved.ubicacion, 'Madrid')
+  assert.deepEqual(saved.provincias, ['Bizkaia'])
+  const { domicilio: omitted, ...old } = input
+  correcto(await store.guardarPerfil(actores.owner, old))
+  assert.equal(correcto(await reloaded.espacio(actores.owner)).empresa.domicilio, domicilio)
+  for (const bad of [null, 123, [], 'x'.repeat(501), 'x\u0001y', 'x\ty']) error(await store.guardarPerfil(actores.owner, {...input, domicilio: bad}), /domicilio/)
+  error(await store.guardarPerfil(actores.mario, input), /permiso/)
+  correcto(await store.guardarPerfil(actores.owner, {...input, domicilio: '', nif: 'B99999999', razonSocial: 'Otra entidad'}))
+  const final = correcto(await store.espacio(actores.owner)).empresa
+  assert.equal(final.domicilio, '')
+  assert.equal(final.nif, empresa.nif)
+  assert.equal(final.razonSocial, empresa.razonSocial)
 })

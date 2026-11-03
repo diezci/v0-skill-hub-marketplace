@@ -20,7 +20,7 @@ export interface EstadoEmpresaLocal extends ReturnType<typeof crearDatosEmpresaI
 
 export type InputMiembro = { nombre: string; email: string; rol: Exclude<RolEmpresa, "principal">; permisos: PermisosEmpresa }
 export type InputActualizarMiembro = { miembroId: string; rol: Exclude<RolEmpresa, "principal">; permisos: PermisosEmpresa }
-export type DatosProfesionalesEmpresa = Pick<EmpresaFicha, "titulo" | "telefono" | "emailContacto" | "tarifaHora" | "anosExperiencia" | "tiempoRespuesta" | "disponible" | "habilidades" | "certificaciones" | "idiomas">
+export type DatosProfesionalesEmpresa = Pick<EmpresaFicha, "domicilio" | "titulo" | "telefono" | "emailContacto" | "tarifaHora" | "anosExperiencia" | "tiempoRespuesta" | "disponible" | "habilidades" | "certificaciones" | "idiomas">
 export type InputPerfilEmpresa = { nombre: string; descripcion: string; web: string; ubicacion: string; provincias?: string[]; servicios: string[]; logoUrl?: string; portadaUrl?: string; presupuestoMinInteres?: number | null; presupuestoMaxInteres?: number | null } & DatosProfesionalesEmpresa
 export type InputVerificacion = { metodo: "certificado" | "documental"; representanteNombre: string; cargoLegal: string; documentoNombre: string; documento: Uint8Array; consentimiento: boolean }
 
@@ -54,10 +54,10 @@ export function validarPreferenciasEmpresa(input: Pick<InputPerfilEmpresa, "pres
 /** Business-owned fields only. Absent fields preserve values saved by newer clients. */
 export function validarDatosProfesionalesEmpresa(input: DatosProfesionalesEmpresa): ResultadoEmpresa<DatosProfesionalesEmpresa | null> {
   const datos: DatosProfesionalesEmpresa = {}
-  for (const [clave, maximo] of [["titulo", 160], ["telefono", 40], ["emailContacto", 254], ["tiempoRespuesta", 80]] as const) {
+  for (const [clave, maximo] of [["domicilio", 500], ["titulo", 160], ["telefono", 40], ["emailContacto", 254], ["tiempoRespuesta", 80]] as const) {
     const valor = input[clave]
     if (valor === undefined) continue
-    if (typeof valor !== "string" || valor.length > maximo || /[\u0000-\u001f\u007f]/.test(valor)) return { error: `Revisa el campo ${clave} de la empresa.` }
+    if (typeof valor !== "string" || valor.length > maximo || (clave === "domicilio" ? /[\u0000-\u0009\u000b\u000c\u000e-\u001f\u007f]/ : /[\u0000-\u001f\u007f]/).test(valor)) return { error: `Revisa el campo ${clave} de la empresa.` }
     datos[clave] = valor.trim()
   }
   if (datos.emailContacto && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(datos.emailContacto)) return { error: "Introduce un correo de contacto válido." }
@@ -104,7 +104,7 @@ function invitacionPublica(invitacion: InvitacionPrivada): InvitacionEmpresa {
   return publica
 }
 function fichaPublica(estado: EstadoEmpresaLocal): EmpresaPublica {
-  const { nif: _nif, representanteNombre: _representante, cargoLegal: _cargo, presupuestoMinInteres: _min, presupuestoMaxInteres: _max, ...empresa } = estado.empresa
+  const { representanteNombre: _representante, cargoLegal: _cargo, presupuestoMinInteres: _min, presupuestoMaxInteres: _max, ...empresa } = estado.empresa
   return { empresa, miembros: estado.miembros.filter((m) => m.estado === "activo" && m.perfilPublico).map(miembroPublico), trabajos: estado.trabajos, resenas: estado.resenas, local: true }
 }
 function estadoInicial(): EstadoEmpresaLocal {
@@ -227,7 +227,7 @@ export class EmpresaLocalStore {
       const gestionaEquipo = !!miembro?.permisos.equipo || actor.plataformaAdmin
       const principal = miembro?.rol === "principal"
       const empresa = { ...estado.empresa }
-      if (!principal && !actor.plataformaAdmin) { empresa.nif = ""; empresa.representanteNombre = ""; empresa.cargoLegal = "" }
+      if (!principal && !actor.plataformaAdmin) { empresa.representanteNombre = ""; empresa.cargoLegal = "" }
       return {
         empresa, miembros: gestionaEquipo ? estado.miembros : estado.miembros.filter((m) => m.usuarioId === actor.id),
         invitaciones: gestionaEquipo ? estado.invitaciones.map(invitacionPublica) : [], verificacion: principal || actor.plataformaAdmin ? estado.verificacion : null,

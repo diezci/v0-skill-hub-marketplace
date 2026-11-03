@@ -11,6 +11,7 @@ import { PRECIO_MAX } from "@/lib/precios"
 
 export function cambiosPerfilEmpresa(datos: DatosPerfilProfesional, empresa: EmpresaPublica["empresa"]) {
   return {
+    ...(datos.datos_empresa ? { domicilio: datos.datos_empresa.domicilio } : {}),
     nombre: datos.nombre.trim(), descripcion: datos.bio, ubicacion: datos.ubicacion,
     web: empresa.web, logoUrl: datos.foto_perfil, portadaUrl: datos.foto_portada,
     servicios: datos.categorias_interes, provincias: datos.provincias_cobertura,

@@ -1,5 +1,6 @@
 "use client"
 
+import { DatosLegalesEmpresaCard } from "@/components/empresas/datos-legales-empresa"
 import { useT, useIdioma } from "@/components/idioma-provider"
 import { localeDe } from "@/lib/i18n"
 import { formatearPrecioEuros } from "@/lib/utils"
@@ -250,6 +251,7 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre",
         </TabsList>
 
         <TabsContent value="sobre" className="space-y-4">
+          {empresa && perfil.datos_empresa && <DatosLegalesEmpresaCard datos={perfil.datos_empresa} />}
           <Card>
             <CardContent className="pt-6 space-y-6">
               {perfil.bio && (

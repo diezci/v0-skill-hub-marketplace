@@ -12,7 +12,7 @@ const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 const empresaId = '10000000-0000-4000-8000-000000000001'
 const ownerId = '20000000-0000-4000-8000-000000000001'
 const memberId = '20000000-0000-4000-8000-000000000002'
-const sampleCompany = { id: empresaId, nombre: 'Empresa de prueba', descripcion: 'Equipo ficticio para pruebas', ubicacion: 'Madrid', servicios: ['Pintura'], sitio_web: 'https://example.com', logo: 'https://example.com/logo.png', verificada: false, propietario_id: ownerId, contacto_usuario_id: ownerId, cif: 'PRIVADO' }
+const sampleCompany = { id: empresaId, nombre: 'Empresa de prueba', descripcion: 'Equipo ficticio para pruebas', ubicacion: 'Madrid', servicios: ['Pintura'], sitio_web: 'https://example.com', logo: 'https://example.com/logo.png', verificada: false, propietario_id: ownerId, contacto_usuario_id: ownerId, razon_social: 'Empresa de prueba, S.L.', cif: 'B12345678', domicilio: 'Calle Ejemplo 10, Bilbao', representante_nombre: 'REPRESENTANTE PRIVADO', cargo_legal: 'CARGO PRIVADO', email: 'EMAIL PRIVADO', telefono: 'TELEFONO PRIVADO' }
 const members = [{ usuario_id: ownerId, nombre: 'Ana', apellido: 'Ejemplo', cargo: 'Dirección', bio: 'Coordino los proyectos del equipo.', foto_perfil: 'https://example.com/ana.png', habilidades: ['Coordinación'], estado: 'activo', es_titular: true, rol: 'principal', perfil_publico: true, tiene_perfil_profesional: true, permisos: {perfil:true,mensajes:true,presupuestos:true,encargos:true,equipo:true,ver_cobros:true,gestionar_cobros:true} }, { usuario_id: memberId, nombre: 'Luis', apellido: 'Prueba', cargo: 'Pintor', bio: 'Especialista en acabados.', estado: 'activo', es_titular: false, rol: 'miembro', perfil_publico: true, tiene_perfil_profesional: true, permisos: {perfil:false,mensajes:true,presupuestos:true,encargos:true,equipo:false,ver_cobros:false,gestionar_cobros:false} }]
 const workspace = { empresa: sampleCompany, miembros: members, invitaciones: [{ id: 'invitation', email: 'test@example.com', cargo: 'Pintor', estado: 'pendiente', created_at: '2026-09-01', expira_at: '2099-09-08' }], actividad: [{ id: 'activity', actor_usuario_id: memberId, actor_nombre: 'Luis Prueba', accion: 'Oferta actualizado', entidad_tipo: 'ofertas', entidad_id: 'offer', created_at: '2026-09-22T12:00:00Z', detalle: { solicitud_titulo: 'Pintar la cocina', precio: { antes: 100, despues: 120 } } }], es_titular: true, usuario_id: ownerId }
 const defaults = { empresa_workspace: workspace, empresa_perfil_publico: { empresa: sampleCompany, miembros: members, portfolio: [{ id: 'portfolio', trabajo_id: 'work', titulo: 'Trabajo empresa', descripcion: 'Proyecto terminado', fecha_proyecto: '2026-09-01', participantes_ids: [memberId] }], resenas: [{ id: 'review', trabajo_id: 'work', autor: 'Cliente', rating: 5, comentario: 'Buen trabajo', created_at: '2026-09-22' }] }, empresas_publicas: [{ ...sampleCompany, miembros_count: 2 }], empresa_consultar_invitacion: { empresa_id: empresaId, empresa_nombre: sampleCompany.nombre, cargo: 'Pintor', estado: 'pendiente', expira_at: '2099-09-08', coincide_email: true }, empresa_afiliacion_publica: { empresa_id: empresaId, cargo: 'Pintor' } }
@@ -82,7 +82,11 @@ test('public adapter keeps company, member summaries, contact, company work and 
   assert.equal(result.miembros[0].fotoUrl, members[0].foto_perfil)
   assert.equal(result.trabajos[0].participantesIds[0], memberId)
   assert.equal(result.resenas[0].puntuacion, 5)
-  for (const privateKey of ['nif', 'cif', 'email', 'permisos', 'propietario_id']) assert.equal(Object.hasOwn(result.empresa, privateKey), false, privateKey)
+  assert.equal(result.empresa.razonSocial, sampleCompany.razon_social)
+  assert.equal(result.empresa.nif, sampleCompany.cif, 'The company tax identifier is explicitly part of its public identity')
+  assert.equal(result.empresa.domicilio, sampleCompany.domicilio)
+  assert.doesNotMatch(JSON.stringify(result), /REPRESENTANTE PRIVADO|CARGO PRIVADO|EMAIL PRIVADO|TELEFONO PRIVADO/)
+  for (const privateKey of ['cif', 'email', 'permisos', 'propietario_id', 'representanteNombre', 'cargoLegal']) assert.equal(Object.hasOwn(result.empresa, privateKey), false, privateKey)
 })
 
 test('workspace derives titular privileges and retains real activity actor and exact change', async () => {
@@ -174,7 +178,7 @@ function workspaceHarness(load, espacio, component = "EmpresaWorkspaceReal", opt
   const componentFile = { OperacionesEmpresa: 'operaciones-empresa', EmpresaWorkspaceReal: 'empresa-workspace-real', IncidenciasTrabajoEmpresa: 'incidencias-trabajo-empresa', PerfilEmpresaEditor: 'perfil-empresa-editor' }[component]
   const Component = runtime.load(`components/empresas/${componentFile}.tsx`)[component]
   function children(node) {
-    if (node.type?.name === 'PreferenciasDemandas') return [node.type(node.props)]
+    if (['PreferenciasDemandas', 'DatosLegalesEmpresaCard'].includes(node.type?.name)) return [node.type(node.props)]
     return [node.props?.children, node.props?.acciones, node.props?.estado, node.props?.preferencias, ...Object.values(node.props?.edicion || {})]
   }
   function elements(node, predicate, found = []) {
@@ -591,7 +595,7 @@ function sharedProfileHarness(datos, options = {}) {
   const Profile = runtime.load('components/perfil-profesional.tsx').default
   assert.equal(component.type, Profile, 'The whole company editor is the actual professional component')
   function children(node) {
-    if (node.type?.name === 'PreferenciasDemandas') return [node.type(node.props)]
+    if (['PreferenciasDemandas', 'DatosLegalesEmpresaCard'].includes(node.type?.name)) return [node.type(node.props)]
     return ['children', 'coverActions', 'avatarActions', 'avatar'].map(key => node.props?.[key])
   }
   function all(node, predicate, found = []) {
@@ -703,6 +707,7 @@ test('shared save keeps rejected drafts, prevents duplicate submission and permi
   const h = sharedProfileHarness(datos, { actionResult: async () => { count++; return await new Promise(resolve => { finish = resolve }) } })
   h.button(h.render(), 'Editar perfil').props.onClick()
   h.field(h.render(), 'Nombre comercial').props.onChange({ target: { value: 'Borrador conservado' } })
+  h.field(h.render(), 'empresa-domicilio').props.onChange({ target: { value: 'Domicilio pendiente de guardar' } })
   const save = h.button(h.render(), 'Guardar cambios')
   const first = save.props.onClick()
   const duplicate = save.props.onClick()
@@ -711,6 +716,7 @@ test('shared save keeps rejected drafts, prevents duplicate submission and permi
   finish({ error: 'Error temporal' })
   await Promise.all([first, duplicate])
   assert.equal(h.field(h.render(), 'Nombre comercial').props.value, 'Borrador conservado')
+  assert.equal(h.field(h.render(), 'empresa-domicilio').props.value, 'Domicilio pendiente de guardar')
   assert.ok(h.toasts.some(toast => toast.variant === 'destructive'))
   const retry = h.button(h.render(), 'Guardar cambios').props.onClick()
   finish({})
@@ -745,9 +751,10 @@ test('public company profile uses the exact public professional renderer and exp
   assert.equal(profile.props.empresa.equipo.type.name, 'EquipoEmpresa')
   assert.equal(profile.props.perfil.nombre, datos.empresa.nombre)
   assert.equal(profile.props.perfil.telefono, datos.empresa.telefono)
+  assert.deepEqual(profile.props.perfil.datos_empresa, { razonSocial: datos.empresa.razonSocial, cif: datos.empresa.nif, domicilio: datos.empresa.domicilio })
   assert.equal(Object.hasOwn(profile.props.perfil, 'presupuesto_interes'), false)
   const html = renderToStaticMarkup(React.createElement(Company, { datos }))
-  for (const label of ['Sobre mí', 'Portfolio', 'Valoraciones', 'Equipo', 'Habilidades', 'Certificaciones declaradas', 'Idiomas']) assert.match(html, new RegExp(label))
+  for (const label of ['Sobre mí', 'Portfolio', 'Valoraciones', 'Equipo', 'Habilidades', 'Certificaciones declaradas', 'Idiomas', 'Razón social', 'CIF', 'Domicilio', datos.empresa.razonSocial, datos.empresa.nif, datos.empresa.domicilio]) assert.match(html, new RegExp(label))
   assert.doesNotMatch(html, /Avisos de nuevas demandas|Presupuesto de la demanda|Reputation|Proveedor del servicio/)
   assert.equal((html.match(/<h1\b/g) || []).length, 1)
 })
@@ -814,4 +821,65 @@ test('public company message action addresses the company and never sends its id
   await React.Children.toArray(tree.props.children)[0].props.onClick()
   assert.deepEqual(actions, [{ action: 'crearConversacionEmpresa', args: [empresaId] }])
   assert.deepEqual(destinations, ['/mensajes?c=company-conversation'])
+})
+
+test('company legal identity is visible and readonly while its public address saves through the shared editor', async () => {
+  const datos = await completeProfileFixture()
+  const h = sharedProfileHarness(datos)
+  let tree = h.render()
+  assert.equal(h.selector(tree, 'DatosLegalesEmpresaCard').props.datos.razonSocial, datos.empresa.razonSocial)
+  assert.equal(h.selector(tree, 'DatosLegalesEmpresaCard').props.datos.cif, datos.empresa.nif)
+  assert.equal(h.field(tree, 'empresa-domicilio'), undefined)
+  assert.match(h.text(tree), /Empresa de prueba, S\.L\.|B12345678|Calle Ejemplo 10, Bilbao/)
+  h.button(tree, 'Editar perfil').props.onClick()
+  tree = h.render()
+  const legalCard = h.selector(tree, 'DatosLegalesEmpresaCard')
+  const legalInputs = h.all(legalCard, node => typeof node.props?.onChange === 'function')
+  assert.equal(legalInputs.length, 1, 'Only the address can change; registered legal identity is readonly')
+  assert.equal(legalInputs[0].props.id, 'empresa-domicilio')
+  assert.equal(legalInputs[0].props.maxLength, 500)
+  h.field(tree, 'empresa-domicilio').props.onChange({ target: { value: 'Calle Nueva 25, 2º A\n48001 Bilbao' } })
+  await h.button(h.render(), 'Guardar cambios').props.onClick()
+  assert.equal(h.actions.length, 1)
+  assert.equal(h.actions[0].action, 'guardarPerfilEmpresa')
+  const saved = h.actions[0].args[0]
+  assert.equal(saved.domicilio, 'Calle Nueva 25, 2º A\n48001 Bilbao')
+  for (const key of ['razonSocial', 'razon_social', 'nif', 'cif']) assert.equal(Object.hasOwn(saved, key), false, key)
+  tree = h.render()
+  assert.equal(h.field(tree, 'empresa-domicilio'), undefined)
+  assert.equal(h.selector(tree, 'DatosLegalesEmpresaCard').props.datos.domicilio, saved.domicilio)
+  assert.equal(h.selector(tree, 'DatosLegalesEmpresaCard').props.datos.razonSocial, datos.empresa.razonSocial)
+  assert.equal(h.selector(tree, 'DatosLegalesEmpresaCard').props.datos.cif, datos.empresa.nif)
+})
+
+test('cancelling a company address draft restores the public address and readonly viewers cannot edit it', async () => {
+  const datos = await completeProfileFixture()
+  const h = sharedProfileHarness(datos)
+  h.button(h.render(), 'Editar perfil').props.onClick()
+  h.field(h.render(), 'empresa-domicilio').props.onChange({ target: { value: 'Dirección que se descarta' } })
+  h.button(h.render(), 'Cancelar').props.onClick()
+  assert.equal(h.selector(h.render(), 'DatosLegalesEmpresaCard').props.datos.domicilio, datos.empresa.domicilio)
+  assert.deepEqual(h.actions, [])
+  h.button(h.render(), 'Editar perfil').props.onClick()
+  assert.equal(h.field(h.render(), 'empresa-domicilio').props.value, datos.empresa.domicilio)
+  const readonly = sharedProfileHarness(datos, { editable: false })
+  const tree = readonly.render()
+  assert.equal(readonly.selector(tree, 'DatosLegalesEmpresaCard').props.datos.domicilio, datos.empresa.domicilio)
+  assert.equal(readonly.field(tree, 'empresa-domicilio'), undefined)
+  assert.equal(readonly.button(tree, 'Editar perfil'), undefined)
+})
+
+test('company address action validates and normalizes public multiline addresses while omitted addresses stay untouched', async () => {
+  const { load, calls } = loadModules()
+  const { guardarPerfilEmpresa } = load('app/actions/empresa-workspace.ts')
+  const base = { nombre: 'Empresa ejemplo', descripcion: 'Descripción de empresa', web: '', ubicacion: 'Bilbao', servicios: ['Limpieza'], provincias: ['Bizkaia'], titulo: 'Especialistas' }
+  assert.equal((await guardarPerfilEmpresa({ ...base, domicilio: '  Calle Nueva 25\n48001 Bilbao  ' })).error, undefined)
+  assert.equal(calls[0].name, 'empresa_editar_perfil_profesional')
+  assert.equal(calls[0].args.p_datos_profesionales.domicilio, 'Calle Nueva 25\n48001 Bilbao')
+  assert.equal((await guardarPerfilEmpresa(base)).error, undefined)
+  assert.equal(Object.hasOwn(calls[1].args.p_datos_profesionales, 'domicilio'), false)
+  assert.equal((await guardarPerfilEmpresa({ ...base, domicilio: '' })).error, undefined)
+  assert.equal(calls[2].args.p_datos_profesionales.domicilio, '')
+  for (const domicilio of ['x'.repeat(501), 'Calle\u0000oculta', 123, null, ['Calle']]) assert.ok((await guardarPerfilEmpresa({ ...base, domicilio })).error)
+  assert.equal(calls.length, 3, 'Invalid addresses never reach the database')
 })

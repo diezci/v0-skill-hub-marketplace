@@ -8,6 +8,7 @@ export function perfilProfesionalDeEmpresa(datos: EmpresaPublica, locale = "es-E
   const rating = datos.ratingPromedio ?? (resenas.length ? resenas.reduce((sum, resena) => sum + resena.puntuacion, 0) / resenas.length : 0)
   return {
     id: empresa.id,
+    datos_empresa: { razonSocial: empresa.razonSocial, cif: empresa.nif || "", domicilio: empresa.domicilio || "" },
     nombre: empresa.nombre,
     apellido: "",
     titulo: empresa.titulo || "",
