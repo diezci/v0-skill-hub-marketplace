@@ -5,7 +5,7 @@ import ts from 'typescript'
 
 const companyId = '50000000-0000-4000-8000-000000000001'
 const payload = {
-  empresa: { id: companyId, nombre: 'Empresa en revisión', razon_social: 'Razón social real', estado_verificacion: 'en_revision', verificada: false, provincias: ['Madrid', 'Toledo'], servicios: ['Fontanería'], foto_portada: 'https://example.test/cover.webp', presupuesto_min_interes: 500, presupuesto_max_interes: 5000, cif: 'NO DEVOLVER' },
+  empresa: { id: companyId, nombre: 'Empresa en revisión', razon_social: 'Razón social real', estado_verificacion: 'en_revision', verificada: false, provincias: ['Madrid', 'Toledo'], servicios: ['Fontanería'], foto_portada: 'https://example.test/cover.webp', presupuesto_min_interes: 500, presupuesto_max_interes: 5000, cif: 'NO DEVOLVER', email: 'NO DEVOLVER', telefono: 'NO DEVOLVER', email_contacto: 'contacto@empresa.test', telefono_contacto: '+34 944000000' },
   miembros: [{ usuario_id: 'visible', nombre: 'Persona visible', cargo: 'Cargo público', tiene_perfil_profesional: true, email: 'NO DEVOLVER', permisos: { perfil: true } }],
   portfolio: [{ id: 'trabajo', titulo: 'Portfolio real', rango_precio: '100–250 €', participantes_ids: ['visible'] }],
   resenas: [{ id: 'resena', trabajo_id: 'trabajo', autor: 'Cliente', rating: 4, comentario: 'Valoración real', created_at: '2026-10-05' }],
@@ -49,7 +49,9 @@ test('private preview uses the public adapter and preserves real verification, p
   assert.equal(preview.data.trabajos[0].rangoPrecio, '100–250 €')
   assert.equal(preview.data.resenas[0].puntuacion, 4)
   assert.equal(preview.data.miembros[0].tienePerfilProfesional, true)
-  assert.doesNotMatch(JSON.stringify(preview.data), /NO DEVOLVER|actividad|permisos|email|nif|cif/)
+  assert.equal(preview.data.empresa.emailContacto, 'contacto@empresa.test')
+  assert.equal(preview.data.empresa.telefono, '+34 944000000')
+  assert.doesNotMatch(JSON.stringify(preview.data), /NO DEVOLVER|"actividad"|"permisos"|"email"|"nif"|"cif"/)
 })
 
 test('preview distinguishes absent company and denied permission without returning a prior payload', async () => {

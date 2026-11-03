@@ -121,62 +121,33 @@ const provincias = [
   { provincia: "Melilla", codigo: "52" },
 ]
 
+import { datosInicialesPerfil, type AdaptadorPerfilProfesional } from "@/lib/perfil-profesional-editor"
+
 interface PerfilProfesionalProps {
+  adaptador?: AdaptadorPerfilProfesional
   editable?: boolean
 }
 
-export default function PerfilProfesional({ editable = false }: PerfilProfesionalProps) {
+export default function PerfilProfesional({ editable = false, adaptador }: PerfilProfesionalProps) {
   const t = useT()
   const { idioma } = useIdioma()
   const { toast } = useToast()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const completarProfesional = searchParams.get("completar") === "profesional"
-  const [loading, setLoading] = useState(true)
+  const completarProfesional = !adaptador && searchParams.get("completar") === "profesional"
+  const [loading, setLoading] = useState(!adaptador)
   const [saving, setSaving] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const [tienePerfilProfesional, setTienePerfilProfesional] = useState(false)
-  const mostrarEditorProfesional = tienePerfilProfesional || completarProfesional
+  const mostrarEditorProfesional = !!adaptador || tienePerfilProfesional || completarProfesional
 
-  const [editData, setEditData] = useState({
-    nombre: "",
-    apellido: "",
-    titulo: "",
-    ubicacion: "",
-    bio: "",
-    foto_perfil: "",
-    foto_portada: "",
-    telefono: "",
-    email: "",
-    rating: 0,
-    total_reviews: 0,
-    proyectos_completados: 0,
-    anos_experiencia: 0,
-    tarifa_hora: 0,
-    tiempo_respuesta: "24 horas",
-    nivel: "Profesional",
-    disponibilidad: "Disponible",
-    verificado: false,
-    habilidades: [] as string[],
-    // De servicio y provincia depende que llegue un aviso; el rango añade un
-    // filtro opcional de presupuesto y empieza abierto para no ocultar nada.
-    categorias_interes: [] as string[],
-    provincias_cobertura: [] as string[],
-    presupuesto_interes: [0, PRECIO_MAX] as [number, number],
-    certificaciones: [] as string[],
-    idiomas: [] as string[],
-    portfolio: [] as any[],
-    reviews: [] as any[],
-    estadisticas: {
-      entrega_tiempo: 0,
-      calidad_trabajo: 0,
-      comunicacion: 0,
-      precio_calidad: 0,
-    },
-  })
+  const [editData, setEditData] = useState(adaptador?.datos ?? datosInicialesPerfil)
   const [snapshotEdicion, setSnapshotEdicion] = useState<typeof editData | null>(null)
+  useEffect(() => {
+    if (!editable) { setIsEditing(false); setSnapshotEdicion(null) }
+  }, [editable])
   const actualizarVerificacion = useCallback((verificado: boolean) => {
     setEditData((actual) => actual.verificado === verificado ? actual : {
       ...actual,
@@ -190,7 +161,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
   const [newLanguage, setNewLanguage] = useState("")
 
   // Portfolio: el alta/baja vive aquí porque /mi-perfil es el único editor de perfil.
-  const [profesionalId, setProfesionalId] = useState<string | null>(null)
+  const [profesionalId, setProfesionalId] = useState<string | null>(adaptador?.identidad ?? null)
   const [showPortfolioDialog, setShowPortfolioDialog] = useState(false)
   const [pestanaPerfil, setPestanaPerfil] = useState("sobre-mi")
   const [editingPortfolioId, setEditingPortfolioId] = useState<string | null>(null)
@@ -259,6 +230,13 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
   }, [profesionalId, propietarioBorrador, showPortfolioDialog, editingPortfolioId, newPortfolioItem])
 
   useEffect(() => {
+    if (adaptador) {
+      // The wrapper is keyed by identity. Refreshes never overwrite an open draft.
+      setProfesionalId(adaptador.identidad)
+      setLoading(false)
+      void cargarPortfolio(adaptador.identidad)
+      return
+    }
     async function cargarPerfil() {
       setLoading(true)
       const result = await obtenerPerfilActual()
@@ -324,19 +302,25 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
       setLoading(false)
     }
     cargarPerfil()
-  }, [completarProfesional])
+  }, [completarProfesional, adaptador?.identidad])
 
   // La tabla guarda `imagen_url`; las tarjetas de abajo leen `imagen`.
   const cargarPortfolio = async (id: string) => {
-    const { data } = await obtenerPortfolioPorProfesional(id)
-    if (!data) return
-    setEditData((prev) => ({
-      ...prev,
-      portfolio: data.map((item: any) => ({
+    try {
+      const { data, error } = adaptador ? await adaptador.obtenerPortfolio() : await obtenerPortfolioPorProfesional(id)
+      if (error) toast({ title: t("Error"), description: t(error), variant: "destructive" })
+      if (!data) return
+      const portfolio = data.map((item: any) => ({
         ...item,
-        imagen: item.imagen_url || (Array.isArray(item.imagenes) ? item.imagenes[0] : ""),
-      })),
-    }))
+        imagen: item.imagen_url || item.imagen || (Array.isArray(item.imagenes) ? item.imagenes[0] : ""),
+      }))
+      setEditData((prev) => ({ ...prev, portfolio }))
+      // Portfolio mutations are saved separately. Cancelling the profile fields
+      // must not roll back a project that has already been saved.
+      setSnapshotEdicion((prev) => prev ? { ...prev, portfolio } : prev)
+    } catch {
+      toast({ title: t("Error"), description: t("Inténtalo de nuevo en unos segundos."), variant: "destructive" })
+    }
   }
 
   const handlePortfolioImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -347,7 +331,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
 
     const version = versionPortfolio.current
     setUploadingPortfolioImg(true)
-    const result = await uploadFile(file, { purpose: "imagen_publica" })
+    const result = adaptador ? await adaptador.subirImagen(file, "portfolio") : await uploadFile(file, { purpose: "imagen_publica" })
     if (versionPortfolio.current !== version) return
     setUploadingPortfolioImg(false)
 
@@ -359,6 +343,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
   }
 
   const handleAddPortfolio = async () => {
+    if (!editable) return
     if (!newPortfolioItem.titulo || !newPortfolioItem.descripcion) {
       toast({
         title: t("Campos requeridos"),
@@ -371,11 +356,11 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     if (savingPortfolio || uploadingPortfolioImg) return
     const version = versionPortfolio.current
     setSavingPortfolio(true)
-    let result: Awaited<ReturnType<typeof crearItemPortfolio>>
+    let result: { error?: string }
     try {
       result = editingPortfolioId
-        ? await actualizarItemPortfolio(editingPortfolioId, newPortfolioItem)
-        : await crearItemPortfolio(newPortfolioItem)
+        ? await (adaptador?.actualizarProyecto ?? actualizarItemPortfolio)(editingPortfolioId, newPortfolioItem)
+        : await (adaptador?.crearProyecto ?? crearItemPortfolio)(newPortfolioItem)
     } catch {
       if (versionPortfolio.current === version) {
         toast({ title: t("Error"), description: t("Inténtalo de nuevo en unos segundos."), variant: "destructive" })
@@ -406,6 +391,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
   }
 
   const handleEditPortfolio = (item: any) => {
+    if (!editable) return
     renovarFormularioPortfolio()
     setEditingPortfolioId(item.id)
     setNewPortfolioItem({
@@ -428,9 +414,9 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     if (trabajosDiime.length > 0) return
     const version = versionPortfolio.current
     setLoadingTrabajosDiime(true)
-    let result: Awaited<ReturnType<typeof obtenerTrabajosCompletadosParaPortfolio>>
+    let result: { data?: any[]; error?: string }
     try {
-      result = await obtenerTrabajosCompletadosParaPortfolio()
+      result = await (adaptador?.obtenerTrabajos ?? obtenerTrabajosCompletadosParaPortfolio)()
     } catch {
       if (versionPortfolio.current === version) {
         toast({ title: t("Error"), description: t("Inténtalo de nuevo en unos segundos."), variant: "destructive" })
@@ -467,10 +453,11 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
   }
 
   const handleDeletePortfolio = async (itemId: string) => {
+    if (!editable) return
     if (deletingPortfolioId) return
     setDeletingPortfolioId(itemId)
     try {
-      const result = await eliminarItemPortfolio(itemId)
+      const result = await (adaptador?.eliminarProyecto ?? eliminarItemPortfolio)(itemId)
       if (result.error) {
         toast({ title: t("Error"), description: t(result.error), variant: "destructive" })
         return
@@ -484,7 +471,9 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     }
   }
 
+  const guardadoEnCurso = useRef(false)
   const handleSave = async () => {
+    if (!editable || guardadoEnCurso.current || isUploading) return
     // Sin categorías ni provincias no se puede avisar de ninguna demanda, así
     // que no se deja guardar el perfil a medias.
     if (mostrarEditorProfesional && editData.categorias_interes.length === 0) {
@@ -504,9 +493,10 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
       return
     }
 
+    guardadoEnCurso.current = true
     setSaving(true)
-
-    const result = await actualizarPerfil({
+    try {
+    const result = adaptador ? await adaptador.guardar(editData) : await actualizarPerfil({
       nombre: editData.nombre,
       apellido: editData.apellido,
       bio: editData.bio,
@@ -529,8 +519,6 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
       } : {}),
     })
 
-    setSaving(false)
-
     if (result.error) {
       toast({
         title: t("Error"),
@@ -548,6 +536,9 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
       if (completarProfesional) router.replace("/mi-perfil")
       router.refresh()
     }
+    } catch {
+      toast({ title: t("Error"), description: t("No se pudieron guardar los cambios. Vuelve a intentarlo."), variant: "destructive" })
+    } finally { guardadoEnCurso.current = false; setSaving(false) }
   }
 
   const iniciarEdicion = () => {
@@ -556,6 +547,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
   }
 
   const cancelarEdicion = () => {
+    if (guardadoEnCurso.current || isUploading) return
     if (snapshotEdicion) setEditData(snapshotEdicion)
     setSnapshotEdicion(null)
     setIsEditing(false)
@@ -609,51 +601,21 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
     }
   }
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
+  const subirFoto = async (e: React.ChangeEvent<HTMLInputElement>, tipo: "logo" | "portada") => {
+    const file = e.currentTarget.files?.[0]
+    e.currentTarget.value = ""
+    if (!file || !editable || !isEditing || isUploading || saving) return
     setIsUploading(true)
-    const result = await uploadFile(file, { purpose: "imagen_publica" })
-    setIsUploading(false)
-
-    if (result) {
-      setEditData({ ...editData, foto_perfil: result.url })
-      toast({
-        title: t("Foto actualizada"),
-        description: t("Tu foto de perfil se ha subido correctamente."),
-      })
-    } else {
-      toast({
-        title: t("Error"),
-        description: t("No se pudo subir la imagen. Inténtalo de nuevo."),
-        variant: "destructive",
-      })
-    }
+    try {
+      const result = adaptador ? await adaptador.subirImagen(file, tipo) : await uploadFile(file, { purpose: "imagen_publica" })
+      if (!result) throw new Error()
+      setEditData((actual) => ({ ...actual, [tipo === "logo" ? "foto_perfil" : "foto_portada"]: result.url }))
+    } catch {
+      toast({ title: t("Error"), description: t("No se pudo subir la imagen. Inténtalo de nuevo."), variant: "destructive" })
+    } finally { setIsUploading(false) }
   }
-
-  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    setIsUploading(true)
-    const result = await uploadFile(file, { purpose: "imagen_publica" })
-    setIsUploading(false)
-
-    if (result) {
-      setEditData({ ...editData, foto_portada: result.url })
-      toast({
-        title: t("Portada actualizada"),
-        description: t("Tu imagen de portada se ha subido correctamente."),
-      })
-    } else {
-      toast({
-        title: t("Error"),
-        description: t("No se pudo subir la imagen. Inténtalo de nuevo."),
-        variant: "destructive",
-      })
-    }
-  }
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => subirFoto(e, "logo")
+  const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => subirFoto(e, "portada")
 
   if (loading) {
     return (
@@ -688,7 +650,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                       {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                       {t("Guardar cambios")}
                     </Button>
-                    <Button variant="outline" onClick={cancelarEdicion} disabled={saving}>{t("Cancelar")}</Button>
+                    <Button variant="outline" onClick={cancelarEdicion} disabled={saving || isUploading}>{t("Cancelar")}</Button>
                   </>
                 ) : (
                   <Button onClick={iniciarEdicion}><Edit2 className="mr-2 h-4 w-4" />{t("Editar perfil")}</Button>
@@ -700,7 +662,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
             {isEditing ? (
               <div className="space-y-2">
                 <Label htmlFor="cliente-avatar-upload">{t("Foto de perfil")}</Label>
-                <Input id="cliente-avatar-upload" type="file" accept="image/*" onChange={handleAvatarUpload} disabled={isUploading} />
+                <Input id="cliente-avatar-upload" type="file" accept="image/*" onChange={handleAvatarUpload} disabled={isUploading || saving} />
                 {isUploading ? <p className="text-sm text-muted-foreground">{t("Subiendo foto...")}</p> : null}
               </div>
             ) : null}
@@ -762,7 +724,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
   const sinCobertura = editData.categorias_interes.length === 0 || editData.provincias_cobertura.length === 0
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" aria-busy={saving} inert={saving || undefined}>
       <ProfileHeader
         coverUrl={editData.foto_portada}
         coverAlt={t("Cover")}
@@ -774,7 +736,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 variant="secondary"
                 className="absolute top-4 right-4"
                 onClick={() => document.getElementById("cover-upload")?.click()}
-                disabled={isUploading}
+                disabled={isUploading || saving}
               >
                 <Camera className="h-4 w-4 mr-2" />
                 {isUploading ? t("Subiendo...") : t("Cambiar portada")}
@@ -800,10 +762,11 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
             <>
               <Button
                 size="icon"
+                aria-label={t("Cambiar foto de perfil")}
                 variant="secondary"
                 className="absolute bottom-0 right-0"
                 onClick={() => document.getElementById("avatar-upload")?.click()}
-                disabled={isUploading}
+                disabled={isUploading || saving}
               >
                 <Camera className="h-4 w-4" />
               </Button>
@@ -826,14 +789,15 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                   value={editData.nombre}
                   onChange={(e) => setEditData({ ...editData, nombre: e.target.value })}
                   placeholder={t("Nombre")}
-                  className="text-xl font-bold h-auto py-1 w-32"
+                  aria-label={t(adaptador ? "Nombre comercial" : "Nombre")}
+                  className={adaptador ? "text-xl font-bold h-auto py-1 w-full" : "text-xl font-bold h-auto py-1 w-32"}
                 />
-                <Input
+                {!adaptador && <Input
                   value={editData.apellido}
                   onChange={(e) => setEditData({ ...editData, apellido: e.target.value })}
                   placeholder={t("Apellidos")}
                   className="text-xl font-bold h-auto py-1 flex-1"
-                />
+                />}
               </div>
             ) : (
               <h1 className="text-2xl md:text-3xl font-bold">
@@ -906,13 +870,14 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
             {editable ? (
               isEditing ? (
                 <>
-                  <Button onClick={handleSave} disabled={saving}>
+                  <Button onClick={handleSave} disabled={saving || isUploading}>
                     {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                     {t("Guardar cambios")}
                   </Button>
                   <Button
                     variant="outline"
                     onClick={cancelarEdicion}
+                    disabled={saving || isUploading}
                   >
                     {t("Cancelar")}
                   </Button>
@@ -938,7 +903,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                   </Button>
                 </>
               )
-            ) : (
+            ) : adaptador ? null : (
               <>
                 <Button>
                   <MessageCircle className="h-4 w-4 mr-2" />
@@ -954,7 +919,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
         </div>
       </ProfileHeader>
 
-      {editable && tienePerfilProfesional && !editData.verificado ? (
+      {!adaptador && editable && tienePerfilProfesional && !editData.verificado ? (
         <div className="px-4 md:px-0">
           <SolicitudVerificacionProfesional
             key={profesionalId}
@@ -966,9 +931,9 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 px-4 md:px-0">
         {/* Left Column - Main Info */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="min-w-0 lg:col-span-2 space-y-6">
           <Tabs value={pestanaPerfil} onValueChange={setPestanaPerfil} className="w-full">
-            <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+            <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent [&>button]:px-2 [&>button]:text-xs sm:[&>button]:px-3 sm:[&>button]:text-sm">
               <TabsTrigger
                 value="sobre-mi"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
@@ -987,6 +952,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
               >
                 {t("Valoraciones")}
               </TabsTrigger>
+              {adaptador && <TabsTrigger value="equipo" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">{t("Equipo")}</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="sobre-mi" className="space-y-6 pt-6">
@@ -1108,17 +1074,18 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                   </div>
                   <div className="flex items-center gap-3">
                     <Mail className="h-5 w-5 text-muted-foreground" />
-                    <span>{editData.email || t("No especificado")}</span>
+                    {isEditing && adaptador ? <Input type="email" aria-label={t("Correo electrónico")} value={editData.email} onChange={(e) => setEditData({ ...editData, email: e.target.value })} /> : <span className="break-all">{editData.email || t("No especificado")}</span>}
                   </div>
                 </CardContent>
               </Card>
 
-              <PreferenciasDemandas
+              {(!adaptador || editable) && <PreferenciasDemandas
                 presupuesto={editData.presupuesto_interes}
                 onChange={(v) => setEditData({ ...editData, presupuesto_interes: v })}
                 editando={isEditing}
                 sinCobertura={sinCobertura}
-              />
+                disabled={saving || isUploading}
+              />}
 
               {/* Skills */}
               <Card>
@@ -1428,6 +1395,7 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 ))}
               </div>
             </TabsContent>
+            {adaptador && <TabsContent value="equipo" className="pt-6">{adaptador.equipo}</TabsContent>}
           </Tabs>
         </div>
 

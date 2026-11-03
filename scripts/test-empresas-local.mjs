@@ -225,3 +225,22 @@ test('portada, foto y presupuesto se guardan juntos; el rango no se publica', as
   error(await store.guardarPerfil(actores.owner, { ...saved, presupuestoMinInteres: 10001, presupuestoMaxInteres: 10000 }), /mínimo/)
   assert.equal(correcto(await store.espacio(actores.owner)).empresa.presupuestoMinInteres, 1000)
 })
+
+test('perfil profesional de empresa persiste completo sin confundir ubicación y cobertura', async () => {
+  const store = await nuevo()
+  const empresa = correcto(await store.espacio(actores.owner)).empresa
+  const cambios = { ...empresa, titulo: 'Equipo de reformas', telefono: '+34 944000000', emailContacto: 'CONTACTO@empresa.test', tarifaHora: 55.5, anosExperiencia: 10, tiempoRespuesta: '12 horas', disponible: false, habilidades: ['Planificación', 'Reformas'], certificaciones: ['Certificado profesional'], idiomas: ['Español', 'Euskera'], ubicacion: 'Bizkaia', provincias: ['Madrid', 'Bizkaia'], servicios: ['Reformas integrales'], presupuestoMinInteres: 1000, presupuestoMaxInteres: 10000 }
+  correcto(await store.guardarPerfil(actores.owner, cambios))
+  const reloaded = new EmpresaLocalStore(store.directorio)
+  const saved = correcto(await reloaded.espacio(actores.owner)).empresa
+  for (const key of ['titulo', 'telefono', 'tarifaHora', 'anosExperiencia', 'tiempoRespuesta', 'disponible', 'habilidades', 'certificaciones', 'idiomas', 'ubicacion', 'provincias']) assert.deepEqual(saved[key], cambios[key], key)
+  assert.equal(saved.emailContacto, 'contacto@empresa.test')
+  const publico = (await reloaded.publica(saved.id)).empresa
+  assert.equal(publico.emailContacto, saved.emailContacto)
+  assert.equal('presupuestoMinInteres' in publico, false)
+  for (const invalid of [{ tarifaHora: NaN }, { tarifaHora: '50' }, { anosExperiencia: 1.5 }, { anosExperiencia: 101 }, { disponible: 'false' }, { emailContacto: 'inválido' }, { habilidades: [null] }, { certificaciones: [''] }, { idiomas: ['x\nsecreto'] }]) error(await store.guardarPerfil(actores.owner, { ...cambios, ...invalid }), /tarifa|experiencia|disponibilidad|correo|lista/)
+  assert.equal(correcto(await reloaded.espacio(actores.owner)).empresa.emailContacto, 'contacto@empresa.test')
+  error(await store.guardarPerfil(actores.mario, cambios), /permiso/)
+  correcto(await store.guardarPerfil(actores.owner, { ...cambios, tarifaHora: null, emailContacto: '', telefono: '', habilidades: [], certificaciones: [], idiomas: [] }))
+  assert.equal(correcto(await store.espacio(actores.owner)).empresa.tarifaHora, null)
+})

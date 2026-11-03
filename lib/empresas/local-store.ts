@@ -5,7 +5,7 @@ import { CATEGORIAS_SERVICIO_NOMBRES } from "../categorias"
 import { PROVINCIAS_ES } from "../provincias"
 import { PRECIO_MAX } from "../precios"
 import { ACTORES_EMPRESA_LOCAL, crearDatosEmpresaIniciales, PERMISOS_BASE } from "./seed"
-import type { ActorEmpresa, ActividadEmpresa, EmpresaPublica, EspacioEmpresa, InvitacionEmpresa, MiembroEmpresa, MiembroEmpresaPublico, PermisoEmpresa, PermisosEmpresa, ResultadoEmpresa, RolEmpresa, SolicitudPresupuestoEmpresa, SolicitudVerificacionEmpresa } from "./types"
+import type { ActorEmpresa, ActividadEmpresa, EmpresaFicha, EmpresaPublica, EspacioEmpresa, InvitacionEmpresa, MiembroEmpresa, MiembroEmpresaPublico, PermisoEmpresa, PermisosEmpresa, ResultadoEmpresa, RolEmpresa, SolicitudPresupuestoEmpresa, SolicitudVerificacionEmpresa } from "./types"
 
 interface InvitacionPrivada extends InvitacionEmpresa { tokenHash: string; creadaPor: string }
 interface DocumentoPrivado { id: string; archivo: string; sha256: string }
@@ -20,7 +20,8 @@ export interface EstadoEmpresaLocal extends ReturnType<typeof crearDatosEmpresaI
 
 export type InputMiembro = { nombre: string; email: string; rol: Exclude<RolEmpresa, "principal">; permisos: PermisosEmpresa }
 export type InputActualizarMiembro = { miembroId: string; rol: Exclude<RolEmpresa, "principal">; permisos: PermisosEmpresa }
-export type InputPerfilEmpresa = { nombre: string; descripcion: string; web: string; ubicacion: string; provincias?: string[]; servicios: string[]; logoUrl?: string; portadaUrl?: string; presupuestoMinInteres?: number | null; presupuestoMaxInteres?: number | null }
+export type DatosProfesionalesEmpresa = Pick<EmpresaFicha, "titulo" | "telefono" | "emailContacto" | "tarifaHora" | "anosExperiencia" | "tiempoRespuesta" | "disponible" | "habilidades" | "certificaciones" | "idiomas">
+export type InputPerfilEmpresa = { nombre: string; descripcion: string; web: string; ubicacion: string; provincias?: string[]; servicios: string[]; logoUrl?: string; portadaUrl?: string; presupuestoMinInteres?: number | null; presupuestoMaxInteres?: number | null } & DatosProfesionalesEmpresa
 export type InputVerificacion = { metodo: "certificado" | "documental"; representanteNombre: string; cargoLegal: string; documentoNombre: string; documento: Uint8Array; consentimiento: boolean }
 
 // The optional array distinguishes the canonical editor from older clients.
@@ -48,6 +49,38 @@ export function validarPreferenciasEmpresa(input: Pick<InputPerfilEmpresa, "pres
   if (!valido(minimo) || !valido(maximo)) return { error: "El presupuesto de los avisos debe estar entre 0 y 100.000 €." }
   if (minimo !== null && maximo !== null && minimo > maximo) return { error: "El presupuesto mínimo de los avisos no puede superar el máximo." }
   return { data: { presupuestoMinInteres: minimo === null || minimo <= 0 ? null : minimo, presupuestoMaxInteres: maximo === null || maximo >= PRECIO_MAX ? null : maximo } }
+}
+
+/** Business-owned fields only. Absent fields preserve values saved by newer clients. */
+export function validarDatosProfesionalesEmpresa(input: DatosProfesionalesEmpresa): ResultadoEmpresa<DatosProfesionalesEmpresa | null> {
+  const datos: DatosProfesionalesEmpresa = {}
+  for (const [clave, maximo] of [["titulo", 160], ["telefono", 40], ["emailContacto", 254], ["tiempoRespuesta", 80]] as const) {
+    const valor = input[clave]
+    if (valor === undefined) continue
+    if (typeof valor !== "string" || valor.length > maximo || /[\u0000-\u001f\u007f]/.test(valor)) return { error: `Revisa el campo ${clave} de la empresa.` }
+    datos[clave] = valor.trim()
+  }
+  if (datos.emailContacto && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(datos.emailContacto)) return { error: "Introduce un correo de contacto válido." }
+  if (datos.emailContacto) datos.emailContacto = datos.emailContacto.toLowerCase()
+  if (input.tarifaHora !== undefined) {
+    if (input.tarifaHora !== null && (typeof input.tarifaHora !== "number" || !Number.isFinite(input.tarifaHora) || input.tarifaHora < 0 || input.tarifaHora > 100000)) return { error: "La tarifa por hora debe estar entre 0 y 100.000 €." }
+    datos.tarifaHora = input.tarifaHora
+  }
+  if (input.anosExperiencia !== undefined) {
+    if (!Number.isInteger(input.anosExperiencia) || input.anosExperiencia < 0 || input.anosExperiencia > 100) return { error: "Los años de experiencia deben ser un número entero entre 0 y 100." }
+    datos.anosExperiencia = input.anosExperiencia
+  }
+  if (input.disponible !== undefined) {
+    if (typeof input.disponible !== "boolean") return { error: "Revisa la disponibilidad de la empresa." }
+    datos.disponible = input.disponible
+  }
+  for (const clave of ["habilidades", "certificaciones", "idiomas"] as const) {
+    const lista = input[clave]
+    if (lista === undefined) continue
+    if (!Array.isArray(lista) || lista.length > 100 || lista.some((v) => typeof v !== "string" || !v.trim() || v.length > 300 || /[\u0000-\u001f\u007f]/.test(v))) return { error: `Revisa la lista de ${clave} de la empresa.` }
+    datos[clave] = [...new Set(lista.map((v) => v.trim()))]
+  }
+  return { data: Object.keys(datos).length ? datos : null }
 }
 
 const CLAVES_PERMISOS: PermisoEmpresa[] = ["perfil", "mensajes", "presupuestos", "encargos", "equipo", "ver_cobros", "gestionar_cobros"]
@@ -214,8 +247,10 @@ export class EmpresaLocalStore {
   async guardarPerfil(actor: ActorEmpresa, input: InputPerfilEmpresa): Promise<ResultadoEmpresa> {
     return this.operar(actor, (estado) => {
       exigirPermiso(estado, actor, "perfil")
-      const nombre = texto(input.nombre, "Nombre comercial", 3, 100)
-      const descripcion = texto(input.descripcion, "Descripción", 30, 1500)
+      const profesionales = validarDatosProfesionalesEmpresa(input)
+      asegurar(!profesionales.error, profesionales.error || "")
+      const nombre = texto(input.nombre, "Nombre comercial", profesionales.data ? 1 : 3, profesionales.data ? 160 : 100)
+      const descripcion = texto(input.descripcion, "Descripción", profesionales.data ? 0 : 30, profesionales.data ? 6000 : 1500)
       const preferencias = validarPreferenciasEmpresa(input)
       asegurar(!preferencias.error, preferencias.error || "")
       for (const imagen of [input.logoUrl, input.portadaUrl]) {
@@ -227,7 +262,7 @@ export class EmpresaLocalStore {
       }
       const cobertura = validarCoberturaEmpresa(input)
       asegurar(!cobertura.error, cobertura.error || "")
-      const ubicacion = cobertura.data ? cobertura.data.provincias.join(", ") : texto(input.ubicacion, "Ubicación", 3, 120)
+      const ubicacion = profesionales.data ? texto(input.ubicacion, "Ubicación", 0, 200) : cobertura.data ? cobertura.data.provincias.join(", ") : texto(input.ubicacion, "Ubicación", 3, 120)
       const web = texto(input.web, "Web corporativa", 0, 300)
       if (web) {
         let url: URL
@@ -236,7 +271,7 @@ export class EmpresaLocalStore {
       }
       asegurar(Array.isArray(input.servicios) && input.servicios.length >= 1 && input.servicios.length <= CATEGORIAS_SERVICIO_NOMBRES.length, "Selecciona al menos un servicio válido de la lista.")
       const servicios = cobertura.data?.servicios || [...new Set(input.servicios.map((s) => texto(s, "Servicio", 2, 80)))]
-      Object.assign(estado.empresa, { nombre, descripcion, ubicacion, web, servicios, ...(input.logoUrl !== undefined ? { logoUrl: input.logoUrl } : {}), ...(input.portadaUrl !== undefined ? { portadaUrl: input.portadaUrl } : {}), ...(preferencias.data || {}), ...(cobertura.data ? { provincias: cobertura.data.provincias } : {}) })
+      Object.assign(estado.empresa, { nombre, descripcion, ubicacion, web, servicios, ...(profesionales.data || {}), ...(input.logoUrl !== undefined ? { logoUrl: input.logoUrl } : {}), ...(input.portadaUrl !== undefined ? { portadaUrl: input.portadaUrl } : {}), ...(preferencias.data || {}), ...(cobertura.data ? { provincias: cobertura.data.provincias } : {}) })
       actividad(estado, actor, "Actualizó el perfil público de la empresa.")
     })
   }

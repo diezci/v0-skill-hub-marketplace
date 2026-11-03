@@ -38,8 +38,11 @@ function cabeceraValida(bytes: Uint8Array, tipo: keyof typeof EXTENSIONES) {
     && ["VP8 ", "VP8L", "VP8X"].includes(String.fromCharCode(...bytes.slice(12, 16)))
 }
 
-export async function subirImagenEmpresa(request: NextRequest, imagen: "logo" | "portada") {
-  const mensajeImagen = (mensaje: string) => imagen === "portada" ? mensaje.replace(/del logo/g, "de la portada").replace(/el logo/g, "la portada").replace(/El logo/g, "La portada") : mensaje
+export async function subirImagenEmpresa(request: NextRequest, imagen: "logo" | "portada" | "portfolio") {
+  const mensajeImagen = (mensaje: string) => imagen === "logo" ? mensaje : mensaje
+    .replace(/del logo/g, imagen === "portada" ? "de la portada" : "de la imagen del proyecto")
+    .replace(/el logo/g, imagen === "portada" ? "la portada" : "la imagen del proyecto")
+    .replace(/El logo/g, imagen === "portada" ? "La portada" : "La imagen del proyecto")
   let subidaUrl: string | undefined
   try {
     const supabase = await createClient()

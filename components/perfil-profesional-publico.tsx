@@ -5,7 +5,7 @@ import { localeDe } from "@/lib/i18n"
 import { formatearPrecioEuros } from "@/lib/utils"
 import { PROVINCIAS_ES } from "@/lib/provincias"
 
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -47,9 +47,10 @@ interface PerfilPublicoProps {
   perfil: any
   // Pestaña abierta al cargar (p. ej. "valoraciones" cuando se llega desde "Valorar").
   tabInicial?: "sobre" | "portfolio" | "valoraciones"
+  empresa?: { equipo: ReactNode; acciones: ReactNode; vistaPrevia?: boolean }
 }
 
-export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" }: PerfilPublicoProps) {
+export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre", empresa }: PerfilPublicoProps) {
   const t = useT()
   const { idioma } = useIdioma()
   const router = useRouter()
@@ -60,7 +61,7 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
   const nombreCompleto = `${perfil.nombre || ""} ${perfil.apellido || ""}`.trim() || t("Profesional")
 
   const handleEnviarMensaje = async () => {
-    if (interaccionBloqueada) return
+    if (empresa || interaccionBloqueada) return
     setContactando(true)
     try {
       const supabase = createClient()
@@ -89,7 +90,7 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
   }
 
   const handleLlamar = () => {
-    if (interaccionBloqueada) return
+    if (empresa?.vistaPrevia || interaccionBloqueada) return
     if (!perfil.telefono) {
       toast({ title: t("Sin teléfono"), description: t("Este profesional no ha publicado un teléfono de contacto.") })
       return
@@ -183,14 +184,14 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
                 </p>
               )}
               <div className="flex flex-wrap gap-3">
-              <Button className="flex-1 sm:flex-none" onClick={handleEnviarMensaje} disabled={contactando || interaccionBloqueada}>
+              {empresa ? empresa.acciones : <Button className="flex-1 sm:flex-none" onClick={handleEnviarMensaje} disabled={contactando || interaccionBloqueada}>
                 {contactando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MessageSquare className="h-4 w-4 mr-2" />}
                 {t("Enviar mensaje")}
-              </Button>
-              <Button variant="outline" className="flex-1 sm:flex-none bg-transparent" onClick={handleLlamar} disabled={interaccionBloqueada}>
+              </Button>}
+              <Button variant="outline" className="flex-1 sm:flex-none bg-transparent" onClick={handleLlamar} disabled={empresa?.vistaPrevia || interaccionBloqueada}>
                 <Phone className="h-4 w-4 mr-2" /> {t("Contactar")}
               </Button>
-              <ReportarIncidenciaDialog
+              {!empresa && <ReportarIncidenciaDialog
                 usuarioReportadoId={perfil.id}
                 asuntoInicial={t("Reporte sobre {nombre}", { nombre: nombreCompleto })}
                 categoriaInicial="perfil"
@@ -199,12 +200,12 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
                     <ShieldAlert className="mr-2 h-4 w-4" /> {t("Reportar")}
                   </Button>
                 }
-              />
-              <BloquearUsuarioButton
+              />}
+              {!empresa && <BloquearUsuarioButton
                 usuarioId={perfil.id}
                 className="flex-1 bg-transparent sm:flex-none"
                 onEstado={setInteraccionBloqueada}
-              />
+              />}
               </div>
             </div>
           )}
@@ -237,10 +238,15 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
       </div>
 
       <Tabs defaultValue={tabInicial} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className={`grid w-full ${empresa ? "grid-cols-4 [&>button]:px-1 [&>button]:text-xs sm:[&>button]:px-2 sm:[&>button]:text-sm" : "grid-cols-3"}`}>
           <TabsTrigger value="sobre">{t("Sobre mí")}</TabsTrigger>
-          <TabsTrigger value="portfolio">{t("Portfolio (")}{portfolio.length})</TabsTrigger>
-          <TabsTrigger value="valoraciones">{t("Valoraciones (")}{reviews.length})</TabsTrigger>
+          <TabsTrigger value="portfolio" aria-label={`${t("Portfolio (")}${portfolio.length})`}>
+            {t("Portfolio")}<span className={empresa ? "hidden sm:inline" : undefined}>({portfolio.length})</span>
+          </TabsTrigger>
+          <TabsTrigger value="valoraciones" aria-label={`${t("Valoraciones (")}${reviews.length})`}>
+            {t("Valoraciones")}<span className={empresa ? "hidden sm:inline" : undefined}>({reviews.length})</span>
+          </TabsTrigger>
+          {empresa && <TabsTrigger value="equipo">{t("Equipo")}</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="sobre" className="space-y-4">
@@ -436,6 +442,7 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre" 
             ))
           )}
         </TabsContent>
+        {empresa && <TabsContent value="equipo" className="space-y-4">{empresa.equipo}</TabsContent>}
       </Tabs>
 
       <Dialog
