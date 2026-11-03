@@ -2,10 +2,11 @@ import { redirect } from "next/navigation"
 import { Building2 } from "lucide-react"
 import { EmpresaWorkspace } from "@/components/empresas/empresa-workspace"
 import RegistroEmpresaLegacy from "@/components/empresas/registro-empresa-legacy"
-import { obtenerEspacioEmpresa } from "@/lib/empresas/service"
+import { obtenerEmpresaPublica, obtenerEspacioEmpresa } from "@/lib/empresas/service"
+import { vistaPreviaEmpresaReal } from "@/lib/empresas/production-store"
 import { getT } from "@/lib/i18n-servidor"
 import { idNotificacionValido } from "@/lib/notificaciones-contexto"
-import type { OperacionInicialEmpresa } from "@/lib/empresas/types"
+import type { EmpresaPublica, OperacionInicialEmpresa } from "@/lib/empresas/types"
 
 export const dynamic = "force-dynamic"
 
@@ -29,10 +30,23 @@ export default async function MiEmpresaPage({ searchParams }: { searchParams: Pr
       <p className="mt-3 text-sm text-muted-foreground">{t("Si has recibido una invitación, abre su enlace desde la cuenta a la que está dirigida.")}</p>
     </div>
   }
+  let perfilPublico: EmpresaPublica | null = null
+  if (!resultado.data.local) {
+    const { empresa, miembroActual } = resultado.data
+    const puedePrevisualizar = miembroActual?.rol === "principal" || miembroActual?.rol === "administrador" || miembroActual?.permisos.perfil === true
+    try {
+      const perfil = puedePrevisualizar
+        ? (await vistaPreviaEmpresaReal()).data
+        : empresa.estadoVerificacion === "verificada" ? await obtenerEmpresaPublica(empresa.id) : null
+      if (perfil?.empresa.id === empresa.id) perfilPublico = perfil
+    } catch {
+      // A profile read failure must not block the rest of the company workspace.
+    }
+  }
   const mostrarCobrosIniciales = params.stripe_connect === "return" || params.stripe_connect === "refresh"
   const operacionInicial: OperacionInicialEmpresa | undefined = idNotificacionValido(params.trabajo)
     ? { tipo: "trabajos", id: params.trabajo }
     : idNotificacionValido(params.oferta) ? { tipo: "ofertas", id: params.oferta }
     : idNotificacionValido(params.solicitud) ? { tipo: "solicitudes", id: params.solicitud } : undefined
-  return <EmpresaWorkspace key={`${resultado.data.empresa.id}-${resultado.data.actor.id}-${operacionInicial?.tipo || ""}-${operacionInicial?.id || ""}`} espacio={resultado.data} mostrarCobrosIniciales={mostrarCobrosIniciales} operacionInicial={operacionInicial} />
+  return <EmpresaWorkspace key={`${resultado.data.empresa.id}-${resultado.data.actor.id}-${operacionInicial?.tipo || ""}-${operacionInicial?.id || ""}`} espacio={resultado.data} perfilPublico={perfilPublico} mostrarCobrosIniciales={mostrarCobrosIniciales} operacionInicial={operacionInicial} />
 }
