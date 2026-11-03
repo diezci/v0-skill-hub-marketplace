@@ -1,5 +1,10 @@
 // Company UI and server messages. Names, roles entered by users, bios and reviews keep their original language.
 export const EN_EMPRESAS: Record<string, string> = {
+  "Cambiar foto de perfil": "Change profile photo",
+  "La portada debe ocupar como máximo 3 MB.": "The cover image must be no larger than 3 MB.",
+  "No se pudo subir la portada. Vuelve a intentarlo.": "The cover image could not be uploaded. Please try again.",
+  "Los avisos de la empresa se activarán cuando su representación esté verificada.": "Company alerts will become active once its representation is verified.",
+  "Te atienden las personas autorizadas de su equipo.": "Authorised team members will assist you.",
   "Gestiona tu perfil, tu equipo y tus operaciones.": "Manage your profile, team and operations.",
   "Miembros activos": "Active members",
   "Provincias": "Provinces",

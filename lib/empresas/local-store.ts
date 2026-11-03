@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { CATEGORIAS_SERVICIO_NOMBRES } from "../categorias"
 import { PROVINCIAS_ES } from "../provincias"
+import { PRECIO_MAX } from "../precios"
 import { ACTORES_EMPRESA_LOCAL, crearDatosEmpresaIniciales, PERMISOS_BASE } from "./seed"
 import type { ActorEmpresa, ActividadEmpresa, EmpresaPublica, EspacioEmpresa, InvitacionEmpresa, MiembroEmpresa, MiembroEmpresaPublico, PermisoEmpresa, PermisosEmpresa, ResultadoEmpresa, RolEmpresa, SolicitudPresupuestoEmpresa, SolicitudVerificacionEmpresa } from "./types"
 
@@ -19,7 +20,7 @@ export interface EstadoEmpresaLocal extends ReturnType<typeof crearDatosEmpresaI
 
 export type InputMiembro = { nombre: string; email: string; rol: Exclude<RolEmpresa, "principal">; permisos: PermisosEmpresa }
 export type InputActualizarMiembro = { miembroId: string; rol: Exclude<RolEmpresa, "principal">; permisos: PermisosEmpresa }
-export type InputPerfilEmpresa = { nombre: string; descripcion: string; web: string; ubicacion: string; provincias?: string[]; servicios: string[] }
+export type InputPerfilEmpresa = { nombre: string; descripcion: string; web: string; ubicacion: string; provincias?: string[]; servicios: string[]; logoUrl?: string; portadaUrl?: string; presupuestoMinInteres?: number | null; presupuestoMaxInteres?: number | null }
 export type InputVerificacion = { metodo: "certificado" | "documental"; representanteNombre: string; cargoLegal: string; documentoNombre: string; documento: Uint8Array; consentimiento: boolean }
 
 // The optional array distinguishes the canonical editor from older clients.
@@ -34,6 +35,19 @@ export function validarCoberturaEmpresa(input: Pick<InputPerfilEmpresa, "provinc
     return { error: "Selecciona al menos un servicio válido de la lista." }
   }
   return { data: { provincias: [...new Set(input.provincias)], servicios: [...new Set(input.servicios)] } }
+}
+
+export function validarPreferenciasEmpresa(input: Pick<InputPerfilEmpresa, "presupuestoMinInteres" | "presupuestoMaxInteres">): ResultadoEmpresa<{ presupuestoMinInteres: number | null; presupuestoMaxInteres: number | null } | null> {
+  const tieneMin = input.presupuestoMinInteres !== undefined
+  const tieneMax = input.presupuestoMaxInteres !== undefined
+  if (tieneMin !== tieneMax) return { error: "Guarda juntos el presupuesto mínimo y el máximo." }
+  if (!tieneMin) return { data: null }
+  const minimo = input.presupuestoMinInteres!
+  const maximo = input.presupuestoMaxInteres!
+  const valido = (v: number | null) => v === null || (typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= PRECIO_MAX)
+  if (!valido(minimo) || !valido(maximo)) return { error: "El presupuesto de los avisos debe estar entre 0 y 100.000 €." }
+  if (minimo !== null && maximo !== null && minimo > maximo) return { error: "El presupuesto mínimo de los avisos no puede superar el máximo." }
+  return { data: { presupuestoMinInteres: minimo === null || minimo <= 0 ? null : minimo, presupuestoMaxInteres: maximo === null || maximo >= PRECIO_MAX ? null : maximo } }
 }
 
 const CLAVES_PERMISOS: PermisoEmpresa[] = ["perfil", "mensajes", "presupuestos", "encargos", "equipo", "ver_cobros", "gestionar_cobros"]
@@ -57,7 +71,7 @@ function invitacionPublica(invitacion: InvitacionPrivada): InvitacionEmpresa {
   return publica
 }
 function fichaPublica(estado: EstadoEmpresaLocal): EmpresaPublica {
-  const { nif: _nif, representanteNombre: _representante, cargoLegal: _cargo, ...empresa } = estado.empresa
+  const { nif: _nif, representanteNombre: _representante, cargoLegal: _cargo, presupuestoMinInteres: _min, presupuestoMaxInteres: _max, ...empresa } = estado.empresa
   return { empresa, miembros: estado.miembros.filter((m) => m.estado === "activo" && m.perfilPublico).map(miembroPublico), trabajos: estado.trabajos, resenas: estado.resenas, local: true }
 }
 function estadoInicial(): EstadoEmpresaLocal {
@@ -202,6 +216,15 @@ export class EmpresaLocalStore {
       exigirPermiso(estado, actor, "perfil")
       const nombre = texto(input.nombre, "Nombre comercial", 3, 100)
       const descripcion = texto(input.descripcion, "Descripción", 30, 1500)
+      const preferencias = validarPreferenciasEmpresa(input)
+      asegurar(!preferencias.error, preferencias.error || "")
+      for (const imagen of [input.logoUrl, input.portadaUrl]) {
+        if (imagen) {
+          let url: URL
+          try { url = new URL(imagen) } catch { throw new ErrorEmpresa("La imagen debe estar alojada mediante https://.") }
+          asegurar(url.protocol === "https:" && !url.username && !url.password, "La imagen debe estar alojada mediante https://.")
+        }
+      }
       const cobertura = validarCoberturaEmpresa(input)
       asegurar(!cobertura.error, cobertura.error || "")
       const ubicacion = cobertura.data ? cobertura.data.provincias.join(", ") : texto(input.ubicacion, "Ubicación", 3, 120)
@@ -213,7 +236,7 @@ export class EmpresaLocalStore {
       }
       asegurar(Array.isArray(input.servicios) && input.servicios.length >= 1 && input.servicios.length <= CATEGORIAS_SERVICIO_NOMBRES.length, "Selecciona al menos un servicio válido de la lista.")
       const servicios = cobertura.data?.servicios || [...new Set(input.servicios.map((s) => texto(s, "Servicio", 2, 80)))]
-      Object.assign(estado.empresa, { nombre, descripcion, ubicacion, web, servicios, ...(cobertura.data ? { provincias: cobertura.data.provincias } : {}) })
+      Object.assign(estado.empresa, { nombre, descripcion, ubicacion, web, servicios, ...(input.logoUrl !== undefined ? { logoUrl: input.logoUrl } : {}), ...(input.portadaUrl !== undefined ? { portadaUrl: input.portadaUrl } : {}), ...(preferencias.data || {}), ...(cobertura.data ? { provincias: cobertura.data.provincias } : {}) })
       actividad(estado, actor, "Actualizó el perfil público de la empresa.")
     })
   }

@@ -12,14 +12,15 @@ import { useIdioma, useT } from "@/components/idioma-provider"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ProfileHeader, ProfileHeaderAvatar } from "@/components/profile-header"
+import { SelectorCategorias, SelectorProvincias } from "@/components/selector-cobertura"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { localeDe } from "@/lib/i18n"
-import { PROVINCIAS_ES } from "@/lib/provincias"
 import type { EmpresaPublica, TrabajoEmpresa } from "@/lib/empresas/types"
 
 export function webPublicaSegura(web: string): string | null {
@@ -127,19 +128,22 @@ function SolicitarPresupuestoEmpresaLocal({ datos, className }: { datos: Empresa
 export type CamposEdicionEmpresa = {
   nombre: ReactNode
   logotipo: ReactNode
+  portada: ReactNode
   descripcion: ReactNode
   servicios: ReactNode
   zona: ReactNode
   web: ReactNode
 }
 
-export default function PerfilEmpresa({ datos, vistaPrevia = false, integrado = false, acciones, edicion, estado }: {
+export default function PerfilEmpresa({ datos, vistaPrevia = false, integrado = false, acciones, edicion, estado, preferencias, lateral }: {
   datos: EmpresaPublica
   vistaPrevia?: boolean
   integrado?: boolean
   acciones?: ReactNode
   edicion?: CamposEdicionEmpresa
   estado?: ReactNode
+  preferencias?: ReactNode
+  lateral?: ReactNode
 }) {
   const t = useT()
   const { empresa, trabajos, resenas } = datos
@@ -151,62 +155,45 @@ export default function PerfilEmpresa({ datos, vistaPrevia = false, integrado = 
   const totalResenas = datos.totalResenas ?? resenas.length
   const rating = totalResenas > 0 ? (datos.ratingPromedio ?? (resenas.length ? resenas.reduce((suma, resena) => suma + resena.puntuacion, 0) / resenas.length : null)) : null
   const web = webPublicaSegura(empresa.web)
-  const zona = empresa.provincias?.length === PROVINCIAS_ES.length ? t("Toda España") : empresa.provincias?.length ? empresa.provincias.join(", ") : empresa.ubicacion
 
-  return <div className={integrado ? "min-w-0 space-y-6" : "mx-auto max-w-4xl space-y-6 px-4 py-8"}>
+  return <div className={integrado ? "min-w-0 space-y-6" : "container mx-auto space-y-6 px-4 py-8"}>
     {!integrado && <nav aria-label={t("Navegación del perfil")} className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
       <Link href="/profesionales" className="flex shrink-0 items-center gap-1.5 hover:text-foreground"><ArrowLeft className="size-4" />{t("Profesionales")}</Link>
       <ChevronRight className="size-3.5 shrink-0" /><span className="truncate">{empresa.nombre}</span>
     </nav>}
 
-    <Card className="gap-0 overflow-hidden py-0">
-      <div className="relative h-32 bg-gradient-to-r from-primary/20 to-primary/5 sm:h-44" />
-      <CardContent className="space-y-5 pb-6 pt-0">
-        <div className="-mt-12 flex flex-col gap-4 sm:-mt-14 sm:flex-row">
-          <Avatar className="relative size-24 shrink-0 border-4 border-background shadow-lg sm:size-28"><AvatarImage src={empresa.logoUrl} alt={empresa.nombre} className="object-contain" /><AvatarFallback className="bg-muted"><Building2 className="size-10 text-muted-foreground" /></AvatarFallback></Avatar>
-          <div className="min-w-0 flex-1 sm:pt-14">
-            <div className="flex flex-wrap items-center gap-2">
-              {edicion ? edicion.nombre : <h1 className="break-words text-2xl font-bold">{empresa.nombre}</h1>}
-              <Badge variant="secondary">{t("Empresa")}</Badge>
-              {empresa.estadoVerificacion === "verificada" && <button type="button" onClick={() => setVerificacionAbierta(true)} className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Badge className="gap-1 border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"><BadgeCheck className="size-3.5" />{t("Empresa verificada")}</Badge></button>}
-            </div>
-            <p className="mt-1 text-muted-foreground">{empresa.servicios.map((servicio) => t(servicio)).join(" · ")}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-              <span className="flex min-w-0 items-start gap-1"><MapPin className="mt-0.5 size-4 shrink-0" /><span className="break-words">{zona}</span></span>
-              {rating !== null ? <span className="flex items-center gap-1"><Star className="size-4 fill-amber-500 text-amber-500" /><strong className="text-foreground">{rating.toFixed(1)}</strong>({totalResenas} {t("valoraciones")})</span> : <span>{t("Todavía sin valoraciones")}</span>}
-            </div>
+    <ProfileHeader coverUrl={empresa.portadaUrl} coverAlt={t("Cover")} coverActions={edicion?.portada}
+      avatar={<ProfileHeaderAvatar src={empresa.logoUrl} alt={empresa.nombre} fallback={<Building2 className="size-10 text-muted-foreground" />} />}
+      avatarActions={edicion?.logotipo}>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0 space-y-2">
+          {edicion ? edicion.nombre : <h1 className="break-words text-2xl font-bold md:text-3xl">{empresa.nombre}</h1>}
+          <p className="text-lg text-muted-foreground">{t("Empresa")}</p>
+          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            <span className="flex items-center gap-1"><ClipboardList className="size-4" />{trabajos.length} {t("Trabajos")}</span>
+            <span className="flex items-center gap-1"><Users className="size-4" />{miembros.length} {t("Miembros")}</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {rating !== null ? <span className="flex items-center gap-1"><Star className="size-5 fill-amber-500 text-amber-500" /><strong className="text-lg">{rating.toFixed(1)}</strong><span className="text-muted-foreground">({totalResenas} {t("valoraciones")})</span></span> : <span className="text-sm text-muted-foreground">{t("Todavía sin valoraciones")}</span>}
+            {empresa.estadoVerificacion === "verificada" && <button type="button" onClick={() => setVerificacionAbierta(true)} className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Badge className="gap-1 border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"><BadgeCheck className="size-3.5" />{t("Empresa verificada")}</Badge></button>}
           </div>
         </div>
-        {acciones && <div className="flex flex-wrap items-center justify-end gap-2">{acciones}</div>}
-        {edicion?.logotipo}
-        {estado}
-        {vistaPrevia && <p id="empresa-vista-previa-contacto" className="sr-only">{t("Los botones de contacto están desactivados en esta vista previa.")}</p>}
-        {!editando && <div className="flex flex-wrap gap-3">
-          <SolicitarPresupuestoEmpresa datos={datos} vistaPrevia={vistaPrevia} className="w-full sm:w-auto" />
-          {web && <Button asChild variant="outline" className="w-full bg-transparent sm:w-auto"><a href={web} target="_blank" rel="noopener noreferrer"><Globe className="size-4" />{t("Web corporativa")}<ExternalLink className="size-3.5" /><span className="sr-only">{t("Se abre en otra pestaña")}</span></a></Button>}
-        </div>}
-        <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{t("Proveedor del servicio: {empresa} · Te atienden las personas autorizadas de su equipo.", { empresa: empresa.razonSocial })}</p>
-      </CardContent>
-    </Card>
+        {acciones || (!editando && <SolicitarPresupuestoEmpresa datos={datos} vistaPrevia={vistaPrevia} />)}
+      </div>
+      {estado && <div className="mt-4">{estado}</div>}
+    </ProfileHeader>
+    {vistaPrevia && <p id="empresa-vista-previa-contacto" className="sr-only">{t("Los botones de contacto están desactivados en esta vista previa.")}</p>}
 
-    <div className="grid grid-cols-3 gap-3 sm:gap-4">
-      <Card><CardContent className="px-2 text-center"><ClipboardList className="mx-auto mb-1 size-5 text-muted-foreground" /><p className="text-xl font-bold">{trabajos.length}</p><p className="text-xs text-muted-foreground">{t("Trabajos")}</p></CardContent></Card>
-      <Card><CardContent className="px-2 text-center"><Users className="mx-auto mb-1 size-5 text-muted-foreground" /><p className="text-xl font-bold">{miembros.length}</p><p className="text-xs text-muted-foreground">{t("Miembros")}</p></CardContent></Card>
-      <Card><CardContent className="px-2 text-center"><Star className="mx-auto mb-1 size-5 text-amber-500" /><p className="text-xl font-bold">{rating?.toFixed(1) ?? "—"}</p><p className="text-xs text-muted-foreground">{t("Valoración")}</p></CardContent></Card>
-    </div>
-
+    <div className="grid grid-cols-1 gap-6 px-4 md:px-0 lg:grid-cols-3">
+    <div className="min-w-0 space-y-6 lg:col-span-2">
     <Tabs value={editando ? "empresa" : pestana} onValueChange={setPestana} className="w-full">
-      <TabsList className="grid h-auto w-full grid-cols-4 rounded-none border-b bg-transparent p-0">{[{ valor: "empresa", titulo: "Perfil" }, { valor: "trabajos", titulo: "Portfolio" }, { valor: "resenas", titulo: "Valoraciones" }, { valor: "equipo", titulo: "Equipo" }].map(({ valor, titulo }) => <TabsTrigger key={valor} value={valor} disabled={editando && valor !== "empresa"} className="min-w-0 rounded-none border-0 border-b-2 border-transparent px-1 py-3 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none dark:data-[state=active]:border-primary dark:data-[state=active]:bg-transparent sm:text-sm">{t(titulo)}</TabsTrigger>)}</TabsList>
-      <TabsContent value="empresa" className="space-y-4">
-        <Card><CardContent className="space-y-6">
-          <section><h2 className="mb-2 font-semibold">{t("Descripción")}</h2>{edicion ? edicion.descripcion : <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{empresa.descripcion || t("La empresa todavía no ha añadido su presentación.")}</p>}</section>
-          <section><h2 className="mb-2 font-semibold">{t("Servicios")}</h2>{edicion ? edicion.servicios : empresa.servicios.length ? <div className="flex flex-wrap gap-2">{empresa.servicios.map((servicio) => <Badge key={servicio} variant="secondary" className="max-w-full whitespace-normal">{t(servicio)}</Badge>)}</div> : <p className="text-sm text-muted-foreground">{t("Todavía no has elegido servicios.")}</p>}</section>
-          <div className={`grid gap-5 border-t pt-5 ${editando ? "" : "sm:grid-cols-2"}`}>
-            <section><h2 className="mb-2 font-semibold">{t("Zona de trabajo")}</h2>{edicion ? edicion.zona : <p className="flex items-start gap-2 text-sm text-muted-foreground"><MapPin className="mt-0.5 size-4 shrink-0" />{zona || t("Todavía no has elegido provincias.")}</p>}</section>
-            {(web || edicion) && <section className="min-w-0"><h2 className="mb-2 font-semibold">{t("Web corporativa")}</h2>{edicion ? edicion.web : web && <a href={web} target="_blank" rel="noopener noreferrer" className="flex items-start gap-2 text-sm text-primary hover:underline"><Globe className="mt-0.5 size-4 shrink-0" /><span className="break-all">{new URL(web).hostname.replace(/^www\./, "")}</span><ExternalLink className="mt-0.5 size-3.5 shrink-0" /><span className="sr-only">{t("Se abre en otra pestaña")}</span></a>}</section>}
-          </div>
-          {edicion && <div className="space-y-3 border-t pt-5"><div className="flex justify-end">{acciones}</div></div>}
-        </CardContent></Card>
+      <TabsList className="h-auto w-full justify-start rounded-none border-b bg-transparent p-0">{[{ valor: "empresa", titulo: "Perfil" }, { valor: "trabajos", titulo: "Portfolio" }, { valor: "resenas", titulo: "Valoraciones" }, { valor: "equipo", titulo: "Equipo" }].map(({ valor, titulo }) => <TabsTrigger key={valor} value={valor} disabled={editando && valor !== "empresa"} className="min-w-0 rounded-none border-b-2 border-transparent px-2 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent sm:px-3 sm:text-sm">{t(titulo)}</TabsTrigger>)}</TabsList>
+      <TabsContent value="empresa" className="space-y-6 pt-6">
+        <Card><CardHeader><CardTitle className="text-lg">{t("Descripción")}</CardTitle></CardHeader><CardContent>{edicion ? edicion.descripcion : <p className="whitespace-pre-line leading-relaxed text-muted-foreground">{empresa.descripcion || t("La empresa todavía no ha añadido su presentación.")}</p>}</CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-lg">{t("Servicios")}{editando && <span className="ml-1 text-destructive">*</span>}</CardTitle></CardHeader><CardContent>{edicion ? edicion.servicios : empresa.servicios.length ? <SelectorCategorias seleccionadas={empresa.servicios} onChange={() => {}} disabled /> : <p className="text-sm text-muted-foreground">{t("Todavía no has elegido servicios.")}</p>}</CardContent></Card>
+        <Card><CardHeader><CardTitle className="flex items-center gap-2 text-lg"><MapPin className="size-5 text-primary" />{t("Zona de trabajo")}{editando && <span className="text-destructive">*</span>}</CardTitle></CardHeader><CardContent>{edicion ? edicion.zona : empresa.provincias?.length ? <SelectorProvincias seleccionadas={empresa.provincias} onChange={() => {}} disabled /> : <p className="text-sm text-muted-foreground">{empresa.ubicacion || t("Todavía no has elegido provincias.")}</p>}</CardContent></Card>
+        {(web || edicion) && <Card><CardHeader><CardTitle className="text-lg">{t("Contacto")}</CardTitle></CardHeader><CardContent><div className="flex items-center gap-3"><Globe className="size-5 shrink-0 text-muted-foreground" />{edicion ? edicion.web : web && <a href={web} target="_blank" rel="noopener noreferrer" className="flex min-w-0 items-center gap-2 text-sm text-primary hover:underline"><span className="break-all">{new URL(web).hostname.replace(/^www\./, "")}</span><ExternalLink className="size-3.5 shrink-0" /><span className="sr-only">{t("Se abre en otra pestaña")}</span></a>}</div></CardContent></Card>}
+        {preferencias}
       </TabsContent>
       <TabsContent value="trabajos" className="space-y-4">
         <p className="text-sm text-muted-foreground">{t("Trabajos realizados por {empresa}.", { empresa: empresa.nombre })}</p>
@@ -226,6 +213,9 @@ export default function PerfilEmpresa({ datos, vistaPrevia = false, integrado = 
         </article>)}</div> : <EstadoVacio icono="equipo" titulo={t("El equipo todavía no es público")} descripcion={t("Puedes solicitar un presupuesto directamente a la empresa.")} />}
       </TabsContent>
     </Tabs>
+    </div>
+    <aside className="min-w-0 space-y-6">{lateral || <Card><CardHeader><CardTitle className="text-lg">{t("Proveedor del servicio")}</CardTitle></CardHeader><CardContent className="space-y-3"><p className="break-words font-medium">{empresa.razonSocial}</p><p className="text-sm leading-relaxed text-muted-foreground">{t("Te atienden las personas autorizadas de su equipo.")}</p></CardContent></Card>}</aside>
+    </div>
     <Dialog open={verificacionAbierta} onOpenChange={setVerificacionAbierta}><DialogContent><DialogHeader><DialogTitle className="flex items-center gap-2 pr-5"><BadgeCheck className="size-5 shrink-0 text-emerald-600" />{t("Qué significa «Empresa verificada»")}</DialogTitle><DialogDescription>{t("Identidad de la empresa y representación comprobadas.")}</DialogDescription></DialogHeader><p className="text-sm leading-relaxed">{t("Se han revisado los datos de la empresa y la autorización de la persona responsable de su cuenta en Diime. Este distintivo no certifica la calidad del servicio: consulta sus trabajos y las reseñas de sus clientes.")}</p>{datos.local && <p className="rounded-lg bg-muted p-3 text-xs leading-relaxed text-muted-foreground">{t("En este entorno local la verificación es una simulación. No acredita a una empresa real.")}</p>}<Button variant="outline" onClick={() => setVerificacionAbierta(false)}>{t("Entendido")}</Button></DialogContent></Dialog>
   </div>
 }

@@ -34,20 +34,29 @@ function scenario(options={}){
   '@vercel/blob':blob,'next/server':{NextResponse:Response},
   '@/lib/supabase/server':{createClient:async()=>options.noClient?null:client},
  }
- const module={exports:{}}
- const code=ts.transpileModule(fs.readFileSync('app/api/empresas/logo/route.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText
- vm.runInNewContext(code,{module,exports:module.exports,File,Uint8Array,FormData,console:{error:message=>calls.push(['log',message])},require(name){assert.ok(name in dependencies,name);return dependencies[name]}})
+ const compile=(filename)=>{
+  const module={exports:{}}
+  const code=ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText
+  vm.runInNewContext(code,{module,exports:module.exports,File,Uint8Array,FormData,console:{error:message=>calls.push(['log',message])},require(name){
+   if(name==='../_lib/subir-imagen')return compile('app/api/empresas/_lib/subir-imagen.ts')
+   assert.ok(name in dependencies,name);return dependencies[name]
+  }})
+  return module.exports
+ }
+ const api=compile(`app/api/empresas/${activeImage}/route.ts`)
  async function run({image=file(),expectedCompany,files,headers={},malformed=false}={}){
   const form=new FormData();if(image!==null)form.append('file',image)
   if(files)for(const f of files)form.append('file',f)
   if(expectedCompany!==undefined)form.append('empresaId',expectedCompany)
   const request={headers:new Headers({'content-type':'multipart/form-data; boundary=test',...headers}),formData:async()=>{parsed++;if(malformed)throw Error('malformed');return form}}
-  const response=await module.exports.POST(request);return{status:response.status,body:await response.json()}
+  const response=await api.POST(request);return{status:response.status,body:await response.json()}
  }
  return{calls,run,parsed:()=>parsed}
 }
 let count=0
+let activeImage='logo'
 async function test(name,run){await run();count++;console.log(`PASS ${name}`)}
+async function runSuite(){
 await test('Session, company and current profile permission are required before parsing or Blob',async()=>{
  for(const opts of [{noClient:true},{noUser:true},{authError:true},{noCompany:true},{contextError:true},{denied:true},{permissionError:true}]){
   const f=scenario(opts),r=await f.run();assert.ok(r.status>=400);assert.equal(f.parsed(),0);assert.ok(!f.calls.some(c=>c[0]==='put'));assert.ok(!JSON.stringify(r).includes('secret'))
@@ -57,7 +66,7 @@ await test('Each allowed image uses server-derived company path, extension, publ
  for(const [mime,bytes,extension]of [['image/png',png,'png'],['image/jpeg',jpeg,'jpg'],['image/webp',webp,'webp']]){
   const f=scenario(),r=await f.run({image:file(mime,bytes,'../../another-company/attack.svg'),expectedCompany:empresa})
   assert.equal(r.status,200);assert.equal(Object.keys(r.body).join(','),'url')
-  const put=f.calls.find(c=>c[0]==='put');assert.equal(put[1],`empresas/${empresa}/logo.${extension}`);assert.equal(put[3].access,'public');assert.equal(put[3].addRandomSuffix,true);assert.equal(put[3].contentType,mime)
+  const put=f.calls.find(c=>c[0]==='put');assert.equal(put[1],`empresas/${empresa}/${activeImage}.${extension}`);assert.equal(put[3].access,'public');assert.equal(put[3].addRandomSuffix,true);assert.equal(put[3].contentType,mime)
   assert.equal(f.calls.filter(c=>c[0]==='auth').length,2);assert.equal(f.calls.filter(c=>c[1]==='empresa_comprobar_permiso').length,2);assert.ok(!f.calls.some(c=>c[0]==='del'))
  }
 })
@@ -91,4 +100,6 @@ await test('Revoked permission, session or company change after upload deletes o
 await test('Upload and cleanup failures are sanitized and never return a successful logo',async()=>{
  for(const opts of [{putError:true},{revoked:true,deleteError:true}]){const f=scenario(opts),r=await f.run();assert.equal(r.status,500);assert.equal(r.body.url,undefined);assert.ok(!JSON.stringify(r).includes('secret'));assert.ok(f.calls.filter(c=>c[0]==='log').every(c=>!c[1].includes('secret')))}
 })
-console.log(`${count} company logo upload scenarios passed without network or real uploads.`)
+}
+for(const image of ['logo','portada']){activeImage=image;await runSuite()}
+console.log(`${count} company logo/cover upload scenarios passed without network or real uploads.`)

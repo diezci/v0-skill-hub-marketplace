@@ -5,6 +5,7 @@ import { localeDe } from "@/lib/i18n"
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { ProfileHeader, ProfileHeaderAvatar } from "@/components/profile-header"
 import { Badge } from "@/components/ui/badge"
 import { cn, formatearPrecioEuros, formatearRangoPortfolio } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -34,7 +35,6 @@ import {
   Upload,
   LogOut,
   Trash2,
-  Bell,
   BadgeCheck,
   FileUp,
   ClipboardCheck,
@@ -64,7 +64,7 @@ import { createClient } from "@/lib/supabase/client"
 import { cerrarSesionActual } from "@/lib/auth-logout"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { RangoPrecio } from "@/components/rango-precio"
+import { PreferenciasDemandas } from "@/components/preferencias-demandas"
 import { PRECIO_MAX } from "@/lib/precios"
 import { SolicitudVerificacionProfesional } from "@/components/solicitud-verificacion-profesional"
 import { almacenBorradorPortfolio, borrarBorradorPortfolio, guardarBorradorPortfolio, leerBorradorPortfolio } from "@/lib/borrador-portfolio"
@@ -123,14 +123,6 @@ const provincias = [
 
 interface PerfilProfesionalProps {
   editable?: boolean
-}
-
-function formatearPresupuestoInteres([minimo, maximo]: [number, number], t: ReturnType<typeof useT>, idioma: "es" | "en") {
-  if (minimo <= 0 && maximo >= PRECIO_MAX) return t("Cualquier presupuesto")
-  if (maximo >= PRECIO_MAX) return t("Desde {precio}", { precio: formatearPrecioEuros(minimo, idioma) })
-  if (minimo === maximo) return formatearPrecioEuros(minimo, idioma)
-  if (minimo <= 0) return t("Hasta {precio}", { precio: formatearPrecioEuros(maximo, idioma) })
-  return `${formatearPrecioEuros(minimo, idioma)} – ${formatearPrecioEuros(maximo, idioma)}`
 }
 
 export default function PerfilProfesional({ editable = false }: PerfilProfesionalProps) {
@@ -771,15 +763,11 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
 
   return (
     <div className="space-y-6">
-      {/* Cover & Profile Header */}
-      <div className="relative">
-        <div className="h-48 md:h-64 rounded-xl overflow-hidden bg-gradient-to-r from-primary/20 to-primary/5">
-          <img
-            src={editData.foto_portada || "/placeholder.svg"}
-            alt={t("Cover")}
-            className="w-full h-full object-cover"
-          />
-          {editable && isEditing && (
+      <ProfileHeader
+        coverUrl={editData.foto_portada}
+        coverAlt={t("Cover")}
+        coverActions={
+          editable && isEditing && (
             <>
               <Button
                 size="sm"
@@ -799,186 +787,172 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 onChange={handleCoverUpload}
               />
             </>
+          )
+        }
+        avatar={<ProfileHeaderAvatar src={editData.foto_perfil} fallback={editData.nombre?.charAt(0)} />}
+        avatarActions={<>
+          {editData.verificado && (
+            <div className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full p-1.5">
+              <CheckCircle className="h-5 w-5" />
+            </div>
           )}
-        </div>
+          {editable && isEditing && (
+            <>
+              <Button
+                size="icon"
+                variant="secondary"
+                className="absolute bottom-0 right-0"
+                onClick={() => document.getElementById("avatar-upload")?.click()}
+                disabled={isUploading}
+              >
+                <Camera className="h-4 w-4" />
+              </Button>
+              <input
+                id="avatar-upload"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarUpload}
+              />
+            </>
+          )}
+        </>}
+      >
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+          <div className="space-y-2">
+            {isEditing ? (
+              <div className="flex gap-2">
+                <Input
+                  value={editData.nombre}
+                  onChange={(e) => setEditData({ ...editData, nombre: e.target.value })}
+                  placeholder={t("Nombre")}
+                  className="text-xl font-bold h-auto py-1 w-32"
+                />
+                <Input
+                  value={editData.apellido}
+                  onChange={(e) => setEditData({ ...editData, apellido: e.target.value })}
+                  placeholder={t("Apellidos")}
+                  className="text-xl font-bold h-auto py-1 flex-1"
+                />
+              </div>
+            ) : (
+              <h1 className="text-2xl md:text-3xl font-bold">
+                {editData.nombre} {editData.apellido}
+              </h1>
+            )}
 
-        <Card className="relative mx-4 md:mx-8 -mt-16 md:-mt-20 border-border/50 bg-card/95 backdrop-blur-sm">
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row gap-6">
-              {/* Avatar */}
-              <div className="relative shrink-0">
-                <Avatar className="h-28 w-28 md:h-36 md:w-36 border-4 border-background shadow-xl">
-                  <AvatarImage src={editData.foto_perfil || "/placeholder.svg"} />
-                  <AvatarFallback className="text-3xl">{editData.nombre?.charAt(0)}</AvatarFallback>
-                </Avatar>
-                {editData.verificado && (
-                  <div className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full p-1.5">
-                    <CheckCircle className="h-5 w-5" />
-                  </div>
-                )}
-                {editable && isEditing && (
-                  <>
-                    <Button
-                      size="icon"
-                      variant="secondary"
-                      className="absolute bottom-0 right-0"
-                      onClick={() => document.getElementById("avatar-upload")?.click()}
-                      disabled={isUploading}
-                    >
-                      <Camera className="h-4 w-4" />
-                    </Button>
-                    <input
-                      id="avatar-upload"
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleAvatarUpload}
-                    />
-                  </>
+            {isEditing ? (
+              <Input
+                value={editData.titulo}
+                onChange={(e) => setEditData({ ...editData, titulo: e.target.value })}
+                placeholder={t("Título profesional (ej: Maestro Albañil)")}
+                className="text-muted-foreground"
+              />
+            ) : (
+              <p className="text-lg text-muted-foreground">{editData.titulo || t("Sin título profesional")}</p>
+            )}
+
+            <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <MapPin className="h-4 w-4" />
+                {isEditing ? (
+                  <Select
+                    value={editData.ubicacion}
+                    onValueChange={(value) => setEditData({ ...editData, ubicacion: value })}
+                  >
+                    <SelectTrigger className="h-7 w-40">
+                      <SelectValue placeholder={t("Provincia")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {provincias.map((prov) => (
+                        <SelectItem key={prov.codigo} value={prov.provincia}>
+                          {prov.provincia}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <span>{editData.ubicacion || t("Sin ubicación")}</span>
                 )}
               </div>
-
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                  <div className="space-y-2">
-                    {isEditing ? (
-                      <div className="flex gap-2">
-                        <Input
-                          value={editData.nombre}
-                          onChange={(e) => setEditData({ ...editData, nombre: e.target.value })}
-                          placeholder={t("Nombre")}
-                          className="text-xl font-bold h-auto py-1 w-32"
-                        />
-                        <Input
-                          value={editData.apellido}
-                          onChange={(e) => setEditData({ ...editData, apellido: e.target.value })}
-                          placeholder={t("Apellidos")}
-                          className="text-xl font-bold h-auto py-1 flex-1"
-                        />
-                      </div>
-                    ) : (
-                      <h1 className="text-2xl md:text-3xl font-bold">
-                        {editData.nombre} {editData.apellido}
-                      </h1>
-                    )}
-
-                    {isEditing ? (
-                      <Input
-                        value={editData.titulo}
-                        onChange={(e) => setEditData({ ...editData, titulo: e.target.value })}
-                        placeholder={t("Título profesional (ej: Maestro Albañil)")}
-                        className="text-muted-foreground"
-                      />
-                    ) : (
-                      <p className="text-lg text-muted-foreground">{editData.titulo || t("Sin título profesional")}</p>
-                    )}
-
-                    <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
-                        {isEditing ? (
-                          <Select
-                            value={editData.ubicacion}
-                            onValueChange={(value) => setEditData({ ...editData, ubicacion: value })}
-                          >
-                            <SelectTrigger className="h-7 w-40">
-                              <SelectValue placeholder={t("Provincia")} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {provincias.map((prov) => (
-                                <SelectItem key={prov.codigo} value={prov.provincia}>
-                                  {prov.provincia}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <span>{editData.ubicacion || t("Sin ubicación")}</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Briefcase className="h-4 w-4" />
-                        <span>{t(editData.proyectos_completados === 1 ? "{cantidad} proyecto" : "{cantidad} proyectos", { cantidad: editData.proyectos_completados })}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        <span>{t("Responde en")} {t(editData.tiempo_respuesta)}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div className="flex items-center gap-1">
-                        <Star className="h-5 w-5 fill-amber-500 text-amber-500" />
-                        <span className="font-bold text-lg">{editData.rating.toFixed(1)}</span>
-                        <span className="text-muted-foreground">({editData.total_reviews} {t("valoraciones)")}</span>
-                      </div>
-                      <Badge variant="secondary">{t(editData.nivel)}</Badge>
-                      <Badge
-                        variant={editData.disponibilidad === "Disponible" ? "default" : "secondary"}
-                        className={editData.disponibilidad === "Disponible" ? "bg-emerald-500" : ""}
-                      >
-                        {t(editData.disponibilidad)}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex flex-col gap-2 shrink-0">
-                    {editable ? (
-                      isEditing ? (
-                        <>
-                          <Button onClick={handleSave} disabled={saving}>
-                            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                            {t("Guardar cambios")}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            onClick={cancelarEdicion}
-                          >
-                            {t("Cancelar")}
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <Button onClick={iniciarEdicion}>
-                            <Edit2 className="h-4 w-4 mr-2" />
-                            {t("Editar perfil")}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            onClick={handleLogout}
-                            disabled={loggingOut} aria-busy={loggingOut}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 bg-transparent"
-                          >
-                            {loggingOut ? (
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            ) : (
-                              <LogOut className="h-4 w-4 mr-2" />
-                            )}
-                            {t("Cerrar sesion")}
-                          </Button>
-                        </>
-                      )
-                    ) : (
-                      <>
-                        <Button>
-                          <MessageCircle className="h-4 w-4 mr-2" />
-                          {t("Enviar mensaje")}
-                        </Button>
-                        <Button variant="outline">
-                          <Phone className="h-4 w-4 mr-2" />
-                          {t("Contactar")}
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
+              <div className="flex items-center gap-1">
+                <Briefcase className="h-4 w-4" />
+                <span>{t(editData.proyectos_completados === 1 ? "{cantidad} proyecto" : "{cantidad} proyectos", { cantidad: editData.proyectos_completados })}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Clock className="h-4 w-4" />
+                <span>{t("Responde en")} {t(editData.tiempo_respuesta)}</span>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-1">
+                <Star className="h-5 w-5 fill-amber-500 text-amber-500" />
+                <span className="font-bold text-lg">{editData.rating.toFixed(1)}</span>
+                <span className="text-muted-foreground">({editData.total_reviews} {t("valoraciones)")}</span>
+              </div>
+              <Badge variant="secondary">{t(editData.nivel)}</Badge>
+              <Badge
+                variant={editData.disponibilidad === "Disponible" ? "default" : "secondary"}
+                className={editData.disponibilidad === "Disponible" ? "bg-emerald-500" : ""}
+              >
+                {t(editData.disponibilidad)}
+              </Badge>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex flex-col gap-2 shrink-0">
+            {editable ? (
+              isEditing ? (
+                <>
+                  <Button onClick={handleSave} disabled={saving}>
+                    {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    {t("Guardar cambios")}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={cancelarEdicion}
+                  >
+                    {t("Cancelar")}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button onClick={iniciarEdicion}>
+                    <Edit2 className="h-4 w-4 mr-2" />
+                    {t("Editar perfil")}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleLogout}
+                    disabled={loggingOut} aria-busy={loggingOut}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 bg-transparent"
+                  >
+                    {loggingOut ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <LogOut className="h-4 w-4 mr-2" />
+                    )}
+                    {t("Cerrar sesion")}
+                  </Button>
+                </>
+              )
+            ) : (
+              <>
+                <Button>
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  {t("Enviar mensaje")}
+                </Button>
+                <Button variant="outline">
+                  <Phone className="h-4 w-4 mr-2" />
+                  {t("Contactar")}
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      </ProfileHeader>
 
       {editable && tienePerfilProfesional && !editData.verificado ? (
         <div className="px-4 md:px-0">
@@ -1139,65 +1113,12 @@ export default function PerfilProfesional({ editable = false }: PerfilProfesiona
                 </CardContent>
               </Card>
 
-              {/* Presupuesto y avisos para los servicios y la zona del perfil */}
-              <Card className={sinCobertura ? "border-amber-500/50" : undefined}>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Bell className="h-5 w-5 text-primary" />
-                    {t("Avisos de nuevas demandas")}
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {t("Elige qué servicios, provincias y presupuestos te interesan. Solo te avisaremos de las demandas que encajen con estos filtros.")}
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-5">
-                  {sinCobertura && (
-                    <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
-                      <p className="font-medium text-amber-700 dark:text-amber-400">
-                        {t("No estás recibiendo avisos de demandas")}
-                      </p>
-                      <p className="text-muted-foreground mt-0.5">
-                        {t("Elige tus servicios y tus provincias")} {!isEditing && <>{t("(pulsa «Editar perfil»)")} </>}{t("para empezar a recibirlas.")}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-sm font-medium">{t("Presupuesto total del proyecto")}</p>
-                      {isEditing &&
-                        (editData.presupuesto_interes[0] > 0 || editData.presupuesto_interes[1] < PRECIO_MAX) && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-auto px-2 py-1 text-xs"
-                            onClick={() =>
-                              setEditData({ ...editData, presupuesto_interes: [0, PRECIO_MAX] })
-                            }
-                          >
-                            {t("Cualquier presupuesto")}
-                          </Button>
-                        )}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {t("Las demandas con presupuesto «A convenir» también se incluyen.")}
-                    </p>
-                    {isEditing ? (
-                      <RangoPrecio
-                        value={editData.presupuesto_interes}
-                        onChange={(v) => setEditData({ ...editData, presupuesto_interes: v })}
-                        progresivo
-                        etiqueta="Presupuesto de la demanda"
-                      />
-                    ) : (
-                      <p className="text-sm rounded-md border bg-muted/30 px-3 py-2">
-                        {formatearPresupuestoInteres(editData.presupuesto_interes, t, idioma)}
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+              <PreferenciasDemandas
+                presupuesto={editData.presupuesto_interes}
+                onChange={(v) => setEditData({ ...editData, presupuesto_interes: v })}
+                editando={isEditing}
+                sinCobertura={sinCobertura}
+              />
 
               {/* Skills */}
               <Card>

@@ -1,13 +1,14 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { empresaLocalStore, validarCoberturaEmpresa } from "@/lib/empresas/local-store"
+import { empresaLocalStore, validarCoberturaEmpresa, validarPreferenciasEmpresa } from "@/lib/empresas/local-store"
 import { esEmpresasLocal, obtenerActorEmpresaLocal } from "@/lib/empresas/service"
 import type { InputActualizarMiembro, InputMiembro, InputPerfilEmpresa } from "@/lib/empresas/local-store"
 import { rpcEmpresa, verificacionReal } from "@/lib/empresas/production-store"
 import type { ActorEmpresa, ResultadoEmpresa, RolEmpresa, VerificacionEmpresaAdmin } from "@/lib/empresas/types"
 
 function invalidarEmpresa() {
+  revalidatePath("/mi-empresa/vista-previa")
   revalidatePath("/mi-empresa")
   revalidatePath("/profesionales")
   revalidatePath("/empresa/[id]", "page")
@@ -39,9 +40,21 @@ async function ejecutar<T>(operacion: (actor: ActorEmpresa) => Promise<Resultado
   }
 }
 
-export async function guardarPerfilEmpresa(input: InputPerfilEmpresa & { logoUrl?: string }): Promise<ResultadoEmpresa> {
+export async function guardarPerfilEmpresa(input: InputPerfilEmpresa): Promise<ResultadoEmpresa> {
   const cobertura = validarCoberturaEmpresa(input)
   if (cobertura.error) return { error: cobertura.error }
+  const preferencias = validarPreferenciasEmpresa(input)
+  if (preferencias.error) return { error: preferencias.error }
+  if (!esEmpresasLocal() && (input.portadaUrl !== undefined || preferencias.data)) {
+    if (!cobertura.data) return { error: "Selecciona al menos una provincia válida de la lista." }
+    return ejecutarReal("empresa_editar_perfil_completo", {
+      p_nombre: input.nombre, p_descripcion: input.descripcion, p_ubicacion: cobertura.data.provincias.join(", "),
+      p_sitio_web: input.web, p_logo: input.logoUrl || null, p_servicios: cobertura.data.servicios, p_provincias: cobertura.data.provincias,
+      p_portada: input.portadaUrl || null, p_presupuesto_min_interes: preferencias.data?.presupuestoMinInteres ?? null,
+      p_presupuesto_max_interes: preferencias.data?.presupuestoMaxInteres ?? null,
+      p_actualizar_portada: input.portadaUrl !== undefined, p_actualizar_presupuesto: preferencias.data !== null,
+    })
+  }
   if (!esEmpresasLocal() && cobertura.data) return ejecutarReal("empresa_editar_perfil_cobertura", {
     p_nombre: input.nombre, p_descripcion: input.descripcion, p_ubicacion: cobertura.data.provincias.join(", "),
     p_sitio_web: input.web, p_logo: input.logoUrl || null, p_servicios: cobertura.data.servicios, p_provincias: cobertura.data.provincias,
