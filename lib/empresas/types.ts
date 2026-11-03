@@ -16,6 +16,9 @@ export interface EmpresaFicha {
   provincias?: string[]
   servicios: string[]
   logoUrl?: string
+  portadaUrl?: string
+  presupuestoMinInteres?: number | null
+  presupuestoMaxInteres?: number | null
   estadoVerificacion: EstadoVerificacionEmpresa
   representanteNombre: string
   cargoLegal: string

@@ -51,3 +51,12 @@ function importePublicado(valor: number | string | null | undefined) {
 function limiteDeInteres(valor: number | string | null | undefined) {
   return convertirImporte(valor)
 }
+
+/** Uses the same province matching for personal and company demand alerts. */
+export function cubreZonaDeAvisos(ubicacion: string | null, provincias: string[] | null | undefined) {
+  if (!provincias?.length) return false
+  const normalizar = (valor: string) => valor.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
+  const zona = normalizar(ubicacion || "")
+  if (!zona) return true
+  return provincias.some((provincia) => { const p = normalizar(provincia); return zona.includes(p) || p.includes(zona) })
+}

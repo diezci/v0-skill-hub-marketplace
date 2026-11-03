@@ -10,7 +10,7 @@ import ts from 'typescript'
 const temporal = await mkdtemp(path.join(os.tmpdir(), 'diime-empresas-test-'))
 const modulos = path.join(temporal, 'modulos')
 await mkdir(modulos)
-for (const archivo of ['types', 'seed', '../categorias', '../provincias', 'local-store']) {
+for (const archivo of ['types', 'seed', '../categorias', '../provincias', '../precios', 'local-store']) {
   const fuente = await readFile(new URL(`../lib/empresas/${archivo}.ts`, import.meta.url), 'utf8')
   const salida = ts.transpileModule(fuente, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText
   await writeFile(path.join(modulos, `${archivo}.js`), salida)
@@ -207,4 +207,21 @@ test('escrituras concurrentes preservan todas las solicitudes sin perder estado'
   assert.equal(estado.solicitudes.length, 24)
   assert.equal(new Set(estado.solicitudes.map((s) => s.id)).size, 24)
   assert.equal(estado.actividad.length, 25)
+})
+
+
+test('portada, foto y presupuesto se guardan juntos; el rango no se publica', async () => {
+  const store = await nuevo()
+  const empresa = correcto(await store.espacio(actores.owner)).empresa
+  correcto(await store.guardarPerfil(actores.owner, { ...empresa, portadaUrl: 'https://example.test/cover.webp', logoUrl: 'https://example.test/avatar.webp', presupuestoMinInteres: 1000, presupuestoMaxInteres: 10000 }))
+  const saved = correcto(await store.espacio(actores.owner)).empresa
+  assert.equal(saved.portadaUrl, 'https://example.test/cover.webp')
+  assert.equal(saved.logoUrl, 'https://example.test/avatar.webp')
+  assert.equal(saved.presupuestoMinInteres, 1000)
+  const publico = (await store.publica(empresa.id)).empresa
+  assert.equal(publico.portadaUrl, saved.portadaUrl)
+  assert.equal('presupuestoMinInteres' in publico, false)
+  assert.equal('presupuestoMaxInteres' in publico, false)
+  error(await store.guardarPerfil(actores.owner, { ...saved, presupuestoMinInteres: 10001, presupuestoMaxInteres: 10000 }), /mínimo/)
+  assert.equal(correcto(await store.espacio(actores.owner)).empresa.presupuestoMinInteres, 1000)
 })

@@ -55,7 +55,7 @@ function loadModules(overrides = {}, ui = {}) {
       if (name === 'next/cache') return { revalidatePath() {} }
       if (name === 'next/navigation') return { useRouter: () => ({ refresh() {}, push() {} }) }
       if (name === 'next/link') return { __esModule: true, default: ({ children, ...props }) => React.createElement('a', props, children) }
-      if (name === '@/components/idioma-provider') return { useIdioma: () => ({ idioma: 'es' }), useT: () => (s) => s }
+      if (name === '@/components/idioma-provider') return { useIdioma: () => ({ idioma: 'es', t: (s) => s }), useT: () => (s) => s }
       if (name.startsWith('@/app/actions/')) return new Proxy({}, { get: (_, action) => async (...args) => { ui.actions?.push({ action, args }); return ui.actionResult ? ui.actionResult(action, args) : { data: action === 'invitarMiembroEmpresa' ? { url: '/mi-empresa/invitaciones/prueba' } : undefined } } })
       if (name.startsWith('@/') || name.startsWith('.')) {
         const base = name.startsWith('@/') ? path.join(root, name.slice(2)) : path.resolve(path.dirname(full), name)
@@ -173,7 +173,8 @@ function workspaceHarness(load, espacio, component = "EmpresaWorkspaceReal", opt
   const componentFile = { OperacionesEmpresa: 'operaciones-empresa', EmpresaWorkspaceReal: 'empresa-workspace-real', IncidenciasTrabajoEmpresa: 'incidencias-trabajo-empresa', PerfilEmpresaEditor: 'perfil-empresa-editor' }[component]
   const Component = runtime.load(`components/empresas/${componentFile}.tsx`)[component]
   function children(node) {
-    return [node.props?.children, node.props?.acciones, node.props?.estado, ...Object.values(node.props?.edicion || {})]
+    if (node.type?.name === 'PreferenciasDemandas') return [node.type(node.props)]
+    return [node.props?.children, node.props?.acciones, node.props?.estado, node.props?.preferencias, ...Object.values(node.props?.edicion || {})]
   }
   function elements(node, predicate, found = []) {
     if (node == null || typeof node !== 'object') return found
@@ -209,13 +210,12 @@ test('private preview links follow management permissions and preserve verified 
       const espacio = { ...base, empresa: { ...base.empresa, estadoVerificacion }, miembroActual: { ...base.miembroActual, rol, permisos: { ...base.miembroActual.permisos, perfil } } }
       const h = workspaceHarness(load, espacio, 'EmpresaWorkspaceReal', { props: { perfilPublico } })
       const tree = h.render()
-      assert.equal(!!h.button(tree, 'Editar perfil de empresa'), perfil, `Edit access follows the profile permission: ${rol}/${perfil}`)
-      if (perfil) {
-        const tabs = h.all(tree, n => typeof n.props?.onValueChange === 'function')[0]
-        tabs.props.onValueChange('equipo')
-        h.button(h.render(), 'Editar perfil de empresa').props.onClick({ preventDefault() {} })
-        assert.equal(h.all(h.render(), n => typeof n.props?.onValueChange === 'function')[0].props.value, 'perfil')
-      }
+      assert.equal(h.button(tree, 'Editar perfil'), undefined, 'The workspace does not duplicate the profile editor action')
+      const profileEditors = h.all(tree, n => n.type?.name === 'PerfilEmpresaEditor')
+      assert.equal(profileEditors.length, 1, 'One profile owns the company identity and editing controls')
+      const workspaceHeader = h.all(tree, n => n.type === 'header')[0]
+      assert.equal(h.text(workspaceHeader).includes(espacio.empresa.nombre), false, 'The management toolbar must not repeat the profile identity')
+      assert.equal(profileEditors[0].props.puedeEditar, perfil, `Edit access follows the profile permission: ${rol}/${perfil}`)
       const previewLinks = h.all(tree, n => n.props?.href === '/mi-empresa/vista-previa')
       assert.equal(previewLinks.length, allowed ? 1 : 0, `${rol}/${perfil}/${estadoVerificacion}`)
       if (allowed) {
@@ -247,11 +247,11 @@ test('preview reuses the public profile, reflects verification truth and cannot 
     assert.match(html, /disabled=""[^>]*aria-describedby="empresa-vista-previa-contacto"/)
     assert.equal(html.includes('Tu empresa todavía no es pública.'), estadoVerificacion !== 'verificada')
     assert.equal(html.includes('Empresa verificada'), estadoVerificacion === 'verificada')
-    assert.doesNotMatch(html, /Editar perfil de empresa/)
+    assert.doesNotMatch(html, /Editar perfil/)
     const editableHtml = renderToStaticMarkup(React.createElement(VistaPreviaEmpresa, { datos: value, puedeEditar: true }))
     assert.doesNotMatch(editableHtml, /href="\/mi-empresa#perfil-empresa"/)
     assert.match(editableHtml, /Puedes editar el perfil aquí mismo/)
-    assert.match(editableHtml, /Editar perfil de empresa/)
+    assert.match(editableHtml, /Editar perfil/)
   }
   for (const local of [true, false]) {
     const contact = SolicitarPresupuestoEmpresa({ datos: { ...datos, local }, vistaPrevia: true })
@@ -346,7 +346,7 @@ test('workspace loads only an authorized matching profile and keeps its other se
   assert.equal((await route.default({ searchParams: Promise.resolve({}) })).props.perfilPublico, null)
   const fallback = workspaceHarness(original.load, base)
   const tree = fallback.render()
-  assert.equal(fallback.button(tree, 'Editar perfil de empresa'), undefined)
+  assert.equal(fallback.button(tree, 'Editar perfil'), undefined)
   assert.ok(fallback.button(tree, 'Reintentar'))
   assert.match(fallback.text(tree), /No se pudo cargar la vista previa/)
 })
@@ -503,7 +503,7 @@ test('company profile opens inline editing and saves the displayed profile while
   let tree = h.render()
   assert.equal(h.byId(tree, 'empresa-nombre'), undefined, 'The first view is the profile, not a form')
   assert.equal(h.profile(tree).props.datos.empresa.nombre, datos.empresa.nombre)
-  h.button(tree, 'Editar perfil de empresa').props.onClick({ preventDefault() {} })
+  h.button(tree, 'Editar perfil').props.onClick({ preventDefault() {} })
   tree = h.render()
   h.byId(tree, 'empresa-nombre').props.onChange({ target: { value: ' Nombre comercial actualizado ' } })
   h.selector(tree, 'SelectorProvincias').props.onChange([...provinces])
@@ -540,7 +540,7 @@ test('company logo rejects invalid files and preserves inline editing on upload 
   URL.createObjectURL = () => 'blob:logo-preview'
   URL.revokeObjectURL = value => revoked.push(value)
   try {
-    h.button(h.render(), 'Editar perfil de empresa').props.onClick({ preventDefault() {} })
+    h.button(h.render(), 'Editar perfil').props.onClick({ preventDefault() {} })
     let tree = h.render()
     const file = new File(['image-data'], 'logo.png', { type: 'image/png' })
     h.byId(tree, 'empresa-logo').props.onChange({ target: { files: [new File(['svg'], 'logo.svg', { type: 'image/svg+xml' })], value: '' } })
@@ -580,24 +580,23 @@ test('company logo rejects invalid files and preserves inline editing on upload 
   } finally { globalThis.fetch = previousFetch; URL.createObjectURL = create; URL.revokeObjectURL = revoke }
 })
 
-test('company profile validates coverage, removes an existing logo, and does not save without permission', async () => {
+test('company profile validates coverage, preserves the current photo, and does not save without permission', async () => {
   const { load } = loadModules()
   const original = await load('lib/empresas/production-store.ts').empresaPublicaReal(empresaId)
   const datos = { ...original, empresa: { ...original.empresa, provincias: [], servicios: [] } }
   const h = workspaceHarness(load, { datos, puedeEditar: true }, 'PerfilEmpresaEditor')
-  h.button(h.render(), 'Editar perfil de empresa').props.onClick({ preventDefault() {} })
+  h.button(h.render(), 'Editar perfil').props.onClick({ preventDefault() {} })
   await h.all(h.render(), n => n.type === 'form')[0].props.onSubmit({ preventDefault() {} })
   assert.equal(h.actions.length, 0)
   assert.match(h.text(h.render()), /Selecciona al menos una provincia y un servicio/)
   const filled = { ...datos, empresa: { ...datos.empresa, provincias: ['Madrid', 'Toledo'], servicios: ['Limpieza', 'Montaje de muebles'] } }
   const editor = workspaceHarness(load, { datos: filled, puedeEditar: true }, 'PerfilEmpresaEditor')
-  editor.button(editor.render(), 'Editar perfil de empresa').props.onClick({ preventDefault() {} })
-  editor.button(editor.render(), 'Quitar logotipo').props.onClick()
+  editor.button(editor.render(), 'Editar perfil').props.onClick({ preventDefault() {} })
   await editor.all(editor.render(), n => n.type === 'form')[0].props.onSubmit({ preventDefault() {} })
-  assert.equal(editor.actions[0].args[0].logoUrl, '')
+  assert.equal(editor.actions[0].args[0].logoUrl, datos.empresa.logoUrl)
   const readonly = workspaceHarness(load, { datos: filled, puedeEditar: false }, 'PerfilEmpresaEditor')
   const tree = readonly.render()
-  assert.equal(readonly.button(tree, 'Editar perfil de empresa'), undefined)
+  assert.equal(readonly.button(tree, 'Editar perfil'), undefined)
   assert.equal(readonly.byId(tree, 'empresa-nombre'), undefined)
   await readonly.all(tree, n => n.type === 'form')[0].props.onSubmit({ preventDefault() {} })
   assert.equal(readonly.actions.length, 0)
@@ -616,7 +615,7 @@ test('cancel restores the saved profile and logo without uploading or saving the
   URL.createObjectURL = () => 'blob:cancelled-logo'
   URL.revokeObjectURL = value => revoked.push(value)
   try {
-    h.button(h.render(), 'Editar perfil de empresa').props.onClick({ preventDefault() {} })
+    h.button(h.render(), 'Editar perfil').props.onClick({ preventDefault() {} })
     let tree = h.render()
     h.byId(tree, 'empresa-nombre').props.onChange({ target: { value: 'Borrador que se cancela' } })
     h.selector(tree, 'SelectorProvincias').props.onChange(['Toledo'])
@@ -629,7 +628,7 @@ test('cancel restores the saved profile and logo without uploading or saving the
     assert.equal(uploads, 0)
     assert.deepEqual(h.actions, [])
     assert.deepEqual(revoked, ['blob:cancelled-logo'])
-    h.button(tree, 'Editar perfil de empresa').props.onClick({ preventDefault() {} })
+    h.button(tree, 'Editar perfil').props.onClick({ preventDefault() {} })
     tree = h.render()
     assert.equal(h.byId(tree, 'empresa-nombre').props.value, datos.empresa.nombre)
     assert.deepEqual(h.selector(tree, 'SelectorProvincias').props.seleccionadas, ['Madrid'])
@@ -637,7 +636,7 @@ test('cancel restores the saved profile and logo without uploading or saving the
   } finally { globalThis.fetch = previousFetch; URL.createObjectURL = create; URL.revokeObjectURL = revoke }
 })
 
-test('a rejected profile save retains edits and reuses an uploaded logo on retry', async () => {
+test('a rejected profile save retains edits and reuses both uploaded images on retry', async () => {
   const { load } = loadModules()
   const original = await load('lib/empresas/production-store.ts').empresaPublicaReal(empresaId)
   const datos = { ...original, empresa: { ...original.empresa, provincias: ['Madrid'], servicios: ['Limpieza'] } }
@@ -646,14 +645,15 @@ test('a rejected profile save retains edits and reuses an uploaded logo on retry
   const previousFetch = globalThis.fetch
   const create = URL.createObjectURL, revoke = URL.revokeObjectURL
   let uploads = 0
-  globalThis.fetch = async () => { uploads++; return { ok: true, json: async () => ({ url: 'https://blob.example/retry-logo.png' }) } }
+  globalThis.fetch = async url => { uploads++; return { ok: true, json: async () => ({ url: `https://blob.example/retry-${url.endsWith('/portada') ? 'cover' : 'logo'}.png` }) } }
   URL.createObjectURL = () => 'blob:retry-logo'
   URL.revokeObjectURL = () => {}
   try {
-    h.button(h.render(), 'Editar perfil de empresa').props.onClick({ preventDefault() {} })
+    h.button(h.render(), 'Editar perfil').props.onClick({ preventDefault() {} })
     let tree = h.render()
     h.byId(tree, 'empresa-nombre').props.onChange({ target: { value: 'Borrador conservado' } })
     h.byId(tree, 'empresa-logo').props.onChange({ target: { files: [new File(['png'], 'retry.png', { type: 'image/png' })], value: '' } })
+    h.byId(tree, 'empresa-portada').props.onChange({ target: { files: [new File(['png'], 'retry-cover.png', { type: 'image/png' })], value: '' } })
     await h.all(h.render(), n => n.type === 'form')[0].props.onSubmit({ preventDefault() {} })
     tree = h.render()
     assert.equal(h.byId(tree, 'empresa-nombre').props.value, 'Borrador conservado')
@@ -661,9 +661,10 @@ test('a rejected profile save retains edits and reuses an uploaded logo on retry
     assert.ok(h.button(tree, 'Cancelar'))
     rejected = false
     await h.all(tree, n => n.type === 'form')[0].props.onSubmit({ preventDefault() {} })
-    assert.equal(uploads, 1)
+    assert.equal(uploads, 2)
     assert.equal(h.actions.length, 2)
     assert.equal(h.actions[1].args[0].logoUrl, 'https://blob.example/retry-logo.png')
+    assert.equal(h.actions[1].args[0].portadaUrl, 'https://blob.example/retry-cover.png')
     assert.equal(h.profile(h.render()).props.datos.empresa.nombre, 'Borrador conservado')
     assert.equal(h.byId(h.render(), 'empresa-nombre'), undefined)
   } finally { globalThis.fetch = previousFetch; URL.createObjectURL = create; URL.revokeObjectURL = revoke }
@@ -707,7 +708,7 @@ test('legacy free-text services cannot be silently discarded by saving a differe
   const original = await load('lib/empresas/production-store.ts').empresaPublicaReal(empresaId)
   const datos = { ...original, empresa: { ...original.empresa, provincias: ['Madrid'], servicios: ['Limpieza', 'Servicio histórico sin categoría'] } }
   const h = workspaceHarness(load, { datos, puedeEditar: true }, 'PerfilEmpresaEditor')
-  h.button(h.render(), 'Editar perfil de empresa').props.onClick({ preventDefault() {} })
+  h.button(h.render(), 'Editar perfil').props.onClick({ preventDefault() {} })
   let tree = h.render()
   assert.match(h.text(tree), /Servicio histórico sin categoría/)
   assert.deepEqual(h.selector(tree, 'SelectorCategorias').props.seleccionadas, ['Limpieza'])
@@ -721,4 +722,169 @@ test('legacy free-text services cannot be silently discarded by saving a differe
   await h.all(h.render(), n => n.type === 'form')[0].props.onSubmit({ preventDefault() {} })
   assert.equal(h.actions[0].args[0].nombre, 'Nombre actualizado')
   assert.deepEqual(h.actions[0].args[0].servicios, ['Limpieza'])
+})
+
+test('cover survives public adapters while budget preferences remain private to the workspace and preview', async () => {
+  const company = { ...sampleCompany, foto_portada: 'https://example.com/cover.webp', presupuesto_min_interes: 1200, presupuesto_max_interes: 35000 }
+  const { load } = loadModules({ empresa_workspace: { ...workspace, empresa: company }, empresa_perfil_publico: { empresa: company }, empresa_perfil_vista_previa: { empresa: company }, empresas_publicas: [company] })
+  const api = load('lib/empresas/production-store.ts')
+  for (const datos of [await api.empresaPublicaReal(empresaId), ...(await api.empresasPublicasReales())]) {
+    assert.equal(datos.empresa.portadaUrl, company.foto_portada)
+    assert.equal(Object.hasOwn(datos.empresa, 'presupuestoMinInteres'), false)
+    assert.equal(Object.hasOwn(datos.empresa, 'presupuestoMaxInteres'), false)
+  }
+  for (const datos of [(await api.espacioEmpresaReal()).data, (await api.vistaPreviaEmpresaReal()).data]) {
+    assert.equal(datos.empresa.portadaUrl, company.foto_portada)
+    assert.equal(datos.empresa.presupuestoMinInteres, 1200)
+    assert.equal(datos.empresa.presupuestoMaxInteres, 35000)
+  }
+})
+
+test('complete profile action validates and sends cover and budget together without erasing omitted preferences', async () => {
+  const { load, calls } = loadModules()
+  const { guardarPerfilEmpresa } = load('app/actions/empresa-workspace.ts')
+  const base = { nombre: 'Empresa prueba', descripcion: 'Descripción suficiente de la empresa', web: 'https://example.test', ubicacion: 'Madrid', logoUrl: 'https://example.test/logo.webp', servicios: ['Fontanería'], provincias: ['Madrid'] }
+  const changes = { ...base, portadaUrl: 'https://example.test/cover.webp', presupuestoMinInteres: 1500, presupuestoMaxInteres: 20000 }
+  assert.equal((await guardarPerfilEmpresa(changes)).error, undefined)
+  assert.equal(calls[0].name, 'empresa_editar_perfil_completo')
+  assert.equal(calls[0].args.p_portada, changes.portadaUrl)
+  assert.equal(calls[0].args.p_presupuesto_min_interes, 1500)
+  assert.equal(calls[0].args.p_presupuesto_max_interes, 20000)
+  assert.equal(calls[0].args.p_actualizar_portada, true)
+  assert.equal(calls[0].args.p_actualizar_presupuesto, true)
+  assert.equal((await guardarPerfilEmpresa({ ...base, portadaUrl: '' })).error, undefined)
+  assert.equal(calls[1].args.p_actualizar_portada, true)
+  assert.equal(calls[1].args.p_actualizar_presupuesto, false)
+  assert.equal((await guardarPerfilEmpresa({ ...base, presupuestoMinInteres: 0, presupuestoMaxInteres: 100000 })).error, undefined)
+  assert.equal(calls[2].args.p_actualizar_portada, false)
+  assert.equal(calls[2].args.p_actualizar_presupuesto, true)
+  assert.equal(calls[2].args.p_presupuesto_min_interes, null)
+  assert.equal(calls[2].args.p_presupuesto_max_interes, null)
+  for (const invalid of [
+    { presupuestoMinInteres: 1000 },
+    { presupuestoMaxInteres: 20000 },
+    { presupuestoMinInteres: -1, presupuestoMaxInteres: 500 },
+    { presupuestoMinInteres: 5000, presupuestoMaxInteres: 1000 },
+    { presupuestoMinInteres: 0, presupuestoMaxInteres: 100001 },
+    { presupuestoMinInteres: NaN, presupuestoMaxInteres: 1000 },
+    { presupuestoMinInteres: '500', presupuestoMaxInteres: 1000 },
+  ]) assert.ok((await guardarPerfilEmpresa({ ...base, ...invalid })).error, JSON.stringify(invalid))
+  assert.equal(calls.length, 3, 'Invalid preferences must not reach the database')
+})
+
+async function profileFixture() {
+  const { load } = loadModules()
+  const original = await load('lib/empresas/production-store.ts').empresaPublicaReal(empresaId)
+  return { load, datos: { ...original, empresa: { ...original.empresa, provincias: ['Madrid'], servicios: ['Limpieza'], portadaUrl: 'https://example.com/saved-cover.webp', presupuestoMinInteres: 1200, presupuestoMaxInteres: 35000 } } }
+}
+
+test('cancel discards both pending photos and budget changes without uploading either image', async () => {
+  const { load, datos } = await profileFixture()
+  const h = workspaceHarness(load, { datos, puedeEditar: true }, 'PerfilEmpresaEditor')
+  const previousFetch = globalThis.fetch, create = URL.createObjectURL, revoke = URL.revokeObjectURL
+  const revoked = []
+  let uploads = 0
+  globalThis.fetch = async () => { uploads++; throw new Error('Cancel must not upload') }
+  URL.createObjectURL = file => `blob:${file.name}`
+  URL.revokeObjectURL = url => revoked.push(url)
+  try {
+    h.button(h.render(), 'Editar perfil').props.onClick({ preventDefault() {} })
+    let tree = h.render()
+    for (const [id, name] of [['empresa-logo', 'new-avatar.webp'], ['empresa-portada', 'new-cover.webp']]) {
+      const input = h.byId(tree, id)
+      assert.equal(input.props.type, 'file')
+      input.props.onChange({ target: { files: [new File(['image'], name, { type: 'image/webp' })], value: '' } })
+    }
+    h.selector(tree, 'RangoPrecio').props.onChange([2500, 15000])
+    tree = h.render()
+    assert.equal(h.profile(tree).props.datos.empresa.logoUrl, 'blob:new-avatar.webp')
+    assert.equal(h.profile(tree).props.datos.empresa.portadaUrl, 'blob:new-cover.webp')
+    assert.deepEqual(h.selector(tree, 'RangoPrecio').props.value, [2500, 15000])
+    h.button(tree, 'Cancelar').props.onClick()
+    tree = h.render()
+    assert.deepEqual(h.profile(tree).props.datos, datos)
+    assert.equal(uploads, 0)
+    assert.deepEqual(h.actions, [])
+    assert.deepEqual(new Set(revoked), new Set(['blob:new-avatar.webp', 'blob:new-cover.webp']))
+    h.button(tree, 'Editar perfil').props.onClick({ preventDefault() {} })
+    assert.deepEqual(h.selector(h.render(), 'RangoPrecio').props.value, [1200, 35000])
+  } finally { globalThis.fetch = previousFetch; URL.createObjectURL = create; URL.revokeObjectURL = revoke }
+})
+
+test('invalid cover files never replace the saved cover or start an upload', async () => {
+  const { load, datos } = await profileFixture()
+  const h = workspaceHarness(load, { datos, puedeEditar: true }, 'PerfilEmpresaEditor')
+  h.button(h.render(), 'Editar perfil').props.onClick({ preventDefault() {} })
+  for (const file of [new File(['svg'], 'cover.svg', { type: 'image/svg+xml' }), new File([new Uint8Array(3 * 1024 * 1024 + 1)], 'large.webp', { type: 'image/webp' }), new File([], 'empty.png', { type: 'image/png' })]) {
+    const input = h.byId(h.render(), 'empresa-portada')
+    input.props.onChange({ target: { files: [file], value: '' } })
+    const tree = h.render()
+    assert.equal(h.profile(tree).props.datos.empresa.portadaUrl, datos.empresa.portadaUrl)
+    assert.ok(h.all(tree, n => n.props?.role === 'alert').length, file.name)
+    assert.deepEqual(h.actions, [])
+  }
+})
+
+test('a failed second image upload preserves the draft and reuses the first image on retry', async () => {
+  const { load, datos } = await profileFixture()
+  const h = workspaceHarness(load, { datos, puedeEditar: true }, 'PerfilEmpresaEditor')
+  const previousFetch = globalThis.fetch, create = URL.createObjectURL, revoke = URL.revokeObjectURL
+  const uploads = []
+  let rejectCover = true
+  URL.createObjectURL = file => `blob:${file.name}`
+  URL.revokeObjectURL = () => {}
+  globalThis.fetch = async (url, options) => {
+    uploads.push(url)
+    assert.equal(options.body.get('empresaId'), empresaId)
+    if (url === '/api/empresas/portada' && rejectCover) return { ok: false, json: async () => ({ error: 'Error temporal de portada' }) }
+    return { ok: true, json: async () => ({ url: `https://blob.example/${url.endsWith('/portada') ? 'cover' : 'avatar'}.webp` }) }
+  }
+  try {
+    h.button(h.render(), 'Editar perfil').props.onClick({ preventDefault() {} })
+    let tree = h.render()
+    h.byId(tree, 'empresa-nombre').props.onChange({ target: { value: 'Empresa con ambas fotos' } })
+    h.byId(tree, 'empresa-logo').props.onChange({ target: { files: [new File(['avatar'], 'avatar.webp', { type: 'image/webp' })], value: '' } })
+    h.byId(tree, 'empresa-portada').props.onChange({ target: { files: [new File(['cover'], 'cover.webp', { type: 'image/webp' })], value: '' } })
+    h.selector(tree, 'RangoPrecio').props.onChange([2500, 15000])
+    await h.all(h.render(), n => n.type === 'form')[0].props.onSubmit({ preventDefault() {} })
+    tree = h.render()
+    assert.equal(h.byId(tree, 'empresa-nombre').props.value, 'Empresa con ambas fotos')
+    assert.deepEqual(h.selector(tree, 'RangoPrecio').props.value, [2500, 15000])
+    assert.match(h.text(tree), /Error temporal de portada/)
+    assert.equal(h.actions.length, 0)
+    rejectCover = false
+    await h.all(tree, n => n.type === 'form')[0].props.onSubmit({ preventDefault() {} })
+    assert.deepEqual(uploads, ['/api/empresas/logo', '/api/empresas/portada', '/api/empresas/portada'])
+    assert.equal(h.actions.length, 1)
+    const saved = h.actions[0].args[0]
+    assert.equal(saved.logoUrl, 'https://blob.example/avatar.webp')
+    assert.equal(saved.portadaUrl, 'https://blob.example/cover.webp')
+    assert.equal(saved.presupuestoMinInteres, 2500)
+    assert.equal(saved.presupuestoMaxInteres, 15000)
+    assert.equal(h.profile(h.render()).props.datos.empresa.portadaUrl, saved.portadaUrl)
+    assert.equal(h.byId(h.render(), 'empresa-nombre'), undefined)
+  } finally { globalThis.fetch = previousFetch; URL.createObjectURL = create; URL.revokeObjectURL = revoke }
+})
+
+test('budget preference uses the professional range control and is not rendered in public profiles', async () => {
+  const { load, datos } = await profileFixture()
+  const h = workspaceHarness(load, { datos, puedeEditar: true }, 'PerfilEmpresaEditor')
+  assert.match(h.text(h.render()), /Avisos de nuevas demandas/)
+  h.button(h.render(), 'Editar perfil').props.onClick({ preventDefault() {} })
+  let tree = h.render()
+  const range = h.selector(tree, 'RangoPrecio')
+  assert.deepEqual(range.props.value, [1200, 35000])
+  assert.equal(range.props.progresivo, true)
+  assert.equal(range.props.etiqueta, 'Presupuesto de la demanda')
+  h.button(tree, 'Cualquier presupuesto').props.onClick()
+  tree = h.render()
+  assert.deepEqual(h.selector(tree, 'RangoPrecio').props.value, [0, 100000])
+  await h.all(tree, n => n.type === 'form')[0].props.onSubmit({ preventDefault() {} })
+  assert.equal(h.actions[0].args[0].presupuestoMinInteres, null)
+  assert.equal(h.actions[0].args[0].presupuestoMaxInteres, null)
+  const publicProfile = load('components/empresas/perfil-empresa.tsx').default
+  const html = renderToStaticMarkup(React.createElement(publicProfile, { datos }))
+  assert.doesNotMatch(html, /Avisos de nuevas demandas|Presupuesto total del proyecto|Presupuesto de la demanda/)
+  const readonly = workspaceHarness(load, { datos, puedeEditar: false }, 'PerfilEmpresaEditor')
+  assert.ok(!readonly.profile(readonly.render()).props.preferencias)
 })

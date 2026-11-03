@@ -3,7 +3,7 @@
 import { useState, useTransition, type FormEvent } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Activity, ArrowUpRight, BriefcaseBusiness, Building2, Check, ClipboardList, Copy, Eye, EyeOff, LayoutGrid, Loader2, MapPin, MessageSquare, Pencil, ShieldCheck, SlidersHorizontal, UserPlus, Users, Wallet, Wrench } from "lucide-react"
+import { Activity, ArrowUpRight, BriefcaseBusiness, Building2, Check, ClipboardList, Copy, Eye, EyeOff, LayoutGrid, Loader2, MessageSquare, SlidersHorizontal, UserPlus, Users, Wallet } from "lucide-react"
 import { actualizarMiembroEmpresa, cancelarInvitacionEmpresa, invitarMiembroEmpresa, revocarMiembroEmpresa } from "@/app/actions/empresa-workspace"
 import { useIdioma, useT } from "@/components/idioma-provider"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -19,7 +19,7 @@ import { CobrosEmpresa } from "@/components/empresas/cobros-empresa"
 import { PerfilEmpresaEditor } from "@/components/empresas/perfil-empresa-editor"
 import { OperacionesEmpresa } from "@/components/empresas/operaciones-empresa"
 import { PermisosEmpresaFields } from "@/components/empresas/permisos-empresa"
-import { ESTADOS_VERIFICACION_EMPRESA, VerificacionEmpresa } from "@/components/empresas/verificacion-empresa"
+import { VerificacionEmpresa } from "@/components/empresas/verificacion-empresa"
 import { NOMBRES_ROL_EMPRESA, PERMISOS_EMPRESA, PERMISOS_MIEMBRO, type EmpresaPublica, type EspacioEmpresa, type OperacionInicialEmpresa, type MiembroEmpresa, type PermisosEmpresa, type ResultadoEmpresa, type RolEmpresa } from "@/lib/empresas/types"
 import { localeDe } from "@/lib/i18n"
 import styles from "./empresa-workspace.module.css"
@@ -40,7 +40,6 @@ export function EmpresaWorkspaceReal({ espacio, perfilPublico: datosPerfilPublic
   const puedeVerCobros = !!miembroActual?.permisos.ver_cobros
   const verificada = empresa.estadoVerificacion === "verificada"
   const [pestana, setPestana] = useState(mostrarCobrosIniciales && puedeVerCobros ? "cobros" : operacionInicial ? "operaciones" : "perfil")
-  const [solicitudEdicion, setSolicitudEdicion] = useState(0)
   const [editor, setEditor] = useState<MiembroEmpresa | "invitacion" | null>(null)
   const [email, setEmail] = useState("")
   const [cargo, setCargo] = useState("")
@@ -57,11 +56,6 @@ export function EmpresaWorkspaceReal({ espacio, perfilPublico: datosPerfilPublic
   const activos = miembros.filter((m) => m.estado === "activo")
   const invitaciones = espacio.invitaciones.filter((i) => i.estado === "pendiente" && new Date(i.expiraEn).getTime() > Date.now())
   const fecha = (valor: string) => new Date(valor).toLocaleDateString(localeDe(idioma), { day: "numeric", month: "short", year: "numeric" })
-
-  function editarPerfil() {
-    setPestana("perfil")
-    setSolicitudEdicion((actual) => actual + 1)
-  }
 
   function ejecuta(action: () => Promise<ResultadoEmpresa<unknown>>, confirmacion: string, completar?: () => void) {
     setError(""); setMensaje("")
@@ -107,21 +101,14 @@ export function EmpresaWorkspaceReal({ espacio, perfilPublico: datosPerfilPublic
     return miembro.rol === "miembro" && miembro.usuarioId !== actor.id && PERMISOS_EMPRESA.every(({ clave }) => !miembro.permisos[clave] || !!miembroActual?.permisos[clave])
   }
 
-  return <div className={styles.workspace}><div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-    <header className="overflow-hidden rounded-3xl border shadow-sm">
-      <div className={`${styles.hero} p-5 sm:p-8`}>
-        <p className="mb-6 flex items-center gap-2 text-xs font-semibold tracking-[0.16em] text-emerald-100/80 uppercase"><Building2 aria-hidden="true" className="size-4" />{t("Mi empresa")}</p>
-        <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
-          <div className="flex min-w-0 items-start gap-4">
-            <Avatar className="size-16 shrink-0 rounded-2xl border border-white/20 bg-white shadow-sm sm:size-20"><AvatarImage src={empresa.logoUrl} alt={empresa.nombre} className="object-contain p-1" /><AvatarFallback className="rounded-2xl bg-emerald-50 text-emerald-900"><Building2 aria-hidden="true" className="size-8" /></AvatarFallback></Avatar>
-            <div className="min-w-0"><h1 className="break-words text-2xl leading-tight font-semibold tracking-tight sm:text-3xl">{empresa.nombre}</h1><p className="mt-2 max-w-lg text-sm leading-relaxed text-emerald-100/85">{t("Gestiona tu perfil, tu equipo y tus operaciones.")}</p><div className="mt-3 flex flex-wrap gap-2"><Badge className="border-white/20 bg-white/10 text-white">{t(miembroActual ? NOMBRES_ROL_EMPRESA[miembroActual.rol] : "Administrador de plataforma")}</Badge><Badge className="gap-1.5 border-white/20 bg-white/10 text-white">{verificada && <ShieldCheck aria-hidden="true" className="size-3.5" />}{t(ESTADOS_VERIFICACION_EMPRESA[empresa.estadoVerificacion])}</Badge></div></div>
-          </div>
-          <div className="flex shrink-0 flex-wrap gap-2 lg:max-w-[52%] lg:justify-end">{puedePerfil && datosPerfilPublico && <Button type="button" size="sm" className="min-h-10 border border-white bg-white text-emerald-950 hover:bg-emerald-50" onClick={editarPerfil}><Pencil aria-hidden="true" className="size-4" />{t("Editar perfil de empresa")}</Button>}{puedePrevisualizar && <Button asChild variant="outline" size="sm" className="min-h-10 border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white"><Link href="/mi-empresa/vista-previa"><Eye aria-hidden="true" className="size-4" />{t("Vista previa del perfil")}</Link></Button>}{verificada && <Button asChild variant="outline" size="sm" className="min-h-10 border-white bg-white text-emerald-950 hover:bg-emerald-50 hover:text-emerald-950 dark:bg-white dark:text-emerald-950 dark:hover:bg-emerald-50"><Link href={`/empresa/${encodeURIComponent(empresa.id)}`}>{t("Ver perfil público")}<ArrowUpRight aria-hidden="true" className="size-4" /></Link></Button>}{miembroActual?.permisos.mensajes && <Button asChild variant="outline" size="sm" className="min-h-10 border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white"><Link href={`/mensajes?empresa=${encodeURIComponent(empresa.id)}`}><MessageSquare aria-hidden="true" className="size-4" />{t("Mensajes")}</Link></Button>}</div>
-        </div>
+  return <div className="min-h-[70vh]"><div className="container mx-auto space-y-6 px-4 py-8">
+    <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <p className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><Building2 aria-hidden="true" className="size-4" />{t("Mi empresa")}</p>
+      <div className="flex flex-wrap gap-2">
+        {puedePrevisualizar && <Button asChild variant="outline" size="sm"><Link href="/mi-empresa/vista-previa"><Eye aria-hidden="true" className="size-4" />{t("Vista previa del perfil")}</Link></Button>}
+        {verificada && <Button asChild variant="outline" size="sm"><Link href={`/empresa/${encodeURIComponent(empresa.id)}`}>{t("Ver perfil público")}<ArrowUpRight aria-hidden="true" className="size-4" /></Link></Button>}
+        {miembroActual?.permisos.mensajes && <Button asChild variant="outline" size="sm"><Link href={`/mensajes?empresa=${encodeURIComponent(empresa.id)}`}><MessageSquare aria-hidden="true" className="size-4" />{t("Mensajes")}</Link></Button>}
       </div>
-      <dl className="grid grid-cols-3 divide-x bg-card px-1 py-4 sm:px-4 sm:py-5">
-        {[{ icon: Users, label: "Miembros activos", value: activos.length }, { icon: Wrench, label: "Servicios", value: empresa.servicios.length }, { icon: MapPin, label: "Provincias", value: empresa.provincias?.length || (empresa.ubicacion ? "—" : 0) }].map(({ icon: Icon, label, value }) => <div key={label} className="flex min-w-0 flex-col gap-2 px-3 sm:flex-row sm:items-center sm:gap-3 sm:px-5"><span aria-hidden="true" className="hidden size-10 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-primary sm:inline-flex"><Icon className="size-5" /></span><div className="min-w-0"><dt className="text-xs leading-relaxed text-muted-foreground">{t(label)}</dt><dd className="mt-0.5 text-xl font-semibold tracking-tight tabular-nums sm:text-2xl">{value}</dd></div></div>)}
-      </dl>
     </header>
     {error && <p role="alert" className="rounded-lg border border-destructive/25 bg-destructive/5 p-3 text-sm text-destructive">{t(error)}</p>}{mensaje && <p role="status" className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-3 text-sm text-emerald-700 dark:text-emerald-400">{t(mensaje)}</p>}
     <Tabs value={pestana} onValueChange={setPestana} className="min-w-0 gap-6">
@@ -132,8 +119,8 @@ export function EmpresaWorkspaceReal({ espacio, perfilPublico: datosPerfilPublic
         <TabsTrigger value="actividad" className={tabClass}><Activity aria-hidden="true" className="size-4" />{t("Actividad")}</TabsTrigger>
         {puedeVerCobros && <TabsTrigger value="cobros" className={tabClass}><Wallet aria-hidden="true" className="size-4" />{t("Cobros")}</TabsTrigger>}
       </TabsList></div>
-      <TabsContent value="perfil" forceMount hidden={pestana !== "perfil"} className="grid min-w-0 items-start gap-5 data-[state=inactive]:hidden xl:grid-cols-[minmax(0,1fr)_340px]">
-        {datosPerfilPublico ? <PerfilEmpresaEditor key={empresa.id} datos={datosPerfilPublico} puedeEditar={puedePerfil} solicitudEdicion={solicitudEdicion} integrado /> : <Card>
+      <TabsContent value="perfil" forceMount hidden={pestana !== "perfil"} className="min-w-0 space-y-6 data-[state=inactive]:hidden">
+        {datosPerfilPublico ? <PerfilEmpresaEditor key={empresa.id} datos={datosPerfilPublico} puedeEditar={puedePerfil} integrado lateral={<VerificacionEmpresa espacio={espacio} />} /> : <Card>
           <CardHeader><CardTitle className="text-lg">{empresa.nombre}</CardTitle></CardHeader>
           <CardContent className="space-y-5">
             <section><h2 className="mb-2 text-sm font-semibold">{t("Descripción")}</h2><p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{empresa.descripcion || t("La empresa todavía no ha añadido su presentación.")}</p></section>
@@ -142,7 +129,7 @@ export function EmpresaWorkspaceReal({ espacio, perfilPublico: datosPerfilPublic
             {puedePrevisualizar ? <div className="space-y-3 rounded-lg border bg-muted/30 p-4"><p role="status" className="text-sm text-muted-foreground">{t("No se pudo cargar la vista previa de la empresa.")}</p><Button type="button" variant="outline" size="sm" onClick={() => router.refresh()}>{t("Reintentar")}</Button></div> : <p className="text-sm text-muted-foreground">{t("Tu acceso permite consultar el perfil. Para editarlo necesitas permiso.")}</p>}
           </CardContent>
         </Card>}
-        <aside className="min-w-0"><VerificacionEmpresa espacio={espacio} /></aside>
+        {!datosPerfilPublico && <VerificacionEmpresa espacio={espacio} />}
       </TabsContent>
       <TabsContent value="equipo" className="space-y-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><h2 className="text-lg font-semibold">{t("Equipo")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("Cada persona accede con su cuenta y actúa según los permisos que le concedas.")}</p><p className="mt-2 text-xs text-muted-foreground">{t("No hace falta tener un perfil profesional público para gestionar la empresa.")}</p></div>{puedeEquipo && <Button className="shrink-0" onClick={() => abrir()} disabled={pending}><UserPlus className="size-4" />{t("Invitar miembro")}</Button>}</div>
         {enlace && <Card><CardContent className="space-y-3"><p className="text-sm font-medium">{t("Invitación creada. Comparte el enlace con la persona indicada.")}</p><div className="flex flex-col gap-2 sm:flex-row"><Input aria-label={t("Enlace de invitación")} readOnly value={enlace} onFocus={(e) => e.target.select()} /><Button variant="outline" onClick={async () => { try { await navigator.clipboard.writeText(enlace); setCopiado(true) } catch { setError("No se pudo copiar automáticamente. Selecciona y copia el enlace.") } }}>{copiado ? <Check className="size-4" /> : <Copy className="size-4" />}{t(copiado ? "Copiado" : "Copiar enlace")}</Button></div><p className="text-xs text-muted-foreground">{t("No se ha enviado ningún correo. El enlace es personal, de un solo uso y caduca en 7 días.")}</p></CardContent></Card>}

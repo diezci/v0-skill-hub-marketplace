@@ -5,29 +5,9 @@ import { textoServidor } from "@/lib/i18n-servidor"
 
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { encajaEnPresupuestoDeAvisos } from "@/lib/filtros-notificaciones"
+import { cubreZonaDeAvisos, encajaEnPresupuestoDeAvisos } from "@/lib/filtros-notificaciones"
+import { destinatariosDemandaEmpresa } from "@/lib/empresas/avisos-demanda"
 import { formatearRangoPresupuesto } from "@/lib/utils"
-
-function normalizar(s: string) {
-  return s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .trim()
-}
-
-// La ubicación de una demanda es una provincia del listado (lib/provincias),
-// pero en demandas antiguas puede venir con el municipio o con otro formato,
-// así que se compara de forma laxa en vez de por igualdad exacta.
-function cubreLaZona(ubicacionDemanda: string | null, provincias: string[] | null) {
-  if (!provincias || provincias.length === 0) return false
-  const ubi = normalizar(ubicacionDemanda || "")
-  if (!ubi) return true // demanda sin ubicación: no se descarta a nadie por zona
-  return provincias.some((p) => {
-    const prov = normalizar(p)
-    return ubi.includes(prov) || prov.includes(ubi)
-  })
-}
 
 // Al publicarse una demanda, avisa (campana del navbar) a los profesionales que
 // han declarado trabajar en esa subcategoría, cubrir esa provincia Y aceptar
@@ -49,7 +29,7 @@ export async function buscarYEnviarInvitaciones(solicitudId: string) {
 
   const { data: solicitud, error: solicitudError } = await supabase
     .from("solicitudes")
-    .select("id, cliente_id, estado, titulo, ubicacion, presupuesto_min, presupuesto_max, categoria_id, categorias(nombre)")
+    .select("id, cliente_id, empresa_id, estado, titulo, ubicacion, presupuesto_min, presupuesto_max, categoria_id, categorias(nombre)")
     .eq("id", solicitudId)
     .maybeSingle()
 
@@ -79,13 +59,9 @@ export async function buscarYEnviarInvitaciones(solicitudId: string) {
   if (profError) {
     return { error: await textoServidor(profError.message) }
   }
-  if (!profesionales || profesionales.length === 0) {
-    return { message: "Ningún profesional ha declarado trabajar en esta categoría" }
-  }
-
-  const destinatarios = profesionales
+  let particulares = (profesionales || [])
     .filter((p) => p.id !== user.id)
-    .filter((p) => cubreLaZona(solicitud.ubicacion, p.provincias_cobertura as string[] | null))
+    .filter((p) => cubreZonaDeAvisos(solicitud.ubicacion, p.provincias_cobertura as string[] | null))
     .filter((p) =>
       encajaEnPresupuestoDeAvisos(
         solicitud.presupuesto_min,
@@ -94,6 +70,19 @@ export async function buscarYEnviarInvitaciones(solicitudId: string) {
         p.presupuesto_max_interes,
       ),
     )
+
+  let empresas: { id: string; empresaId: string }[]
+  try { empresas = await destinatariosDemandaEmpresa(admin, solicitud, categoriaNombre) }
+  catch { return { error: await textoServidor("No se pudo preparar el envío de avisos") } }
+  if (solicitud.empresa_id) {
+    const { data: equipoCliente, error: errorEquipo } = await admin.from("empresa_miembros")
+      .select("usuario_id").eq("empresa_id", solicitud.empresa_id).eq("estado", "activo")
+    if (errorEquipo) return { error: await textoServidor("No se pudo preparar el envío de avisos") }
+    const miembrosCliente = new Set((equipoCliente || []).map((miembro) => miembro.usuario_id))
+    particulares = particulares.filter((profesional) => !miembrosCliente.has(profesional.id))
+  }
+  // One notification/email per user even when personal and company criteria match.
+  const destinatarios = [...new Map([...particulares.map((p) => ({ id: p.id })), ...empresas].map((p) => [p.id, p])).values()]
 
   if (destinatarios.length === 0) {
     return { message: "Sin profesionales que cubran esta categoría, zona y presupuesto" }

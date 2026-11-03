@@ -6,7 +6,7 @@ import type { EmpresaFicha, EmpresaPublica, EspacioEmpresa, InvitacionEmpresa, M
 const SIN_PERMISOS: PermisosEmpresa = { perfil: false, mensajes: false, presupuestos: false, encargos: false, equipo: false, ver_cobros: false, gestionar_cobros: false }
 
 
-type EmpresaRow = { id: string; nombre: string; razon_social?: string; descripcion?: string; ubicacion?: string; provincias?: string[]; sitio_web?: string; logo?: string; verificada?: boolean; estado_verificacion?: EstadoVerificacionEmpresa; servicios?: string[]; cif?: string; propietario_id?: string; miembros_count?: number; rating_promedio?: number; total_resenas?: number; contacto_usuario_id?: string }
+type EmpresaRow = { id: string; nombre: string; razon_social?: string; descripcion?: string; ubicacion?: string; provincias?: string[]; sitio_web?: string; logo?: string; foto_portada?: string; presupuesto_min_interes?: number | null; presupuesto_max_interes?: number | null; verificada?: boolean; estado_verificacion?: EstadoVerificacionEmpresa; servicios?: string[]; cif?: string; propietario_id?: string; miembros_count?: number; rating_promedio?: number; total_resenas?: number; contacto_usuario_id?: string }
 type MiembroRow = { usuario_id: string; nombre?: string; apellido?: string; foto_perfil?: string; cargo?: string; bio?: string; titulo?: string; habilidades?: string[]; estado?: string; es_titular?: boolean; email?: string; rol?: RolEmpresa; permisos?: Partial<PermisosEmpresa>; perfil_publico?: boolean; tiene_perfil_profesional?: boolean }
 type InvitacionRow = { id: string; email?: string; cargo: string; estado: InvitacionEmpresa["estado"]; created_at?: string; expira_at: string; rol?: Exclude<RolEmpresa, "principal">; permisos?: Partial<PermisosEmpresa>; perfil_publico?: boolean }
 type PublicaRow = { empresa: EmpresaRow; miembros?: MiembroRow[]; portfolio?: Array<{ id: string; trabajo_id?: string; titulo: string; descripcion?: string; categoria?: string; ubicacion?: string; rango_precio?: string; fecha_proyecto?: string; created_at?: string; imagen?: string; participantes_ids?: string[] }>; resenas?: Array<{ id: string; trabajo_id: string; autor: string; rating: number; comentario: string; created_at: string }> }
@@ -15,7 +15,7 @@ type VerificacionRow = { id: string; estado: EstadoVerificacionEmpresa; metodo: 
 type OperacionRow = { id: string; oferta_origen_id?: string | null; titulo: string; descripcion?: string; estado: string; fecha: string; actor_usuario_id: string; actor_nombre: string; precio?: number; solicitud_id?: string; trabajo_id?: string; parte?: "cliente" | "proveedor"; operador_usuario_id?: string; operador_nombre?: string; progreso?: number; cancelacion_estado?: string | null; cancelacion_parte_solicitante?: "cliente" | "proveedor" | null; cancelacion_razon?: string | null; fecha_entrega?: string | null; cancelacion_revision?: string | null; liquidacion?: OperacionEmpresa["liquidacion"]; disputa_actual?: OperacionEmpresa["disputaActual"] }
 
 function ficha(row: EmpresaRow): EmpresaFicha {
-  return { id: row.id, slug: row.id, nombre: row.nombre, razonSocial: row.razon_social || row.nombre, nif: row.cif || "", descripcion: row.descripcion || "", web: row.sitio_web || "", ubicacion: row.ubicacion || "", provincias: row.provincias || [], servicios: row.servicios || [], logoUrl: row.logo || undefined, estadoVerificacion: row.estado_verificacion || (row.verificada ? "verificada" : "borrador"), representanteNombre: "", cargoLegal: "" }
+  return { id: row.id, slug: row.id, nombre: row.nombre, razonSocial: row.razon_social || row.nombre, nif: row.cif || "", descripcion: row.descripcion || "", web: row.sitio_web || "", ubicacion: row.ubicacion || "", provincias: row.provincias || [], servicios: row.servicios || [], logoUrl: row.logo || undefined, portadaUrl: row.foto_portada || undefined, presupuestoMinInteres: row.presupuesto_min_interes == null ? null : Number(row.presupuesto_min_interes), presupuestoMaxInteres: row.presupuesto_max_interes == null ? null : Number(row.presupuesto_max_interes), estadoVerificacion: row.estado_verificacion || (row.verificada ? "verificada" : "borrador"), representanteNombre: "", cargoLegal: "" }
 }
 function miembro(row: MiembroRow): MiembroEmpresa {
   return { id: row.usuario_id, usuarioId: row.usuario_id, nombre: [row.nombre, row.apellido].filter(Boolean).join(" ") || "Profesional", email: row.email || "", cargo: row.cargo || "", rol: row.rol || (row.es_titular ? "principal" : "miembro"), estado: row.estado === "revocado" ? "revocado" : "activo", permisos: { ...SIN_PERMISOS, ...row.permisos }, perfilPublico: row.perfil_publico === true, tienePerfilProfesional: row.tiene_perfil_profesional === true, bio: row.bio || row.titulo || "", habilidades: row.habilidades || [], fotoUrl: row.foto_perfil || undefined }
@@ -23,8 +23,9 @@ function miembro(row: MiembroRow): MiembroEmpresa {
 function invitacion(row: InvitacionRow, empresaId: string): InvitacionEmpresa {
   return { id: row.id, empresaId, nombre: row.email || "", email: row.email || "", cargo: row.cargo, rol: row.rol || "miembro", permisos: { ...SIN_PERMISOS, ...row.permisos }, perfilPublico: row.perfil_publico === true, estado: row.estado, expiraEn: row.expira_at, creadaEn: row.created_at || "" }
 }
-function publica(row: PublicaRow): EmpresaPublica {
-  const { nif: _nif, representanteNombre: _representante, cargoLegal: _cargo, ...empresa } = ficha(row.empresa)
+function publica(row: PublicaRow, preferenciasPrivadas = false): EmpresaPublica {
+  const { nif: _nif, representanteNombre: _representante, cargoLegal: _cargo, presupuestoMinInteres, presupuestoMaxInteres, ...perfil } = ficha(row.empresa)
+  const empresa = preferenciasPrivadas ? { ...perfil, presupuestoMinInteres, presupuestoMaxInteres } : perfil
   return { empresa, miembros: (row.miembros || []).map((r) => { const { id, usuarioId, nombre, cargo, bio, habilidades, perfilPublico, fotoUrl, tienePerfilProfesional } = miembro({ ...r, perfil_publico: true }); return { id, usuarioId, nombre, cargo, bio, habilidades, perfilPublico, fotoUrl, tienePerfilProfesional } }), trabajos: (row.portfolio || []).map((p) => ({ id: p.id, trabajoId: p.trabajo_id, empresaId: row.empresa.id, titulo: p.titulo, descripcion: p.descripcion || "", categoria: p.categoria || "", ubicacion: p.ubicacion || "", rangoPrecio: p.rango_precio || "", fecha: p.fecha_proyecto || p.created_at || "", participantesIds: p.participantes_ids || [], imagen: p.imagen || undefined })), resenas: (row.resenas || []).map((r) => ({ id: r.id, trabajoId: r.trabajo_id, autor: r.autor, puntuacion: r.rating, comentario: r.comentario, fecha: r.created_at })), local: false, contactoUsuarioId: row.empresa.contacto_usuario_id, miembrosCount: row.empresa.miembros_count, ratingPromedio: row.empresa.rating_promedio, totalResenas: row.empresa.total_resenas }
 }
 
@@ -47,7 +48,7 @@ export const empresaPublicaReal = cache(async (id: string): Promise<EmpresaPubli
   return !error && data?.empresa ? publica(data as PublicaRow) : null
 })
 
-/** Private preview uses the current user's JWT and the same public-only DTO. */
+/** Current user's JWT guards public presentation plus private notification preferences. */
 export async function vistaPreviaEmpresaReal(): Promise<ResultadoEmpresa<EmpresaPublica>> {
   const supabase = await createClient()
   if (!supabase) return { error: "Base de datos no disponible" }
@@ -58,7 +59,7 @@ export async function vistaPreviaEmpresaReal(): Promise<ResultadoEmpresa<Empresa
     ? { error: "No tienes permiso para realizar esta operación de empresa", codigo: "SIN_PERMISO" }
     : { error: "No se pudo completar la operación. Vuelve a intentarlo." }
   if (!data?.empresa) return { error: "Todavía no formas parte de una empresa.", codigo: "SIN_EMPRESA" }
-  return { data: publica(data as PublicaRow) }
+  return { data: publica(data as PublicaRow, true) }
 }
 
 export async function empresasPublicasReales(): Promise<EmpresaPublica[]> {

@@ -12,7 +12,7 @@ export function VistaPreviaEmpresa({ datos, puedeEditar = false }: { datos: Empr
   const publicada = datos.empresa.estadoVerificacion === "verificada"
 
   return <>
-    <div className="mx-auto max-w-4xl px-4 pt-6 sm:pt-8">
+    <div className="container mx-auto px-4 pt-6 sm:pt-8">
       <aside aria-label={t("Vista previa privada")} className="flex flex-col gap-4 rounded-xl border border-primary/20 bg-primary/5 p-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 space-y-2">
           <p className="flex items-center gap-2 text-sm font-semibold"><Eye className="size-4 shrink-0" />{t("Vista previa privada")}</p>
