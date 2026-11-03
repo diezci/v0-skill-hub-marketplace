@@ -38,7 +38,8 @@ export const datosInicialesPerfil = {
     },
   }
 
-export type DatosPerfilProfesional = typeof datosInicialesPerfil
+export type DatosLegalesEmpresa = { razonSocial: string; cif: string; domicilio: string }
+export type DatosPerfilProfesional = typeof datosInicialesPerfil & { datos_empresa?: DatosLegalesEmpresa }
 export interface AdaptadorPerfilProfesional {
   identidad: string
   datos: DatosPerfilProfesional

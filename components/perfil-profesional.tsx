@@ -121,7 +121,8 @@ const provincias = [
   { provincia: "Melilla", codigo: "52" },
 ]
 
-import { datosInicialesPerfil, type AdaptadorPerfilProfesional } from "@/lib/perfil-profesional-editor"
+import { DatosLegalesEmpresaCard } from "@/components/empresas/datos-legales-empresa"
+import { datosInicialesPerfil, type AdaptadorPerfilProfesional, type DatosPerfilProfesional } from "@/lib/perfil-profesional-editor"
 
 interface PerfilProfesionalProps {
   adaptador?: AdaptadorPerfilProfesional
@@ -143,7 +144,7 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
   const [tienePerfilProfesional, setTienePerfilProfesional] = useState(false)
   const mostrarEditorProfesional = !!adaptador || tienePerfilProfesional || completarProfesional
 
-  const [editData, setEditData] = useState(adaptador?.datos ?? datosInicialesPerfil)
+  const [editData, setEditData] = useState<DatosPerfilProfesional>(adaptador?.datos ?? datosInicialesPerfil)
   const [snapshotEdicion, setSnapshotEdicion] = useState<typeof editData | null>(null)
   useEffect(() => {
     if (!editable) { setIsEditing(false); setSnapshotEdicion(null) }
@@ -956,6 +957,9 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
             </TabsList>
 
             <TabsContent value="sobre-mi" className="space-y-6 pt-6">
+              {adaptador && editData.datos_empresa && <DatosLegalesEmpresaCard datos={editData.datos_empresa} editando={isEditing}
+                onDomicilioChange={(domicilio) => setEditData((actual) => actual.datos_empresa
+                  ? { ...actual, datos_empresa: { ...actual.datos_empresa, domicilio } } : actual)} />}
               {/* Bio */}
               <Card>
                 <CardHeader>

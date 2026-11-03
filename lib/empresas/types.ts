@@ -9,6 +9,7 @@ export interface EmpresaFicha {
   slug: string
   nombre: string
   razonSocial: string
+  domicilio?: string
   nif: string
   descripcion: string
   web: string
@@ -163,7 +164,7 @@ export interface ActorEmpresa {
   plataformaAdmin: boolean
 }
 export interface EmpresaPublica {
-  empresa: Omit<EmpresaFicha, "nif" | "representanteNombre" | "cargoLegal">
+  empresa: Omit<EmpresaFicha, "nif" | "representanteNombre" | "cargoLegal"> & { nif?: string }
   miembros: MiembroEmpresaPublico[]
   trabajos: TrabajoEmpresa[]
   resenas: ResenaEmpresa[]
