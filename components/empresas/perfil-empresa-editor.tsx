@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react"
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type Ref } from "react"
 import { useRouter } from "next/navigation"
 import { Building2, ChevronDown, Globe2, ImagePlus, Loader2, MapPin, Save, Upload, Wrench, X } from "lucide-react"
 import { guardarPerfilEmpresa } from "@/app/actions/empresa-workspace"
@@ -22,7 +22,7 @@ const LOGO_MAX_BYTES = 3 * 1024 * 1024
 const LOGO_TIPOS = ["image/png", "image/jpeg", "image/webp"]
 const selectorClass = "max-h-[min(70dvh,var(--radix-popover-content-available-height))] w-[min(32rem,calc(100vw-2rem))] overflow-y-auto"
 
-export function PerfilEmpresaEditor({ empresa, puedeEditar, onGuardar = guardarPerfilEmpresa }: { empresa: EmpresaFicha; puedeEditar: boolean; onGuardar?: typeof guardarPerfilEmpresa }) {
+export function PerfilEmpresaEditor({ empresa, puedeEditar, onGuardar = guardarPerfilEmpresa, nombreInputRef }: { empresa: EmpresaFicha; puedeEditar: boolean; onGuardar?: typeof guardarPerfilEmpresa; nombreInputRef?: Ref<HTMLInputElement> }) {
   const t = useT()
   const router = useRouter()
   const [perfil, setPerfil] = useState(() => ({ nombre: empresa.nombre, descripcion: empresa.descripcion, web: empresa.web, provincias: (empresa.provincias || []).filter((p) => PROVINCIAS_ES.includes(p)), servicios: empresa.servicios.filter((s) => CATEGORIAS_SERVICIO_NOMBRES.includes(s)), logoUrl: empresa.logoUrl || "" }))
@@ -106,7 +106,7 @@ export function PerfilEmpresaEditor({ empresa, puedeEditar, onGuardar = guardarP
     finally { guardadoEnCurso.current = false; setGuardando(false) }
   }
 
-  return <Card className="gap-0 overflow-hidden rounded-2xl border-border/70 py-0 shadow-sm">
+  return <Card id="perfil-empresa" className="scroll-mt-24 gap-0 overflow-hidden rounded-2xl border-border/70 py-0 shadow-sm">
     <CardHeader className="flex flex-row items-center gap-3 border-b border-border/60 px-5 py-5 sm:px-6">
       <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><Building2 className="size-5" aria-hidden="true" /></span>
       <div className="min-w-0 space-y-1.5"><CardTitle><h2 className="text-base leading-tight">{t("Perfil de la empresa")}</h2></CardTitle><CardDescription className="text-xs leading-relaxed sm:text-sm">{t("Presentación, servicios y web corporativa.")}</CardDescription></div>
@@ -128,7 +128,7 @@ export function PerfilEmpresaEditor({ empresa, puedeEditar, onGuardar = guardarP
             </section>
             <section className="space-y-4" aria-labelledby="empresa-datos-titulo">
               <h3 id="empresa-datos-titulo" className="text-sm font-semibold">{t("Datos de la empresa")}</h3>
-              <div className="space-y-2"><Label htmlFor="empresa-nombre">{t("Nombre comercial")}</Label><Input id="empresa-nombre" className="h-10 rounded-lg" required maxLength={120} value={perfil.nombre} onChange={(e) => setPerfil({ ...perfil, nombre: e.target.value })} /></div>
+              <div className="space-y-2"><Label htmlFor="empresa-nombre">{t("Nombre comercial")}</Label><Input ref={nombreInputRef} id="empresa-nombre" className="h-10 rounded-lg" required maxLength={120} value={perfil.nombre} onChange={(e) => setPerfil({ ...perfil, nombre: e.target.value })} /></div>
               <div className="space-y-2"><Label htmlFor="empresa-descripcion">{t("Descripción")}</Label><Textarea id="empresa-descripcion" className="min-h-32 rounded-lg leading-relaxed" maxLength={2000} value={perfil.descripcion} onChange={(e) => setPerfil({ ...perfil, descripcion: e.target.value })} /></div>
               <div className="space-y-2"><Label htmlFor="empresa-web">{t("Web corporativa")}</Label><div className="relative"><Globe2 className="pointer-events-none absolute left-3 top-3 size-4 text-muted-foreground" aria-hidden="true" /><Input id="empresa-web" type="url" className="h-10 rounded-lg pl-9" placeholder="https://" maxLength={500} value={perfil.web} onChange={(e) => setPerfil({ ...perfil, web: e.target.value })} /></div></div>
             </section>
