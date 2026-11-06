@@ -37,6 +37,7 @@ import { obtenerMisTrabajos, actualizarProgresoTrabajo, marcarTrabajoEntregado, 
 import { crearResena } from "@/app/actions/reviews"
 import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
 import MisDisputas from "@/components/mis-disputas"
+import { EntregaAdjuntos } from "@/components/entrega-adjuntos"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
 import { AvisoLiquidacionPago } from "@/components/aviso-liquidacion-pago"
 import { AvisoRevisionEntrega } from "@/components/aviso-revision-entrega"
@@ -101,6 +102,8 @@ function MisSolicitudesContenido() {
   const [reviewComentario, setReviewComentario] = useState("")
   const [reviewHover, setReviewHover] = useState(0)
   const [rejectReason, setRejectReason] = useState("")
+  const [rejectFiles, setRejectFiles] = useState<string[]>([])
+  const [uploadingRejectFiles, setUploadingRejectFiles] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [errorConfirmacion, setErrorConfirmacion] = useState<string | null>(null)
   const [editSolicitud, setEditSolicitud] = useState<any>(null)
@@ -326,44 +329,33 @@ function MisSolicitudesContenido() {
   }
 
   const handleRechazarTrabajo = async (trabajo: any) => {
+    if (!trabajo || actionLoading || uploadingRejectFiles) return
     if (!rejectReason.trim()) {
-      toast({
-        title: t("Error"),
-        description: t("Por favor, indica el motivo del rechazo."),
-        variant: "destructive",
-      })
+      toast({ title: t("Error"), description: t("Por favor, indica el motivo del rechazo."), variant: "destructive" })
       return
     }
-
     setActionLoading(true)
-
-    // Rechazar una entrega NO reembolsa: abre una disputa para que el equipo de
-    // Diime decida según las pruebas y los términos. El pago sigue retenido.
-    const result = await rechazarEntrega(trabajo.id, rejectReason)
-
-    if (result.error) {
-      toast({
-        title: t("Error"),
-        description: t(result.error),
-        variant: "destructive",
-      })
-    } else {
+    try {
+      // El rechazo abre una disputa con sus evidencias; el pago sigue retenido.
+      const result = await rechazarEntrega(trabajo.id, rejectReason, rejectFiles)
+      if (result.error) {
+        toast({ title: t("Error"), description: t(result.error), variant: "destructive" })
+        return
+      }
       toast({
         title: t("Entrega rechazada · disputa abierta"),
-        description:
-          t("La transferencia queda bloqueada. El equipo de Diime revisará las pruebas y los términos acordados para decidir."),
+        description: t("La transferencia queda bloqueada. El equipo de Diime revisará las pruebas y los términos acordados para decidir."),
       })
       setShowRejectDialog(false)
       setSelectedTrabajo(null)
       setRejectReason("")
-
-      // Refresh
-      const refreshResult = await obtenerSolicitudesPorUsuario()
-      if (refreshResult.data) setSolicitudes(refreshResult.data)
-      const trabajosResult = await obtenerMisTrabajos()
-      if (trabajosResult.data) setTrabajos(trabajosResult.data)
+      setRejectFiles([])
+      await refrescarSolicitudes()
+    } catch {
+      toast({ title: t("Error"), description: t("No se pudo rechazar la entrega. Vuelve a intentarlo."), variant: "destructive" })
+    } finally {
+      setActionLoading(false)
     }
-    setActionLoading(false)
   }
 
   const handleSubmitReview = async () => {
@@ -1019,6 +1011,13 @@ function MisSolicitudesContenido() {
                       </div>
                     )}
 
+                    {(trabajo?.mensaje_entrega || !!trabajo?.archivos_entrega?.length) && (
+                      <div className="min-w-0 space-y-2 rounded-lg border bg-muted/30 p-4">
+                        {trabajo.mensaje_entrega && <p className="whitespace-pre-wrap break-words text-sm">{trabajo.mensaje_entrega}</p>}
+                        {!!trabajo.archivos_entrega?.length && <><p className="text-sm font-medium">{t("Archivos de la entrega")}</p><AdjuntosLista archivos={trabajo.archivos_entrega} /></>}
+                      </div>
+                    )}
+
                     {/* Trabajo en disputa: en revisión por el equipo */}
                     {trabajo?.estado === "en_disputa" && (
                       <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 flex items-start gap-3">
@@ -1151,6 +1150,9 @@ function MisSolicitudesContenido() {
                             className="h-auto min-h-9 w-full whitespace-normal bg-transparent py-2 text-destructive border-destructive/50 hover:bg-destructive/10 sm:h-9 sm:w-auto sm:shrink-0 sm:whitespace-nowrap"
                             onClick={() => {
                               setSelectedTrabajo(trabajo)
+                              setRejectReason("")
+                              setRejectFiles([])
+                              setUploadingRejectFiles(false)
                               setShowRejectDialog(true)
                             }}
                           >
@@ -1208,6 +1210,12 @@ function MisSolicitudesContenido() {
                               className="mt-2 inline-flex max-w-full items-center gap-1 break-words text-xs text-primary hover:underline"
                             >
                               <FileText className="h-3 w-3 shrink-0" />{" "}{t("Ver justificante y términos")}</a>
+                          )}
+                          {(solicitud.trabajo?.mensaje_entrega || !!solicitud.trabajo?.archivos_entrega?.length) && (
+                            <div className="mt-3 min-w-0 space-y-2">
+                              {solicitud.trabajo.mensaje_entrega && <p className="whitespace-pre-wrap break-words text-sm">{solicitud.trabajo.mensaje_entrega}</p>}
+                              {!!solicitud.trabajo.archivos_entrega?.length && <><p className="text-sm font-medium">{t("Archivos de la entrega")}</p><AdjuntosLista archivos={solicitud.trabajo.archivos_entrega} /></>}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -1336,8 +1344,8 @@ function MisSolicitudesContenido() {
       </Dialog>
 
       {/* Rechazar entrega → abre disputa (no reembolsa automáticamente) */}
-      <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog open={showRejectDialog} onOpenChange={(open) => { if (!actionLoading && !uploadingRejectFiles) setShowRejectDialog(open) }}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-destructive">{t("Rechazar la entrega")}</DialogTitle>
             <DialogDescription>{t("Si la entrega no cumple lo acordado, puedes rechazarla. El pago")}{" "}
@@ -1346,28 +1354,33 @@ function MisSolicitudesContenido() {
           <div className="space-y-4 py-4">
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-muted-foreground flex items-start gap-2">
               <Scale className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-              <span>{t("Se abrirá una disputa. Adjunta tus pruebas en el chat del trabajo (fotos, mensajes): Diime las revisará junto con lo acordado antes de decidir si te reembolsa o libera el pago al profesional.")}</span>
+              <span>{t("Se abrirá una disputa. Diime revisará los archivos de la entrega y las pruebas que adjuntes al rechazo junto con lo acordado antes de decidir si te reembolsa o libera el pago al profesional.")}</span>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">{t("Motivo del rechazo *")}</label>
+              <label htmlFor="motivo-rechazo-entrega" className="text-sm font-medium">{t("Motivo del rechazo *")}</label>
               <Textarea
+                id="motivo-rechazo-entrega"
+                disabled={actionLoading || uploadingRejectFiles}
+                maxLength={5000}
                 placeholder={t("Explica por qué la entrega no cumple lo acordado...")}
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 rows={4}
               />
             </div>
+            <EntregaAdjuntos context="rechazo" archivos={rejectFiles} onChange={setRejectFiles} disabled={actionLoading} onUploadingChange={setUploadingRejectFiles} />
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" className="bg-transparent" onClick={() => {
+            <Button variant="outline" className="bg-transparent" disabled={actionLoading || uploadingRejectFiles} onClick={() => {
               setShowRejectDialog(false)
               setRejectReason("")
+              setRejectFiles([])
             }}>{t("Cancelar")}</Button>
             <Button
               variant="destructive"
               onClick={() => handleRechazarTrabajo(selectedTrabajo)}
-              disabled={actionLoading || !rejectReason.trim()}
+              disabled={actionLoading || uploadingRejectFiles || !rejectReason.trim()}
             >
               {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}{t("Rechazar y abrir disputa")}</Button>
           </DialogFooter>

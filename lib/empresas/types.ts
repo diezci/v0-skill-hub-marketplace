@@ -127,6 +127,8 @@ export interface OperacionEmpresa {
   operadorUsuarioId?: string
   operadorNombre?: string
   progreso?: number
+  archivosEntrega?: string[]
+  mensajeEntrega?: string | null
   cancelacionEstado?: string | null
   cancelacionParteSolicitante?: "cliente" | "proveedor" | null
   cancelacionRazon?: string | null

@@ -1,6 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { validarAdjuntosEntrega } from "@/lib/entregas"
 import { empresaLocalStore, validarCoberturaEmpresa, validarPreferenciasEmpresa, validarDatosProfesionalesEmpresa } from "@/lib/empresas/local-store"
 import { esEmpresasLocal, obtenerActorEmpresaLocal } from "@/lib/empresas/service"
 import type { InputActualizarMiembro, InputMiembro, InputPerfilEmpresa } from "@/lib/empresas/local-store"
@@ -167,8 +168,14 @@ export async function reasignarTrabajoEmpresa(input: { trabajoId: string; usuari
   return ejecutarReal("empresa_reasignar_trabajo", { p_trabajo_id: input.trabajoId, p_usuario_id: input.usuarioId, p_parte: input.parte })
 }
 
-export async function actualizarTrabajoEmpresa(input: { trabajoId: string; progreso: number; entregar?: boolean }): Promise<ResultadoEmpresa> {
-  return ejecutarReal("empresa_actualizar_trabajo", { p_trabajo_id: input.trabajoId, p_progreso: input.progreso, p_entregar: input.entregar === true })
+export async function actualizarTrabajoEmpresa(input: { trabajoId: string; progreso: number; entregar?: boolean; archivosEntrega?: string[]; mensajeEntrega?: string }): Promise<ResultadoEmpresa> {
+  if (!input.entregar) return ejecutarReal("empresa_actualizar_trabajo", { p_trabajo_id: input.trabajoId, p_progreso: input.progreso, p_entregar: false })
+  const adjuntos = validarAdjuntosEntrega(input.archivosEntrega ?? [])
+  if (adjuntos.error) return { error: adjuntos.error }
+  return ejecutarReal("empresa_actualizar_trabajo", {
+    p_trabajo_id: input.trabajoId, p_progreso: input.progreso, p_entregar: true,
+    p_archivos: adjuntos.archivos, p_mensaje: input.mensajeEntrega || null,
+  })
 }
 export async function solicitarPresupuestoEmpresa(input: { empresaId: string; titulo: string; descripcion: string }): Promise<ResultadoEmpresa<{ id: string }>> {
   return ejecutar((actor) => empresaLocalStore.solicitarPresupuesto(actor, input))

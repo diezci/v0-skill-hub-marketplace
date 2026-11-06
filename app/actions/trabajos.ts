@@ -9,6 +9,7 @@ import { destinatariosOperacionEmpresa } from "@/lib/empresas/notificaciones"
 import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { validarAdjuntosCancelacion } from "@/lib/cancelacion-adjuntos"
+import { validarAdjuntosEntrega } from "@/lib/entregas"
 
 export async function crearTrabajo(data: {
   oferta_id: string
@@ -60,9 +61,11 @@ export async function obtenerMisTrabajos() {
     .select(`
       *,
       solicitud:solicitudes(titulo, descripcion, urgencia),
-      oferta:ofertas(precio, tiempo_estimado, unidad_tiempo, archivos, materiales_incluidos, condiciones_pago)
+      oferta:ofertas(precio, tiempo_estimado, unidad_tiempo, archivos, materiales_incluidos, condiciones_pago),
+      entregas:actualizaciones_trabajo(id, tipo, mensaje, archivos, created_at)
     `)
     .or(`cliente_id.eq.${user.id},profesional_id.eq.${user.id}`)
+    .eq("entregas.tipo", "entrega")
     .order("created_at", { ascending: false })
 
   if (error) {
@@ -109,9 +112,13 @@ export async function obtenerMisTrabajos() {
         (escrows || []).find((fila: any) => fila.estado === "pendiente") ??
         null
 
-      const { notas_privadas_proveedor: _notasPrivadas, ...trabajoCompartido } = trabajo
+      const { notas_privadas_proveedor: _notasPrivadas, entregas, ...trabajoCompartido } = trabajo
+      const entrega = (entregas || []).filter((actualizacion: any) => actualizacion.tipo === "entrega")
+        .sort((a: any, b: any) => (b.created_at || "").localeCompare(a.created_at || "") || (b.id || "").localeCompare(a.id || ""))[0]
       return {
         ...trabajoCompartido,
+        archivos_entrega: entrega?.archivos || [],
+        mensaje_entrega: entrega?.mensaje || null,
         empresa_cliente: empresas[trabajo.empresa_cliente_id] || null,
         empresa_proveedora: empresas[trabajo.empresa_proveedora_id] || null,
         cliente,
@@ -464,7 +471,7 @@ export async function actualizarProgresoTrabajo(trabajoId: string, progreso: num
 }
 
 // Provider marks work as completed/delivered
-export async function marcarTrabajoEntregado(trabajoId: string, mensaje?: string) {
+export async function marcarTrabajoEntregado(trabajoId: string, mensaje?: string, archivosAdjuntos: string[] = []) {
   const supabase = await createClient()
   if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
@@ -474,6 +481,9 @@ export async function marcarTrabajoEntregado(trabajoId: string, mensaje?: string
   if (!user) {
     return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   }
+
+  const adjuntos = validarAdjuntosEntrega(archivosAdjuntos)
+  if (adjuntos.error) return { error: await textoServidor(adjuntos.error) }
 
   // Verify user is the professional
   const { data: trabajo } = await supabase
@@ -492,9 +502,10 @@ export async function marcarTrabajoEntregado(trabajoId: string, mensaje?: string
     return { error: await textoServidor("Hay una cancelación pendiente. Debe resolverse antes de entregar el trabajo.") }
   }
 
-  const { data, error } = await supabase.rpc("entregar_trabajo_con_historial", {
+  const { data, error } = await supabase.rpc("entregar_trabajo_con_adjuntos", {
     p_trabajo_id: trabajoId,
     p_mensaje: mensaje || null,
+    p_archivos: adjuntos.archivos,
   })
 
   if (error) {
@@ -529,6 +540,8 @@ export async function marcarTrabajoEntregado(trabajoId: string, mensaje?: string
   }
 
   revalidatePath("/mis-solicitudes")
+  revalidatePath("/mis-trabajos")
+  revalidatePath("/mi-empresa")
   return { data }
 }
 

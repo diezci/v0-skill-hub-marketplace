@@ -10,7 +10,7 @@ function load(file, dependencies) {
   const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText
-  vm.runInNewContext(code, { exports, console, require(name) {
+  vm.runInNewContext(code, { exports, console, URL, require(name) {
     if (name === 'server-only') return {}
     if (name in dependencies) return dependencies[name]
     throw Error(`Missing fixture: ${name}`)
@@ -73,12 +73,15 @@ function setup(options = {}) {
     from: query,
     async rpc(name, args) {
       events.push({ type: 'mutation', name, args })
+      if (name === 'diime_rechazar_entrega' && options.rejectionError) return { data: null, error: { message: 'Archivo sin permiso' } }
       return { data: name === 'diime_retirar_disputa' ? options.withdrawResult || 'ok' : dispute, error: null }
     },
   }
   const identity = load('lib/empresas/identidad.ts', {})
   const recipients = load('lib/empresas/notificaciones.ts', {})
+  const attachments = load('lib/entregas.ts', {})
   const actions = load('app/actions/disputes.ts', {
+    '@/lib/entregas': attachments,
     '@/lib/notificaciones-contexto': { construirLinkNotificacion: data => `${data.seccion}?trabajo=${data.trabajoId}` },
     '@/lib/i18n-servidor': { textoServidor: async text => text },
     '@/lib/supabase/server': { createClient: async () => supabase },
@@ -118,11 +121,27 @@ await check('A provider cannot reject a customer delivery even with work access'
 })
 await check('A reassigned customer rejects delivery with their real actor ID and notifies the current provider', async () => {
   const f = setup()
-  assert.ok((await f.actions.rechazarEntrega('job', 'Falta una pieza')).data)
+  const file = 'https://diime.es/api/archivos/11111111-1111-4111-8111-111111111111?nombre=Evidencia.pdf'
+  assert.ok((await f.actions.rechazarEntrega('job', 'Falta una pieza', [file])).data)
   assert.equal(f.notifications[0].usuarioId, 'replacement-provider')
   assert.match(f.notifications[0].link, /^\/mi-empresa/)
-  assert.equal(f.writes.find(w => w.table === 'actualizaciones_trabajo').data.usuario_id, 'replacement-customer')
+  assert.equal(f.events.find(e => e.type === 'mutation' && e.name === 'diime_rechazar_entrega').args.p_actor, 'replacement-customer')
+  assert.deepEqual(Array.from(f.events.find(e => e.type === 'mutation' && e.name === 'diime_rechazar_entrega').args.p_adjuntos), [file])
+  assert.equal(f.writes.length, 0, 'Dispute and history are written only by the atomic RPC')
   assert.ok(f.invalidations.includes('/mi-empresa'))
+})
+await check('Invalid attachment input cannot reach privileged rejection operations', async () => {
+  const f = setup()
+  assert.ok((await f.actions.rechazarEntrega('job', 'Falta una pieza', [null])).error)
+  assert.ok(!f.events.some(e => ['admin', 'mutation'].includes(e.type)))
+  assert.equal(f.notifications.length, 0)
+})
+await check('Rejected atomic persistence sends no success notice or separate history write', async () => {
+  const f = setup({ rejectionError: true })
+  assert.equal((await f.actions.rechazarEntrega('job', 'Falta una pieza')).error, 'Archivo sin permiso')
+  assert.equal(f.notifications.length, 0)
+  assert.equal(f.writes.length, 0)
+  assert.equal(f.invalidations.length, 0)
 })
 await check('A reassigned provider opens a dispute against the current customer, never the historical author', async () => {
   const f = setup({ side: 'proveedor', actor: 'replacement-provider' })

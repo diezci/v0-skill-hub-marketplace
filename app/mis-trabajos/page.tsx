@@ -74,6 +74,7 @@ import { AvisoLiquidacionPago } from "@/components/aviso-liquidacion-pago"
 import { AvisoRevisionEntrega } from "@/components/aviso-revision-entrega"
 import { CancelacionTrabajo } from "@/components/cancelacion-trabajo"
 import MisDisputas from "@/components/mis-disputas"
+import { EntregaAdjuntos } from "@/components/entrega-adjuntos"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
 import { EnlacePerfil } from "@/components/enlace-perfil"
 import { calcularPagoProveedor } from "@/lib/comisiones"
@@ -143,6 +144,8 @@ function MisTrabajosPageContenido() {
   const [newProgress, setNewProgress] = useState(0)
   const [updateMessage, setUpdateMessage] = useState("")
   const [deliveryMessage, setDeliveryMessage] = useState("")
+  const [deliveryFiles, setDeliveryFiles] = useState<string[]>([])
+  const [uploadingDeliveryFiles, setUploadingDeliveryFiles] = useState(false)
   const [updating, setUpdating] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const { toast } = useToast()
@@ -215,27 +218,27 @@ function MisTrabajosPageContenido() {
   }
 
   const handleMarkDelivered = async () => {
-    if (!selectedTrabajo) return
+    if (!selectedTrabajo || updating || uploadingDeliveryFiles) return
     setUpdating(true)
-
-    const result = await marcarTrabajoEntregado(selectedTrabajo.id, deliveryMessage || undefined)
-
-    if (result.error) {
-      toast({
-        title: t("Error"),
-        description: result.error,
-        variant: "destructive",
-      })
-    } else {
-      toast({
-        title: t("Trabajo entregado"),
-        description: t("El cliente ha sido notificado para confirmar la entrega"),
-      })
-      loadTrabajos()
-      setDeliveryDialogOpen(false)
-      setDeliveryMessage("")
+    try {
+      const result = await marcarTrabajoEntregado(selectedTrabajo.id, deliveryMessage || undefined, deliveryFiles)
+      if (result.error) {
+        toast({ title: t("Error"), description: result.error, variant: "destructive" })
+      } else {
+        toast({
+          title: t("Trabajo entregado"),
+          description: t("El cliente ha sido notificado para confirmar la entrega"),
+        })
+        loadTrabajos()
+        setDeliveryDialogOpen(false)
+        setDeliveryMessage("")
+        setDeliveryFiles([])
+      }
+    } catch {
+      toast({ title: t("Error"), description: t("No se pudo entregar el trabajo. Vuelve a intentarlo."), variant: "destructive" })
+    } finally {
+      setUpdating(false)
     }
-    setUpdating(false)
   }
 
   const openUpdateDialog = (trabajo: any) => {
@@ -246,6 +249,9 @@ function MisTrabajosPageContenido() {
 
   const openDeliveryDialog = (trabajo: any) => {
     setSelectedTrabajo(trabajo)
+    setDeliveryMessage("")
+    setDeliveryFiles([])
+    setUploadingDeliveryFiles(false)
     setDeliveryDialogOpen(true)
   }
 
@@ -677,8 +683,8 @@ function MisTrabajosPageContenido() {
         </Dialog>
 
         {/* Mark Delivered Dialog */}
-        <Dialog open={deliveryDialogOpen} onOpenChange={setDeliveryDialogOpen}>
-          <DialogContent>
+        <Dialog open={deliveryDialogOpen} onOpenChange={(open) => { if (!updating && !uploadingDeliveryFiles) setDeliveryDialogOpen(open) }}>
+          <DialogContent className="max-h-[90dvh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{t("Marcar como Entregado")}</DialogTitle>
               <DialogDescription>
@@ -706,16 +712,19 @@ function MisTrabajosPageContenido() {
                   placeholder={t("Añade detalles sobre la entrega, instrucciones de uso, etc.")}
                   value={deliveryMessage}
                   onChange={(e) => setDeliveryMessage(e.target.value)}
+                  disabled={updating || uploadingDeliveryFiles}
+                  maxLength={5000}
                   rows={3}
                 />
               </div>
+              <EntregaAdjuntos archivos={deliveryFiles} onChange={setDeliveryFiles} disabled={updating} onUploadingChange={setUploadingDeliveryFiles} />
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setDeliveryDialogOpen(false)} className="bg-transparent">
+              <Button variant="outline" disabled={updating || uploadingDeliveryFiles} onClick={() => setDeliveryDialogOpen(false)} className="bg-transparent">
                 {t("Cancelar")}</Button>
               <Button
                 onClick={handleMarkDelivered}
-                disabled={updating}
+                disabled={updating || uploadingDeliveryFiles}
                 className="bg-purple-600 hover:bg-purple-700"
               >
                 {updating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Package className="h-4 w-4 mr-2" />}
@@ -879,6 +888,15 @@ function TrabajoCard({
               </div>
             )}
 
+            {(trabajo.mensaje_entrega || trabajo.archivos_entrega?.length > 0) && (
+              <div className="mt-4 space-y-2 border-t pt-4">
+                {trabajo.mensaje_entrega && <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">{trabajo.mensaje_entrega}</p>}
+                {trabajo.archivos_entrega?.length > 0 && <>
+                  <p className="text-sm font-medium">{t("Archivos de la entrega")}</p>
+                  <AdjuntosLista archivos={trabajo.archivos_entrega} />
+                </>}
+              </div>
+            )}
             {/* Payment Status for Provider */}
             <div className="mt-4 pt-4 border-t">
               <AvisoLiquidacionPago escrow={trabajo.transaccion_escrow} parte="proveedor" />

@@ -9,6 +9,7 @@ import { destinatariosOperacionEmpresa } from "@/lib/empresas/notificaciones"
 import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cerrarCheckoutsPendientes, enviarAvisosExternos, liquidarPagoReclamado } from "@/lib/flujo-pagos"
+import { validarAdjuntosEntrega } from "@/lib/entregas"
 
 // Legacy dispute columns are timestamp-without-time-zone written by PostgreSQL
 // in UTC. Preserve that instant when serializing beside timestamptz history.
@@ -95,7 +96,7 @@ export async function crearDisputa(data: {
 // NO se reembolsa automáticamente: se abre una disputa para que el equipo de
 // Diime decida según las pruebas adjuntadas y los términos acordados. El pago
 // queda retenido en custodia mientras tanto.
-export async function rechazarEntrega(trabajoId: string, motivo: string) {
+export async function rechazarEntrega(trabajoId: string, motivo: string, archivos: string[] = []) {
   const supabase = await createClient()
   if (!supabase) return { error: await textoServidor("No se pudo conectar con la base de datos.") }
   const {
@@ -105,42 +106,44 @@ export async function rechazarEntrega(trabajoId: string, motivo: string) {
 
   const razon = motivo?.trim()
   if (!razon) return { error: await textoServidor("Explica por qué la entrega no cumple lo acordado.") }
+  const adjuntos = validarAdjuntosEntrega(archivos)
+  if (adjuntos.error) return { error: await textoServidor(adjuntos.error) }
 
   const permiso = await validarActorTrabajoEmpresa(supabase, trabajoId, user.id, "encargos", "cliente")
   if (permiso) return { error: await textoServidor("No tienes permiso para rechazar la entrega de este trabajo.") }
   const admin = createAdminClient()
   if (!admin) return { error: await textoServidor("La configuración segura del servidor no está disponible") }
-  const { data: trabajo } = await admin.from("trabajos")
-    .select("cliente_id, profesional_id, estado, titulo").eq("id", trabajoId).maybeSingle()
-  if (!trabajo) return { error: await textoServidor("No tienes permiso para rechazar la entrega de este trabajo.") }
-  if (trabajo.estado !== "entregado") {
-    return { error: await textoServidor("Solo puedes rechazar una entrega que el profesional haya marcado como entregada.") }
+  // La RPC vuelve a validar al cliente y el estado entregado bajo el mismo
+  // bloqueo que las confirmaciones. Disputa, custodia e historial con evidencias
+  // se guardan juntos; un adjunto inválido no deja un rechazo incompleto.
+  const { data: disputa, error } = await admin.rpc("diime_rechazar_entrega", {
+    p_trabajo: trabajoId, p_actor: user.id, p_motivo: razon, p_adjuntos: adjuntos.archivos,
+  })
+  if (error) return { error: await textoServidor(error.message) }
+
+  // Los avisos externos no cambian el resultado de una operación ya guardada.
+  try {
+    const { data: trabajo } = await admin.from("trabajos")
+      .select("titulo, profesional_id, operador_proveedor_id, empresa_proveedora_id").eq("id", trabajoId).maybeSingle()
+    if (trabajo) {
+      const { crearNotificacion } = await import("@/lib/notificaciones")
+      const destinatarios = await destinatariosOperacionEmpresa(admin, trabajo.empresa_proveedora_id, trabajo.operador_proveedor_id || trabajo.profesional_id)
+      for (const usuarioId of destinatarios) await crearNotificacion({
+        usuarioId, tipo: "disputa_abierta", titulo: "El cliente ha rechazado tu entrega",
+        metadata: { titulo_trabajo: trabajo.titulo, trabajo_id: trabajoId, parte_destinataria: "proveedor" },
+        mensaje: `El cliente considera que "${trabajo.titulo ?? "el trabajo"}" no cumple lo acordado. La transferencia sigue bloqueada y el equipo de Diime decidirá según las pruebas y los términos. Motivo: ${razon}`,
+        link: construirLinkNotificacion({ seccion: trabajo.empresa_proveedora_id ? "/mi-empresa" : "/mis-trabajos", trabajoId, aspecto: "disputa" }),
+      })
+    }
+  } catch (avisoError) {
+    console.error("No se pudo enviar el aviso de rechazo de entrega", avisoError)
   }
 
-  // Abrir la disputa reutiliza toda la lógica: congela los fondos (escrow a
-  // "disputa"), pone el trabajo "en_disputa", crea el registro para el admin y
-  // avisa al profesional con el mensaje específico de rechazo de entrega.
-  const res = await crearDisputa({
-    trabajo_id: trabajoId,
-    motivo: `Entrega rechazada por el cliente. Motivo: ${razon}`,
-    avisoOtraParte: {
-      titulo: "El cliente ha rechazado tu entrega",
-      mensaje: `El cliente considera que "${trabajo.titulo ?? "el trabajo"}" no cumple lo acordado. La transferencia sigue bloqueada y el equipo de Diime decidirá según las pruebas y los términos. Motivo: ${razon}`,
-    },
-  })
-  if (res.error) return { error: await textoServidor(res.error) }
-
-  // Deja constancia en el historial del trabajo (el aviso al profesional ya lo
-  // ha enviado crearDisputa mediante avisoOtraParte).
-  await admin.from("actualizaciones_trabajo").insert({
-    trabajo_id: trabajoId,
-    usuario_id: user.id,
-    tipo: "disputa",
-    mensaje: `El cliente ha rechazado la entrega. El equipo de Diime decidirá según las pruebas y los términos acordados. Motivo: ${razon}`,
-    progreso: 100,
-  })
-
-  return { data: res.data }
+  revalidatePath("/admin/disputas")
+  revalidatePath("/mis-trabajos")
+  revalidatePath("/mis-solicitudes")
+  revalidatePath("/mi-empresa")
+  return { data: disputa }
 }
 
 // Disputas del usuario actual (donde es cliente o profesional), para que siga
@@ -459,11 +462,18 @@ export async function obtenerDetalleDisputa(disputaId: string) {
   mensajes.sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)) || String(a.id).localeCompare(String(b.id)))
 
   // Historial del trabajo + pruebas adjuntas.
-  const { data: actualizaciones } = await supabase
-    .from("actualizaciones_trabajo")
-    .select("id, usuario_id, tipo, mensaje, progreso, archivos, created_at")
-    .eq("trabajo_id", disputa.trabajo_id)
-    .order("created_at", { ascending: true })
+  const actualizaciones: any[] = []
+  for (let desde = 0; ; desde += 500) {
+    const pagina = await supabase.from("actualizaciones_trabajo")
+      .select("id, usuario_id, tipo, mensaje, progreso, archivos, created_at")
+      .eq("trabajo_id", disputa.trabajo_id)
+      .order("created_at", { ascending: true }).order("id", { ascending: true })
+      .range(desde, desde + 499)
+    if (pagina.error) return { error: await textoServidor(pagina.error.message) }
+    const filas = (pagina.data || []) as any[]
+    actualizaciones.push(...filas)
+    if (filas.length < 500) break
+  }
 
   return {
     data: {
