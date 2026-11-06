@@ -55,7 +55,8 @@ function harness({ parametros = "", respuesta = { data: exitoStripe }, pagos = [
 
 const nodos = tree => Array.isArray(tree) ? tree.flatMap(nodos) : !tree || typeof tree !== "object" || !tree.props ? [] : [tree, ...nodos(tree.props.children)]
 const texto = node => Array.isArray(node) ? node.map(texto).join("") : node && typeof node === "object" ? texto(node.props?.children) : typeof node === "string" || typeof node === "number" ? String(node) : ""
-const boton = (tree, titulo) => nodos(tree).find(n => n.type === "Button" && texto(n).trim() === titulo)
+const boton = (tree, titulo) => nodos(tree).find(n => (n.type === "Button" || n.type === "button") &&
+  (texto(n).trim() === titulo || n.props["aria-label"] === titulo || n.props["aria-label"]?.startsWith(`${titulo}: `)))
 const tick = () => new Promise(resolve => setImmediate(resolve))
 
 const h = harness({ parametros: `usuario=${original.cliente_id}` })
@@ -68,6 +69,9 @@ tree = h.render()
 const dialog = nodos(tree).find(n => n.type === "Dialog")
 assert.equal(dialog.props.open, true)
 assert.match(texto(dialog), /Reparación aire acondicionado/)
+assert.match(texto(dialog), /Técnico de prueba/)
+assert.match(texto(dialog), /Referencia del trabajoTRB-00000000/)
+assert.match(texto(dialog), /Fecha del pago.*14:00/)
 assert.match(texto(dialog), /Reembolso registrado22,00/)
 assert.match(texto(dialog), /13:30/)
 assert.match(texto(dialog), /Reembolso procesado por Stripe/)
@@ -109,7 +113,17 @@ filtrado = filtro.render()
 assert.match(texto(filtrado), /Reparación aire acondicionado/)
 assert.doesNotMatch(texto(filtrado), /Otro servicio/)
 console.log("PASS Búsqueda por nombre completo encuentra el pago de Pedro sin mezclar otras cuentas")
-console.log("3 pruebas UI de pagos completadas, con fixtures y sin red ni movimientos de dinero.")
+
+nodos(filtrado).find(n => n.type === "select").props.onChange({ target: { value: "retenidas" } })
+filtrado = filtro.render()
+assert.equal(nodos(filtrado).filter(n => n.type === "article").length, 0)
+assert.match(texto(filtrado), /No hay transacciones en esta categoria/)
+nodos(filtrado).find(n => n.type === "select").props.onChange({ target: { value: "reembolsadas" } })
+filtrado = filtro.render()
+assert.equal(nodos(filtrado).filter(n => n.type === "article").length, 1)
+assert.match(texto(filtrado), /Reparación aire acondicionado/)
+assert.doesNotMatch(texto(filtrado), /Otro servicio/)
+console.log("PASS El selector de estado se combina con la búsqueda y permite volver desde una lista vacía")
 
 // La consulta autorizada puede descubrir un fallo posterior al cierre local.
 for (const estado of ["failed", "canceled", "succeeded", "pending"]) {
@@ -133,15 +147,23 @@ const pagos = [
   { ...original, id: uuid(5), estado: "liquidando", stripe_refund_status: "pending", monto_reembolsado: 20 },
   { ...original, id: uuid(6), stripe_refund_status: null, stripe_refund_id: null, monto_reembolsado: 30 },
 ]
-const resumen = harness({ pagos }).render()
-const tarjeta = nodos(resumen).find(n => n.type === "Card" && texto(n).startsWith("Reembolsos procesados por Stripe"))
-assert.match(texto(tarjeta), /140,00/)
-assert.match(texto(tarjeta), /2\s+reembolsos/)
-assert.doesNotMatch(texto(tarjeta), /240,00|290,00/)
+const resumenHarness = harness({ pagos })
+const resumen = resumenHarness.render()
+const panelResumen = nodos(resumen).find(n => n.type === "dl" && n.props["aria-label"] === "Resumen de pagos")
+const metricaReembolsos = nodos(panelResumen).find(n => n.type === "div" && nodos(n).some(hijo => hijo.type === "dt" && texto(hijo) === "Reembolsos procesados por Stripe"))
+assert.match(texto(metricaReembolsos), /140,00/)
+assert.doesNotMatch(texto(metricaReembolsos), /240,00|290,00/)
+assert.match(texto(nodos(resumen).find(n => n.type === "option" && n.props.value === "reembolsadas")), /Reembolsadas \(2\)/)
 assert.match(texto(resumen), /La liquidación necesita atención/)
+nodos(resumen).find(n => n.type === "select").props.onChange({ target: { value: "reembolsadas" } })
+const filasReembolsadas = nodos(resumenHarness.render()).filter(n => n.type === "article")
+assert.equal(filasReembolsadas.length, 2)
+assert.ok(filasReembolsadas.some(fila => /40,00/.test(texto(fila)) && /La liquidación necesita atención/.test(texto(fila))), "El reembolso parcial confirmado sigue visible aunque falle la liquidación del profesional")
+assert.doesNotMatch(texto(filasReembolsadas), /20,00|30,00|Reembolso fallido/)
 const fallo = harness({ pagos: [pagos[2]] })
 boton(fallo.render(), "Ver detalle").props.onClick()
 const detalleFallido = nodos(fallo.render()).find(n => n.type === "Dialog")
 assert.match(texto(detalleFallido), /Reembolso previsto100,00/)
 assert.doesNotMatch(texto(detalleFallido), /Reembolso registrado100,00|Moviendo fondos/)
 console.log("PASS Totales excluyen fallidos/pendientes/sin evidencia e incluyen reembolso parcial confirmado; detalle fallido muestra importe previsto")
+console.log("6 pruebas UI de pagos completadas, con fixtures y sin red ni movimientos de dinero.")
