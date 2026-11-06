@@ -34,6 +34,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { formatearFecha } from "@/lib/utils"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
+import { PruebasEntrega } from "@/components/admin/pruebas-entrega"
 import { calcularLiquidacion } from "@/lib/liquidacion"
 import { conciliarContracargoAdmin } from "@/app/actions/admin-pagos"
 import { cerrarMediacionTrasContracargo } from "@/app/actions/mediacion-bancaria"
@@ -91,6 +92,7 @@ export default function AdminDisputesPage() {
     setMontoParcial("")
     const result = await obtenerDetalleDisputa(disputaId)
     if (result.error) {
+      setDetalle(null)
       toast({ title: t("Error"), description: result.error, variant: "destructive" })
     } else {
       setDetalle(result.data)
@@ -200,7 +202,10 @@ export default function AdminDisputesPage() {
     const ingresoDiime = comisionCliente + liquidacionPrevista.comisionProveedor
     const archivosSolicitud: string[] = Array.isArray(solicitud?.archivos) ? solicitud.archivos : []
     const archivosOferta: string[] = Array.isArray(oferta?.archivos) ? oferta.archivos : []
-    const archivosActualizaciones: string[] = (actualizaciones || []).flatMap((a: any) => a.archivos || [])
+    const hayPruebasEntrega = (actualizaciones || []).some((a: any) => ["entrega", "rechazo_entrega"].includes(a.tipo))
+    const archivosActualizaciones: string[] = (actualizaciones || [])
+      .filter((a: any) => !["entrega", "rechazo_entrega"].includes(a.tipo))
+      .flatMap((a: any) => a.archivos || [])
     const todasPruebas = [...archivosSolicitud, ...archivosOferta, ...archivosActualizaciones]
     const adjuntosSolicitante: string[] = Array.isArray(trabajo?.cancelacion_adjuntos_solicitante)
       ? trabajo.cancelacion_adjuntos_solicitante
@@ -416,6 +421,8 @@ export default function AdminDisputesPage() {
             </Card>
           )}
 
+          <PruebasEntrega actualizaciones={actualizaciones || []} />
+
           <div className="grid md:grid-cols-2 gap-4">
             {/* Conversación */}
             <Card>
@@ -467,9 +474,9 @@ export default function AdminDisputesPage() {
                       <div className="w-px flex-1 bg-border" />
                     </div>
                     <div className="pb-2">
-                      <p className="text-xs text-muted-foreground">{fechaHora(a.created_at, idioma)} · {t(a.tipo)}</p>
+                      <p className="text-xs text-muted-foreground">{fechaHora(a.created_at, idioma)} · {a.tipo === "entrega" ? t("Entrega del proveedor") : a.tipo === "rechazo_entrega" ? t("Rechazo del cliente") : t(a.tipo)}</p>
                       <p>{a.mensaje}</p>
-                      {a.archivos?.length > 0 && (
+                      {a.archivos?.length > 0 && !["entrega", "rechazo_entrega"].includes(a.tipo) && (
                         <div className="flex flex-wrap gap-2 mt-2">
                           <AdjuntosLista archivos={a.archivos} />
                         </div>
@@ -486,7 +493,7 @@ export default function AdminDisputesPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <Paperclip className="h-4 w-4" /> {esDisputaDeCancelacion ? t("Otras pruebas del servicio") : t("Pruebas y archivos adjuntos")} ({todasPruebas.length})
+                <Paperclip className="h-4 w-4" /> {esDisputaDeCancelacion || hayPruebasEntrega ? t("Otras pruebas del servicio") : t("Pruebas y archivos adjuntos")} ({todasPruebas.length})
               </CardTitle>
             </CardHeader>
             <CardContent>

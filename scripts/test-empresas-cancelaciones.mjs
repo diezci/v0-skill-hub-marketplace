@@ -16,6 +16,7 @@ function scenario({user={id:'buyer-operator'},denied=false,denySide=false}={}) {
  }
  const deps={
   '@/lib/cancelacion-adjuntos':attachmentModule.exports,
+  '@/lib/entregas':{validarAdjuntosEntrega:attachmentModule.exports.validarAdjuntosCancelacion},
   '@/lib/notificaciones-contexto':{construirLinkNotificacion:(p)=>{calls.push(['link-context',p]);return p.seccion}},
   '@/lib/i18n-servidor':{textoServidor:async t=>t},
   '@/lib/supabase/server':{createClient:async()=>session},
