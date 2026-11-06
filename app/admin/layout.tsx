@@ -2,7 +2,7 @@
 
 import { useIdioma } from "@/components/idioma-provider"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
@@ -16,6 +16,7 @@ import { DiimeLogo } from "@/components/diime-logo"
 import { NotificacionesProvider, useResumenNotificaciones } from "@/hooks/use-notificaciones-seccion"
 import { CampanaNotificaciones } from "@/components/campana-notificaciones"
 import { AvisosSeccion } from "@/components/avisos-seccion"
+import { obtenerConteoDemandasSinOferta } from "@/app/actions/operaciones"
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -43,10 +44,14 @@ function AdminLayoutContenido({ children }: { children: React.ReactNode }) {
 
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
   const [adminName, setAdminName] = useState("")
+  const [adminUsuarioId, setAdminUsuarioId] = useState<string | null>(null)
   const [closingSession, setClosingSession] = useState(false)
   const { toast } = useToast()
   // Pendientes de revisión visibles desde cualquier sección de administración.
   const [pendientes, setPendientes] = useState<Record<string, number>>({})
+  const [demandasSinOferta, setDemandasSinOferta] = useState<number | null>(null)
+  const [errorDemandas, setErrorDemandas] = useState(false)
+  const revisionSesion = useRef(0)
   const router = useRouter()
   const pathname = usePathname()
   const supabase = useMemo(() => createClient(), [])
@@ -57,9 +62,13 @@ function AdminLayoutContenido({ children }: { children: React.ReactNode }) {
     let ultimoUsuario: string | null = null
     const comprobar = async () => {
       const actual = ++revision
+      revisionSesion.current++
       setIsAdmin(null)
       setAdminName("")
+      setAdminUsuarioId(null)
       setPendientes({})
+      setDemandasSinOferta(null)
+      setErrorDemandas(false)
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (!activo || actual !== revision) return
@@ -70,6 +79,7 @@ function AdminLayoutContenido({ children }: { children: React.ReactNode }) {
         if (!activo || actual !== revision) return
         if (error || !profile?.es_admin) { setIsAdmin(false); router.replace("/"); return }
         setAdminName(`${profile.nombre || ""} ${profile.apellido || ""}`.trim())
+        setAdminUsuarioId(user.id)
         setIsAdmin(true)
       } catch { if (activo && actual === revision) { setIsAdmin(false); router.replace("/") } }
     }
@@ -78,11 +88,17 @@ function AdminLayoutContenido({ children }: { children: React.ReactNode }) {
       if (!activo) return
       if (evento === "SIGNED_OUT") {
         revision++; ultimoUsuario = null
+        revisionSesion.current++
         setIsAdmin(false); setAdminName(""); setPendientes({})
+        setAdminUsuarioId(null)
+        setDemandasSinOferta(null); setErrorDemandas(false)
         router.replace("/auth/login")
       } else if (session?.user.id && session.user.id !== ultimoUsuario) {
         revision++; ultimoUsuario = session.user.id
+        revisionSesion.current++
         setIsAdmin(null); setAdminName(""); setPendientes({})
+        setAdminUsuarioId(null)
+        setDemandasSinOferta(null); setErrorDemandas(false)
         queueMicrotask(() => { if (activo) void comprobar() })
       }
     })
@@ -92,18 +108,20 @@ function AdminLayoutContenido({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isAdmin) return
     let activo = true
+    const sesion = revisionSesion.current
     const cargar = async () => {
       const [disputas, incidencias, verificaciones] = await Promise.all([
         supabase.from("disputas").select("id", { count: "exact", head: true }).eq("estado", "abierta"),
         supabase.from("incidencias").select("id", { count: "exact", head: true }).eq("estado", "abierta"),
         supabase.from("solicitudes_verificacion_profesional").select("id", { count: "exact", head: true }).in("estado", ["pendiente", "en_revision"]),
       ])
-      if (!activo) return
-      setPendientes({
+      if (!activo || sesion !== revisionSesion.current) return
+      setPendientes(actual => ({
+        ...actual,
         "/admin/disputas": disputas.count || 0,
         "/admin/incidencias": incidencias.count || 0,
         "/admin/verificaciones": verificaciones.count || 0,
-      })
+      }))
     }
     cargar()
     const id = setInterval(cargar, 30000)
@@ -111,7 +129,33 @@ function AdminLayoutContenido({ children }: { children: React.ReactNode }) {
       activo = false
       clearInterval(id)
     }
-  }, [isAdmin, pathname, supabase])
+  }, [isAdmin, adminUsuarioId, pathname, supabase])
+
+  useEffect(() => {
+    if (!isAdmin) return
+    let activo = true
+    let solicitud = 0
+    const sesion = revisionSesion.current
+    const cargar = async () => {
+      const actual = ++solicitud
+      try {
+        const resultado = await obtenerConteoDemandasSinOferta()
+        if (!activo || actual !== solicitud || sesion !== revisionSesion.current) return
+        if (!resultado.ok) {
+          setErrorDemandas(true)
+          return
+        }
+        setDemandasSinOferta(resultado.total)
+        setErrorDemandas(false)
+        setPendientes(previos => ({ ...previos, "/admin/operaciones": resultado.total }))
+      } catch {
+        if (activo && actual === solicitud && sesion === revisionSesion.current) setErrorDemandas(true)
+      }
+    }
+    void cargar()
+    const intervalo = setInterval(cargar, 30000)
+    return () => { activo = false; solicitud++; clearInterval(intervalo) }
+  }, [isAdmin, adminUsuarioId, pathname])
 
   const handleLogout = async () => {
     if (closingSession) return
@@ -224,6 +268,17 @@ function AdminLayoutContenido({ children }: { children: React.ReactNode }) {
 
       {/* Main content */}
       <main className="min-w-0 flex-1 overflow-auto">
+        {(errorDemandas || (demandasSinOferta != null && demandasSinOferta > 0)) && (
+          <div role="status" className="mx-4 mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm sm:mx-6">
+            <BellRing aria-hidden="true" className="h-5 w-5 shrink-0 text-amber-600" />
+            <p className="min-w-0 flex-1 basis-48">
+              {errorDemandas
+                ? t("No se pudo comprobar si hay demandas sin ofertas. El recuento puede estar desactualizado.")
+                : t(demandasSinOferta === 1 ? "Hay {cantidad} demanda abierta sin ofertas registradas tras 24 h." : "Hay {cantidad} demandas abiertas sin ofertas registradas tras 24 h.", { cantidad: demandasSinOferta! })}
+            </p>
+            <Link href="/admin/operaciones#demandas-sin-oferta" className="font-medium text-primary underline underline-offset-4">{t("Revisar demandas")}</Link>
+          </div>
+        )}
         {pathname && <AvisosSeccion key={pathname} seccion={pathname} />}
         {children}
       </main>

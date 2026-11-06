@@ -33,9 +33,28 @@ export const CATEGORIAS_OPERATIVAS = ["eventos", "webhooksError", "webhooksAtasc
 export type CategoriaOperativa = typeof CATEGORIAS_OPERATIVAS[number]
 type FilaOperativa = { id: string; [campo: string]: unknown }
 
+function consultaSolicitudesSinOferta(admin: NonNullable<ReturnType<typeof createAdminClient>>, ahora: number, soloConteo = false) {
+  // The stored counter can be stale. Any recorded offer, including a rejected
+  // or withdrawn one, means this request has received a response.
+  return admin.from("solicitudes")
+    .select("id, titulo, ubicacion, created_at, ofertas:ofertas!ofertas_solicitud_id_fkey(id)", { count: "exact", head: soloConteo })
+    .eq("estado", "abierta")
+    .is("ofertas", null)
+    .lte("created_at", new Date(ahora - 24 * 60 * 60 * 1000).toISOString())
+    .order("created_at").order("id")
+}
+
+export async function obtenerConteoSolicitudesSinOferta(ahora = Date.now()) {
+  const admin = createAdminClient()
+  if (!admin) throw new Error("Supabase service role no está configurado.")
+  const resultado = await consultaSolicitudesSinOferta(admin, ahora, true)
+  if (resultado.error) throw new Error(`solicitudesSinOferta: ${resultado.error.message || "consulta fallida"}`)
+  if (resultado.count == null) throw new Error("solicitudesSinOferta: no se pudo contar el total.")
+  return resultado.count
+}
+
 function consultaOperativa(admin: NonNullable<ReturnType<typeof createAdminClient>>, categoria: CategoriaOperativa, ahora: number) {
   const haceQuinceMinutos = new Date(ahora - 15 * 60 * 1000).toISOString()
-  const haceCuatroHoras = new Date(ahora - 4 * 60 * 60 * 1000).toISOString()
   const haceVeinticuatroHoras = new Date(ahora - 24 * 60 * 60 * 1000).toISOString()
   // Exact count is independent of page length; the ID is a deterministic tie-breaker.
   switch (categoria) {
@@ -46,7 +65,7 @@ function consultaOperativa(admin: NonNullable<ReturnType<typeof createAdminClien
     case "liquidacionesAtascadas": return admin.from("transacciones_escrow").select("id, trabajo_id, estado, liquidacion_estado, updated_at", { count: "exact" }).eq("liquidacion_estado", "procesando").lt("updated_at", haceQuinceMinutos).order("updated_at").order("id")
     case "disputasVencidas": return admin.from("disputas").select("id, trabajo_id, tipo, estado, created_at, responsable_id, asignada_at, responsable:profiles!disputas_responsable_id_fkey(nombre, apellido, es_admin)", { count: "exact" }).in("estado", ["abierta", "en_revision"]).lt("created_at", haceVeinticuatroHoras).order("created_at").order("id")
     case "incidenciasCriticas": return admin.from("incidencias").select("id, categoria, prioridad, estado, created_at", { count: "exact" }).eq("prioridad", "critica").in("estado", ["abierta", "en_revision"]).order("created_at").order("id")
-    case "solicitudesSinOferta": return admin.from("solicitudes").select("id, titulo, ubicacion, total_ofertas, created_at", { count: "exact" }).eq("estado", "abierta").eq("total_ofertas", 0).ilike("ubicacion", "%Madrid%").lt("created_at", haceCuatroHoras).order("created_at").order("id")
+    case "solicitudesSinOferta": return consultaSolicitudesSinOferta(admin, ahora)
   }
 }
 
@@ -95,7 +114,7 @@ export async function enviarAlertaOperativaDiaria() {
     ["Liquidaciones atascadas", resumen.totales.liquidacionesAtascadas],
     ["Disputas con más de 24 h", resumen.totales.disputasVencidas],
     ["Incidencias críticas", resumen.totales.incidenciasCriticas],
-    ["Solicitudes de Madrid sin oferta tras 4 h", resumen.totales.solicitudesSinOferta],
+    ["Demandas abiertas sin ofertas registradas tras 24 h", resumen.totales.solicitudesSinOferta],
   ].filter(([, total]) => Number(total) > 0)
   const listaTexto = filas.map(([nombre, total]) => `- ${nombre}: ${total}`).join("\n")
   const listaHtml = filas.map(([nombre, total]) => `<li><strong>${nombre}</strong>: ${total}</li>`).join("")

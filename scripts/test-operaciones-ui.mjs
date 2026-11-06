@@ -61,4 +61,30 @@ let checks=0
   assert.equal(h.toasts.at(-1).title,'Evento resuelto')
   checks++;console.log('PASS thrown resolution failure leaves its button available for an idempotent retry')
 }
+{
+  const demandas = [
+    { id: '00000000-0000-4000-8000-000000000001', titulo: 'Reparar persiana', ubicacion: 'Bilbao', created_at: '2026-10-12T10:00:00Z', ofertas: [] },
+    { id: '00000000-0000-4000-8000-000000000002', titulo: 'Pintar despacho', ubicacion: 'Barcelona', created_at: '2026-10-13T09:00:00Z', ofertas: [] },
+  ]
+  const result = { total: 2, alertasTecnicas: 0, alertasOperacion: 2, generadoAt: summary.generadoAt, detalle: Object.fromEntries(keys.map(k => [k, k === 'solicitudesSinOferta' ? demandas : []])), totales: Object.fromEntries(keys.map(k => [k, k === 'solicitudesSinOferta' ? 2 : 0])) }
+  const tree = setup({ result }).render()
+  assert.match(text(tree), /Demandas sin ofertas tras 24 h/)
+  assert.match(text(tree), /al menos 24 horas.*cualquier ubicación/)
+  assert.match(text(tree), /Reparar persiana.*Bilbao.*Publicada el/)
+  assert.match(text(tree), /Pintar despacho.*Barcelona/)
+  assert.doesNotMatch(text(tree), /Madrid, abiertas|piloto de Madrid|"created_at"|"ofertas"/)
+  assert.ok(nodes(tree).some(n => n.props?.id === 'demandas-sin-oferta'))
+  for (const demanda of demandas) assert.ok(nodes(tree).some(n => n.props?.href === `/demandas?solicitud=${demanda.id}`))
+  assert.equal(nodes(tree).filter(n => n.type === 'article').length, 2)
+  assert.equal(nodes(tree).filter(n => n.type === 'pre').length, 0)
+  checks++;console.log('PASS overdue requests show readable location/date and exact links without JSON or Madrid restriction')
+
+  const empty = { ...result, total: 0, alertasOperacion: 0, detalle: { ...result.detalle, solicitudesSinOferta: [] }, totales: { ...result.totales, solicitudesSinOferta: 0 } }
+  const emptyTree = setup({ result: empty }).render()
+  assert.ok(nodes(emptyTree).some(n => n.props?.id === 'demandas-sin-oferta'))
+  assert.match(text(emptyTree), /No hay demandas abiertas sin ofertas registradas tras 24 h/)
+  const staleTree = setup({ result: empty, error: 'Consulta fallida' }).render()
+  assert.doesNotMatch(text(staleTree), /No hay demandas abiertas sin ofertas registradas tras 24 h|No hay elementos fuera de SLA/)
+  checks++;console.log('PASS request anchor remains available at zero and stale errors never show an all-clear')
+}
 console.log(`${checks} operational UI regressions passed`)

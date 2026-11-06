@@ -5,7 +5,7 @@ import { textoServidor } from "@/lib/i18n-servidor"
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { CATEGORIAS_OPERATIVAS, obtenerDetalleOperativo, obtenerResumenOperativo, type CategoriaOperativa } from "@/lib/operaciones"
+import { CATEGORIAS_OPERATIVAS, obtenerConteoSolicitudesSinOferta, obtenerDetalleOperativo, obtenerResumenOperativo, type CategoriaOperativa } from "@/lib/operaciones"
 
 export type ResumenOperativo = Awaited<ReturnType<typeof obtenerResumenOperativo>>
 
@@ -14,8 +14,8 @@ async function exigirAdmin() {
   if (!supabase) return { ok: false as const, error: await textoServidor("Supabase no está configurado.") }
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { codigo: "NO_AUTENTICADO", ok: false as const, error: await textoServidor("No autenticado") }
-  const { data: perfil } = await supabase.from("profiles").select("es_admin").eq("id", user.id).maybeSingle()
-  if (!perfil?.es_admin) return { ok: false as const, error: await textoServidor("No tienes permiso para acceder a operaciones.") }
+  const { data: perfil, error } = await supabase.from("profiles").select("es_admin,cuenta_eliminada").eq("id", user.id).maybeSingle()
+  if (error || !perfil?.es_admin || perfil.cuenta_eliminada) return { ok: false as const, error: await textoServidor("No tienes permiso para acceder a operaciones.") }
   return { ok: true as const, user }
 }
 
@@ -28,6 +28,18 @@ export async function obtenerEstadoOperativo(): Promise<
     return { ok: true, data: await obtenerResumenOperativo() }
   } catch (error) {
     return { ok: false, error: await textoServidor(error instanceof Error ? error.message : "No se pudo obtener el estado operativo.") }
+  }
+}
+
+export async function obtenerConteoDemandasSinOferta(): Promise<
+  { ok: true; total: number } | { ok: false; error: string }
+> {
+  try {
+    const permiso = await exigirAdmin()
+    if (!permiso.ok) return { ok: false, error: await textoServidor(permiso.error) }
+    return { ok: true, total: await obtenerConteoSolicitudesSinOferta() }
+  } catch {
+    return { ok: false, error: await textoServidor("No se pudo comprobar si hay demandas sin ofertas.") }
   }
 }
 
