@@ -2,6 +2,8 @@
 
 import { localeDe, type Idioma } from "@/lib/i18n"
 
+import { ResumenComisiones } from "@/components/admin/resumen-comisiones"
+
 import { useIdioma } from "@/components/idioma-provider"
 
 import { useEffect, useRef, useState } from "react"
@@ -244,9 +246,6 @@ export default function AdminPagosPage() {
 
   const totalRetenido = retenidas.reduce((sum, t) => sum + (t.monto ?? 0), 0)
   const totalLiberado = liberadas.reduce((sum, t) => sum + (t.pago_neto_proveedor ?? 0), 0)
-  const totalComisiones = filtradas
-    .filter((t) => t.estado === "completado" || t.estado === "reembolsado")
-    .reduce((sum, t) => sum + comisionDe(t), 0)
   const totalReembolsado = reembolsadas.reduce((sum, t) => sum + Number(t.monto_reembolsado ?? 0), 0)
 
   const nombre = (p?: { nombre: string | null; apellido: string | null } | null) =>
@@ -366,22 +365,20 @@ export default function AdminPagosPage() {
         <Button size="sm" variant="ghost" onClick={() => router.replace("/admin/pagos")}>{t("Ver todos los pagos")}</Button>
       </div>}
 
-      <dl aria-label={t("Resumen de pagos")} className="grid min-w-0 grid-cols-2 overflow-hidden rounded-2xl border border-border/80 bg-card xl:grid-cols-4">
-        <div className="flex min-w-0 flex-col border-b border-r border-border/70 p-4 sm:p-5 xl:border-b-0">
-          <dt className="flex items-center gap-1.5 text-xs text-muted-foreground"><span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />{t("Comisiones")}</dt>
-          <dd className="mt-auto pt-2 text-[26px] font-semibold tracking-tight text-primary tabular-nums [overflow-wrap:anywhere] sm:text-3xl">{eur(totalComisiones, idioma)}</dd>
-        </div>
-        <div className="flex min-w-0 flex-col border-b border-border/70 p-4 sm:p-5 xl:border-b-0 xl:border-r">
+      <ResumenComisiones />
+
+      <dl aria-label={t("Resumen de pagos")} className="grid min-w-0 grid-cols-1 overflow-hidden rounded-2xl border border-border/80 bg-card sm:grid-cols-3">
+        <div className="flex min-w-0 flex-row items-baseline justify-between gap-3 border-b border-border/70 p-4 sm:flex-col sm:items-stretch sm:border-b-0 sm:border-r sm:p-5">
           <dt title={t("Neto transferido a profesionales")} className="text-xs text-muted-foreground">{t("Transferido (neto)")}</dt>
-          <dd className="mt-auto pt-2 text-[26px] font-semibold tracking-tight tabular-nums [overflow-wrap:anywhere] sm:text-3xl">{eur(totalLiberado, idioma)}</dd>
+          <dd className="text-xl font-semibold tracking-tight tabular-nums [overflow-wrap:anywhere] sm:mt-auto sm:pt-2 sm:text-2xl">{eur(totalLiberado, idioma)}</dd>
         </div>
-        <div className="flex min-w-0 flex-col border-r border-border/70 p-4 sm:p-5">
+        <div className="flex min-w-0 flex-row items-baseline justify-between gap-3 border-b border-border/70 p-4 sm:flex-col sm:items-stretch sm:border-b-0 sm:border-r sm:p-5">
           <dt className="text-xs text-muted-foreground">{t("En custodia")}</dt>
-          <dd className="mt-auto pt-2 text-[26px] font-semibold tracking-tight tabular-nums [overflow-wrap:anywhere] sm:text-3xl">{eur(totalRetenido, idioma)}</dd>
+          <dd className="text-xl font-semibold tracking-tight tabular-nums [overflow-wrap:anywhere] sm:mt-auto sm:pt-2 sm:text-2xl">{eur(totalRetenido, idioma)}</dd>
         </div>
-        <div className="flex min-w-0 flex-col p-4 sm:p-5">
+        <div className="flex min-w-0 flex-row items-baseline justify-between gap-3 p-4 sm:flex-col sm:items-stretch sm:p-5">
           <dt className="text-xs text-muted-foreground">{t("Reembolsos procesados por Stripe")}</dt>
-          <dd className="mt-auto pt-2 text-[26px] font-semibold tracking-tight tabular-nums [overflow-wrap:anywhere] sm:text-3xl">{eur(totalReembolsado, idioma)}</dd>
+          <dd className="text-xl font-semibold tracking-tight tabular-nums [overflow-wrap:anywhere] sm:mt-auto sm:pt-2 sm:text-2xl">{eur(totalReembolsado, idioma)}</dd>
         </div>
       </dl>
 

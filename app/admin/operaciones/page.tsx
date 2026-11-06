@@ -56,6 +56,12 @@ export default function OperacionesPage() {
     cargar()
   }, [])
 
+  useEffect(() => {
+    if (!loading && window.location.hash === "#demandas-sin-oferta") {
+      document.getElementById("demandas-sin-oferta")?.scrollIntoView({ block: "start" })
+    }
+  }, [loading])
+
   const cargarMas = async (categoria: Categoria) => {
     if (!resumen || loading || cargandoGrupo) return
     setCargandoGrupo(categoria)
@@ -132,7 +138,7 @@ export default function OperacionesPage() {
     ["liquidacionesAtascadas", t("Liquidaciones atascadas"), resumen?.detalle.liquidacionesAtascadas || [], t("Procesando durante más de 15 minutos.")],
     ["disputasVencidas", t("Disputas fuera de SLA"), resumen?.detalle.disputasVencidas || [], t("Sin resolver durante más de 24 horas.")],
     ["incidenciasCriticas", t("Incidencias críticas"), resumen?.detalle.incidenciasCriticas || [], t("Requieren atención inmediata.")],
-    ["solicitudesSinOferta", t("Demandas sin oferta"), resumen?.detalle.solicitudesSinOferta || [], t("Madrid, abiertas y sin oferta después de 4 horas.")],
+    ["solicitudesSinOferta", t("Demandas sin ofertas tras 24 h"), resumen?.detalle.solicitudesSinOferta || [], t("Abiertas desde hace al menos 24 horas y sin ofertas registradas, en cualquier ubicación.")],
   ] as const
 
   return (
@@ -140,7 +146,7 @@ export default function OperacionesPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2"><BellRing className="h-8 w-8 text-primary" />{t("Operaciones")}</h1>
-          <p className="text-muted-foreground mt-1">{t("Pagos, comunicaciones, moderación y matching del piloto de Madrid.")}</p>
+          <p className="text-muted-foreground mt-1">{t("Pagos, comunicaciones, moderación y demandas pendientes de atención.")}</p>
         </div>
         <Button variant="outline" onClick={cargar} disabled={loading || !!cargandoGrupo} className="gap-2">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}{t("Actualizar")}</Button>
@@ -154,9 +160,9 @@ export default function OperacionesPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Card><CardHeader className="pb-2"><CardDescription>{t("Total accionable")}</CardDescription><CardTitle className="text-3xl">{resumen?.total || 0}</CardTitle></CardHeader></Card>
-        <Card><CardHeader className="pb-2"><CardDescription>{t("Alertas técnicas")}</CardDescription><CardTitle className="text-3xl">{resumen?.alertasTecnicas || 0}</CardTitle></CardHeader></Card>
-        <Card><CardHeader className="pb-2"><CardDescription>{t("Operación y matching")}</CardDescription><CardTitle className="text-3xl">{resumen?.alertasOperacion || 0}</CardTitle></CardHeader></Card>
+        <Card><CardHeader className="pb-2"><CardDescription>{t("Total accionable")}</CardDescription><CardTitle className="text-3xl">{resumen?.total ?? "—"}</CardTitle></CardHeader></Card>
+        <Card><CardHeader className="pb-2"><CardDescription>{t("Alertas técnicas")}</CardDescription><CardTitle className="text-3xl">{resumen?.alertasTecnicas ?? "—"}</CardTitle></CardHeader></Card>
+        <Card><CardHeader className="pb-2"><CardDescription>{t("Operación y matching")}</CardDescription><CardTitle className="text-3xl">{resumen?.alertasOperacion ?? "—"}</CardTitle></CardHeader></Card>
       </div>
 
       {errorCarga && <p role="alert" className="text-destructive">{errorCarga}</p>}
@@ -183,11 +189,21 @@ export default function OperacionesPage() {
         </Card>
       )}
 
-      {grupos.map(([categoria, titulo, filas, ayuda]) => filas.length > 0 && (
-        <Card key={titulo}>
+      {grupos.map(([categoria, titulo, filas, ayuda]) => (filas.length > 0 || (categoria === "solicitudesSinOferta" && resumen)) && (
+        <Card key={categoria} id={categoria === "solicitudesSinOferta" ? "demandas-sin-oferta" : undefined} className="scroll-mt-6">
           <CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-500" />{titulo}<Badge>{resumen?.totales[categoria]}</Badge></CardTitle><CardDescription>{ayuda}</CardDescription></CardHeader>
           <CardContent className="space-y-2">
-            {filas.map((fila: any) => <div key={fila.id} className="space-y-2">
+            {categoria === "solicitudesSinOferta" && filas.length === 0 && !errorCarga && <p className="text-sm text-muted-foreground">{t("No hay demandas abiertas sin ofertas registradas tras 24 h.")}</p>}
+            {filas.map((fila: any) => categoria === "solicitudesSinOferta" ? (
+              <article key={fila.id} className="flex min-w-0 flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium [overflow-wrap:anywhere]">{fila.titulo}</p>
+                  <p className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">{fila.ubicacion}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{t("Publicada el")}: <time dateTime={fila.created_at}>{fecha(fila.created_at, idioma)}</time></p>
+                </div>
+                <Button asChild variant="outline" size="sm" className="shrink-0 self-start sm:self-center"><Link href={`/demandas?solicitud=${encodeURIComponent(fila.id)}`}>{t("Ver demanda")}</Link></Button>
+              </article>
+            ) : <div key={fila.id} className="space-y-2">
               <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs whitespace-pre-wrap">{JSON.stringify(fila, null, 2)}</pre>
               {categoria === "disputasVencidas" && <div className="text-sm space-y-1">
                 <p>{t("Responsable de revisión")}: {fila.responsable ? `${fila.responsable.nombre || ""} ${fila.responsable.apellido || ""}`.trim() : t("Sin asignar")}{fila.responsable && !fila.responsable.es_admin && ` · ${t("Ya no es administrador")}`}</p>
