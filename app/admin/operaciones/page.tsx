@@ -13,8 +13,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { obtenerEstadoOperativo, obtenerPaginaOperativa, resolverEventoOperativo, type ResumenOperativo } from "@/app/actions/operaciones"
 import { useToast } from "@/hooks/use-toast"
 import { revisarPlazosWorkflow } from "@/app/actions/plazos-workflow"
+import { formatearRangoPresupuesto } from "@/lib/utils"
 
 type Categoria = keyof ResumenOperativo["detalle"]
+const urgencias: Record<string, string> = { baja: "Baja", media: "Media", alta: "Alta", urgente: "Urgente" }
 
 function fecha(value: string | null | undefined, idioma: Idioma) {
   if (!value) return "—"
@@ -195,13 +197,27 @@ export default function OperacionesPage() {
           <CardContent className="space-y-2">
             {categoria === "solicitudesSinOferta" && filas.length === 0 && !errorCarga && <p className="text-sm text-muted-foreground">{t("No hay demandas abiertas sin ofertas registradas tras 24 h.")}</p>}
             {filas.map((fila: any) => categoria === "solicitudesSinOferta" ? (
-              <article key={fila.id} className="flex min-w-0 flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center">
-                <div className="min-w-0 flex-1">
+              <article key={fila.id} className="min-w-0 rounded-lg border p-4">
+                <div className="min-w-0">
                   <p className="font-medium [overflow-wrap:anywhere]">{fila.titulo}</p>
                   <p className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">{fila.ubicacion}</p>
                   <p className="mt-1 text-xs text-muted-foreground">{t("Publicada el")}: <time dateTime={fila.created_at}>{fecha(fila.created_at, idioma)}</time></p>
                 </div>
-                <Button asChild variant="outline" size="sm" className="shrink-0 self-start sm:self-center"><Link href={`/demandas?solicitud=${encodeURIComponent(fila.id)}`}>{t("Ver demanda")}</Link></Button>
+                <details className="mt-3 min-w-0">
+                  <summary className="w-fit cursor-pointer rounded-md px-1 py-2 text-sm font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">{t("Ver demanda")}</summary>
+                  <div className="mt-3 min-w-0 space-y-4 border-t pt-4 text-sm [overflow-wrap:anywhere]">
+                    <div>
+                      <h3 className="font-medium">{t("Descripción")}</h3>
+                      <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{fila.descripcion || t("Sin descripción")}</p>
+                    </div>
+                    <dl className="grid min-w-0 gap-3 sm:grid-cols-2">
+                      <div><dt className="font-medium">{t("Presupuesto")}</dt><dd className="mt-1 text-muted-foreground">{formatearRangoPresupuesto(fila.presupuesto_min, fila.presupuesto_max, idioma)}</dd></div>
+                      <div><dt className="font-medium">{t("Urgencia")}</dt><dd className="mt-1 text-muted-foreground">{t(urgencias[fila.urgencia] || "No indicada")}</dd></div>
+                      {fila.fecha_necesaria && <div><dt className="font-medium">{t("Fecha necesaria")}</dt><dd className="mt-1 text-muted-foreground"><time dateTime={fila.fecha_necesaria}>{new Date(fila.fecha_necesaria).toLocaleDateString(localeDe(idioma), { dateStyle: "short", timeZone: "UTC" })}</time></dd></div>}
+                    </dl>
+                    {fila.cliente_id && <Button asChild variant="outline" size="sm"><Link href={`/admin/usuarios/${encodeURIComponent(fila.cliente_id)}`}>{t("Ver cliente")}</Link></Button>}
+                  </div>
+                </details>
               </article>
             ) : <div key={fila.id} className="space-y-2">
               <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs whitespace-pre-wrap">{JSON.stringify(fila, null, 2)}</pre>
