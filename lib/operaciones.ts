@@ -37,7 +37,7 @@ function consultaSolicitudesSinOferta(admin: NonNullable<ReturnType<typeof creat
   // The stored counter can be stale. Any recorded offer, including a rejected
   // or withdrawn one, means this request has received a response.
   return admin.from("solicitudes")
-    .select("id, titulo, ubicacion, created_at, ofertas:ofertas!ofertas_solicitud_id_fkey(id)", { count: "exact", head: soloConteo })
+    .select("id, titulo, descripcion, ubicacion, presupuesto_min, presupuesto_max, urgencia, fecha_necesaria, cliente_id, created_at, ofertas:ofertas!ofertas_solicitud_id_fkey(id)", { count: "exact", head: soloConteo })
     .eq("estado", "abierta")
     .is("ofertas", null)
     .lte("created_at", new Date(ahora - 24 * 60 * 60 * 1000).toISOString())
