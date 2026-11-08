@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import { Capacitor } from "@capacitor/core"
 import { Browser } from "@capacitor/browser"
+import { destinoAuthSeguro } from "@/lib/auth-redirect"
+import { AUTH_DEEP_LINK, guardarRetornoOAuthNativo } from "@/lib/auth-native"
 
 // Botones de "entrar con…" compartidos por /auth/login y /auth/registro, que
 // antes tenían cada uno su copia del de Google.
@@ -80,19 +82,20 @@ export function BotonesOAuth({
     try {
       const esAppNativa = Capacitor.isNativePlatform()
       const callbackWeb = new URL("/auth/callback", window.location.origin)
-      const callbackNativo = new URL("es.diime.app://auth/callback")
-      const requested = new URLSearchParams(window.location.search).get("next")
-      if (requested?.startsWith("/") && !requested.startsWith("//")) callbackWeb.searchParams.set("next", requested)
-      if (window.location.pathname === "/auth/registro") {
+      const requested = destinoAuthSeguro(new URLSearchParams(window.location.search).get("next"), "")
+      const esRegistro = window.location.pathname === "/auth/registro"
+      if (requested) callbackWeb.searchParams.set("next", requested)
+      if (esRegistro) {
         callbackWeb.searchParams.set("terms", "1")
         callbackWeb.searchParams.set("age", "1")
-        callbackNativo.searchParams.set("terms", "1")
-        callbackNativo.searchParams.set("age", "1")
+      }
+      if (esAppNativa) {
+        guardarRetornoOAuthNativo({ destino: requested || "/", terms: esRegistro && aceptaTerminos, age: esRegistro && confirmaMayoriaEdad }, window.localStorage)
       }
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: proveedor,
         options: {
-          redirectTo: esAppNativa ? callbackNativo.toString() : callbackWeb.toString(),
+          redirectTo: esAppNativa ? AUTH_DEEP_LINK : callbackWeb.toString(),
           skipBrowserRedirect: esAppNativa,
           // Solo Google admite estos parámetros; a Apple no se le mandan.
           ...(proveedor === "google"

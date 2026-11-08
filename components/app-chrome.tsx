@@ -66,7 +66,10 @@ export function AppChrome({ children, actorEmpresaLocal }: { children: React.Rea
   }, [actorEmpresaLocal])
 
   useEffect(() => {
-    if (sesionCerrada) window.location.replace(sesionCerrada)
+    // El cierre explícito desmonta los datos privados aquí, pero su botón
+    // navega al inicio cuando cerrarSesionActual confirma que terminó. Una
+    // segunda navegación puede cancelar la primera en la WebView de iOS.
+    if (sesionCerrada && sesionCerrada !== "/") window.location.replace(sesionCerrada)
   }, [sesionCerrada])
 
   // El chat es una vista de aplicación, no una página larga. Marcamos el

@@ -46,12 +46,12 @@ function logoutHandler(file, sdk, unlink = async () => {}, native = false) {
     cerrarSesionActual: helper.cerrarSesionActual, setIsLoading: v => state.busy = v, setClosingSession: v => state.busy = v, setLoggingOut: v => state.busy = v, setGuardando: v => state.busy = v,
     setIsAuthenticated: v => state.authenticated = v, setIsOpen() {}, setUserEmail() {}, setUserName() {}, setUserPhoto() {}, setIsAdmin() {}, setIsProfessional() {},
     toast: v => state.errors.push(v), setError: v => { if (v) state.errors.push(v) }, t: x => x,
-    router: { push: p => state.paths.push(p), refresh: () => state.refreshes++ }, window: { location: { assign: p => state.paths.push(p) } } }
+    router: { push: p => state.paths.push(p), refresh: () => state.refreshes++ }, window: { location: { assign: p => state.paths.push(p), replace: p => state.paths.push(p) } } }
   return { state, run: extract(file, file.includes('confirmar-mayoria') ? 'salir' : 'handleLogout', deps) }
 }
-await test('Navbar nativo cierra Auth sin duplicar la navegación que pertenece a AppChrome', async () => {
+await test('Navbar nativo confirma Auth y navega al inicio una sola vez', async () => {
   const a = sdkFixture(), h = logoutHandler('components/navbar.tsx', a.sdk, async () => {}, true)
-  await h.run();assert.equal((await a.sdk.getSession()).data.session,null);assert.equal(h.state.authenticated,false);assert.deepEqual(h.state.paths,[]);assert.equal(h.state.refreshes,0);assert.equal(h.state.errors.length,0);assert.equal(h.state.busy,false)
+  await h.run();assert.equal((await a.sdk.getSession()).data.session,null);assert.equal(h.state.authenticated,false);assert.deepEqual(h.state.paths,['/']);assert.equal(h.state.refreshes,0);assert.equal(h.state.errors.length,0);assert.equal(h.state.busy,false)
 })
 const logoutFiles = ['components/logout-button.tsx', 'components/navbar.tsx', 'components/perfil-profesional.tsx', 'app/admin/layout.tsx', 'components/confirmar-mayoria-edad.tsx']
 for (const file of logoutFiles) {

@@ -3,7 +3,7 @@
 import { useT } from "@/components/idioma-provider"
 
 
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { Capacitor } from "@capacitor/core"
 import { App } from "@capacitor/app"
 import { Browser } from "@capacitor/browser"
@@ -16,8 +16,8 @@ import { StatusBar, Style } from "@capacitor/status-bar"
 import { registrarDispositivoPush } from "@/app/actions/push"
 import { guardarTokenPushActual } from "@/lib/push/client"
 import { createClient } from "@/lib/supabase/client"
+import { crearManejadorAuthNativo } from "@/lib/auth-native"
 
-const AUTH_DEEP_LINK = "es.diime.app://auth/callback"
 // Reutiliza el host/path ya registrado en las builds móviles publicadas. Así
 // el retorno funciona también sin exigir una nueva versión de iOS o Android.
 const STRIPE_DEEP_LINK = "es.diime.app://auth/callback/stripe/"
@@ -25,6 +25,7 @@ const DURACION_SPLASH_MS = 3000
 
 export function CapacitorBridge() {
   const t = useT()
+  const retornosAuthProcesados = useRef(new Set<string>())
   useEffect(() => {
     const esNativa = Capacitor.isNativePlatform()
     const parametros = new URLSearchParams(window.location.search)
@@ -205,7 +206,14 @@ export function CapacitorBridge() {
       if (isActive) registrarPush().catch(() => {})
     }).then((handle) => cleanups.push(() => void handle.remove()))
 
-    App.addListener("appUrlOpen", async ({ url }) => {
+    const manejarAuth = crearManejadorAuthNativo({
+      supabase,
+      storage: window.localStorage,
+      procesados: retornosAuthProcesados.current,
+      cerrarNavegador: () => Browser.close(),
+      navegar: (destino) => window.location.replace(destino),
+    })
+    const manejarEnlace = async ({ url }: { url: string }) => {
       if (url.startsWith(STRIPE_DEEP_LINK)) {
         await Browser.close().catch(() => {})
         const callbackUrl = new URL(url)
@@ -227,35 +235,16 @@ export function CapacitorBridge() {
         return
       }
 
-      if (!url.startsWith(AUTH_DEEP_LINK)) return
-      await Browser.close().catch(() => {})
-      const callbackUrl = new URL(url)
-      const code = callbackUrl.searchParams.get("code")
-      if (!code) {
-        window.location.assign("/auth/login?error=oauth")
-        return
-      }
-      const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-      if (!error && data.user && callbackUrl.searchParams.get("age") === "1") {
-        const aceptacionLegal = new Date().toISOString()
-        await supabase.auth.updateUser({
-          data: {
-            terms_accepted_at: aceptacionLegal,
-            terms_version: "2026-08",
-            mayor_edad_confirmada_at: aceptacionLegal,
-            mayor_edad_version: "18-plus-2026-08",
-          },
-        })
-        await supabase
-          .from("profiles")
-          .update({
-            mayor_edad_confirmada_at: aceptacionLegal,
-            mayor_edad_version: "18-plus-2026-08",
-          })
-          .eq("id", data.user.id)
-      }
-      window.location.assign(error ? "/auth/login?error=oauth" : "/")
-    }).then((handle) => cleanups.push(() => void handle.remove()))
+      await manejarAuth(url)
+    }
+    App.addListener("appUrlOpen", manejarEnlace).then(async (handle) => {
+      if (!mounted) { await handle.remove(); return }
+      cleanups.push(() => void handle.remove())
+      // Si el sistema cerró la app durante Google/Apple, el enlace de arranque
+      // puede llegar antes de que React registre appUrlOpen.
+      const launch = await App.getLaunchUrl().catch(() => undefined)
+      if (mounted && launch?.url) await manejarAuth(launch.url)
+    })
 
     const manejarClick = (event: MouseEvent) => {
       const objetivo = event.target as HTMLElement | null

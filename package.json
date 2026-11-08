@@ -6,6 +6,7 @@
     "node": ">=22.6.0"
   },
   "scripts": {
+    "test:auth-native": "node --test scripts/test-native-auth.mjs scripts/test-logout-navigation.mjs scripts/test-auth-retorno.mjs",
     "build": "next build",
     "cap:sync": "cap sync",
     "cap:android": "cap open android",

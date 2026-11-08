@@ -46,6 +46,7 @@ function AdminLayoutContenido({ children }: { children: React.ReactNode }) {
   const [adminName, setAdminName] = useState("")
   const [adminUsuarioId, setAdminUsuarioId] = useState<string | null>(null)
   const [closingSession, setClosingSession] = useState(false)
+  const cierrePendiente = useRef(false)
   const { toast } = useToast()
   // Pendientes de revisión visibles desde cualquier sección de administración.
   const [pendientes, setPendientes] = useState<Record<string, number>>({})
@@ -92,7 +93,7 @@ function AdminLayoutContenido({ children }: { children: React.ReactNode }) {
         setIsAdmin(false); setAdminName(""); setPendientes({})
         setAdminUsuarioId(null)
         setDemandasSinOferta(null); setErrorDemandas(false)
-        router.replace("/auth/login")
+        if (!cierrePendiente.current) router.replace("/auth/login")
       } else if (session?.user.id && session.user.id !== ultimoUsuario) {
         revision++; ultimoUsuario = session.user.id
         revisionSesion.current++
@@ -158,14 +159,16 @@ function AdminLayoutContenido({ children }: { children: React.ReactNode }) {
   }, [isAdmin, adminUsuarioId, pathname])
 
   const handleLogout = async () => {
-    if (closingSession) return
+    if (cierrePendiente.current) return
+    cierrePendiente.current = true
     setClosingSession(true)
     try {
       await cerrarSesionActual("global")
-      router.push("/")
+      window.location.replace("/")
     } catch {
       toast({ title: t("No se pudo cerrar la sesión"), description: t("Tu sesión sigue abierta. Comprueba la conexión y vuelve a intentarlo."), variant: "destructive" })
     } finally {
+      cierrePendiente.current = false
       setClosingSession(false)
     }
   }

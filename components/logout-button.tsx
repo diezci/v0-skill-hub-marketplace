@@ -4,7 +4,6 @@ import { useT } from "@/components/idioma-provider"
 
 
 import { useRef, useState } from "react"
-import { useRouter } from "next/navigation"
 import { LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cerrarSesionActual } from "@/lib/auth-logout"
@@ -12,7 +11,6 @@ import { useToast } from "@/hooks/use-toast"
 
 export default function LogoutButton() {
   const t = useT()
-  const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const cierrePendiente = useRef(false)
   const { toast } = useToast()
@@ -23,8 +21,7 @@ export default function LogoutButton() {
     setIsLoading(true)
     try {
       await cerrarSesionActual("global")
-      router.push("/")
-      router.refresh()
+      window.location.replace("/")
     } catch {
       toast({ title: t("No se pudo cerrar la sesión"), description: t("Tu sesión sigue abierta. Comprueba la conexión y vuelve a intentarlo."), variant: "destructive" })
     } finally {
