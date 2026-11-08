@@ -57,11 +57,13 @@ export function crearManejadorAuthNativo({
     const code = callback.searchParams.get("code")
     const id = code || callback.href
     if (procesados.has(id)) return true
-    procesados.add(id)
     const retorno = consumirRetornoOAuth(storage)
     // getLaunchUrl conserva el enlace incluso después de recargar la WebView.
     // Sin una operación pendiente, es un retorno viejo y no se vuelve a canjear.
     if (!retorno) return true
+    // No marcar los enlaces antiguos: una nueva cancelación puede devolver
+    // exactamente la misma URL y debe completar su propia operación pendiente.
+    procesados.add(id)
     await cerrarNavegador().catch(() => {})
 
     try {

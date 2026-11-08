@@ -198,6 +198,22 @@ test('missing, corrupt, expired, future and invalid-date pending state never exc
   }
 })
 
+test('a retained denial launch cannot suppress the same denial from a new OAuth attempt', async () => {
+  const auth = authFixture()
+  const denial = `${CALLBACK}?error=access_denied`
+  await auth.handle(denial)
+  const reloaded = native.crearManejadorAuthNativo({ ...auth.options, procesados: new Set() })
+  // iOS retains the old launch URL after the login page reloads.
+  await reloaded(denial)
+  assert.deepEqual(auth.paths, ['/auth/login?error=oauth'])
+  native.guardarRetornoOAuthNativo({ destino: '/', terms: true, age: true }, auth.storage)
+  // Google and Apple can return identical errors for separate attempts.
+  await reloaded(denial)
+  assert.deepEqual(auth.paths, ['/auth/login?error=oauth', '/auth/login?error=oauth'])
+  assert.equal(auth.closed, 2)
+  assert.equal(auth.storage.getItem(RETURN_KEY), null)
+})
+
 test('non-boolean saved confirmation values do not record consent', async () => {
   const auth = authFixture(null)
   auth.storage.setItem(RETURN_KEY, JSON.stringify({ destino: '/', terms: 'true', age: 1, creado: Date.now() }))
