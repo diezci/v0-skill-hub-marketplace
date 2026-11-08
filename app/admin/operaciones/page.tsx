@@ -1,236 +1,204 @@
 "use client"
 
-import { localeDe, type Idioma } from "@/lib/i18n"
-
+import { useCallback, useEffect, useRef, useState } from "react"
+import { BellRing, Loader2, RefreshCw } from "lucide-react"
 import { useIdioma } from "@/components/idioma-provider"
-
-import Link from "next/link"
-import { useEffect, useState } from "react"
-import { AlertTriangle, BellRing, CheckCircle2, Loader2, RefreshCw } from "lucide-react"
+import { FilaOperativa } from "@/components/admin/fila-operativa"
+import { ResumenOperativoPanel } from "@/components/admin/resumen-operativo"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { obtenerEstadoOperativo, obtenerPaginaOperativa, resolverEventoOperativo, type ResumenOperativo } from "@/app/actions/operaciones"
-import { useToast } from "@/hooks/use-toast"
 import { revisarPlazosWorkflow } from "@/app/actions/plazos-workflow"
-import { formatearRangoPresupuesto } from "@/lib/utils"
+import { useToast } from "@/hooks/use-toast"
+import { localeDe } from "@/lib/i18n"
+import { anclaControl, CONTROLES_OPERATIVOS, GRUPOS_OPERATIVOS, type ControlOperativo } from "@/lib/operaciones-catalogo"
 
-type Categoria = keyof ResumenOperativo["detalle"]
-const urgencias: Record<string, string> = { baja: "Baja", media: "Media", alta: "Alta", urgente: "Urgente" }
-
-function fecha(value: string | null | undefined, idioma: Idioma) {
-  if (!value) return "—"
-  return new Date(value).toLocaleString(localeDe(idioma), { dateStyle: "short", timeStyle: "short" })
-}
+const categorias = Object.keys(CONTROLES_OPERATIVOS) as ControlOperativo[]
+const accesoDenegado = (resultado: object) => "codigo" in resultado && ["NO_AUTENTICADO", "SIN_PERMISO"].includes(String(resultado.codigo))
 
 export default function OperacionesPage() {
   const { t, idioma } = useIdioma()
-
+  const { toast } = useToast()
   const [resumen, setResumen] = useState<ResumenOperativo | null>(null)
   const [loading, setLoading] = useState(true)
-  const [cargandoGrupo, setCargandoGrupo] = useState<Categoria | null>(null)
+  const [cargandoGrupo, setCargandoGrupo] = useState<ControlOperativo | null>(null)
   const [errorCarga, setErrorCarga] = useState("")
   const [resolviendo, setResolviendo] = useState<string | null>(null)
   const [procesandoPlazos, setProcesandoPlazos] = useState(false)
-  const { toast } = useToast()
+  const montado = useRef(false)
+  const sesion = useRef(0)
+  const revisionCarga = useRef(0)
+  const paginaEnCurso = useRef(false)
+  const accionEnCurso = useRef(false)
 
-  const cargar = async () => {
+  const cargar = useCallback(async () => {
+    const revision = ++revisionCarga.current
+    paginaEnCurso.current = false
+    setCargandoGrupo(null)
     setLoading(true)
     setErrorCarga("")
     try {
       const resultado = await obtenerEstadoOperativo()
+      if (!montado.current || revision !== revisionCarga.current) return
       if (!resultado.ok) {
+        if (accesoDenegado(resultado)) setResumen(null)
         setErrorCarga(resultado.error)
         toast({ title: t("No se pudo cargar operaciones"), description: resultado.error, variant: "destructive" })
-      } else {
-        setResumen(resultado.data)
-      }
+      } else setResumen(resultado.data)
     } catch {
+      if (!montado.current || revision !== revisionCarga.current) return
       const mensaje = t("No se puede conectar con Diime. Inténtalo de nuevo.")
       setErrorCarga(mensaje)
       toast({ title: t("No se pudo cargar operaciones"), description: mensaje, variant: "destructive" })
     } finally {
-      setLoading(false)
+      if (montado.current && revision === revisionCarga.current) setLoading(false)
     }
-  }
+  }, [t, toast])
 
   useEffect(() => {
-    cargar()
+    montado.current = true
+    sesion.current++
+    return () => { montado.current = false; sesion.current++; revisionCarga.current++ }
   }, [])
 
+  useEffect(() => { void cargar() }, [cargar])
+
   useEffect(() => {
-    if (!loading && window.location.hash === "#demandas-sin-oferta") {
-      document.getElementById("demandas-sin-oferta")?.scrollIntoView({ block: "start" })
+    const abrirControl = () => {
+      const id = window.location.hash.slice(1)
+      if (!categorias.some(categoria => anclaControl(categoria) === id)) return
+      const control = document.getElementById(id)
+      if (control?.tagName === "DETAILS") (control as HTMLDetailsElement).open = true
+      control?.scrollIntoView({ block: "start" })
     }
+    if (!loading) abrirControl()
+    window.addEventListener("hashchange", abrirControl)
+    return () => window.removeEventListener("hashchange", abrirControl)
   }, [loading])
 
-  const cargarMas = async (categoria: Categoria) => {
-    if (!resumen || loading || cargandoGrupo) return
+  const cargarMas = async (categoria: ControlOperativo) => {
+    if (!resumen || loading || paginaEnCurso.current || accionEnCurso.current) return
+    const revision = revisionCarga.current
+    paginaEnCurso.current = true
     setCargandoGrupo(categoria)
     try {
       const resultado = await obtenerPaginaOperativa(categoria, resumen.detalle[categoria].length)
+      if (!montado.current || revision !== revisionCarga.current) return
       if (!resultado.ok) {
+        if (accesoDenegado(resultado)) { setResumen(null); setErrorCarga(resultado.error) }
         toast({ title: t("No se pudo cargar operaciones"), description: resultado.error, variant: "destructive" })
-      } else {
-        setResumen(actual => {
-          if (!actual) return actual
-          const anteriores = actual.detalle[categoria]
-          const conocidos = new Set(anteriores.map(fila => fila.id))
-          const filas = [...anteriores, ...resultado.data.filas.filter(fila => !conocidos.has(fila.id))]
-          const totales = { ...actual.totales, [categoria]: resultado.data.total }
-          const alertasTecnicas = totales.eventos + totales.webhooksError + totales.webhooksAtascados + totales.liquidacionesError + totales.liquidacionesAtascadas
-          const alertasOperacion = totales.disputasVencidas + totales.incidenciasCriticas + totales.solicitudesSinOferta
-          return { ...actual, totales, detalle: { ...actual.detalle, [categoria]: filas }, alertasTecnicas, alertasOperacion, total: alertasTecnicas + alertasOperacion }
-        })
       }
+      else setResumen(actual => {
+        if (!actual) return actual
+        const anteriores = actual.detalle[categoria]
+        const conocidos = new Set(anteriores.map(fila => fila.id))
+        const filas = [...anteriores, ...resultado.data.filas.filter(fila => !conocidos.has(fila.id))]
+        const totales = { ...actual.totales, [categoria]: resultado.data.total }
+        const total = Object.values(totales).reduce((suma, cantidad) => suma + cantidad, 0)
+        const alertasTecnicas = categorias.filter(control => ["pagos", "avisos"].includes(CONTROLES_OPERATIVOS[control].grupo)).reduce((suma, control) => suma + totales[control], 0)
+        return { ...actual, totales, detalle: { ...actual.detalle, [categoria]: filas }, total, alertasTecnicas, alertasOperacion: total - alertasTecnicas }
+      })
     } catch {
-      toast({ title: t("No se pudo cargar operaciones"), description: t("No se puede conectar con Diime. Inténtalo de nuevo."), variant: "destructive" })
+      if (montado.current && revision === revisionCarga.current) toast({ title: t("No se pudo cargar operaciones"), description: t("No se puede conectar con Diime. Inténtalo de nuevo."), variant: "destructive" })
     } finally {
-      setCargandoGrupo(null)
+      if (montado.current && revision === revisionCarga.current) { paginaEnCurso.current = false; setCargandoGrupo(null) }
     }
   }
 
-  const paginacion = (categoria: Categoria) => resumen && resumen.detalle[categoria].length < resumen.totales[categoria] ? (
-    <div className="flex items-center gap-3 pt-3">
-      <span className="text-sm text-muted-foreground">{resumen.detalle[categoria].length} / {resumen.totales[categoria]}</span>
-      <Button variant="outline" onClick={() => cargarMas(categoria)} disabled={loading || !!cargandoGrupo}>
-        {cargandoGrupo === categoria ? <Loader2 className="h-4 w-4 animate-spin" /> : t("Cargar más")}
-      </Button>
-    </div>
-  ) : null
-
   const resolver = async (id: string) => {
+    if (accionEnCurso.current || paginaEnCurso.current || loading) return
+    const actual = sesion.current
+    accionEnCurso.current = true
     setResolviendo(id)
     try {
       const resultado = await resolverEventoOperativo(id)
-      if ("error" in resultado && resultado.error) {
-        toast({ title: t("No se pudo resolver"), description: resultado.error, variant: "destructive" })
-      } else {
+      if (!montado.current || actual !== sesion.current) return
+      if ("error" in resultado && resultado.error) toast({ title: t("No se pudo resolver"), description: resultado.error, variant: "destructive" })
+      else {
         toast({ title: t("Evento resuelto"), description: t("Volverá a abrirse automáticamente si el fallo se repite.") })
         await cargar()
       }
     } catch {
-      toast({ title: t("No se pudo resolver"), description: t("No se puede conectar con Diime. Inténtalo de nuevo."), variant: "destructive" })
+      if (montado.current && actual === sesion.current) toast({ title: t("No se pudo resolver"), description: t("No se puede conectar con Diime. Inténtalo de nuevo."), variant: "destructive" })
     } finally {
-      setResolviendo(null)
+      if (montado.current && actual === sesion.current) { accionEnCurso.current = false; setResolviendo(null) }
     }
   }
 
   const procesarPlazos = async () => {
+    if (accionEnCurso.current || paginaEnCurso.current || loading) return
+    const actual = sesion.current
+    accionEnCurso.current = true
     setProcesandoPlazos(true)
     try {
-      const r = await revisarPlazosWorkflow()
-      if (r.error) throw new Error(r.error)
-      toast({ title: t("Plazos revisados"), description: t("Contratos caducados: {caducados}. Recordatorios: {recordatorios}. Pendientes de conciliación: {errores}.", { caducados: r.data!.caducados, recordatorios: r.data!.recordatorios, errores: r.data!.errores.length }) })
+      const resultado = await revisarPlazosWorkflow()
+      if (!montado.current || actual !== sesion.current) return
+      if (resultado.error) throw new Error(resultado.error)
+      toast({ title: t("Plazos revisados"), description: t("Contratos caducados: {caducados}. Recordatorios: {recordatorios}. Pendientes de conciliación: {errores}.", { caducados: resultado.data!.caducados, recordatorios: resultado.data!.recordatorios, errores: resultado.data!.errores.length }) })
       await cargar()
     } catch {
-      toast({ title: t("No se pudieron procesar los plazos. Inténtalo de nuevo."), variant: "destructive" })
-    } finally { setProcesandoPlazos(false) }
+      if (montado.current && actual === sesion.current) toast({ title: t("No se pudieron procesar los plazos. Inténtalo de nuevo."), variant: "destructive" })
+    } finally {
+      if (montado.current && actual === sesion.current) { accionEnCurso.current = false; setProcesandoPlazos(false) }
+    }
   }
 
-  if (loading && !resumen) {
-    return <div className="min-h-[60vh] flex items-center justify-center"><Loader2 className="h-7 w-7 animate-spin" /></div>
-  }
-
-  const eventos = resumen?.detalle.eventos || []
-  const grupos = [
-    ["webhooksError", t("Webhooks fallidos"), resumen?.detalle.webhooksError || [], t("Revisar en Stripe y reintentar el mismo evento.")],
-    ["webhooksAtascados", t("Webhooks atascados"), resumen?.detalle.webhooksAtascados || [], t("Procesando durante más de 15 minutos.")],
-    ["liquidacionesError", t("Liquidaciones fallidas"), resumen?.detalle.liquidacionesError || [], t("Confirmar el movimiento en Stripe antes de reintentar.")],
-    ["liquidacionesAtascadas", t("Liquidaciones atascadas"), resumen?.detalle.liquidacionesAtascadas || [], t("Procesando durante más de 15 minutos.")],
-    ["disputasVencidas", t("Disputas fuera de SLA"), resumen?.detalle.disputasVencidas || [], t("Sin resolver durante más de 24 horas.")],
-    ["incidenciasCriticas", t("Incidencias críticas"), resumen?.detalle.incidenciasCriticas || [], t("Requieren atención inmediata.")],
-    ["solicitudesSinOferta", t("Demandas sin ofertas tras 24 h"), resumen?.detalle.solicitudesSinOferta || [], t("Abiertas desde hace al menos 24 horas y sin ofertas registradas, en cualquier ubicación.")],
-  ] as const
+  const ocupado = loading || !!cargandoGrupo || !!resolviendo || procesandoPlazos
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2"><BellRing className="h-8 w-8 text-primary" />{t("Operaciones")}</h1>
-          <p className="text-muted-foreground mt-1">{t("Pagos, comunicaciones, moderación y demandas pendientes de atención.")}</p>
+        <div className="min-w-0">
+          <h1 className="flex items-start gap-2 text-2xl font-bold sm:text-3xl"><BellRing aria-hidden="true" className="mt-1 h-7 w-7 shrink-0 text-primary" />{t("Funcionamiento y atención")}</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{t("Revisa las esperas y los problemas registrados, y abre cada caso para atenderlo.")}</p>
         </div>
-        <Button variant="outline" onClick={cargar} disabled={loading || !!cargandoGrupo} className="gap-2">
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}{t("Actualizar")}</Button>
-      </div>
-
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted-foreground">{t("Pago sin completar: 15 días. Revisión de entrega: 7 días. Sin liberación automática de fondos.")}</p>
-        <Button variant="outline" onClick={procesarPlazos} disabled={procesandoPlazos}>
-          {procesandoPlazos && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{t("Procesar plazos vencidos")}
+        <Button variant="outline" onClick={() => void cargar()} disabled={ocupado} className="shrink-0 gap-2 self-start">
+          {loading ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <RefreshCw aria-hidden="true" className="h-4 w-4" />}{t("Actualizar listas")}
         </Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card><CardHeader className="pb-2"><CardDescription>{t("Total accionable")}</CardDescription><CardTitle className="text-3xl">{resumen?.total ?? "—"}</CardTitle></CardHeader></Card>
-        <Card><CardHeader className="pb-2"><CardDescription>{t("Alertas técnicas")}</CardDescription><CardTitle className="text-3xl">{resumen?.alertasTecnicas ?? "—"}</CardTitle></CardHeader></Card>
-        <Card><CardHeader className="pb-2"><CardDescription>{t("Operación y matching")}</CardDescription><CardTitle className="text-3xl">{resumen?.alertasOperacion ?? "—"}</CardTitle></CardHeader></Card>
+      <ResumenOperativoPanel />
+
+      <div className="space-y-2 text-sm" aria-live="polite">
+        <p className="text-muted-foreground">{t("Listas actualizadas")}: {resumen ? <time dateTime={resumen.generadoAt}>{new Date(resumen.generadoAt).toLocaleString(localeDe(idioma), { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Madrid" })}</time> : "—"}</p>
+        {loading && <p role="status">{t("Consultando los casos…")}</p>}
+        {errorCarga && <p role="alert" className="text-destructive">{errorCarga} {resumen && t("Se conserva la última lista disponible; puede estar desactualizada.")}</p>}
+        {resumen && <p className="text-muted-foreground">{t("Señales detectadas")}: {resumen.total}. {t("Un mismo caso puede aparecer en varios controles. No es un recuento de usuarios afectados.")}</p>}
       </div>
 
-      {errorCarga && <p role="alert" className="text-destructive">{errorCarga}</p>}
-
-      {resumen && !errorCarga && resumen.total === 0 && (
-        <Card className="border-emerald-500/30 bg-emerald-500/5">
-          <CardContent className="py-8 text-center"><CheckCircle2 className="h-10 w-10 text-emerald-600 mx-auto mb-3" /><p className="font-medium">{t("No hay elementos fuera de SLA.")}</p><p className="text-sm text-muted-foreground">{t("Último control:")}{" "}{fecha(resumen?.generadoAt, idioma)}</p></CardContent>
-        </Card>
-      )}
-
-      {eventos.length > 0 && (
-        <Card>
-          <CardHeader><CardTitle>{t("Fallos registrados por la aplicación")} <Badge>{resumen?.totales.eventos}</Badge></CardTitle><CardDescription>{t("Email, push y errores técnicos agregados sin datos personales completos.")}</CardDescription></CardHeader>
-          <CardContent className="space-y-3">
-            {eventos.map((evento: any) => (
-              <div key={evento.id} className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center">
-                <AlertTriangle className={evento.severidad === "critica" ? "h-5 w-5 text-red-500" : "h-5 w-5 text-amber-500"} />
-                <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><p className="font-medium">{evento.mensaje}</p><Badge variant="outline">{evento.area}</Badge><Badge variant="secondary">×{evento.ocurrencias}</Badge></div><p className="text-xs text-muted-foreground mt-1">{evento.codigo} · {fecha(evento.ultimo_evento_at, idioma)}</p></div>
-                <Button size="sm" variant="outline" onClick={() => resolver(evento.id)} disabled={resolviendo === evento.id || !!cargandoGrupo}>{resolviendo === evento.id ? <Loader2 className="h-4 w-4 animate-spin" /> : t("Marcar resuelto")}</Button>
-              </div>
-            ))}
-            {paginacion("eventos")}
-          </CardContent>
-        </Card>
-      )}
-
-      {grupos.map(([categoria, titulo, filas, ayuda]) => (filas.length > 0 || (categoria === "solicitudesSinOferta" && resumen)) && (
-        <Card key={categoria} id={categoria === "solicitudesSinOferta" ? "demandas-sin-oferta" : undefined} className="scroll-mt-6">
-          <CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-500" />{titulo}<Badge>{resumen?.totales[categoria]}</Badge></CardTitle><CardDescription>{ayuda}</CardDescription></CardHeader>
-          <CardContent className="space-y-2">
-            {categoria === "solicitudesSinOferta" && filas.length === 0 && !errorCarga && <p className="text-sm text-muted-foreground">{t("No hay demandas abiertas sin ofertas registradas tras 24 h.")}</p>}
-            {filas.map((fila: any) => categoria === "solicitudesSinOferta" ? (
-              <article key={fila.id} className="min-w-0 rounded-lg border p-4">
-                <div className="min-w-0">
-                  <p className="font-medium [overflow-wrap:anywhere]">{fila.titulo}</p>
-                  <p className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">{fila.ubicacion}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{t("Publicada el")}: <time dateTime={fila.created_at}>{fecha(fila.created_at, idioma)}</time></p>
-                </div>
-                <details className="mt-3 min-w-0">
-                  <summary className="w-fit cursor-pointer rounded-md px-1 py-2 text-sm font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">{t("Ver demanda")}</summary>
-                  <div className="mt-3 min-w-0 space-y-4 border-t pt-4 text-sm [overflow-wrap:anywhere]">
-                    <div>
-                      <h3 className="font-medium">{t("Descripción")}</h3>
-                      <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{fila.descripcion || t("Sin descripción")}</p>
-                    </div>
-                    <dl className="grid min-w-0 gap-3 sm:grid-cols-2">
-                      <div><dt className="font-medium">{t("Presupuesto")}</dt><dd className="mt-1 text-muted-foreground">{formatearRangoPresupuesto(fila.presupuesto_min, fila.presupuesto_max, idioma)}</dd></div>
-                      <div><dt className="font-medium">{t("Urgencia")}</dt><dd className="mt-1 text-muted-foreground">{t(urgencias[fila.urgencia] || "No indicada")}</dd></div>
-                      {fila.fecha_necesaria && <div><dt className="font-medium">{t("Fecha necesaria")}</dt><dd className="mt-1 text-muted-foreground"><time dateTime={fila.fecha_necesaria}>{new Date(fila.fecha_necesaria).toLocaleDateString(localeDe(idioma), { dateStyle: "short", timeZone: "UTC" })}</time></dd></div>}
-                    </dl>
-                    {fila.cliente_id && <Button asChild variant="outline" size="sm"><Link href={`/admin/usuarios/${encodeURIComponent(fila.cliente_id)}`}>{t("Ver cliente")}</Link></Button>}
-                  </div>
-                </details>
-              </article>
-            ) : <div key={fila.id} className="space-y-2">
-              <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs whitespace-pre-wrap">{JSON.stringify(fila, null, 2)}</pre>
-              {categoria === "disputasVencidas" && <div className="text-sm space-y-1">
-                <p>{t("Responsable de revisión")}: {fila.responsable ? `${fila.responsable.nombre || ""} ${fila.responsable.apellido || ""}`.trim() : t("Sin asignar")}{fila.responsable && !fila.responsable.es_admin && ` · ${t("Ya no es administrador")}`}</p>
-                <Link href={`/admin/disputas?disputa=${encodeURIComponent(fila.id)}`} className="text-primary underline">{t("Revisar disputa")}</Link>
+      {GRUPOS_OPERATIVOS.map(grupo => <section key={grupo.id} aria-labelledby={`grupo-${grupo.id}`} className="space-y-3">
+        <h2 id={`grupo-${grupo.id}`} className="text-lg font-semibold">{t(grupo.titulo)}</h2>
+        {categorias.filter(categoria => CONTROLES_OPERATIVOS[categoria].grupo === grupo.id).map(categoria => {
+          const control = CONTROLES_OPERATIVOS[categoria]
+          const filas = resumen?.detalle[categoria] || []
+          const total = resumen?.totales[categoria]
+          return <details key={categoria} id={anclaControl(categoria)} open={filas.length > 0} className="min-w-0 scroll-mt-6 rounded-2xl border bg-card">
+            <summary className="cursor-pointer rounded-2xl p-4 text-sm font-medium [overflow-wrap:anywhere] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:p-5">
+              {t(control.titulo)} <Badge variant="secondary" className="ml-2 align-middle">{total ?? "—"}</Badge>
+              {errorCarga && <span className="ml-2 text-xs font-normal text-muted-foreground">{t(resumen ? "Dato anterior" : "No disponible")}</span>}
+            </summary>
+            <div className="min-w-0 space-y-3 px-4 pb-4 sm:px-5 sm:pb-5">
+              <p className="text-sm text-muted-foreground">{t(control.criterio)}</p>
+              {!resumen ? <p className="text-sm text-muted-foreground">{t(loading ? "Consultando los casos…" : "No se pudo consultar este control.")}</p>
+                : filas.length === 0 && !errorCarga && !loading ? <p className="text-sm text-muted-foreground">{t(total === 0 ? "Sin señales detectadas en este control." : "No se pudieron cargar los casos de este control.")}</p> : null}
+              {filas.map(fila => <FilaOperativa key={fila.id} categoria={categoria} fila={fila} observadoEn={resumen!.generadoAt} resolviendo={resolviendo === fila.id} accionesDeshabilitadas={ocupado} onResolver={id => void resolver(id)} />)}
+              {resumen && filas.length < resumen.totales[categoria] && <div className="flex flex-wrap items-center gap-3 pt-2">
+                <span className="text-sm text-muted-foreground">{filas.length} / {resumen.totales[categoria]}</span>
+                <Button variant="outline" onClick={() => void cargarMas(categoria)} disabled={ocupado}>{cargandoGrupo === categoria ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : t("Cargar más")}</Button>
               </div>}
-              {categoria.startsWith("liquidaciones") && fila.trabajo_id && <Link href={`/admin/pagos?trabajo=${encodeURIComponent(fila.trabajo_id)}`} className="text-sm text-primary underline">{t("Revisar pago")}</Link>}
-            </div>)}
-            {paginacion(categoria)}
-          </CardContent>
-        </Card>
-      ))}
+            </div>
+          </details>
+        })}
+      </section>)}
+
+      <details className="rounded-2xl border p-4 sm:p-5">
+        <summary className="cursor-pointer text-sm font-medium">{t("Revisión manual de plazos")}</summary>
+        <div className="mt-3 space-y-3 text-sm">
+          <p className="text-muted-foreground">{t("Pago sin completar: 15 días. Revisión de entrega: 7 días. Sin liberación automática de fondos.")}</p>
+          <p className="text-muted-foreground">{t("Esta acción puede cerrar contratos caducados y enviar recordatorios. Solo se ejecuta al pulsar el botón.")}</p>
+          <Button variant="outline" onClick={() => void procesarPlazos()} disabled={ocupado}>{procesandoPlazos && <Loader2 aria-hidden="true" className="mr-2 h-4 w-4 animate-spin" />}{t("Procesar plazos vencidos")}</Button>
+        </div>
+      </details>
     </div>
   )
 }

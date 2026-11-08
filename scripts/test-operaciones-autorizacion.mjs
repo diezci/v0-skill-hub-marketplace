@@ -4,15 +4,16 @@ import fs from "node:fs"
 import vm from "node:vm"
 import ts from "typescript"
 
-function setup({ authenticated = true, administrator = true, deleted = false, profileError = null, configured = true, total = 4, failure = null } = {}) {
+function setup({ authenticated = true, administrator = true, deleted = false, profileError = null, configured = true, total = 4, failure = null, revokedAfterRead = false, roleRevokedAfterRead = false, changedUserAfterRead = false, authError = null } = {}) {
   const calls = []
+  let privilegedRead = false
   const query = {
     select() { calls.push("profile.select"); return query },
     eq(key, value) { assert.equal(key, "id"); assert.equal(value, "admin-fixture"); return query },
-    async maybeSingle() { calls.push("profile.read"); return { data: { es_admin: administrator, cuenta_eliminada: deleted }, error: profileError } },
+    async maybeSingle() { calls.push("profile.read"); return { data: { es_admin: administrator && !(privilegedRead && roleRevokedAfterRead), cuenta_eliminada: deleted }, error: profileError } },
   }
   const session = {
-    auth: { async getUser() { calls.push("auth.getUser"); return { data: { user: authenticated ? { id: "admin-fixture" } : null } } } },
+    auth: { async getUser() { calls.push("auth.getUser"); return { data: { user: authenticated && !(privilegedRead && revokedAfterRead) ? { id: privilegedRead && changedUserAfterRead ? "other-user" : "admin-fixture" } : null }, error: authError } } },
     from(table) { assert.equal(table, "profiles"); return query },
   }
   const deps = {
@@ -23,13 +24,16 @@ function setup({ authenticated = true, administrator = true, deleted = false, pr
     "@/lib/operaciones": {
       CATEGORIAS_OPERATIVAS: ["solicitudesSinOferta"],
       async obtenerConteoSolicitudesSinOferta() { calls.push("privileged.count"); if (failure) throw new Error(failure); return total },
+      async obtenerIndicadoresOperativos() { calls.push("privileged.indicators"); if (failure) throw new Error(failure); privilegedRead = true; return { generadoAt: "2026-11-08T12:00:00Z", controles: { solicitudesSinOferta: { total, error: null } } } },
+      async obtenerResumenOperativo() { calls.push("privileged.summary"); if (failure) throw new Error(failure); privilegedRead = true; return { generadoAt: "2026-11-08T12:00:00Z", detalle: {}, totales: {}, total } },
+      async obtenerDetalleOperativo(categoria, desde) { assert.equal(categoria, "solicitudesSinOferta"); assert.equal(desde, 0); calls.push("privileged.page"); if (failure) throw new Error(failure); privilegedRead = true; return { filas: [], total } },
     },
   }
   const exports = {}
   vm.runInNewContext(ts.transpileModule(fs.readFileSync("app/actions/operaciones.ts", "utf8"), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText, { exports, console, Error, require: name => deps[name] })
-  return { calls, run: () => exports.obtenerConteoDemandasSinOferta() }
+  return { calls, run: () => exports.obtenerConteoDemandasSinOferta(), indicadores: () => exports.obtenerIndicadoresOperativosAdmin(), estado: () => exports.obtenerEstadoOperativo(), pagina: () => exports.obtenerPaginaOperativa("solicitudesSinOferta", 0), paginaInvalida: () => exports.obtenerPaginaOperativa("profiles", 0) }
 }
 
 let checks = 0
@@ -75,5 +79,47 @@ await check("Una cuenta eliminada o un fallo de perfil no accede al conteo privi
     assert.equal(result.ok, false)
     assert.equal(fixture.calls.includes("privileged.count"), false)
   }
+})
+await check("Indicadores: toda autorización termina antes de consultar datos privilegiados", async () => {
+  for (const options of [{ authenticated: false }, { administrator: false }, { configured: false }, { deleted: true }, { profileError: {} }, { authError: {} }]) {
+    const fixture = setup(options), result = await fixture.indicadores()
+    assert.equal(result.ok, false); assert.equal(fixture.calls.includes("privileged.indicators"), false)
+  }
+  const fixture = setup({ total: 31 }), result = await fixture.indicadores()
+  assert.equal(result.ok, true); assert.equal(result.data.controles.solicitudesSinOferta.total, 31)
+  assert.deepEqual(fixture.calls, ["session.create", "auth.getUser", "profile.select", "profile.read", "privileged.indicators", "session.create", "auth.getUser", "profile.select", "profile.read"])
+})
+await check("Indicadores: revocar sesión, cambiar usuario o retirar rol durante la consulta impide divulgarla", async () => {
+  for (const options of [{ revokedAfterRead: true }, { changedUserAfterRead: true }, { roleRevokedAfterRead: true }]) {
+    const fixture = setup(options), result = await fixture.indicadores()
+    assert.equal(result.ok, false); assert.equal(result.data, undefined); assert.equal(fixture.calls.includes("privileged.indicators"), true)
+  }
+})
+await check("Indicadores: un error interno no revela SQL, correo ni credenciales", async () => {
+  const result = await setup({ failure: "SELECT private email=privado@example.com sk_live_SECRET" }).indicadores()
+  assert.equal(result.ok, false); assert.equal(result.data, undefined); assert.equal(result.error, "No se pudo obtener el estado operativo.")
+})
+await check("Resumen y páginas exigen autorización fresca y códigos de denegación después de leer", async () => {
+  for (const accion of ["estado", "pagina", "indicadores"]) {
+    for (const [options, codigo] of [[{ revokedAfterRead: true }, "NO_AUTENTICADO"], [{ changedUserAfterRead: true }, "NO_AUTENTICADO"], [{ roleRevokedAfterRead: true }, "SIN_PERMISO"]]) {
+      const fixture = setup(options), result = await fixture[accion]()
+      assert.equal(result.ok, false); assert.equal(result.codigo, codigo); assert.equal(result.data, undefined)
+      assert.equal(fixture.calls.filter(c => c === "auth.getUser").length, 2)
+    }
+    const permitido = setup(), result = await permitido[accion]()
+    assert.equal(result.ok, true); assert.equal(permitido.calls.filter(c => c === "profile.read").length, 2)
+  }
+})
+await check("Resumen y páginas distinguen denegación de acceso de fallo de datos sin filtrar errores", async () => {
+  for (const accion of ["estado", "pagina", "indicadores"]) {
+    for (const [options, codigo] of [[{ authenticated: false }, "NO_AUTENTICADO"], [{ authError: {} }, "NO_AUTENTICADO"], [{ administrator: false }, "SIN_PERMISO"], [{ deleted: true }, "SIN_PERMISO"], [{ profileError: {} }, "SIN_PERMISO"]]) {
+      const fixture = setup(options), result = await fixture[accion]()
+      assert.equal(result.ok, false); assert.equal(result.codigo, codigo); assert.equal(fixture.calls.some(c => c.startsWith("privileged.")), false)
+    }
+    const result = await setup({ failure: "SELECT email=privado@example.com sk_SECRET" })[accion]()
+    assert.equal(result.ok, false); assert.equal(result.codigo, undefined); assert.equal(result.data, undefined); assert.equal(result.error, "No se pudo obtener el estado operativo.")
+  }
+  const fixture = setup(), result = await fixture.paginaInvalida()
+  assert.equal(result.ok, false); assert.match(result.error, /Paginación/); assert.equal(fixture.calls.some(c => c.startsWith("privileged.")), false)
 })
 console.log(`${checks} operational authorization regressions passed`)
