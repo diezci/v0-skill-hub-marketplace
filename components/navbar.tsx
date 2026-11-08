@@ -2,7 +2,6 @@
 
 import { SelectorIdioma, SelectorIdiomaMenu } from "@/components/selector-idioma"
 import { useT } from "@/components/idioma-provider"
-import { Capacitor } from "@capacitor/core"
 
 
 import { useState, useEffect, useRef } from "react"
@@ -264,13 +263,9 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
       setIsAdmin(false)
       setIsProfessional(false)
       setIsOpen(false)
-      // AppChrome ya vacía el árbol privado y navega al recibir SIGNED_OUT.
-      // Otra navegación simultánea cancela la carga en WKWebView y puede
-      // activar la pantalla offline nativa en un cierre de sesión correcto.
-      if (!Capacitor.isNativePlatform()) {
-        router.push("/")
-        router.refresh()
-      }
+      // AppChrome ya vacía el árbol privado. El botón es el único responsable
+      // de navegar cuando el cierre de sesión queda confirmado.
+      window.location.replace("/")
     } catch {
       toast({ title: t("No se pudo cerrar la sesión"), description: t("Tu sesión sigue abierta. Comprueba la conexión y vuelve a intentarlo."), variant: "destructive" })
     } finally {

@@ -68,7 +68,7 @@ export function ConfirmarMayoriaEdad() {
     setError(null)
     try {
       await cerrarSesionActual()
-      window.location.assign("/")
+      window.location.replace("/")
     } catch {
       setError(t("No se pudo cerrar la sesión. Comprueba la conexión y vuelve a intentarlo."))
     } finally {

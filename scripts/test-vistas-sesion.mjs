@@ -26,7 +26,7 @@ function fixture(sdk,{route='/mis-solicitudes',search='',hash='',onExpired,demo=
 let count=0
 for(const route of ['/mis-solicitudes','/mis-ofertas','/admin']){
  const auth=sdkFixture(503),f=fixture(auth.sdk,{route,logoutRequested:true});await f.mount();assert.ok(f.hasPrivate());const failed=await auth.sdk.signOut({scope:'local'});assert.ok(failed.error);await f.flush();assert.ok(f.hasPrivate(),'Failed logout preserves view');assert.equal(f.paths.length,0)
- auth.setStatus(204);const success=await auth.sdk.signOut({scope:'local'});assert.ifError(success.error);await f.flush();assert.equal(f.hasPrivate(),false,'Successful logout unmounts private children');assert.deepEqual(f.paths,[{path:'/',privateVisible:false}]);f.lateResult();assert.equal(f.hasPrivate(),false,'Late result cannot remount private data');f.unmount();count++;console.log('PASS '+route+': 503 retains view; successful logout hides before navigation and late result stays hidden')
+ auth.setStatus(204);const success=await auth.sdk.signOut({scope:'local'});assert.ifError(success.error);await f.flush();assert.equal(f.hasPrivate(),false,'Successful logout unmounts private children');assert.deepEqual(f.paths,[],'The explicit logout handler owns navigation');f.lateResult();assert.equal(f.hasPrivate(),false,'Late result cannot remount private data');f.unmount();count++;console.log('PASS '+route+': 503 retains view; successful logout hides for its handler and late result stays hidden')
 }
 {
  const auth=sdkFixture(),f=fixture(auth.sdk,{demo:true});await f.mount();await auth.sdk.signOut();await f.flush();assert.ok(f.hasPrivate());assert.equal(f.paths.length,0);f.unmount();count++;console.log('PASS company demo does not subscribe to real auth')
@@ -42,9 +42,9 @@ for(const logoutRequested of [false,true]){
  const route='/mi-empresa/invitaciones/synthetic-token',auth=sdkFixture(),f=fixture(auth.sdk,{route,logoutRequested})
  await f.mount();assert.ok(f.hasPrivate());await auth.sdk.signOut({scope:'local'});await f.flush()
  const destination=logoutRequested?'/':'/auth/login?next='+encodeURIComponent(route)
- assert.deepEqual(f.paths,[{path:destination,privateVisible:false}],'Lost invitation session preserves return; explicit logout preserves home destination')
+ assert.deepEqual(f.paths,logoutRequested?[]:[{path:destination,privateVisible:false}],'Lost invitation session preserves return; explicit logout leaves navigation to its handler')
  f.lateResult();assert.equal(f.hasPrivate(),false,'Delayed private result cannot remount after either session closure')
- f.unmount();count++;console.log('PASS invitation: '+(logoutRequested?'explicit logout returns home':'lost session preserves login destination'))
+ f.unmount();count++;console.log('PASS invitation: '+(logoutRequested?'explicit logout leaves navigation to its handler':'lost session preserves login destination'))
 }
 for(const override of [null,'/demandas?solicitud=owned&reanudarOferta=1','https://foreign.invalid/']){
  const auth=sdkFixture();let saved=false;const f=fixture(auth.sdk,{route:'/demandas',search:'?solicitud=owned',hash:'#formulario',onExpired:event=>{assert.equal(event.type,'diime:sesion-caducada');assert.equal(f.hasPrivate(),true,'Draft owner is still mounted during synchronous save');saved=true;if(override)event.detail.ruta=override}})
@@ -62,6 +62,6 @@ for(const formFirst of [true,false]){
  const auth=sdkFixture(),f=fixture(auth.sdk,{logoutRequested:true});await f.mount();
  if(formFirst){f.reauth('/mis-solicitudes?solicitud=expired');await f.flush();assert.equal(f.paths.length,0,'A pending form must not redirect while explicit logout is in progress')}
  await auth.sdk.signOut({scope:'local'});await f.flush();if(!formFirst){f.reauth('/mis-solicitudes?solicitud=expired');await f.flush()}
- assert.deepEqual(f.paths,[{path:'/',privateVisible:false}],'Explicit logout wins before and after a late form result, without a login navigation');f.unmount();count++
+ assert.deepEqual(f.paths,[],'Explicit logout handler keeps sole navigation ownership before and after a late form result');f.unmount();count++
 }
 console.log(`OK ${count} session-view regressions; expired forms save before unmount and resume a safe exact destination`)

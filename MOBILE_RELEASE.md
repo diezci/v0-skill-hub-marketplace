@@ -233,6 +233,12 @@ Después de activar Apple Developer como persona física:
    desplegar `NEXT_PUBLIC_APPLE_LOGIN=true` solo cuando una prueba completa haya
    funcionado.
 
+El `redirectTo` nativo de Google y Apple debe ser exactamente esa URL, también
+al registrarse. Los parámetros de consentimiento y destino se conservan
+temporalmente en la WebView: añadirlos al callback no autorizado hace que
+Supabase vuelva a la web. El retorno OAuth se comprueba tanto con la app abierta
+como al arrancarla, sin volver a canjear un código después de recargarla.
+
 El client secret del flujo OAuth caduca como máximo a los seis meses. Hay que
 rotarlo antes del vencimiento conservando la key `.p8`; perderla obliga a crear
 y configurar una key nueva.
