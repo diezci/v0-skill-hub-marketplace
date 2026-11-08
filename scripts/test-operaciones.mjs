@@ -18,14 +18,17 @@ function database({failIndex=-1,missingCount=-1}={}){
    eq(k,v){rows=rows.filter(x=>x[k]===v);return q},in(k,v){rows=rows.filter(x=>v.includes(x[k]));return q},
    lt(k,v){rows=rows.filter(x=>x[k]<v);return q},lte(k,v){rows=rows.filter(x=>x[k]<=v);return q},
    ilike(k,v){rows=rows.filter(x=>String(x[k]).toLowerCase().includes(v.replaceAll('%','').toLowerCase()));return q},
-   is(k,v){assert.equal(table,'solicitudes');assert.equal(k,'ofertas');assert.equal(v,null);assert.match(call.fields,/ofertas/);rows=rows.filter(row=>!dataset.ofertas.some(offer=>offer.solicitud_id===row.id));return q},
+   is(k,v){assert.equal(v,null);if(k==='ofertas'){assert.equal(table,'solicitudes');assert.match(call.fields,/ofertas/);rows=rows.filter(row=>!dataset.ofertas.some(offer=>offer.solicitud_id===row.id))}else rows=rows.filter(row=>row[k]==null);return q},
+   not(k,op,v){assert.equal(op,'is');assert.equal(v,null);rows=rows.filter(row=>row[k]!=null);return q},
+   or(value){assert.equal(value,'contracargo_conciliacion->>estado.is.null,contracargo_conciliacion->>estado.neq.completada');rows=rows.filter(row=>row.contracargo_conciliacion?.estado!=='completada');return q},
    order(k,options={}){call.orders.push({key:k,ascending:options.ascending!==false});return q},
    range(a,b){offset=a;end=b+1;call.range=[a,b];return q},
    then(resolve,reject){const sorted=[...rows].sort((a,b)=>{for(const {key,ascending}of call.orders){const result=a[key]<b[key]?-1:a[key]>b[key]?1:0;if(result)return ascending?result:-result}return 0});return Promise.resolve(index===failIndex?{data:null,error:{message:'fixture_query_'+index}}:{data:call.head?null:sorted.slice(offset,end),count:index===missingCount?null:rows.length,error:null}).then(resolve,reject)}
   };return q;
  }}
 }
-function load(db){const exports={};const deps={'server-only':{},'resend':{Resend:class{constructor(){throw Error('No email permitted')}}},'@/lib/supabase/admin':{createAdminClient:()=>db}};vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/operaciones.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports,Date:FixedDate,process:{env:{}},console,require:n=>deps[n]});return exports}
+const catalogo={};vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/operaciones-catalogo.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports:catalogo});
+function load(db){const exports={};const deps={'server-only':{},'resend':{Resend:class{constructor(){throw Error('No email permitted')}}},'@/lib/supabase/admin':{createAdminClient:()=>db},'@/lib/operaciones-catalogo':catalogo,'@/lib/plazos-workflow':{DIAS_SIN_PAGO:15,DIAS_REVISION_ENTREGA:7}};vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/operaciones.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports,Date:FixedDate,process:{env:{}},console,require:n=>deps[n]});return exports}
 let count=0;async function test(name,fn){await fn();count++;console.log('PASS',name)}
 const expected={eventos:['event_open'],webhooksError:['wh_error'],webhooksAtascados:['wh_stuck'],liquidacionesError:['settle_error'],liquidacionesAtascadas:['settle_stuck'],disputasVencidas:['dispute_old','dispute_review'],incidenciasCriticas:['incident_open','incident_review'],solicitudesSinOferta:['request_old','request_othercity','request_stale_positive','request_at_24h']},summary=await load(database()).obtenerResumenOperativo();assert.equal(summary.total,13)
 for(const[group,ids]of Object.entries(expected))await test('Filtro exacto '+group,()=>{assert.deepEqual(Array.from(summary.detalle[group].map(x=>x.id)),ids);assert.equal(summary.totales[group],ids.length)})

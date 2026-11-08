@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { createClient } from "@/lib/supabase/client"
 import { formatearPrecio } from "@/lib/comisiones"
 import { ResumenComisiones } from "@/components/admin/resumen-comisiones"
+import { ResumenOperativoPanel } from "@/components/admin/resumen-operativo"
 import { Users, Briefcase, Scale, CreditCard, TrendingUp, AlertCircle, ShieldAlert } from "lucide-react"
 import Link from "next/link"
 
@@ -187,6 +188,8 @@ export default function AdminDashboard() {
         <p className="text-muted-foreground mt-1">
           {t("Bienvenido al panel de administración de Diime")}</p>
       </div>
+
+      <ResumenOperativoPanel />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
