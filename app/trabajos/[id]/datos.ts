@@ -1,5 +1,6 @@
 import { localeDe, type Idioma, traducir } from "@/lib/i18n"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 // Datos completos de una contratación para su propuesta, justificante y desglose.
 // Solo las partes con acceso económico vigente (o un admin) pueden verlos.
@@ -41,6 +42,17 @@ export async function obtenerDatosContratacion(trabajoId: string) {
   const esCliente = clienteActual.data === true
   const esProfesional = proveedorActual.data === true
   if (!esCliente && !esProfesional && !esAdmin) return null
+
+  // Financial authorization above precedes the privileged lookup. This module
+  // is used only by the server-rendered document; each side renders its own fee.
+  let hitos: any[] = []
+  if (trabajo.modalidad_pago === "hitos") {
+    const admin = createAdminClient()
+    if (!admin) return null
+    const { data, error } = await admin.from("trabajos_hitos").select("*").eq("trabajo_id", trabajo.id).eq("activo", true).order("orden")
+    if (error || !data?.length) return null
+    hitos = data
+  }
 
   const [clienteR, profesionalR, proDatosR, escrowR] = await Promise.all([
     supabase.from("profiles").select("nombre, apellido, ubicacion").eq("id", trabajo.cliente_id).maybeSingle(),
@@ -105,6 +117,8 @@ export async function obtenerDatosContratacion(trabajoId: string) {
     oferta: documento.oferta,
     solicitud: documento.solicitud,
     escrow,
+    escrows,
+    hitos,
     contratado,
     facturacionCliente: facturacionPor("cliente"),
     facturacionProfesional: facturacionPor("profesional"),

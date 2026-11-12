@@ -1,8 +1,11 @@
 import { z } from "zod"
+import { hitosBorradorSchema } from "@/lib/hitos-borrador-ui"
 
 const esquema = z.object({
   usuarioId: z.string().uuid(), solicitudId: z.string().uuid(), empresaId: z.string().uuid().nullable(),
   guardadoAt: z.number(),
+  modalidadPago: z.enum(["unico", "hitos"]).optional(),
+  hitos: hitosBorradorSchema.optional(),
   valores: z.object({ precio: z.string().max(30), duracion: z.string().max(20), unidadTiempo: z.string().max(20), descripcion: z.string().max(20000), materiales: z.string().max(100) }),
   adjuntos: z.array(z.string().max(255)).max(100),
 })

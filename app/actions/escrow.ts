@@ -43,7 +43,16 @@ function normalizarDesgloseGuardado(desglose: DesglosePago): DesglosePago {
  */
 export async function crearPagoEscrow(data: {
   trabajo_id: string
-}) {
+  hito_id?: string
+}): Promise<{
+  error?: string; codigo?: string; hrefContrato?: string; clientSecret?: string | null
+  escrow?: any
+  desglose?: { precioBase: number; comisionCliente: number; totalCliente: number }
+}> {
+  if (data.hito_id) {
+    const { pagarHito } = await import("./hitos")
+    return pagarHito(data.trabajo_id, data.hito_id)
+  }
   const supabase = await createClient()
   if (!supabase) return { error: await textoServidor("Conexión con la base de datos no disponible.") }
 
@@ -62,7 +71,7 @@ export async function crearPagoEscrow(data: {
   // desde la oferta aceptada y la solicitud que la originó.
   const { data: trabajo, error: trabajoError } = await admin
     .from("trabajos")
-    .select("id, titulo, precio_acordado, profesional_id, cliente_id, estado, oferta_id, solicitud_id, pago_bloqueado, cancelacion_estado, empresa_cliente_id, empresa_proveedora_id, actor_contratacion_id, proveedor_cobros_usuario_id, proveedor_stripe_account_id, created_at")
+    .select("id, titulo, precio_acordado, profesional_id, cliente_id, estado, oferta_id, solicitud_id, pago_bloqueado, cancelacion_estado, empresa_cliente_id, empresa_proveedora_id, actor_contratacion_id, proveedor_cobros_usuario_id, proveedor_stripe_account_id, created_at, modalidad_pago")
     .eq("id", data.trabajo_id)
     .single()
 
@@ -72,6 +81,10 @@ export async function crearPagoEscrow(data: {
 
   if (!await puedePagarTrabajo(supabase, trabajo, user.id)) {
     return { error: await textoServidor("Solo el cliente puede realizar el pago") }
+  }
+
+  if (trabajo.modalidad_pago === "hitos") {
+    return { codigo: "CHECKOUT_CERRADO", hrefContrato: `/trabajos/${trabajo.id}/hitos`, error: "Este contrato se paga por hitos. Elige la siguiente etapa en su plan de pagos." }
   }
 
   if (trabajo.estado === "pendiente_pago" && Date.now() - Date.parse(trabajo.created_at) >= 15 * 86400000) {
@@ -481,6 +494,8 @@ export async function liberarFondosEscrow(trabajoId: string) {
   if (!user) return { codigo: "NO_AUTENTICADO", error: await textoServidor("No autenticado") }
   const permisoError = await validarActorTrabajoEmpresa(supabase, trabajoId, user.id, "gestionar_cobros", "cliente")
   if (permisoError) return { error: await textoServidor(permisoError) }
+  const { data: plan } = await supabase.from("trabajos").select("modalidad_pago").eq("id", trabajoId).maybeSingle()
+  if (plan?.modalidad_pago === "hitos") return { error: "Revisa y aprueba cada entrega desde el plan de hitos de este trabajo." }
   const admin = createAdminClient()
   if (!admin) return { error: await textoServidor("La configuración segura del servidor no está disponible.") }
   try {

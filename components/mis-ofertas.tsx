@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { IdentidadEmpresa } from "@/components/identidad-empresa"
 import { SelectorIdentidadEmpresa } from "@/components/selector-identidad-empresa"
 import { useT, useIdioma } from "@/components/idioma-provider"
@@ -408,11 +409,12 @@ function MisOfertasContenido() {
                     <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-muted-foreground">{t("El cliente aceptó tu puja pero aún no ha completado el pago protegido. Cuando lo haga, el trabajo aparecerá en Gestión de Proyectos.")}</div>
                   )}
 
-                  {esAceptadaSinPagar(oferta) && oferta.trabajo && (
+                  {esAceptadaSinPagar(oferta) && oferta.trabajo && oferta.trabajo.modalidad_pago !== "hitos" && (
                     <CancelacionTrabajo trabajo={oferta.trabajo} onChange={cargarOfertas} />
                   )}
 
                   <div className="flex flex-wrap gap-2 pt-2">
+                    <Button variant="outline" size="sm" asChild><Link href={esAceptadaSinPagar(oferta) && oferta.trabajo?.modalidad_pago === "hitos" ? `/trabajos/${oferta.trabajo.id}/hitos` : `/ofertas/${oferta.id}/plan`}>{t(esAceptadaSinPagar(oferta) && oferta.trabajo?.modalidad_pago === "hitos" ? "Ver hitos del trabajo" : "Revisar o cambiar plan de pagos")}</Link></Button>
                     <Button
                       variant="outline"
                       size="sm"

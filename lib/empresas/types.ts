@@ -113,6 +113,8 @@ export interface ActividadEmpresa {
 }
 export interface OperacionEmpresa {
   id: string
+  modalidadPago?: "unico" | "hitos"
+  planVersion?: number
   titulo: string
   descripcion: string
   estado: string

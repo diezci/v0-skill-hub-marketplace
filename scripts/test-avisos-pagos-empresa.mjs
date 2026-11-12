@@ -37,4 +37,10 @@ await test('Personal contractual notifications keep their original recipient and
 await test('Suppressed INSERT nulls and ambiguous company destination do not send details',async()=>{
  const f=fixture();await f.send([null,{...notice,usuario_id:'unknown',metadata:{trabajo_id:'job'}}],f.admin);assert.equal(f.calls.length,0)
 })
+await test('Milestone financial notices retain only the exact authorized contract route',async()=>{
+ const f=fixture();await f.send([{...notice,link:'/trabajos/job/hitos'}],f.admin)
+ assert.deepEqual(f.calls.filter(x=>x[0]!=='recipients'),[['email','principal','/trabajos/job/hitos'],['push','principal','/trabajos/job/hitos']]);assert.equal(f.calls[0][3],'ver_cobros')
+ const unrelated=fixture();await unrelated.send([{...notice,link:'/trabajos/other/hitos'}],unrelated.admin)
+ assert.ok(unrelated.calls.filter(x=>x[0]!=='recipients').every(x=>x[2]==='/mi-empresa?trabajo=job'))
+})
 console.log(`${n} financial external-notice scenarios passed without delivery.`)

@@ -6,6 +6,8 @@
     "node": ">=22.6.0"
   },
   "scripts": {
+    "test:hitos": "node --test scripts/test-hitos-domain.mjs scripts/test-hitos-actions.mjs scripts/test-hitos-stripe.mjs scripts/test-hitos-ui.mjs scripts/test-hitos-factura.mjs scripts/test-hitos-avisos.mjs",
+    "test:hitos:db": "node supabase/tests/hitos-planes.test.mjs && node supabase/tests/hitos-finanzas.test.mjs",
     "test:auth-native": "node --test scripts/test-native-auth.mjs scripts/test-logout-navigation.mjs scripts/test-auth-retorno.mjs",
     "build": "next build",
     "cap:sync": "cap sync",

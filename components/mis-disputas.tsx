@@ -237,6 +237,7 @@ export default function MisDisputas({
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h3 className="font-semibold truncate">{d.trabajo_titulo}</h3>
+                  {d.hito?.id && <p className="mt-1 text-sm font-medium text-primary">{t("Hito en disputa")}: {d.hito?.titulo || t("Hito del contrato")}{typeof d.hito?.importe_centimos === "number" && ` · ${new Intl.NumberFormat(localeDe(idioma), { style: "currency", currency: "EUR" }).format(d.hito.importe_centimos / 100)}`}</p>}
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {esContracargo ? t("Expediente bancario gestionado en Stripe") : d.la_abri_yo ? t("La abriste tú") : t("Abierta por la otra parte")}
                     {d.otra_parte && ` · ${d.otra_parte.nombre ?? ""} ${d.otra_parte.apellido ?? ""}`.trimEnd()}
@@ -299,6 +300,7 @@ export default function MisDisputas({
               )}
 
               <div className="flex flex-wrap items-center gap-3 pt-1">
+                {d.hito?.id && <Link href={`/trabajos/${d.trabajo_id}/hitos`} className="inline-flex items-center gap-1 text-xs text-primary hover:underline"><ArrowRight className="h-3.5 w-3.5" />{t("Ver hitos del trabajo")}</Link>}
                 <Link
                   href={`/trabajos/${d.trabajo_id}/factura`}
                   target="_blank"

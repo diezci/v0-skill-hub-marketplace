@@ -1,11 +1,14 @@
 import { z } from "zod"
 import { PRECIO_MAX } from "@/lib/precios"
+import { hitosBorradorSchema } from "@/lib/hitos-borrador-ui"
 
 const valoresSchema = z.object({
   category: z.string().max(200), title: z.string().max(500),
   description: z.string().max(20000), location: z.string().max(200),
   budget: z.tuple([z.number().min(0).max(PRECIO_MAX), z.number().min(0).max(PRECIO_MAX)]),
   urgency: z.string().max(100), neededDate: z.string().max(20),
+  modalidadPago: z.enum(["unico", "hitos"]).optional(),
+  hitos: hitosBorradorSchema.optional(),
 })
 const subidaSchema = z.object({
   usuarioId: z.string(), envioId: z.string().uuid(), nombre: z.string().max(255),
@@ -82,7 +85,7 @@ export function guardarBorradorSolicitud(almacen: Almacen | null, borrador: Omit
   try {
     const dato = schema.parse({ ...borrador, version: 1, guardadoAt: ahora })
     const v = dato.valores
-    if (!v.category && !v.title && !v.description && !v.location && !v.urgency && !v.neededDate && !dato.empresaId && !dato.adjuntos.length && v.budget[0] === 0 && v.budget[1] === PRECIO_MAX) {
+    if (!v.category && !v.title && !v.description && !v.location && !v.urgency && !v.neededDate && v.modalidadPago !== "hitos" && !v.hitos?.length && !dato.empresaId && !dato.adjuntos.length && v.budget[0] === 0 && v.budget[1] === PRECIO_MAX) {
       borrarBorradorSolicitud(almacen, dato.usuarioId)
     } else almacen.setItem(clave(dato.usuarioId), JSON.stringify(dato))
     return true

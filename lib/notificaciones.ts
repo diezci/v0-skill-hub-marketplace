@@ -46,7 +46,12 @@ export async function crearNotificacion(params: {
   if (error || !aviso || aviso.usuario_id === user.id) return
   if (aviso.metadata?.empresa_id) {
     const financiero = ["pago_liberado", "reembolso_emitido", "reembolso_fallido", "disputa_ganada", "disputa_perdida", "disputa_resuelta"].includes(aviso.tipo)
-    const destinatarios = await destinatariosOperacionEmpresa(admin, aviso.metadata.empresa_id, aviso.usuario_id, financiero ? "ver_cobros" : "encargos")
+    // A provider's offer plan belongs to quoting permissions. Financial notices
+    // always retain their stronger billing check, regardless of metadata.
+    const permiso = financiero ? "ver_cobros"
+      : aviso.metadata.permiso_destinatario === "presupuestos" && aviso.metadata.oferta_id && aviso.metadata.parte_destinataria === "proveedor"
+        ? "presupuestos" : "encargos"
+    const destinatarios = await destinatariosOperacionEmpresa(admin, aviso.metadata.empresa_id, aviso.usuario_id, permiso)
     if (!destinatarios.includes(aviso.usuario_id)) {
       // La revocación puede ocurrir después del INSERT. Conservar un aviso
       // para los responsables actuales antes de enviar sus canales externos.
@@ -59,7 +64,7 @@ export async function crearNotificacion(params: {
           ...aviso, usuario_id: usuarioId, leida: false,
         }).select("usuario_id, tipo, titulo, mensaje, link, metadata").maybeSingle()
         if (redireccionError || !vigente || vigente.usuario_id === user.id || enviados.has(vigente.usuario_id)) continue
-        const actuales = await destinatariosOperacionEmpresa(admin, aviso.metadata.empresa_id, vigente.usuario_id, financiero ? "ver_cobros" : "encargos")
+        const actuales = await destinatariosOperacionEmpresa(admin, aviso.metadata.empresa_id, vigente.usuario_id, permiso)
         if (!actuales.includes(vigente.usuario_id)) continue
         const { data: { user: actorVigente } } = await supabase.auth.getUser()
         if (!actorVigente || actorVigente.id !== user.id) return

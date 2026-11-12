@@ -2,8 +2,10 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import ts from 'typescript'
 import * as z from 'zod'
+const hitosBorrador={}
+new Function('require','exports',ts.transpileModule(fs.readFileSync('lib/hitos-borrador-ui.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(name=>{assert.equal(name,'zod');return z},hitosBorrador)
 const exports={}
-new Function('require','exports',ts.transpileModule(fs.readFileSync('lib/borrador-solicitud.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(name=>{if(name==='zod')return z;if(name==='@/lib/precios')return{PRECIO_MAX:100000};throw Error(name)},exports)
+new Function('require','exports',ts.transpileModule(fs.readFileSync('lib/borrador-solicitud.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(name=>{if(name==='zod')return z;if(name==='@/lib/precios')return{PRECIO_MAX:100000};if(name==='@/lib/hitos-borrador-ui')return hitosBorrador;throw Error(name)},exports)
 const {guardarBorradorSolicitud:save,leerBorradorSolicitud:read,borrarBorradorSolicitud:clear,almacenBorradorSolicitud:storage}=exports
 const entries=new Map(),store={getItem:k=>entries.get(k)??null,setItem:(k,v)=>entries.set(k,v),removeItem:k=>entries.delete(k)}
 const draft={usuarioId:'actor-A',empresaId:'a265f4c1-3162-4061-9739-f0fafbafb516',valores:{category:'Electricidad',title:'Proyecto sin terminar',description:'Descripción todavía pendiente de completar',location:'Madrid',budget:[50,500],urgency:'exacta',neededDate:'2026-10-20'},adjuntos:['foto.png','presupuesto.pdf']}

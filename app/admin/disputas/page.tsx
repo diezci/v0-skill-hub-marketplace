@@ -236,6 +236,7 @@ export default function AdminDisputesPage() {
                 <Scale className="h-6 w-6 text-primary" />
                 {trabajo?.titulo}
               </h1>
+              {detalle.hito?.id && <p className="mt-1 text-sm font-medium text-primary">{t("Hito en disputa")}: {detalle.hito?.titulo || t("Hito del contrato")} · {new Intl.NumberFormat(localeDe(idioma), { style: "currency", currency: "EUR" }).format(Number(escrow?.monto_base ?? (detalle.hito?.importe_centimos ? detalle.hito.importe_centimos / 100 : 0)))}</p>}
               <p className="text-muted-foreground mt-1">
                 {t("Disputa iniciada por el")}{" "}{t(disputa.tipo === "cliente" ? "cliente" : "proveedor")} ·{" "}
                 {formatearFecha(disputa.created_at, idioma)}
@@ -672,7 +673,7 @@ export default function AdminDisputesPage() {
               </div>
               <p className="text-sm text-muted-foreground mt-1 truncate">
                 {d.cliente?.nombre} {d.cliente?.apellido} {" "}{t("vs")}{" "}{d.profesional?.nombre} {d.profesional?.apellido} ·{" "}
-                {d.trabajo?.precio_acordado} €
+                {d.hito?.id ? <>{t("Hito")}: {d.hito?.titulo || t("Hito del contrato")} · {typeof d.hito?.importe_centimos === "number" ? new Intl.NumberFormat(localeDe(idioma), { style: "currency", currency: "EUR" }).format(d.hito.importe_centimos / 100) : t("Pendiente de conciliación")}</> : <>{d.trabajo?.precio_acordado} €</>}
               </p>
               <p className="text-xs text-muted-foreground">{formatearFecha(d.created_at, idioma)}</p>
               <p className="text-xs text-muted-foreground">{t("Responsable de revisión")}: {d.responsable ? `${d.responsable.nombre || ""} ${d.responsable.apellido || ""}`.trim() : t("Sin asignar")}{d.responsable && !d.responsable.es_admin && ` · ${t("Ya no es administrador")}`}</p>

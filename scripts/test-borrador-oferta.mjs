@@ -2,8 +2,10 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import ts from 'typescript'
 import * as z from 'zod'
+const hitosBorrador={}
+new Function('require','exports',ts.transpileModule(fs.readFileSync('lib/hitos-borrador-ui.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(name=>{assert.equal(name,'zod');return z},hitosBorrador)
 const exports={}
-new Function('require','exports',ts.transpileModule(fs.readFileSync('lib/borrador-oferta.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(name=>{assert.equal(name,'zod');return z},exports)
+new Function('require','exports',ts.transpileModule(fs.readFileSync('lib/borrador-oferta.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(name=>{if(name==='@/lib/hitos-borrador-ui')return hitosBorrador;assert.equal(name,'zod');return z},exports)
 const {guardarBorradorOferta:save,leerBorradorOferta:read,borrarBorradorOferta:clear}=exports
 const entries=new Map(),store={getItem:k=>entries.get(k)??null,setItem:(k,v)=>entries.set(k,v),removeItem:k=>entries.delete(k)}
 const a='0ad7e57c-64de-4782-8246-dfb564d684ac',b='bbf0204b-7c9c-40e7-b70e-65b334d64724',request='ea164e17-4b9b-4ea7-b0bd-4f9486b997ea'

@@ -1,5 +1,7 @@
 "use client"
 
+import Link from "next/link"
+import { TarjetaTrabajoHitos } from "@/components/hitos/resumen-plan-hitos"
 import { solicitarReautenticacion } from "@/lib/auth-redirect"
 
 import { calendarContractDate } from "@/lib/calendar-work-dates"
@@ -271,7 +273,7 @@ function MisSolicitudesContenido() {
     })
 
     // Crear el trabajo a partir de la oferta y redirigir a la pasarela de pago escrow.
-    const result = await aceptarOferta(oferta.id)
+    const result = await aceptarOferta(oferta.id, oferta.plan_version)
 
     if (result.error || !result.data?.id) {
       toast({
@@ -282,7 +284,7 @@ function MisSolicitudesContenido() {
       return
     }
 
-    router.push(`/pago/${result.data.id}`)
+    router.push(oferta.modalidad_pago === "hitos" ? `/trabajos/${result.data.id}/hitos` : `/pago/${result.data.id}`)
   }
 
   const handleRechazarOferta = async () => {
@@ -681,7 +683,7 @@ function MisSolicitudesContenido() {
                       </div>
                       <Button
                         className="bg-emerald-600 hover:bg-emerald-700 shrink-0"
-                        onClick={() => router.push(`/pago/${solicitud.trabajo.id}`)}
+                        onClick={() => router.push(solicitud.trabajo.modalidad_pago === "hitos" ? `/trabajos/${solicitud.trabajo.id}/hitos` : `/pago/${solicitud.trabajo.id}`)}
                       >
                         <CreditCard className="h-4 w-4 mr-2" />{t("Pagar ahora")}</Button>
                     </div>
@@ -692,7 +694,7 @@ function MisSolicitudesContenido() {
                       ESTA pestaña y no en "En Progreso": sin esto, el cliente
                       recibía el aviso de cancelación y no tenía dónde aceptarla
                       ni rechazarla. */}
-                  {solicitud.trabajo?.estado === "pendiente_pago" && (
+                  {solicitud.trabajo?.estado === "pendiente_pago" && solicitud.trabajo.modalidad_pago !== "hitos" && (
                     <div className="mb-4">
                       <CancelacionTrabajo trabajo={solicitud.trabajo} onChange={refrescarSolicitudes} />
                     </div>
@@ -800,11 +802,12 @@ function MisSolicitudesContenido() {
                                       <AdjuntosLista archivos={oferta.archivos} />
                                     </div>
                                   )}
+                                  <div className="mt-3"><Button asChild variant="outline" size="sm"><Link href={`/ofertas/${oferta.id}/plan`}>{t(oferta.modalidad_pago === "hitos" ? "Revisar hitos y proponer cambios" : "Revisar plan de pagos")}</Link></Button></div>
                                   <div className="flex flex-wrap gap-2 mt-3">
                                     {solicitud.ofertas?.some((otra: any) => otra.oferta_origen_id === oferta.id) ? <p className="text-xs text-muted-foreground">{t("Oferta original conservada como historial. Revisa la nueva oferta vinculada.")}</p> : <>
                                     <Button
                                       size="sm"
-                                      onClick={(event) => { acceptOfertaTrigger.current = event.currentTarget; setAcceptOfertaTarget({ oferta, solicitud }) }}
+                                      onClick={(event) => { if (oferta.modalidad_pago === "hitos" || oferta.plan_aceptado_proveedor === false) { router.push(`/ofertas/${oferta.id}/plan`); return }; acceptOfertaTrigger.current = event.currentTarget; setAcceptOfertaTarget({ oferta, solicitud }) }}
                                     >
                                       <Check className="h-4 w-4 mr-1" />{t("Aceptar Oferta")}</Button>
                                     <Button
@@ -876,6 +879,7 @@ function MisSolicitudesContenido() {
           ) : (
             lista.map((solicitud) => {
               const trabajo = solicitud.trabajo
+              if (trabajo?.modalidad_pago === "hitos") return <TarjetaTrabajoHitos key={solicitud.id} id={`solicitud-${solicitud.id}`} trabajo={trabajo} titulo={solicitud.titulo} className={estiloAviso(solicitud)} />
               const diasRestantes = trabajo?.fecha_estimada_fin
                 ? calcularDiasRestantes(trabajo.fecha_estimada_fin)
                 : null

@@ -1,5 +1,6 @@
 "use client"
 
+import { TarjetaTrabajoHitos } from "@/components/hitos/resumen-plan-hitos"
 import { useIdioma } from "@/components/idioma-provider"
 import { localeDe } from "@/lib/i18n"
 
@@ -766,6 +767,8 @@ function TrabajoCard({
   showPaymentStatus?: boolean
 }) {
   const { t } = useIdioma()
+
+  if (trabajo.modalidad_pago === "hitos") return <TarjetaTrabajoHitos trabajo={trabajo} />
 
   const config = estadoTrabajoConfig[trabajo.estado as EstadoTrabajo]
   const Icon = config?.icon || Clock

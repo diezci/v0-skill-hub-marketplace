@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { calcularTotalCliente, formatearPrecio } from "@/lib/comisiones"
 
-export function AceptarOfertaEmpresa({ ofertaId, titulo, descripcion, precio, onAceptada }: {
-  ofertaId: string; titulo: string; descripcion: string; precio: number; onAceptada: () => void
+export function AceptarOfertaEmpresa({ ofertaId, titulo, descripcion, precio, planVersion, onAceptada }: {
+  ofertaId: string; titulo: string; descripcion: string; precio: number; planVersion?: number; onAceptada: () => void
 }) {
   const t = useT()
   const { idioma } = useIdioma()
@@ -20,7 +20,7 @@ export function AceptarOfertaEmpresa({ ofertaId, titulo, descripcion, precio, on
   async function aceptar() {
     setOcupado(true); setError("")
     try {
-      const resultado = await aceptarOferta(ofertaId)
+      const resultado = await aceptarOferta(ofertaId, planVersion)
       if (resultado.error || !resultado.data?.id) { setError(resultado.error || "No se pudo aceptar la oferta"); return }
       setAbierto(false); onAceptada()
     } catch { setError("No se pudo completar la acción. Vuelve a intentarlo.") }
