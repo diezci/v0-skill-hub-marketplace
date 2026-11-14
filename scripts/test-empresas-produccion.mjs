@@ -178,7 +178,7 @@ function workspaceHarness(load, espacio, component = "EmpresaWorkspaceReal", opt
   const componentFile = { OperacionesEmpresa: 'operaciones-empresa', EmpresaWorkspaceReal: 'empresa-workspace-real', IncidenciasTrabajoEmpresa: 'incidencias-trabajo-empresa', PerfilEmpresaEditor: 'perfil-empresa-editor' }[component]
   const Component = runtime.load(`components/empresas/${componentFile}.tsx`)[component]
   function children(node) {
-    if (['PreferenciasDemandas', 'DatosLegalesEmpresaCard'].includes(node.type?.name)) return [node.type(node.props)]
+    if (['PreferenciasDemandas', 'DatosLegalesEmpresaCard', 'BarraEdicionEmpresa', 'EditarSeccionEmpresa'].includes(node.type?.name)) return [node.type(node.props)]
     return [node.props?.children, node.props?.acciones, node.props?.estado, node.props?.preferencias, ...Object.values(node.props?.edicion || {})]
   }
   function elements(node, predicate, found = []) {
@@ -251,7 +251,7 @@ test('preview reuses the public profile, reflects verification truth and cannot 
     assert.match(html, /href="\/mi-empresa"/)
     assert.doesNotMatch(html, /Enviar mensaje|Contactar empresa|Pedir presupuesto/, 'Private preview never starts public contact actions')
     assert.equal(html.includes('Tu empresa todavía no es pública.'), estadoVerificacion !== 'verificada')
-    assert.equal(html.includes('Profesional Verificado'), estadoVerificacion === 'verificada')
+    assert.equal(html.includes('Empresa verificada'), estadoVerificacion === 'verificada')
     assert.doesNotMatch(html, /<button[^>]*>(?:<[^>]*>)*Editar perfil/)
     const editableHtml = renderToStaticMarkup(React.createElement(VistaPreviaEmpresa, { datos: value, puedeEditar: true }))
     assert.doesNotMatch(editableHtml, /href="\/mi-empresa#perfil-empresa"/)
@@ -475,7 +475,7 @@ test('delivery rejection is only offered to the client and invokes the dispute a
   tree = client.render()
   client.all(tree, n => n.type === 'form')[0].props.onSubmit({ preventDefault() {} })
   await client.settle()
-  assert.deepEqual(client.actions.find(c => c.action === 'rechazarEntrega').args, ['delivered', 'Faltan los remates acordados'])
+  assert.deepEqual(client.actions.find(c => c.action === 'rechazarEntrega').args, ['delivered', 'Faltan los remates acordados', []])
   const provider = workspaceHarness(load, { ...base, parte: 'proveedor' }, 'IncidenciasTrabajoEmpresa')
   assert.equal(provider.button(provider.render(), 'Rechazar entrega'), undefined)
 })
@@ -595,7 +595,7 @@ function sharedProfileHarness(datos, options = {}) {
   const Profile = runtime.load('components/perfil-profesional.tsx').default
   assert.equal(component.type, Profile, 'The whole company editor is the actual professional component')
   function children(node) {
-    if (['PreferenciasDemandas', 'DatosLegalesEmpresaCard'].includes(node.type?.name)) return [node.type(node.props)]
+    if (['PreferenciasDemandas', 'DatosLegalesEmpresaCard', 'BarraEdicionEmpresa', 'EditarSeccionEmpresa'].includes(node.type?.name)) return [node.type(node.props)]
     return ['children', 'coverActions', 'avatarActions', 'avatar'].map(key => node.props?.[key])
   }
   function all(node, predicate, found = []) {
@@ -626,19 +626,23 @@ async function completeProfileFixture() {
   return { ...original, empresa: { ...original.empresa, provincias: ['Madrid'], servicios: ['Limpieza'], titulo: 'Especialistas en acabados', telefono: '+34 612345678', emailContacto: 'contacto@example.test', tarifaHora: 45, anosExperiencia: 12, tiempoRespuesta: '2 horas', disponible: true, habilidades: ['Acabados'], certificaciones: ['Certificación declarada'], idiomas: ['Español'], proyectosCompletados: 20, portadaUrl: 'https://example.com/saved-cover.webp', presupuestoMinInteres: 1200, presupuestoMaxInteres: 35000 } }
 }
 
-test('company owner uses the full professional profile and adds only the team tab', async () => {
+test('company owner keeps professional profile capabilities while team management stays in its workspace tab', async () => {
   const datos = await completeProfileFixture()
   const h = sharedProfileHarness(datos)
   const tree = h.render()
   const tabs = h.all(tree, node => node.type?.name === 'TabsTrigger').map(node => node.props.value)
-  assert.deepEqual(tabs, ['sobre-mi', 'portfolio', 'valoraciones', 'equipo'])
-  for (const section of ['Descripción', 'Servicios', 'Zona de trabajo', 'Contacto', 'Habilidades', 'Certificaciones', 'Idiomas', 'Estadísticas', 'Avisos de nuevas demandas']) assert.match(h.text(tree), new RegExp(section))
+  assert.deepEqual(tabs, ['sobre-mi', 'portfolio', 'valoraciones'])
+  for (const section of ['Sobre la empresa', 'Servicios', 'Zona de trabajo', 'Contacto', 'Habilidades', 'Certificaciones', 'Idiomas', 'Estadísticas', 'Avisos de nuevas demandas']) assert.match(h.text(tree), new RegExp(section))
   assert.equal(h.all(tree, node => node.type === 'h1').length, 1)
   assert.equal(h.field(tree, 'Nombre comercial'), undefined)
   assert.equal(h.adaptador.datos.proyectos_completados, 20, 'Completed contracts are not inferred from portfolio size')
   assert.equal(h.adaptador.datos.portfolio[0].trabajo_id, 'work')
   assert.equal(h.adaptador.datos.reviews[0].texto, 'Buen trabajo')
   assert.equal(h.adaptador.equipo.type.name, 'EquipoEmpresa')
+  h.adaptador.datos.verificado = true
+  assert.match(h.text(h.render()), /Empresa verificada/)
+  h.adaptador.datos.verificado = false
+  assert.doesNotMatch(h.text(h.render()), /Empresa verificada/, 'Legal identity updates immediately remove accreditation without resetting the profile draft')
   const readonly = sharedProfileHarness(datos, { editable: false })
   assert.equal(readonly.button(readonly.render(), 'Editar perfil'), undefined)
   assert.equal(readonly.all(readonly.render(), node => node.type?.name === 'Dialog' && node.props.open === true).length, 0)
@@ -651,7 +655,9 @@ test('shared company editor saves all professional fields through the company ac
   let tree = h.render()
   h.field(tree, 'Nombre comercial').props.onChange({ target: { value: ' Nombre actualizado ' } })
   tree = h.render()
-  h.field(tree, 'Título profesional (ej: Maestro Albañil)').props.onChange({ target: { value: 'Reformas integrales' } })
+  h.field(tree, 'empresa-especialidad').props.onChange({ target: { value: 'Reformas integrales' } })
+  tree = h.render()
+  h.field(tree, 'empresa-web').props.onChange({ target: { value: 'https://empresa-actualizada.example.test' } })
   tree = h.render()
   h.selector(tree, 'SelectorProvincias').props.onChange(['Madrid', 'Toledo'])
   tree = h.render()
@@ -666,7 +672,7 @@ test('shared company editor saves all professional fields through the company ac
   assert.equal(saved.nombre, 'Nombre actualizado')
   assert.equal(saved.titulo, 'Reformas integrales')
   assert.equal(saved.ubicacion, datos.empresa.ubicacion, 'Residence remains independent of work coverage')
-  assert.equal(saved.web, datos.empresa.web, 'Unedited existing company metadata is retained')
+  assert.equal(saved.web, 'https://empresa-actualizada.example.test')
   assert.equal(saved.telefono, datos.empresa.telefono)
   assert.equal(saved.emailContacto, datos.empresa.emailContacto)
   assert.equal(saved.tarifaHora, 45)
@@ -691,7 +697,7 @@ test('cancel restores the company profile, both photos and private range using t
   for (const [id, type] of [['avatar-upload', 'logo'], ['cover-upload', 'portada']]) await h.field(h.render(), id).props.onChange({ currentTarget: { files: [new File(['photo'], `${type}.webp`, { type: 'image/webp' })], value: 'selected' } })
   h.selector(h.render(), 'RangoPrecio').props.onChange([5000, 10000])
   h.button(h.render(), 'Cancelar').props.onClick()
-  const header = h.selector(h.render(), 'ProfileHeader')
+  const header = h.selector(h.render(), 'CabeceraPerfilEmpresa')
   assert.equal(header.props.coverUrl, datos.empresa.portadaUrl)
   assert.equal(header.props.avatar.props.src, datos.empresa.logoUrl)
   assert.deepEqual(uploads, ['logo', 'portada'])
@@ -707,16 +713,14 @@ test('shared save keeps rejected drafts, prevents duplicate submission and permi
   const h = sharedProfileHarness(datos, { actionResult: async () => { count++; return await new Promise(resolve => { finish = resolve }) } })
   h.button(h.render(), 'Editar perfil').props.onClick()
   h.field(h.render(), 'Nombre comercial').props.onChange({ target: { value: 'Borrador conservado' } })
-  h.field(h.render(), 'empresa-domicilio').props.onChange({ target: { value: 'Domicilio pendiente de guardar' } })
   const save = h.button(h.render(), 'Guardar cambios')
   const first = save.props.onClick()
   const duplicate = save.props.onClick()
   assert.equal(count, 1)
-  assert.equal(h.button(h.render(), 'Guardar cambios').props.disabled, true)
+  assert.equal(h.button(h.render(), 'Guardando...').props.disabled, true)
   finish({ error: 'Error temporal' })
   await Promise.all([first, duplicate])
   assert.equal(h.field(h.render(), 'Nombre comercial').props.value, 'Borrador conservado')
-  assert.equal(h.field(h.render(), 'empresa-domicilio').props.value, 'Domicilio pendiente de guardar')
   assert.ok(h.toasts.some(toast => toast.variant === 'destructive'))
   const retry = h.button(h.render(), 'Guardar cambios').props.onClick()
   finish({})
@@ -796,7 +800,8 @@ test('company portfolio uses company CRUD and cancelling profile edits retains a
   await h.button(h.render(), 'Seleccionar trabajo').props.onClick()
   h.field(h.render(), 'pf-titulo').props.onChange({ target: { value: 'Proyecto guardado de la empresa' } })
   h.field(h.render(), 'pf-descripcion').props.onChange({ target: { value: 'Reforma integral completada con fotografías propias.' } })
-  const submit = h.all(h.render(), node => typeof node.props?.onClick === 'function' && h.text(node).trim() === 'Añadir proyecto').at(-1)
+  h.field(h.render(), 'pf-evidencias').props.onChange({ target: { value: 'Referencia de factura y fotografías disponibles para revisión.' } })
+  const submit = h.all(h.render(), node => typeof node.props?.onClick === 'function' && h.text(node).trim() === 'Enviar a acreditación').at(-1)
   await submit.props.onClick()
   assert.deepEqual(h.actions.map(action => action.action), ['obtenerTrabajosCompletadosParaPortfolioEmpresa', 'crearItemPortfolioEmpresa', 'obtenerPortfolioEmpresa'])
   h.button(h.render(), 'Cancelar').props.onClick()
@@ -823,50 +828,48 @@ test('public company message action addresses the company and never sends its id
   assert.deepEqual(destinations, ['/mensajes?c=company-conversation'])
 })
 
-test('company legal identity is visible and readonly while its public address saves through the shared editor', async () => {
+test('general profile saves never overwrite separately managed legal identity or address', async () => {
   const datos = await completeProfileFixture()
   const h = sharedProfileHarness(datos)
-  let tree = h.render()
-  assert.equal(h.selector(tree, 'DatosLegalesEmpresaCard').props.datos.razonSocial, datos.empresa.razonSocial)
-  assert.equal(h.selector(tree, 'DatosLegalesEmpresaCard').props.datos.cif, datos.empresa.nif)
-  assert.equal(h.field(tree, 'empresa-domicilio'), undefined)
-  assert.match(h.text(tree), /Empresa de prueba, S\.L\.|B12345678|Calle Ejemplo 10, Bilbao/)
-  h.button(tree, 'Editar perfil').props.onClick()
-  tree = h.render()
-  const legalCard = h.selector(tree, 'DatosLegalesEmpresaCard')
-  const legalInputs = h.all(legalCard, node => typeof node.props?.onChange === 'function')
-  assert.equal(legalInputs.length, 1, 'Only the address can change; registered legal identity is readonly')
-  assert.equal(legalInputs[0].props.id, 'empresa-domicilio')
-  assert.equal(legalInputs[0].props.maxLength, 500)
-  h.field(tree, 'empresa-domicilio').props.onChange({ target: { value: 'Calle Nueva 25, 2º A\n48001 Bilbao' } })
+  assert.equal(h.selector(h.render(), 'DatosLegalesEmpresaCard'), undefined, 'The management workspace has a dedicated legal-data editor')
+  h.button(h.render(), 'Editar perfil').props.onClick()
+  assert.equal(h.field(h.render(), 'empresa-domicilio'), undefined)
+  h.field(h.render(), 'Nombre comercial').props.onChange({ target: { value: 'Nueva marca comercial' } })
   await h.button(h.render(), 'Guardar cambios').props.onClick()
   assert.equal(h.actions.length, 1)
   assert.equal(h.actions[0].action, 'guardarPerfilEmpresa')
   const saved = h.actions[0].args[0]
-  assert.equal(saved.domicilio, 'Calle Nueva 25, 2º A\n48001 Bilbao')
-  for (const key of ['razonSocial', 'razon_social', 'nif', 'cif']) assert.equal(Object.hasOwn(saved, key), false, key)
-  tree = h.render()
-  assert.equal(h.field(tree, 'empresa-domicilio'), undefined)
-  assert.equal(h.selector(tree, 'DatosLegalesEmpresaCard').props.datos.domicilio, saved.domicilio)
-  assert.equal(h.selector(tree, 'DatosLegalesEmpresaCard').props.datos.razonSocial, datos.empresa.razonSocial)
-  assert.equal(h.selector(tree, 'DatosLegalesEmpresaCard').props.datos.cif, datos.empresa.nif)
+  assert.equal(saved.nombre, 'Nueva marca comercial')
+  for (const key of ['razonSocial', 'razon_social', 'nif', 'cif', 'domicilio']) assert.equal(Object.hasOwn(saved, key), false, key)
 })
 
-test('cancelling a company address draft restores the public address and readonly viewers cannot edit it', async () => {
+test('company section controls open an editable field and cancelling restores its saved presentation', async () => {
   const datos = await completeProfileFixture()
   const h = sharedProfileHarness(datos)
-  h.button(h.render(), 'Editar perfil').props.onClick()
-  h.field(h.render(), 'empresa-domicilio').props.onChange({ target: { value: 'Dirección que se descarta' } })
-  h.button(h.render(), 'Cancelar').props.onClick()
-  assert.equal(h.selector(h.render(), 'DatosLegalesEmpresaCard').props.datos.domicilio, datos.empresa.domicilio)
-  assert.deepEqual(h.actions, [])
-  h.button(h.render(), 'Editar perfil').props.onClick()
-  assert.equal(h.field(h.render(), 'empresa-domicilio').props.value, datos.empresa.domicilio)
-  const readonly = sharedProfileHarness(datos, { editable: false })
-  const tree = readonly.render()
-  assert.equal(readonly.selector(tree, 'DatosLegalesEmpresaCard').props.datos.domicilio, datos.empresa.domicilio)
-  assert.equal(readonly.field(tree, 'empresa-domicilio'), undefined)
-  assert.equal(readonly.button(tree, 'Editar perfil'), undefined)
+  const previousWindow = globalThis.window
+  const previousDocument = globalThis.document
+  let focused = false, scrolled = false
+  globalThis.window = { requestAnimationFrame: callback => callback() }
+  globalThis.document = { getElementById: id => {
+    assert.equal(id, 'empresa-seccion-presentacion')
+    return { scrollIntoView: () => { scrolled = true }, querySelector: () => ({ focus: () => { focused = true } }) }
+  } }
+  try {
+    h.button(h.render(), 'Editar presentación').props.onClick()
+    assert.ok(scrolled && focused, 'The named action brings its editable section into view')
+    h.field(h.render(), 'Descripción de la empresa').props.onChange({ target: { value: 'Descripción descartada' } })
+    h.button(h.render(), 'Cancelar').props.onClick()
+    assert.match(h.text(h.render()), new RegExp(datos.empresa.descripcion))
+    assert.doesNotMatch(h.text(h.render()), /Descripción descartada/)
+    assert.deepEqual(h.actions, [])
+    assert.equal(h.button(h.render(), 'Cerrar sesion'), undefined)
+    const readonly = sharedProfileHarness(datos, { editable: false })
+    assert.equal(readonly.button(readonly.render(), 'Editar presentación'), undefined)
+    assert.equal(readonly.button(readonly.render(), 'Editar perfil'), undefined)
+  } finally {
+    globalThis.window = previousWindow
+    globalThis.document = previousDocument
+  }
 })
 
 test('company address action validates and normalizes public multiline addresses while omitted addresses stay untouched', async () => {

@@ -3,7 +3,7 @@
 import { useState, useTransition, type FormEvent } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Activity, ArrowUpRight, BriefcaseBusiness, Building2, Check, ClipboardList, Copy, Eye, EyeOff, LayoutGrid, Loader2, MessageSquare, SlidersHorizontal, UserPlus, Users, Wallet } from "lucide-react"
+import { Activity, ArrowUpRight, BriefcaseBusiness, Building2, Check, ClipboardList, Copy, Eye, EyeOff, FileCheck2, LayoutGrid, Loader2, MessageSquare, ShieldCheck, SlidersHorizontal, UserPlus, Users, Wallet } from "lucide-react"
 import { actualizarMiembroEmpresa, cancelarInvitacionEmpresa, invitarMiembroEmpresa, revocarMiembroEmpresa } from "@/app/actions/empresa-workspace"
 import { useIdioma, useT } from "@/components/idioma-provider"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -19,7 +19,8 @@ import { CobrosEmpresa } from "@/components/empresas/cobros-empresa"
 import { PerfilEmpresaEditor } from "@/components/empresas/perfil-empresa-editor"
 import { OperacionesEmpresa } from "@/components/empresas/operaciones-empresa"
 import { PermisosEmpresaFields } from "@/components/empresas/permisos-empresa"
-import { VerificacionEmpresa } from "@/components/empresas/verificacion-empresa"
+import { DatosLegalesEmpresaEditor } from "@/components/empresas/datos-legales-empresa"
+import { ESTADOS_VERIFICACION_EMPRESA, VerificacionEmpresa } from "@/components/empresas/verificacion-empresa"
 import { NOMBRES_ROL_EMPRESA, PERMISOS_EMPRESA, PERMISOS_MIEMBRO, type EmpresaPublica, type EspacioEmpresa, type OperacionInicialEmpresa, type MiembroEmpresa, type PermisosEmpresa, type ResultadoEmpresa, type RolEmpresa } from "@/lib/empresas/types"
 import { localeDe } from "@/lib/i18n"
 import styles from "./empresa-workspace.module.css"
@@ -101,25 +102,27 @@ export function EmpresaWorkspaceReal({ espacio, perfilPublico: datosPerfilPublic
     return miembro.rol === "miembro" && miembro.usuarioId !== actor.id && PERMISOS_EMPRESA.every(({ clave }) => !miembro.permisos[clave] || !!miembroActual?.permisos[clave])
   }
 
-  return <div className="min-h-[70vh]"><div className="container mx-auto space-y-6 px-4 py-8">
-    <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <p className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><Building2 aria-hidden="true" className="size-4" />{t("Mi empresa")}</p>
-      <div className="flex flex-wrap gap-2">
-        {puedePrevisualizar && <Button asChild variant="outline" size="sm"><Link href="/mi-empresa/vista-previa"><Eye aria-hidden="true" className="size-4" />{t("Vista previa del perfil")}</Link></Button>}
-        {verificada && <Button asChild variant="outline" size="sm"><Link href={`/empresa/${encodeURIComponent(empresa.id)}`}>{t("Ver perfil público")}<ArrowUpRight aria-hidden="true" className="size-4" /></Link></Button>}
-        {miembroActual?.permisos.mensajes && <Button asChild variant="outline" size="sm"><Link href={`/mensajes?empresa=${encodeURIComponent(empresa.id)}`}><MessageSquare aria-hidden="true" className="size-4" />{t("Mensajes")}</Link></Button>}
+  return <div className={styles.workspace}><div className="container mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+    <header className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0"><div className="mb-2 flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 text-xs font-medium text-primary"><Building2 aria-hidden="true" className="size-3.5" />{t("Espacio de empresa")}</span><span className="text-muted-foreground/40" aria-hidden="true">/</span><span className="text-xs text-muted-foreground">{t(miembroActual ? NOMBRES_ROL_EMPRESA[miembroActual.rol] : "Administrador de plataforma")}</span></div><h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{t("Mi empresa")}</h1><p className="mt-2 text-sm text-muted-foreground">{t("Tu presentación, tu equipo y la confianza que transmites.")}</p></div>
+      <div className="flex flex-wrap items-center gap-2">
+        {puedePrevisualizar && <Button asChild variant="outline" size="sm" className="h-10 rounded-xl bg-background"><Link href="/mi-empresa/vista-previa"><Eye aria-hidden="true" className="size-4" />{t("Vista previa del perfil")}</Link></Button>}
+        {verificada && <Button asChild variant="outline" size="sm" className="h-10 rounded-xl bg-background"><Link href={`/empresa/${encodeURIComponent(empresa.id)}`}>{t("Ver perfil público")}<ArrowUpRight aria-hidden="true" className="size-4" /></Link></Button>}
+        {miembroActual?.permisos.mensajes && <Button asChild variant="outline" size="sm" className="h-10 rounded-xl bg-background"><Link href={`/mensajes?empresa=${encodeURIComponent(empresa.id)}`}><MessageSquare aria-hidden="true" className="size-4" />{t("Mensajes")}</Link></Button>}
       </div>
     </header>
     {error && <p role="alert" className="rounded-lg border border-destructive/25 bg-destructive/5 p-3 text-sm text-destructive">{t(error)}</p>}{mensaje && <p role="status" className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-3 text-sm text-emerald-700 dark:text-emerald-400">{t(mensaje)}</p>}
     <Tabs value={pestana} onValueChange={setPestana} className="min-w-0 gap-6">
-      <div className={`${styles.navigation} max-w-full overflow-x-auto rounded-2xl border bg-card p-1.5`}><TabsList aria-label={t("Gestión de empresa")} className="h-auto w-max min-w-full justify-start gap-1 rounded-none bg-transparent p-0">
+      <div className={`${styles.navigation} max-w-full overflow-x-auto rounded-2xl border bg-background p-1.5`}><TabsList aria-label={t("Gestión de empresa")} className="h-auto w-max min-w-full justify-start gap-1 rounded-none bg-transparent p-0">
         <TabsTrigger value="perfil" className={tabClass}><LayoutGrid aria-hidden="true" className="size-4" />{t("Perfil")}</TabsTrigger>
         <TabsTrigger value="equipo" className={tabClass}><Users aria-hidden="true" className="size-4" />{t("Equipo")}<span className="ml-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] tabular-nums">{activos.length}</span></TabsTrigger>
         <TabsTrigger value="operaciones" className={tabClass}><BriefcaseBusiness aria-hidden="true" className="size-4" />{t("Operaciones")}</TabsTrigger>
-        <TabsTrigger value="verificacion" className={tabClass}>{t("Verificación")}</TabsTrigger>
+        <TabsTrigger value="datos-legales" className={tabClass}><FileCheck2 aria-hidden="true" className="size-4" />{t("Datos legales")}</TabsTrigger>
+        <TabsTrigger value="verificacion" className={tabClass}><ShieldCheck aria-hidden="true" className="size-4" />{t("Verificación")}</TabsTrigger>
         <TabsTrigger value="actividad" className={tabClass}><Activity aria-hidden="true" className="size-4" />{t("Actividad")}</TabsTrigger>
         {puedeVerCobros && <TabsTrigger value="cobros" className={tabClass}><Wallet aria-hidden="true" className="size-4" />{t("Cobros")}</TabsTrigger>}
       </TabsList></div>
+      <div className="flex flex-col gap-2 rounded-xl border border-primary/15 bg-primary/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex min-w-0 items-center gap-2.5"><ShieldCheck aria-hidden="true" className="size-4 shrink-0 text-primary" /><p className="text-sm"><span className="font-medium">{t(ESTADOS_VERIFICACION_EMPRESA[empresa.estadoVerificacion])}</span><span className="hidden text-muted-foreground sm:inline"> · {empresa.nombre}</span></p></div><button type="button" onClick={() => setPestana("verificacion")} className="inline-flex items-center gap-1 self-start rounded-md text-xs font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:self-auto">{t(verificada ? "Ver acreditación" : empresa.estadoVerificacion === "en_revision" ? "Ver estado de revisión" : "Completar verificación")}<ArrowUpRight aria-hidden="true" className="size-3.5" /></button></div>
       <TabsContent value="perfil" forceMount hidden={pestana !== "perfil"} className="min-w-0 space-y-6 data-[state=inactive]:hidden">
         {datosPerfilPublico ? <PerfilEmpresaEditor key={empresa.id} datos={datosPerfilPublico} puedeEditar={puedePerfil} integrado /> : <Card>
           <CardHeader><CardTitle className="text-lg">{empresa.nombre}</CardTitle></CardHeader>
@@ -138,7 +141,8 @@ export function EmpresaWorkspaceReal({ espacio, perfilPublico: datosPerfilPublic
         <p className="text-xs leading-relaxed text-muted-foreground">{t("El rol de administrador de la cuenta no acredita la representación legal de la empresa.")}</p>
       </TabsContent>
       <TabsContent value="operaciones"><OperacionesEmpresa espacio={espacio} operacionInicial={operacionInicial} /></TabsContent>
-      <TabsContent value="verificacion"><VerificacionEmpresa espacio={espacio} /></TabsContent>
+      <TabsContent value="datos-legales"><DatosLegalesEmpresaEditor key={empresa.id} espacio={espacio} /></TabsContent>
+      <TabsContent value="verificacion"><VerificacionEmpresa key={`${empresa.id}-${empresa.estadoVerificacion}`} espacio={espacio} /></TabsContent>
       <TabsContent value="actividad"><ActividadEmpresaPanel espacio={espacio} /></TabsContent>
       {puedeVerCobros && <TabsContent value="cobros"><CobrosEmpresa key={empresa.id} empresaId={empresa.id} nombreEmpresa={empresa.nombre} puedeVer={puedeVerCobros} esResponsablePrincipal={principal} /></TabsContent>}
     </Tabs>

@@ -40,6 +40,7 @@ export function perfilProfesionalDeEmpresa(datos: EmpresaPublica, locale = "es-E
       imagen: trabajo.imagen || "",
       imagen_url: trabajo.imagen || "",
       trabajo_id: trabajo.trabajoId,
+      acreditacion: trabajo.acreditacion,
       duracion: trabajo.duracion || "",
       contexto_proveedor: trabajo.contextoProveedor || "",
       imagenes: trabajo.imagenes || (trabajo.imagen ? [trabajo.imagen] : []),

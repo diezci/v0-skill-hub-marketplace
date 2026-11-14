@@ -100,6 +100,7 @@ export async function obtenerProfesionalPorId(id: string) {
       portfolio: (portfolio || []).map((item: any) => ({
         id: item.id,
         trabajo_id: item.trabajo_id,
+        acreditacion: item.trabajo_id ? "diime" : "acreditado",
         titulo: item.titulo,
         descripcion: item.descripcion,
         categoria: item.categoria,

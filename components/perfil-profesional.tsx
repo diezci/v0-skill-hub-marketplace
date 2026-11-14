@@ -121,7 +121,7 @@ const provincias = [
   { provincia: "Melilla", codigo: "52" },
 ]
 
-import { DatosLegalesEmpresaCard } from "@/components/empresas/datos-legales-empresa"
+import { AvatarPerfilEmpresa, BarraEdicionEmpresa, CabeceraPerfilEmpresa, EditarSeccionEmpresa } from "@/components/empresas/cabecera-perfil-empresa"
 import { datosInicialesPerfil, type AdaptadorPerfilProfesional, type DatosPerfilProfesional } from "@/lib/perfil-profesional-editor"
 
 interface PerfilProfesionalProps {
@@ -183,6 +183,7 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
     presupuesto: "",
     trabajo_id: "",
     contexto_proveedor: "",
+    evidencia_acreditacion: "",
   }
   const [newPortfolioItem, setNewPortfolioItem] = useState(PORTFOLIO_VACIO)
   const [propietarioBorrador, setPropietarioBorrador] = useState<string | null>(null)
@@ -354,6 +355,10 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
       return
     }
 
+    if (!newPortfolioItem.trabajo_id && newPortfolioItem.evidencia_acreditacion.trim().length < 20) {
+      toast({ title: t("Añade evidencias"), description: t("Describe cómo podemos comprobar este trabajo, con al menos 20 caracteres."), variant: "destructive" })
+      return
+    }
     if (savingPortfolio || uploadingPortfolioImg) return
     const version = versionPortfolio.current
     setSavingPortfolio(true)
@@ -379,7 +384,7 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
 
     toast({
       title: editingPortfolioId ? t("Proyecto actualizado") : t("Proyecto añadido"),
-      description: t("Ya aparece en tu portfolio."),
+      description: t(newPortfolioItem.trabajo_id ? "Ya aparece en tu portfolio." : "Enviado a revisión. Se publicará cuando Diime lo acredite."),
     })
     renovarFormularioPortfolio()
     if (profesionalId) borrarBorradorPortfolio(almacenBorradorPortfolio(), profesionalId)
@@ -406,6 +411,7 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
       presupuesto: item.presupuesto != null ? String(item.presupuesto) : "",
       trabajo_id: item.trabajo_id || "",
       contexto_proveedor: item.contexto_proveedor || "",
+      evidencia_acreditacion: item.evidencia_acreditacion || "",
     })
     setShowPortfolioDialog(true)
   }
@@ -722,12 +728,28 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
 
   // Sin servicios o sin provincias no llega ningún aviso de demanda nueva.
   const sinCobertura = editData.categorias_interes.length === 0 || editData.provincias_cobertura.length === 0
+  // The company's accreditation can change in the separate legal-data editor.
+  // Read its latest server state without overwriting an unsaved profile draft.
+  const verificacionVigente = adaptador ? adaptador.datos.verificado : editData.verificado
+  const CabeceraPerfil = adaptador ? CabeceraPerfilEmpresa : ProfileHeader
+  const editarSeccionEmpresa = (seccion: string) => {
+    if (!isEditing) iniciarEdicion()
+    setPestanaPerfil("sobre-mi")
+    window.requestAnimationFrame(() => {
+      const elemento = document.getElementById(`empresa-seccion-${seccion}`)
+      elemento?.scrollIntoView({ block: "start", behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" })
+      elemento?.querySelector<HTMLElement>("input, textarea, button")?.focus({ preventScroll: true })
+    })
+  }
 
   return (
     <div className="space-y-6" aria-busy={saving} inert={saving || undefined}>
-      <ProfileHeader
+      {adaptador && <BarraEdicionEmpresa editando={isEditing} guardando={saving} subiendo={isUploading}
+        puedeEditar={editable} onEditar={() => { iniciarEdicion(); setPestanaPerfil("sobre-mi") }}
+        onGuardar={handleSave} onCancelar={cancelarEdicion} />}
+      <CabeceraPerfil
         coverUrl={editData.foto_portada}
-        coverAlt={t("Cover")}
+        coverAlt={t(adaptador ? "Portada de la empresa" : "Cover")}
         coverActions={
           editable && isEditing && (
             <>
@@ -751,9 +773,9 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
             </>
           )
         }
-        avatar={<ProfileHeaderAvatar src={editData.foto_perfil} fallback={editData.nombre?.charAt(0)} />}
+        avatar={adaptador ? <AvatarPerfilEmpresa src={editData.foto_perfil} nombre={editData.nombre} /> : <ProfileHeaderAvatar src={editData.foto_perfil} fallback={editData.nombre?.charAt(0)} />}
         avatarActions={<>
-          {editData.verificado && (
+          {verificacionVigente && (
             <div className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full p-1.5">
               <CheckCircle className="h-5 w-5" />
             </div>
@@ -762,7 +784,7 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
             <>
               <Button
                 size="icon"
-                aria-label={t("Cambiar foto de perfil")}
+                aria-label={t(adaptador ? "Cambiar logotipo" : "Cambiar foto de perfil")}
                 variant="secondary"
                 className="absolute bottom-0 right-0"
                 onClick={() => document.getElementById("avatar-upload")?.click()}
@@ -782,10 +804,12 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
         </>}
       >
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-          <div className="space-y-2">
+          <div className="min-w-0 flex-1 space-y-2">
+            {adaptador && isEditing && <Label htmlFor="empresa-nombre-comercial" className="text-xs text-muted-foreground">{t("Nombre comercial")}</Label>}
             {isEditing ? (
               <div className="flex gap-2">
                 <Input
+                  id={adaptador ? "empresa-nombre-comercial" : undefined}
                   value={editData.nombre}
                   onChange={(e) => setEditData({ ...editData, nombre: e.target.value })}
                   placeholder={t("Nombre")}
@@ -806,14 +830,18 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
             )}
 
             {isEditing ? (
+              <div className="space-y-2">
+              {adaptador && <Label htmlFor="empresa-especialidad" className="text-xs text-muted-foreground">{t("Especialidad o presentación breve")}</Label>}
               <Input
+                id={adaptador ? "empresa-especialidad" : undefined}
                 value={editData.titulo}
                 onChange={(e) => setEditData({ ...editData, titulo: e.target.value })}
-                placeholder={t("Título profesional (ej: Maestro Albañil)")}
+                placeholder={t(adaptador ? "Por ejemplo, reformas integrales y rehabilitación" : "Título profesional (ej: Maestro Albañil)")}
                 className="text-muted-foreground"
               />
+              </div>
             ) : (
-              <p className="text-lg text-muted-foreground">{editData.titulo || t("Sin título profesional")}</p>
+              <p className="text-lg text-muted-foreground">{editData.titulo || t(adaptador ? "Añade una frase que presente vuestra especialidad" : "Sin título profesional")}</p>
             )}
 
             <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
@@ -855,7 +883,7 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
                 <span className="font-bold text-lg">{editData.rating.toFixed(1)}</span>
                 <span className="text-muted-foreground">({editData.total_reviews} {t("valoraciones)")}</span>
               </div>
-              <Badge variant="secondary">{t(editData.nivel)}</Badge>
+              <Badge variant="secondary">{t(adaptador ? verificacionVigente ? "Empresa verificada" : "Empresa" : editData.nivel)}</Badge>
               <Badge
                 variant={editData.disponibilidad === "Disponible" ? "default" : "secondary"}
                 className={editData.disponibilidad === "Disponible" ? "bg-emerald-500" : ""}
@@ -866,7 +894,7 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
           </div>
 
           {/* Actions */}
-          <div className="flex flex-col gap-2 shrink-0">
+          {!adaptador && <div className="flex flex-col gap-2 shrink-0">
             {editable ? (
               isEditing ? (
                 <>
@@ -915,9 +943,9 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
                 </Button>
               </>
             )}
-          </div>
+          </div>}
         </div>
-      </ProfileHeader>
+      </CabeceraPerfil>
 
       {!adaptador && editable && tienePerfilProfesional && !editData.verificado ? (
         <div className="px-4 md:px-0">
@@ -929,16 +957,16 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
       ) : null}
 
       {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 px-4 md:px-0">
+      <div className={cn("grid grid-cols-1 lg:grid-cols-3 gap-6 md:px-0", !adaptador && "px-4")}>
         {/* Left Column - Main Info */}
         <div className="min-w-0 lg:col-span-2 space-y-6">
           <Tabs value={pestanaPerfil} onValueChange={setPestanaPerfil} className="w-full">
-            <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent [&>button]:px-2 [&>button]:text-xs sm:[&>button]:px-3 sm:[&>button]:text-sm">
+            <TabsList data-company-tabs={adaptador ? "" : undefined} aria-label={t(adaptador ? "Contenido del perfil de empresa" : "Contenido del perfil")} className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent [&>button]:px-2 [&>button]:text-xs sm:[&>button]:px-3 sm:[&>button]:text-sm">
               <TabsTrigger
                 value="sobre-mi"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
               >
-                {t("Sobre mí")}
+                {t(adaptador ? "Presentación" : "Sobre mí")}
               </TabsTrigger>
               <TabsTrigger
                 value="portfolio"
@@ -952,17 +980,14 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
               >
                 {t("Valoraciones")}
               </TabsTrigger>
-              {adaptador && <TabsTrigger value="equipo" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">{t("Equipo")}</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="sobre-mi" className="space-y-6 pt-6">
-              {adaptador && editData.datos_empresa && <DatosLegalesEmpresaCard datos={editData.datos_empresa} editando={isEditing}
-                onDomicilioChange={(domicilio) => setEditData((actual) => actual.datos_empresa
-                  ? { ...actual, datos_empresa: { ...actual.datos_empresa, domicilio } } : actual)} />}
               {/* Bio */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">{t("Descripción")}</CardTitle>
+              <Card id={adaptador ? "empresa-seccion-presentacion" : undefined} data-company-section={adaptador ? "" : undefined}>
+                <CardHeader className={adaptador ? "flex flex-row flex-wrap items-center justify-between gap-2" : undefined}>
+                  <CardTitle className="text-lg">{t(adaptador ? "Sobre la empresa" : "Descripción")}</CardTitle>
+                  {adaptador && editable && !isEditing && <EditarSeccionEmpresa onEditar={() => editarSeccionEmpresa("presentacion")}>{t("Editar presentación")}</EditarSeccionEmpresa>}
                 </CardHeader>
                 <CardContent>
                   {isEditing ? (
@@ -970,7 +995,8 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
                       value={editData.bio}
                       onChange={(e) => setEditData({ ...editData, bio: e.target.value })}
                       rows={5}
-                      placeholder={t("Describe tu experiencia, especialización y qué te hace único...")}
+                      aria-label={t(adaptador ? "Descripción de la empresa" : "Descripción")}
+                      placeholder={t(adaptador ? "Explica qué hace vuestra empresa, su experiencia y cómo trabajáis con los clientes." : "Describe tu experiencia, especialización y qué te hace único...")}
                     />
                   ) : (
                     <p className="text-muted-foreground leading-relaxed">
@@ -981,12 +1007,13 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
               </Card>
 
               {/* Servicios y zona de trabajo */}
-              <Card>
-                <CardHeader>
+              <Card id={adaptador ? "empresa-seccion-servicios" : undefined} data-company-section={adaptador ? "" : undefined}>
+                <CardHeader className={adaptador ? "flex flex-row flex-wrap items-center justify-between gap-2" : undefined}>
                   <CardTitle className="text-lg">
                     {t("Servicios")}
                     {isEditing && <span className="text-destructive ml-1">*</span>}
                   </CardTitle>
+                  {adaptador && editable && !isEditing && <EditarSeccionEmpresa onEditar={() => editarSeccionEmpresa("servicios")}>{t("Editar servicios")}</EditarSeccionEmpresa>}
                 </CardHeader>
                 <CardContent>
                   {!isEditing && editData.categorias_interes.length === 0 ? (
@@ -1001,13 +1028,14 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
+              <Card id={adaptador ? "empresa-seccion-cobertura" : undefined} data-company-section={adaptador ? "" : undefined}>
+                <CardHeader className={adaptador ? "flex flex-row flex-wrap items-center justify-between gap-2" : undefined}>
                   <CardTitle className="text-lg flex items-center gap-2">
                     <MapPin className="h-5 w-5 text-primary" />
                     {t("Zona de trabajo")}
                     {isEditing && <span className="text-destructive">*</span>}
                   </CardTitle>
+                  {adaptador && editable && !isEditing && <EditarSeccionEmpresa onEditar={() => editarSeccionEmpresa("cobertura")}>{t("Editar zonas")}</EditarSeccionEmpresa>}
                 </CardHeader>
                 <CardContent>
                   {!isEditing && editData.provincias_cobertura.length === 0 ? (
@@ -1026,7 +1054,7 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
               {isEditing && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">{t("Información Profesional")}</CardTitle>
+                    <CardTitle className="text-lg">{t(adaptador ? "Experiencia y tarifa orientativa" : "Información Profesional")}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1056,9 +1084,10 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
               )}
 
               {/* Contact Info */}
-              <Card>
-                <CardHeader>
+              <Card id={adaptador ? "empresa-seccion-contacto" : undefined} data-company-section={adaptador ? "" : undefined}>
+                <CardHeader className={adaptador ? "flex flex-row flex-wrap items-center justify-between gap-2" : undefined}>
                   <CardTitle className="text-lg">{t("Contacto")}</CardTitle>
+                  {adaptador && editable && !isEditing && <EditarSeccionEmpresa onEditar={() => editarSeccionEmpresa("contacto")}>{t("Editar contacto")}</EditarSeccionEmpresa>}
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex items-center gap-3">
@@ -1079,6 +1108,10 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
                     <Mail className="h-5 w-5 text-muted-foreground" />
                     {isEditing && adaptador ? <Input type="email" aria-label={t("Correo electrónico")} value={editData.email} onChange={(e) => setEditData({ ...editData, email: e.target.value })} /> : <span className="break-all">{editData.email || t("No especificado")}</span>}
                   </div>
+                  {adaptador && <div className="flex items-center gap-3">
+                    <Globe className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    {isEditing ? <Input id="empresa-web" type="url" aria-label={t("Web corporativa")} placeholder="https://" maxLength={500} value={editData.web_empresa ?? ""} onChange={(e) => setEditData({ ...editData, web_empresa: e.target.value })} /> : <span className="min-w-0 break-all">{editData.web_empresa || t("No especificado")}</span>}
+                  </div>}
                 </CardContent>
               </Card>
 
@@ -1289,12 +1322,14 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
                       <h4 className="font-semibold">{item.titulo}</h4>
                       {item.trabajo_id ? (
                         <Badge className="mt-2 gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                          <BadgeCheck className="h-3.5 w-3.5" /> {t("Verificado por Diime")}
+                          <BadgeCheck className="h-3.5 w-3.5" /> {t("Realizado en Diime")}
                         </Badge>
                       ) : (
-                        <Badge variant="secondary" className="mt-2">{t("Proyecto externo")}</Badge>
+                        <Badge variant="secondary" className="mt-2">{t(item.acreditacion === "acreditado" ? "Acreditado por Diime" : item.acreditacion === "requiere_informacion" ? "Necesita información" : "Pendiente de acreditar")}</Badge>
                       )}
-                      <p className="text-sm text-muted-foreground">{item.descripcion}</p>
+                      {!item.trabajo_id && item.acreditacion !== "acreditado" && <p className="mt-2 text-xs text-muted-foreground">{t("Solo visible para ti hasta que Diime lo acredite.")}</p>}
+                      {item.nota_acreditacion && <p className="mt-2 rounded-lg bg-muted/50 p-2 text-xs">{t("Observación de Diime")}: {item.nota_acreditacion}</p>}
+                      <p className="mt-2 text-sm text-muted-foreground">{item.descripcion}</p>
                       {item.contexto_proveedor && (
                         <div className="mt-3 border-t pt-3">
                           <p className="text-xs font-medium text-foreground">{t("Aporte del profesional")}</p>
@@ -1398,7 +1433,6 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
                 ))}
               </div>
             </TabsContent>
-            {adaptador && <TabsContent value="equipo" className="pt-6">{adaptador.equipo}</TabsContent>}
           </Tabs>
         </div>
 
@@ -1420,7 +1454,7 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">{t("Tarifa por hora")}</span>
-                      <span className="font-bold">{formatearPrecioEuros(editData.tarifa_hora, idioma)}/h</span>
+                <span className="font-bold">{adaptador && !editData.tarifa_hora ? t("Sin indicar") : `${formatearPrecioEuros(editData.tarifa_hora, idioma)}/h`}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">{t("Tiempo de respuesta")}</span>
@@ -1436,11 +1470,12 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
           <DialogHeader>
             <DialogTitle>{editingPortfolioId ? t("Editar proyecto del portfolio") : t("Añadir proyecto al portfolio")}</DialogTitle>
             <DialogDescription>
-              {t("Muestra un trabajo que ya hayas realizado. Aparecerá en tu perfil público.")}
+              {t("Muestra un trabajo realizado en Diime o solicita la acreditación de un proyecto externo.")}
             </DialogDescription>
           </DialogHeader>
 
           <fieldset disabled={savingPortfolio} className="space-y-4 py-2">
+            <p className="rounded-xl border bg-muted/30 p-3 text-sm leading-relaxed text-muted-foreground">{t("Publica trabajos completados en Diime o envía proyectos externos para que nuestro equipo los acredite. Los cambios en un proyecto externo vuelven a revisión.")}</p>
             {borradorPortfolioRecuperado && (
               <p role="status" className="rounded-md bg-muted p-3 text-sm">
                 {t("Hemos recuperado tu borrador. Revisa los datos y vuelve a adjuntar cualquier archivo cuya subida no hubiera terminado.")}
@@ -1486,6 +1521,11 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
                 <BadgeCheck className="h-4 w-4 shrink-0" /> {t("Trabajo verificado por Diime")}
               </div>
             )}
+            {!newPortfolioItem.trabajo_id && <div className="space-y-2 rounded-xl border p-4">
+              <Label htmlFor="pf-evidencias">{t("Referencias y evidencias del trabajo")}</Label>
+              <Textarea id="pf-evidencias" rows={4} minLength={20} maxLength={4000} required value={newPortfolioItem.evidencia_acreditacion} onChange={(e) => setNewPortfolioItem({ ...newPortfolioItem, evidencia_acreditacion: e.target.value })} placeholder={t("Indica qué hiciste y cómo podemos comprobarlo: referencia del proyecto, enlace a evidencias o documentación disponible.")} />
+              <p className="text-xs text-muted-foreground">{t("Solo lo verá el equipo de Diime para acreditar este proyecto. No incluyas datos personales de clientes sin su autorización.")}</p>
+            </div>}
             <div className="space-y-1.5">
               <Label htmlFor="pf-titulo">{newPortfolioItem.trabajo_id ? t("Título de la demanda") : t("Título del proyecto *")}</Label>
               <Input
@@ -1649,7 +1689,7 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
                   {t("Guardando...")}
                 </>
               ) : (
-                editingPortfolioId ? t("Guardar proyecto") : t("Añadir proyecto")
+                newPortfolioItem.trabajo_id ? (editingPortfolioId ? t("Guardar proyecto") : t("Añadir proyecto")) : t("Enviar a acreditación")
               )}
             </Button>
           </DialogFooter>

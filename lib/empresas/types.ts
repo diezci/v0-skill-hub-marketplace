@@ -10,6 +10,7 @@ export interface EmpresaFicha {
   nombre: string
   razonSocial: string
   domicilio?: string
+  domicilioComprobadoEn?: string
   nif: string
   descripcion: string
   web: string
@@ -52,6 +53,7 @@ export interface MiembroEmpresa {
 }
 export type MiembroEmpresaPublico = Pick<MiembroEmpresa, "id" | "usuarioId" | "nombre" | "cargo" | "bio" | "habilidades" | "perfilPublico" | "fotoUrl" | "tienePerfilProfesional">
 export interface TrabajoEmpresa {
+  acreditacion?: "diime" | "acreditado"
   id: string
   trabajoId?: string
   empresaId: string
@@ -144,6 +146,9 @@ export interface OperacionEmpresa {
   } | null
 }
 export interface VerificacionEmpresaAdmin extends SolicitudVerificacionEmpresa {
+  identidadCobrosPendiente?: boolean
+  cifCobrosAnterior?: string
+  cuentaStripe?: string
   empresaId: string
   empresaNombre: string
   nif: string

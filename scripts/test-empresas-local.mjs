@@ -247,29 +247,31 @@ test('perfil profesional de empresa persiste completo sin confundir ubicación y
 })
 
 
-test('domicilio empresarial persiste separado de identidad y cobertura, con privacidad y validación', async () => {
+test('datos legales: dirección comprobada, identidad principal y recarga sin cambios perdidos', async () => {
   const store = await nuevo()
   const empresa = correcto(await store.espacio(actores.owner)).empresa
-  const domicilio = 'Calle Ejemplo 12, 2.º A\n48001 Bilbao, Bizkaia'
-  const input = { ...empresa, nombre: 'Nueva marca', domicilio: `  ${domicilio}  `, provincias: ['Bizkaia'], servicios: ['Fontanería'], ubicacion: 'Madrid' }
-  correcto(await store.guardarPerfil(actores.ana, input))
+  const anteriores = { razonSocial: empresa.razonSocial, cif: empresa.nif, domicilio: empresa.domicilio || '' }
+  const domicilio = 'CALLE EJEMPLO 12, Bilbao, 48001, Bizkaia, España'
+  const comprobada = { id: 'portal-prueba', domicilio, comprobadoEn: new Date().toISOString() }
+  const input = { ...anteriores, domicilio, anteriores, comprobada }
+  error(await store.guardarDatosLegales(actores.mario, input), /permiso/)
+  error(await store.guardarDatosLegales(actores.ana, { ...input, razonSocial: 'Otra entidad SL' }), /principal/)
+  error(await store.guardarDatosLegales(actores.owner, { ...input, comprobada: null }), /Busca y selecciona/)
+  correcto(await store.guardarDatosLegales(actores.ana, input))
   const reloaded = new EmpresaLocalStore(store.directorio)
-  const saved = correcto(await reloaded.espacio(actores.owner)).empresa
-  const publicCompany = (await reloaded.publica(empresa.id)).empresa
+  let saved = correcto(await reloaded.espacio(actores.owner)).empresa
   assert.equal(saved.domicilio, domicilio)
-  assert.equal(publicCompany.domicilio, domicilio)
-  assert.equal(publicCompany.nif, empresa.nif)
-  assert.equal(publicCompany.razonSocial, empresa.razonSocial)
-  assert.equal(saved.ubicacion, 'Madrid')
-  assert.deepEqual(saved.provincias, ['Bizkaia'])
-  const { domicilio: omitted, ...old } = input
-  correcto(await store.guardarPerfil(actores.owner, old))
-  assert.equal(correcto(await reloaded.espacio(actores.owner)).empresa.domicilio, domicilio)
-  for (const bad of [null, 123, [], 'x'.repeat(501), 'x\u0001y', 'x\ty']) error(await store.guardarPerfil(actores.owner, {...input, domicilio: bad}), /domicilio/)
-  error(await store.guardarPerfil(actores.mario, input), /permiso/)
-  correcto(await store.guardarPerfil(actores.owner, {...input, domicilio: '', nif: 'B99999999', razonSocial: 'Otra entidad'}))
-  const final = correcto(await store.espacio(actores.owner)).empresa
-  assert.equal(final.domicilio, '')
-  assert.equal(final.nif, empresa.nif)
-  assert.equal(final.razonSocial, empresa.razonSocial)
+  assert.equal(saved.domicilioComprobadoEn, comprobada.comprobadoEn)
+  assert.equal(saved.nif, empresa.nif)
+  assert.equal(saved.razonSocial, empresa.razonSocial)
+  assert.equal(saved.estadoVerificacion, empresa.estadoVerificacion)
+  error(await store.guardarDatosLegales(actores.owner, input), /han cambiado/)
+  error(await store.guardarPerfil(actores.owner, { ...empresa, domicilio: 'Dirección inventada' }), /Datos legales/)
+  correcto(await store.guardarDatosLegales(actores.owner, { ...input, razonSocial: 'Razón social corregida SL', cif: 'B11111111', anteriores: { ...anteriores, domicilio } }))
+  saved = correcto(await reloaded.espacio(actores.owner)).empresa
+  assert.equal(saved.nif, 'B11111111')
+  assert.equal(saved.razonSocial, 'Razón social corregida SL')
+  assert.equal(saved.estadoVerificacion, 'requiere_informacion')
+  correcto(await store.guardarDatosLegales(actores.owner, { ...input, razonSocial: saved.razonSocial, cif: saved.nif, domicilio: '', comprobada: null, anteriores: { razonSocial: saved.razonSocial, cif: saved.nif, domicilio } }))
+  assert.equal(correcto(await store.espacio(actores.owner)).empresa.domicilioComprobadoEn, undefined)
 })

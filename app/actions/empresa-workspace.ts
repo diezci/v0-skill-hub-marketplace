@@ -1,5 +1,6 @@
 "use server"
 
+import { cargoRepresentacionValido } from "@/lib/empresas/representacion"
 import { revalidatePath } from "next/cache"
 import { validarAdjuntosEntrega } from "@/lib/entregas"
 import { empresaLocalStore, validarCoberturaEmpresa, validarPreferenciasEmpresa, validarDatosProfesionalesEmpresa } from "@/lib/empresas/local-store"
@@ -106,6 +107,7 @@ export async function aceptarInvitacionEmpresa(token: string): Promise<Resultado
   return ejecutar((actor) => empresaLocalStore.aceptarInvitacion(actor, token))
 }
 export async function solicitarVerificacionEmpresa(formData: FormData): Promise<ResultadoEmpresa> {
+  if (!cargoRepresentacionValido(formData.get("cargoLegal"))) return { error: "Selecciona un cargo o título de representación válido." }
   if (!esEmpresasLocal()) {
     const documento = formData.get("documento")
     if (!(documento instanceof File) || documento.size < 6 || documento.size > 5 * 1024 * 1024) return { error: "Adjunta un documento PDF de hasta 5 MB." }
@@ -142,9 +144,9 @@ export async function revisarVerificacionEmpresa(input: { decision: "verificada"
 }
 
 export async function obtenerVerificacionesEmpresas(): Promise<ResultadoEmpresa<VerificacionEmpresaAdmin[]>> {
-  const resultado = await rpcEmpresa<(Parameters<typeof verificacionReal>[0] & { empresa_id: string; empresa_nombre: string; cif: string })[]>("empresa_verificaciones_listar")
+  const resultado = await rpcEmpresa<(Parameters<typeof verificacionReal>[0] & { empresa_id: string; empresa_nombre: string; cif: string; identidad_cobros_pendiente?: boolean; cif_cobros_anterior?: string; stripe_account_id?: string })[]>("empresa_verificaciones_listar")
   if (resultado.error) return { error: resultado.error }
-  return { data: (resultado.data || []).map((row) => ({ ...verificacionReal(row), empresaId: row.empresa_id, empresaNombre: row.empresa_nombre, nif: row.cif })) }
+  return { data: (resultado.data || []).map((row) => ({ ...verificacionReal(row), empresaId: row.empresa_id, empresaNombre: row.empresa_nombre, nif: row.cif, identidadCobrosPendiente: row.identidad_cobros_pendiente === true, cifCobrosAnterior: row.cif_cobros_anterior, cuentaStripe: row.stripe_account_id })) }
 }
 
 // La consola global de Diime aplica siempre la autorización real de plataforma.

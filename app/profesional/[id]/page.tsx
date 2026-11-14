@@ -114,6 +114,7 @@ export default async function ProfilePage({
       categoria: item.categoria,
       imagen: item.imagen || "",
       trabajo_id: item.trabajo_id,
+      acreditacion: item.acreditacion,
       contexto_proveedor: item.contexto_proveedor,
       ubicacion: item.ubicacion,
       duracion: item.duracion,

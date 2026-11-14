@@ -143,7 +143,7 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre",
                 ) : (
                   perfil.verificado && (
                     <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 gap-1">
-                      <BadgeCheck className="h-3.5 w-3.5" /> {t("Verificado por Diime")}
+                      <BadgeCheck className="h-3.5 w-3.5" /> {t("Realizado en Diime")}
                     </Badge>
                   )
                 )}
@@ -367,10 +367,10 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre",
                         <div className="mt-2 flex flex-wrap gap-2">
                           {p.trabajo_id ? (
                             <Badge className="gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                              <BadgeCheck className="h-3.5 w-3.5" /> {t("Verificado por Diime")}
+                              <BadgeCheck className="h-3.5 w-3.5" /> {t("Realizado en Diime")}
                             </Badge>
                           ) : (
-                            <Badge variant="secondary">{t("Proyecto externo")}</Badge>
+                            <Badge variant="secondary" className="gap-1">{p.acreditacion === "acreditado" && <BadgeCheck className="h-3.5 w-3.5" />}{t(p.acreditacion === "acreditado" ? "Acreditado por Diime" : "Proyecto externo")}</Badge>
                           )}
                           {p.categoria && <Badge variant="secondary">{p.categoria}</Badge>}
                         </div>
@@ -469,10 +469,10 @@ export default function PerfilProfesionalPublico({ perfil, tabInicial = "sobre",
                   <div className="flex flex-wrap gap-2">
                     {proyectoSeleccionado.trabajo_id ? (
                       <Badge className="gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                        <BadgeCheck className="h-3.5 w-3.5" /> {t("Trabajo verificado por Diime")}
+                        <BadgeCheck className="h-3.5 w-3.5" /> {t("Realizado en Diime")}
                       </Badge>
                     ) : (
-                      <Badge variant="secondary">{t("Proyecto externo")}</Badge>
+                      <Badge variant="secondary" className="gap-1">{proyectoSeleccionado.acreditacion === "acreditado" && <BadgeCheck className="h-3.5 w-3.5" />}{t(proyectoSeleccionado.acreditacion === "acreditado" ? "Acreditado por Diime" : "Proyecto externo")}</Badge>
                     )}
                     {proyectoSeleccionado.categoria && (
                       <Badge variant="secondary">{proyectoSeleccionado.categoria}</Badge>

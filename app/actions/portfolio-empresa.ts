@@ -15,6 +15,7 @@ type ProyectoEmpresa = {
   duracion?: string
   presupuesto?: string
   trabajo_id?: string
+  evidencia_acreditacion?: string
   contexto_proveedor?: string
 }
 
@@ -37,12 +38,15 @@ async function guardarProyecto(data: ProyectoEmpresa, itemId: string | null) {
   if (!acceso.supabase) return { codigo: acceso.codigo, error: acceso.error }
   if (!data || typeof data !== "object" || Array.isArray(data)
     || ["titulo", "descripcion", "imagen_url", "categoria", "fecha_completado"].some((key) => typeof data[key as keyof ProyectoEmpresa] !== "string")
-    || ["ubicacion", "duracion", "presupuesto", "trabajo_id", "contexto_proveedor"].some((key) => data[key as keyof ProyectoEmpresa] !== undefined && typeof data[key as keyof ProyectoEmpresa] !== "string")) {
+    || ["ubicacion", "duracion", "presupuesto", "trabajo_id", "contexto_proveedor", "evidencia_acreditacion"].some((key) => data[key as keyof ProyectoEmpresa] !== undefined && typeof data[key as keyof ProyectoEmpresa] !== "string")) {
     return { error: await textoServidor("Revisa los datos del proyecto.") }
   }
   const titulo = data.titulo.trim()
   const descripcion = data.descripcion.trim()
   if (!titulo || !descripcion) return { error: await textoServidor("Completa título y descripción.") }
+  if (!data.trabajo_id && (typeof data.evidencia_acreditacion !== "string" || data.evidencia_acreditacion.trim().length < 20 || data.evidencia_acreditacion.length > 4000)) {
+    return { error: await textoServidor("Añade referencias o evidencias del proyecto (20–4.000 caracteres).") }
+  }
   const moderacion = errorContenidoProhibido(titulo, descripcion, data.contexto_proveedor)
   if (moderacion) return { error: await textoServidor(moderacion) }
   const presupuesto = data.presupuesto?.trim() ? Number(data.presupuesto) : null
@@ -82,7 +86,9 @@ export async function obtenerPortfolioEmpresa() {
   if (!acceso.supabase) return { codigo: acceso.codigo, error: acceso.error, data: [] }
   const { data, error } = await acceso.supabase.rpc("empresa_portfolio")
   if (error) return { error: await textoServidor(error.message), data: [] }
-  return { data: data || [] }
+  const { data: revisiones, error: revisionError } = await acceso.supabase.rpc("mis_acreditaciones_portfolio", { p_tipo: "empresa" })
+  if (revisionError) return { error: await textoServidor(revisionError.message), data: [] }
+  return { data: (data || []).map((item: any) => ({ ...item, ...(revisiones || []).find((revision: any) => revision.id === item.id) })) }
 }
 
 export async function obtenerTrabajosCompletadosParaPortfolioEmpresa() {

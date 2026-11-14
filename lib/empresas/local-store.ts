@@ -249,6 +249,7 @@ export class EmpresaLocalStore {
       exigirPermiso(estado, actor, "perfil")
       const profesionales = validarDatosProfesionalesEmpresa(input)
       asegurar(!profesionales.error, profesionales.error || "")
+      asegurar(input.domicilio === undefined || input.domicilio.trim() === (estado.empresa.domicilio || ""), "Edita y comprueba el domicilio desde Datos legales.")
       const nombre = texto(input.nombre, "Nombre comercial", profesionales.data ? 1 : 3, profesionales.data ? 160 : 100)
       const descripcion = texto(input.descripcion, "Descripción", profesionales.data ? 0 : 30, profesionales.data ? 6000 : 1500)
       const preferencias = validarPreferenciasEmpresa(input)
@@ -273,6 +274,24 @@ export class EmpresaLocalStore {
       const servicios = cobertura.data?.servicios || [...new Set(input.servicios.map((s) => texto(s, "Servicio", 2, 80)))]
       Object.assign(estado.empresa, { nombre, descripcion, ubicacion, web, servicios, ...(profesionales.data || {}), ...(input.logoUrl !== undefined ? { logoUrl: input.logoUrl } : {}), ...(input.portadaUrl !== undefined ? { portadaUrl: input.portadaUrl } : {}), ...(preferencias.data || {}), ...(cobertura.data ? { provincias: cobertura.data.provincias } : {}) })
       actividad(estado, actor, "Actualizó el perfil público de la empresa.")
+    })
+  }
+  async guardarDatosLegales(actor: ActorEmpresa, input: { razonSocial: string; cif: string; domicilio: string; anteriores: { razonSocial: string; cif: string; domicilio: string }; comprobada: { id: string; domicilio: string; comprobadoEn: string } | null }): Promise<ResultadoEmpresa> {
+    return this.operar(actor, (estado) => {
+      const miembro = exigirPermiso(estado, actor, "perfil")
+      const identidadModificada = input.razonSocial !== estado.empresa.razonSocial || input.cif !== estado.empresa.nif
+      asegurar(!identidadModificada || miembro.rol === "principal", "Solo el responsable principal puede modificar la razón social o el CIF.")
+      asegurar(input.anteriores.razonSocial === estado.empresa.razonSocial && input.anteriores.cif === estado.empresa.nif && input.anteriores.domicilio === (estado.empresa.domicilio || ""), "Los datos han cambiado. Recarga la página antes de guardar.")
+      asegurar(input.razonSocial.trim().length >= 2 && input.razonSocial.length <= 160 && /^[A-Z]\d{7}[A-Z0-9]$/.test(input.cif), "Revisa la razón social y el CIF.")
+      const cambiaDireccion = input.domicilio !== (estado.empresa.domicilio || "")
+      asegurar(!cambiaDireccion || !input.domicilio || input.comprobada?.domicilio === input.domicilio, "Busca y selecciona la dirección antes de guardar.")
+      Object.assign(estado.empresa, { razonSocial: input.razonSocial, nif: input.cif, domicilio: input.domicilio })
+      if (cambiaDireccion || input.comprobada) estado.empresa.domicilioComprobadoEn = input.comprobada?.comprobadoEn
+      if (identidadModificada) {
+        estado.empresa.estadoVerificacion = "requiere_informacion"
+        if (estado.verificacion) { estado.verificacion.estado = "requiere_informacion"; estado.verificacion.notaRevision = "La identidad de la empresa ha cambiado. Presenta documentación actualizada." }
+      }
+      actividad(estado, actor, identidadModificada ? "Actualizó la identidad legal; requiere nueva verificación." : "Actualizó el domicilio de la empresa.")
     })
   }
   async invitar(actor: ActorEmpresa, input: InputMiembro): Promise<ResultadoEmpresa<{ url: string }>> {

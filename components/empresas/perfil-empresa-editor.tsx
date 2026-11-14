@@ -8,12 +8,12 @@ import { perfilProfesionalDeEmpresa } from "@/lib/empresas/perfil-profesional"
 import type { EmpresaPublica } from "@/lib/empresas/types"
 import type { AdaptadorPerfilProfesional, DatosPerfilProfesional } from "@/lib/perfil-profesional-editor"
 import { PRECIO_MAX } from "@/lib/precios"
+import styles from "./perfil-empresa-editor.module.css"
 
 export function cambiosPerfilEmpresa(datos: DatosPerfilProfesional, empresa: EmpresaPublica["empresa"]) {
   return {
-    ...(datos.datos_empresa ? { domicilio: datos.datos_empresa.domicilio } : {}),
     nombre: datos.nombre.trim(), descripcion: datos.bio, ubicacion: datos.ubicacion,
-    web: empresa.web, logoUrl: datos.foto_perfil, portadaUrl: datos.foto_portada,
+    web: datos.web_empresa ?? empresa.web, logoUrl: datos.foto_perfil, portadaUrl: datos.foto_portada,
     servicios: datos.categorias_interes, provincias: datos.provincias_cobertura,
     presupuestoMinInteres: datos.presupuesto_interes[0] <= 0 ? null : datos.presupuesto_interes[0],
     presupuestoMaxInteres: datos.presupuesto_interes[1] >= PRECIO_MAX ? null : datos.presupuesto_interes[1],
@@ -47,18 +47,19 @@ export function PerfilEmpresaEditor({ datos, puedeEditar, integrado = false, onG
     identidad: `empresa:${datos.empresa.id}`,
     datos: {
       ...perfilProfesionalDeEmpresa(datos),
+      web_empresa: datos.empresa.web,
       presupuesto_interes: [datos.empresa.presupuestoMinInteres ?? 0, datos.empresa.presupuestoMaxInteres ?? PRECIO_MAX],
     },
     equipo: <EquipoEmpresa datos={datos} />,
     guardar: (cambios) => onGuardar(cambiosPerfilEmpresa(cambios, datos.empresa)),
     subirImagen: (file, tipo) => subirImagenEmpresa(file, datos.empresa.id, tipo),
-    obtenerPortfolio: puedeEditar ? obtenerPortfolioEmpresa : async () => ({ data: perfilProfesionalDeEmpresa(datos).portfolio }),
+    obtenerPortfolio: puedeEditar && !datos.local ? obtenerPortfolioEmpresa : async () => ({ data: perfilProfesionalDeEmpresa(datos).portfolio }),
     crearProyecto: crearItemPortfolioEmpresa,
     actualizarProyecto: actualizarItemPortfolioEmpresa,
     eliminarProyecto: eliminarItemPortfolioEmpresa,
     obtenerTrabajos: obtenerTrabajosCompletadosParaPortfolioEmpresa,
   }
-  return <div id="perfil-empresa" className={integrado ? "min-w-0" : "container mx-auto px-4 py-8"}>
+  return <div id="perfil-empresa" className={`${styles.editor} ${integrado ? "min-w-0" : "container mx-auto px-4 py-8"}`}>
     <PerfilProfesional key={adaptador.identidad} editable={puedeEditar} adaptador={adaptador} />
   </div>
 }
