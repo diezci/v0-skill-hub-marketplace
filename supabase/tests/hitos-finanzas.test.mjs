@@ -22,6 +22,7 @@ await db.exec('create trigger proteger_destinatario_aviso_empresa before insert 
 await db.exec('create table auth.sessions(id uuid primary key,user_id uuid,not_after timestamptz);')
 await db.exec(await readFile(new URL('../migrations/20261026133724_contracargos_expediente_y_conciliacion.sql', import.meta.url), 'utf8'))
 await db.exec(await readFile(new URL('../migrations/20261111235133_hitos_conciliacion_financiera.sql', import.meta.url), 'utf8'))
+await db.exec(await readFile(new URL('../migrations/20261114205032_hitos_destino_cobro_siguientes_fases.sql', import.meta.url), 'utf8'))
 await db.query('update public.profiles set es_admin=true where id=$1', [ids.platformAdmin])
 const adminSession = randomUUID()
 await db.query('insert into auth.sessions(id,user_id) values($1,$2)', [adminSession, ids.platformAdmin])
@@ -36,7 +37,12 @@ async function fixture(mode = 'hitos') {
   await role('service_role')
   return { id: job.id, stages, request: request.id, offer: offer.id }
 }
-const prepare = (job, index = 0, actor = ids.client) => rpc('preparar_pago_hito', [job.id, job.stages[index].id, actor])
+const prepare = async (job, index = 0, actor = ids.client) => {
+  // Exercise the full reservation chain used by pagarHito, including its legacy
+  // Connect destination adapter; testing preparar_pago_hito alone misses its state gate.
+  await rpc('empresa_fijar_destino_cobro_trabajo', [job.id, actor, 'acct_owner'])
+  return rpc('preparar_pago_hito', [job.id, job.stages[index].id, actor])
+}
 async function capture(e) {
   const suffix = e.id.replaceAll('-', '')
   const session = `cs_test_${suffix}`, intent = `pi_${suffix}`, charge = `ch_${suffix}`
@@ -76,6 +82,8 @@ await check('one milestone approval never completes the whole job; final milesto
   await assert.rejects(() => rpc('diime_finalizar_liquidacion', [e1.id, claim.liquidacion_operacion_id, claim.stripe_charge_id, null, null, null]))
   await finish(e1)
   assert.deepEqual(await status(job), { job: 'en_progreso', stages: ['completado', 'pendiente'] })
+  await assert.rejects(() => rpc('empresa_fijar_destino_cobro_trabajo', [job.id, ids.client, 'acct_different']))
+  await assert.rejects(() => rpc('empresa_fijar_destino_cobro_trabajo', [job.id, ids.outsider, 'acct_owner']))
   await finish(e1)
   await assert.rejects(() => rpc('diime_finalizar_liquidacion', [e1.id, claim.liquidacion_operacion_id, claim.stripe_charge_id, null, null, 'tr_other']))
   const e2 = await prepare(job, 1); await capture(e2); await deliver(job, 1); await finish(e2)
@@ -151,6 +159,7 @@ await check('legacy one-time capture and full-job settlement still use the origi
   const e = await one("insert into public.transacciones_escrow(trabajo_id,cliente_id,profesional_id,monto,monto_base,comision_cliente,comision_proveedor,comision_proveedor_original,pago_neto_proveedor,monto_bruto_proveedor,estado) values($1,$2,$3,110,100,10,10,10,90,100,'pendiente') returning *", [job.id, ids.client, ids.owner])
   await capture(e)
   assert.equal((await status(job)).job, 'en_progreso')
+  await assert.rejects(() => rpc('empresa_fijar_destino_cobro_trabajo', [job.id, ids.client, 'acct_owner']))
   await db.query("update public.trabajos set estado='entregado' where id=$1", [job.id])
   await finish(e)
   assert.deepEqual(await status(job), { job: 'completado', stages: [] })
