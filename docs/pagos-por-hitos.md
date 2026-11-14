@@ -1,6 +1,6 @@
 # Pagos por hitos
 
-Implementación en la rama `codex/pagos-hitos`. Mantiene el pago único y añade un plan de pagos versionado al mismo trabajo. No se ha publicado ni se han aplicado estas migraciones a una base de datos alojada.
+Mantiene el pago único y añade un plan de pagos versionado al mismo trabajo. Entrega: [PR 99](https://github.com/diezci/v0-skill-hub-marketplace/pull/99). Las tres migraciones se aplicaron y verificaron en producción el 14 de noviembre de 2026; la evidencia de pruebas se detalla más abajo.
 
 ## Comportamiento
 
@@ -33,10 +33,23 @@ Aplicar en orden, después de todas las migraciones anteriores del repositorio:
 
 1. `supabase/migrations/20261111235115_pagos_hitos_planes.sql`
 2. `supabase/migrations/20261111235133_hitos_conciliacion_financiera.sql`
+3. `supabase/migrations/20261114205032_hitos_destino_cobro_siguientes_fases.sql`
 
 Las migraciones y el código forman una misma entrega. La nueva versión necesita las columnas y funciones de ambas migraciones. Conservar las funciones que despachan los contratos de pago único y el historial de pagos; no eliminar tablas para revertir una interfaz.
 
-Antes de activar el flujo con dinero real, validar en un entorno aislado con Stripe de pruebas: contratación, pago con autenticación adicional, entrega con archivos, aprobación, siguiente hito, cambios por ambas partes, reembolso y webhook repetido. Validar también la vuelta al pago, la sesión, los adjuntos y las notificaciones en iOS y Android. Estas comprobaciones externas todavía no se han realizado.
+La tercera migración permite preparar el siguiente pago cuando el contrato por hitos ya está en curso. Reutiliza la cuenta de cobro previamente fijada, mantiene todos los permisos y no modifica la condición del pago único. Esta regresión se detectó recorriendo el segundo Checkout contra Stripe TEST y quedó cubierta también en SQL.
+
+Historial aplicado en producción (las versiones asignadas por el servicio difieren de los nombres de archivo):
+
+| Versión alojada | Migración |
+| --- | --- |
+| `20261114210004` | `pagos_hitos_planes` |
+| `20261114210011` | `hitos_conciliacion_financiera` |
+| `20261114210019` | `hitos_destino_cobro_siguientes_fases` |
+
+Después de aplicar las tres, `supabase/tests/hitos-release-verification.sql` aprobó sus 55 comprobaciones en producción: permisos, RLS, valores predeterminados, integridad, índices, proyecciones y conservación de las funciones de pago único. Los 26 contratos anteriores conservaron la modalidad `unico`. No se hicieron pagos ni se publicaron contratos de prueba en producción. Las dos primeras migraciones no deben repetirse tras haberse aplicado.
+
+El asesor de seguridad no añadió advertencias: siguen las advertencias preexistentes. Las tres tablas internas nuevas añaden avisos informativos de RLS sin políticas; es intencionado, con todos los permisos directos de `anon` y `authenticated` revocados y acceso mediante RPC autorizadas. Referencia: [aviso RLS sin políticas](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy).
 
 ## Verificación local reproducible
 
@@ -70,8 +83,39 @@ Comprobado localmente el 12 de noviembre de 2026: compilación de producción, c
 
 La fixture SQL ejecuta las funciones reales relevantes del repositorio sobre un esquema sintético, incluidas sus modificaciones posteriores. No equivale a un restablecimiento integral de Supabase, Storage y autenticación ni valida el estado de una base de datos alojada. Las pruebas nativas comprueban, con conexiones simultáneas, la aceptación duplicada, la preparación duplicada del mismo pago y la competencia entre preparar un pago y proponer cambios.
 
+## Integración comprobada el 14 de noviembre de 2026
+
+Se utilizó además un entorno completo de Supabase local (Auth, PostgREST, PostgreSQL y Storage) y la cuenta aislada **Diime Workflow QA de Stripe TEST**. No se usaron claves de Stripe LIVE ni dinero real. Los scripts `scripts/e2e/hitos-*.mjs` rechazan bases ajenas a loopback y cuentas Stripe distintas del sandbox esperado. Credenciales, certificados, datos sintéticos e informes completos permanecen en `.build/`, fuera del repositorio y del despliegue.
+
+- Siete recorridos de negociación con sesiones reales: cuatro particulares y tres empresariales. Incluyen añadir/quitar hitos, contrapropuestas, aceptación mutua, rechazo, versiones obsoletas, permisos revocados y pago único.
+- Cinco pagos mediante el Checkout integrado de la aplicación: pago único, dos hitos sucesivos, resolución parcial y cancelación. El primer hito completó un reto 3DS; Stripe confirmó `authentication_flow=challenge` y `result=authenticated`. El navegador volvió al trabajo con el estado conciliado.
+- Entrega, solicitud de cambios, nueva entrega y aprobaciones concurrentes: la entrega no transfiere fondos; cada aprobación válida produce una sola transferencia. El segundo hito completa el contrato sin alterar el pago del primero.
+- Dos archivos privados subidos mediante reserva, URL firmada y confirmación de Storage. Subida y lectura HTTPS con CA local explícita, sin desactivar TLS. El propietario pudo leerlos; la contraparte pasó de 404 a 200 al adjuntarlos al trabajo; un ajeno obtuvo 404 y una petición anónima 401. Ambas evidencias quedaron en el historial de entrega y corrección.
+- Siete eventos auténticos de Stripe recibidos por el webhook (cinco Checkouts y dos reembolsos). Catorce reenvíos de los mismos eventos, firmados con el secreto local, no alteraron contratos ni importes. Las firmas ausentes o inválidas fueron rechazadas.
+
+Conciliación final en céntimos de prueba, antes de costes Stripe:
+
+| Caso | Cobrado | Transferido al proveedor | Reembolsado | Comisión bruta conservada |
+| --- | ---: | ---: | ---: | ---: |
+| Pago único | 12,00 € | 8,00 € | 0,00 € | 4,00 € |
+| Hito 1 | 22,00 € | 18,00 € | 0,00 € | 4,00 € |
+| Hito 2 | 33,00 € | 27,00 € | 0,00 € | 6,00 € |
+| Resolución parcial | 22,00 € | 10,80 € | 8,00 € | 3,20 € |
+| Cancelación | 22,00 € | 0,00 € | 20,00 € | 2,00 € |
+| **Total TEST** | **111,00 €** | **63,80 €** | **28,00 €** | **19,20 €** |
+
+El total concilia exactamente. Se verificaron cuatro transferencias y dos reembolsos, sin duplicados. La cobertura de contracargos e interrupciones sigue siendo la de las pruebas SQL y Stripe simulado, no una reclamación bancaria real.
+
+También pasaron de nuevo la compilación de producción, la comprobación independiente de tipos, traducciones completas, las 15 pruebas de justificantes/IVA y la suite de recuperación de reembolsos. Se adaptó el harness de la pantalla de pago a su contenedor Suspense y al selector de hitos, conservando todas las comprobaciones del pago único.
+
+### Alcance nativo
+
+Las compilaciones internas Android e iOS resultaron correctas. iOS instaló la app QA y cargó la bienvenida real de Diime desde el servidor local. La interacción posterior quedó bloqueada por la herramienta de control (`noWindowsAvailable`), incluso tras reiniciarla. Android API 36 no pudo arrancar por espacio disponible; API 35 sí arrancó, pero la herramienta no pudo seleccionar su ventana (`Invalid app`). No se realizaron cargos desde los simuladores.
+
+Por tanto, sesión, retorno 3DS, adjuntos y notificaciones dentro de iOS/Android no quedan certificados por esta prueba. La prueba de navegador y el flujo real de Stripe TEST sí están completos. La entrega utiliza los formularios compartidos que carga la app instalada desde `https://www.diime.es`; no cambia el contenedor nativo ni requiere una nueva versión de tienda.
+
 ## Vista previa
 
 `/preview/hitos` solo existe en desarrollo y devuelve 404 en producción. Utiliza los componentes reales con datos ficticios y permite revisar el seguimiento, la publicación de la solicitud y la respuesta del proveedor sin publicar ni realizar pagos.
 
-Las capturas de `docs/hitos/` documentan esta vista de ejemplo, no un contrato real ni un pago procesado.
+Las capturas `escritorio.jpg`, `formulario-movil.jpg` e `hilo-hitos.jpg` documentan la vista de ejemplo. `qa-primer-hito-pagado.jpg` documenta un contrato sintético después de un pago procesado por Stripe TEST; no representa dinero real.
