@@ -7,6 +7,18 @@ import { rechazarYNotificarOfertasPerdedoras } from "@/lib/ofertas-perdedoras"
 import { validarCuentaCobroContrato } from "@/lib/empresas/cobros"
 import { destinatariosOperacionEmpresa } from "@/lib/empresas/notificaciones"
 
+/** A milestone's Stripe objects must belong to that exact contract and payment. */
+export function validarIdentidadPagoHito(metadata: Stripe.Metadata | null | undefined, escrow: any) {
+  if (escrow.hito_id) {
+    if (metadata?.hito_id !== escrow.hito_id || metadata?.contrato_id !== escrow.trabajo_id ||
+      metadata?.escrow_id !== escrow.id || metadata?.trabajo_id !== escrow.trabajo_id) {
+      throw new Error("El movimiento de Stripe no coincide con el hito contratado.")
+    }
+  } else if (metadata?.hito_id || (metadata?.contrato_id && metadata.contrato_id !== escrow.trabajo_id)) {
+    throw new Error("El movimiento de Stripe no coincide con la modalidad del contrato.")
+  }
+}
+
 /** The in-app notices already committed with the money; delivery cannot undo it. */
 export async function enviarAvisosExternos(avisos?: any[], admin?: any) {
   if (!avisos?.length) return
@@ -35,7 +47,9 @@ export async function enviarAvisosExternos(avisos?: any[], admin?: any) {
           const financiera = ["pago_liberado","reembolso_emitido","reembolso_fallido","disputa_ganada","disputa_perdida","disputa_resuelta"].includes(aviso.tipo)
           const operador = parte === "cliente" ? t.operador_cliente_id || t.cliente_id : t.operador_proveedor_id || t.profesional_id
           destinatarios = await destinatariosOperacionEmpresa(admin, empresaId, operador, financiera ? "ver_cobros" : "encargos")
-          link = `/mi-empresa?trabajo=${encodeURIComponent(trabajoId)}`
+          if (link !== `/trabajos/${trabajoId}/hitos`) {
+            link = `/mi-empresa?trabajo=${encodeURIComponent(trabajoId)}`
+          }
         }
       }
     }
@@ -89,6 +103,7 @@ export async function liquidarPagoReclamado(admin: any, escrow: any) {
           metadata: {
             trabajo_id: escrow.trabajo_id,
             escrow_id: escrow.id,
+            ...(escrow.hito_id ? { contrato_id: escrow.trabajo_id, hito_id: escrow.hito_id, pago_id: escrow.id } : {}),
             ...(contexto.empresa_proveedora_id ? {
               empresa_proveedora_id: contexto.empresa_proveedora_id,
               diime_proveedor_tipo: "empresa",
@@ -136,6 +151,7 @@ export async function conciliarSesionPagada(admin: any, session: Stripe.Checkout
     : query.eq("stripe_session_id", session.id)
   const { data: escrow, error } = await query.maybeSingle()
   if (error || !escrow) throw new Error("No se encontró el pago preparado.")
+  validarIdentidadPagoHito(session.metadata, escrow)
   if (clienteId && escrow.cliente_id !== clienteId) throw new Error("No tienes permiso para confirmar este pago.")
   if (
     (escrow.stripe_session_id && escrow.stripe_session_id !== session.id) ||
@@ -159,6 +175,7 @@ export async function conciliarSesionPagada(admin: any, session: Stripe.Checkout
   const intentId = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id
   if (!intentId) throw new Error("Stripe no ha devuelto el identificador del pago.")
   const intent = await stripe.paymentIntents.retrieve(intentId)
+  validarIdentidadPagoHito(intent.metadata, escrow)
   const chargeId = typeof intent.latest_charge === "string" ? intent.latest_charge : intent.latest_charge?.id
   if (intent.status !== "succeeded" || intent.currency !== "eur" || intent.amount_received !== session.amount_total || !chargeId) {
     throw new Error("El cargo no está capturado y conciliado con Stripe.")
@@ -190,9 +207,11 @@ export async function conciliarSesionPagada(admin: any, session: Stripe.Checkout
 }
 
 /** Close all payable links while the durable job gate prevents new attempts. */
-export async function cerrarCheckoutsPendientes(admin: any, trabajoId: string) {
-  const { data: intentos, error } = await admin.from("transacciones_escrow")
+export async function cerrarCheckoutsPendientes(admin: any, trabajoId: string, hitoId?: string) {
+  let consulta = admin.from("transacciones_escrow")
     .select("id,stripe_session_id").eq("trabajo_id", trabajoId).eq("estado", "pendiente")
+  if (hitoId) consulta = consulta.eq("hito_id", hitoId)
+  const { data: intentos, error } = await consulta
   if (error) throw error
   for (const intento of intentos || []) {
     if (!intento.stripe_session_id) {

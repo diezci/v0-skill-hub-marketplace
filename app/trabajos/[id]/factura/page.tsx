@@ -1,5 +1,6 @@
 import { getT } from "@/lib/i18n-servidor"
 import { notFound } from "next/navigation"
+import Link from "next/link"
 import { BotonImprimir } from "@/components/boton-imprimir"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
 import { DiimeLogo } from "@/components/diime-logo"
@@ -162,6 +163,39 @@ export default async function FacturaPage({
   // pueden usarla para ver la parte económica ajena.
   const mostrarCliente = esAdmin ? vistaAdmin !== "proveedor" : esCliente
   const mostrarProveedor = esAdmin ? vistaAdmin !== "cliente" : esProfesional
+  if (trabajo.modalidad_pago === "hitos") {
+    const estados: Record<string, string> = { pendiente: "Pendiente de aportar", financiado: "Pagado · pendiente de entrega", entregado: "Entrega pendiente de aprobación", cambios_solicitados: "Cambios solicitados", aprobado: "Liquidación en curso", completado: "Liquidado", cancelado: "Cancelado", en_disputa: "En disputa" }
+    return <main className="container mx-auto max-w-3xl px-4 pb-16 pt-24">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 print:hidden"><Link className="text-sm text-primary underline" href={`/trabajos/${trabajo.id}/hitos`}>{t("Volver al plan de hitos")}</Link><BotonImprimir /></div>
+      <article className="space-y-6 rounded-2xl border bg-card p-4 sm:p-8">
+        <header className="flex justify-between gap-4 border-b pb-5"><div><h1 className="text-2xl font-bold">{t("Contrato y pagos por hitos")}</h1><p className="mt-1 text-muted-foreground">{trabajo.titulo}</p><p className="mt-2 text-xs text-muted-foreground">Ref. {trabajo.id} · {t("Versión {numero}", { numero: trabajo.plan_version })}</p></div><DiimeLogo className="h-10 w-10 shrink-0" /></header>
+        <div className="grid gap-6 text-sm sm:grid-cols-2"><ParteFactura titulo={t("Cliente")} facturacion={facturacionCliente} perfil={cliente} emailFallback={cliente?.email} /><ParteFactura titulo={t("Proveedor")} facturacion={facturacionProfesional} perfil={profesional} emailFallback={profesional?.email} /></div>
+        <div className="rounded-xl bg-muted/40 p-4"><p className="text-sm text-muted-foreground">{t("Precio acordado del servicio")}</p><p className="text-2xl font-semibold">{formatearEuros(Number(trabajo.precio_acordado), idioma)}</p><p className="mt-2 text-sm text-muted-foreground">{t("Cada etapa se paga antes de comenzar y se liquida tras aprobar su entrega. Los hitos pendientes todavía no se han cobrado.")}</p></div>
+        <ol className="space-y-4">
+          {datos.hitos.map((hito: any) => {
+            const pagos = datos.escrows.filter((pago: any) => pago.hito_id === hito.id && pago.fecha_retencion)
+            const pago = pagos[0]
+            const liquidado = pago?.liquidacion_estado === "completada"
+            const comisionClienteHito = pago ? Number(pago.comision_cliente) : Number(hito.comision_cliente_centimos) / 100
+            const comisionProveedorHito = pago ? Number(pago.comision_proveedor) : Number(hito.comision_proveedor_centimos) / 100
+            return <li key={hito.id} className="break-inside-avoid rounded-xl border p-4">
+              <div className="flex flex-wrap justify-between gap-2"><h2 className="font-semibold">{hito.orden}. {hito.titulo}</h2><span className="text-sm text-muted-foreground">{t(estados[hito.estado] || hito.estado)}</span></div>
+              <p className="mt-2 text-sm">{hito.criterio_aceptacion}</p><p className="mt-1 text-xs text-muted-foreground">{t("Fecha prevista")}: {formatearFechaLarga(hito.fecha_limite, idioma)}</p>
+              <dl className="mt-4 space-y-2 text-sm"><div className="flex justify-between gap-4"><dt>{t("Servicio")}</dt><dd>{formatearEuros(hito.importe_centimos / 100, idioma)}</dd></div>
+                {mostrarCliente && <><div className="flex justify-between gap-4"><dt>{t("Gastos Diime del cliente (IVA incluido)")}</dt><dd>{formatearEuros(comisionClienteHito, idioma)}</dd></div><div className="flex justify-between gap-4 font-medium"><dt>{t(pago ? "Importe cobrado" : "Total pendiente de aportar")}</dt><dd>{formatearEuros(pago ? Number(pago.monto) : hito.importe_centimos / 100 + comisionClienteHito, idioma)}</dd></div></>}
+                {mostrarProveedor && <><div className="flex justify-between gap-4"><dt>{t("Gastos Diime del proveedor (IVA incluido)")}</dt><dd>{formatearEuros(comisionProveedorHito, idioma)}</dd></div><div className="flex justify-between gap-4 font-medium"><dt>{t(liquidado ? "Neto liquidado al proveedor" : "Neto previsto del proveedor")}</dt><dd>{formatearEuros(pago ? Number(pago.pago_neto_proveedor) : hito.importe_centimos / 100 - comisionProveedorHito, idioma)}</dd></div></>}
+                {Number(pago?.monto_reembolsado) > 0 && <div className="flex justify-between gap-4"><dt>{t(liquidado ? "Reembolso registrado" : "Reembolso pendiente de confirmación")}</dt><dd>{formatearEuros(Number(pago.monto_reembolsado), idioma)}</dd></div>}
+              </dl>
+              {pago && <p className="mt-3 break-all text-xs text-muted-foreground">{t("Pago")} {pago.id} · {formatearFechaLarga(pago.fecha_retencion, idioma)}{pago.stripe_transfer_id ? ` · ${t("Transferencia a la cuenta Stripe del proveedor registrada")}` : ""}</p>}
+              {mostrarCliente && <div className="mt-3"><DetalleIvaDiime importe={comisionClienteHito} titulo={t("IVA de los gastos del cliente")} previsto={!pago} /></div>}
+              {mostrarProveedor && <div className="mt-3"><DetalleIvaDiime importe={comisionProveedorHito} titulo={t("IVA de los gastos del proveedor")} previsto={!pago} liquidacionPendiente={Boolean(pago && !liquidado)} /></div>}
+            </li>
+          })}
+        </ol>
+        <p className="border-t pt-4 text-xs text-muted-foreground">{t("Este documento resume las condiciones y los pagos registrados. La transferencia a la cuenta Stripe del proveedor no acredita el ingreso en su banco. No sustituye la factura fiscal del servicio.")}</p>
+      </article>
+    </main>
+  }
   const tituloDocumento = contratado ? t("Justificante de pago y desglose fiscal") : t("Propuesta y términos")
   const { comisionCliente, totalCliente } = calcularTotalCliente(trabajo.precio_acordado || 0)
   const baseOriginal = Number(escrow?.monto_base ?? trabajo.precio_acordado ?? 0)

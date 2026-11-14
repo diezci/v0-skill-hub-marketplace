@@ -33,6 +33,8 @@ import {
 import { PROVINCIAS_ES } from "@/lib/provincias"
 import { createClient } from "@/lib/supabase/client"
 import { SolicitudServicioAcceso } from "@/components/solicitud-servicio-acceso"
+import { ModalidadPagoSelector, PlanHitosEditor } from "@/components/hitos/plan-hitos-editor"
+import { hitosBorradorSchema } from "@/lib/hitos-borrador-ui"
 import {
   almacenBorradorSolicitud, borrarBorradorSolicitud, guardarBorradorSolicitud, leerBorradorSolicitud,
   huellaAdjuntoSolicitud, guardarReferenciaAdjuntoSolicitud, recuperarReferenciaAdjuntoSolicitud,
@@ -51,6 +53,8 @@ const crearFormSchema = (t: ReturnType<typeof useT>) => z
     budget: z.tuple([z.number(), z.number()]),
     urgency: z.string().min(1, { message: t("Indica la urgencia") }),
     neededDate: z.string(),
+    modalidadPago: z.enum(["unico", "hitos"]),
+    hitos: hitosBorradorSchema,
   })
   .superRefine((values, ctx) => {
     if (values.urgency !== OPCION_FECHA_EXACTA) return
@@ -113,6 +117,8 @@ const SolicitudServicioForm = ({ embedded = false, usuarioId }: Props) => {
       budget: [0, PRECIO_MAX],
       urgency: "",
       neededDate: "",
+      modalidadPago: "unico",
+      hitos: [],
     },
   })
 
@@ -123,7 +129,7 @@ const SolicitudServicioForm = ({ embedded = false, usuarioId }: Props) => {
     envioId.current = borrador?.envioId ?? crypto.randomUUID()
     referenciasSubidas.current = borrador?.subidas ?? []
     if (borrador) {
-      form.reset(borrador.valores)
+      form.reset({ ...borrador.valores, modalidadPago: borrador.valores.modalidadPago ?? "unico", hitos: borrador.valores.hitos ?? [] })
       setEmpresaId(borrador.empresaId)
       setAdjuntosPendientes(borrador.adjuntos)
       setBorradorRecuperado(true)
@@ -254,6 +260,8 @@ const SolicitudServicioForm = ({ embedded = false, usuarioId }: Props) => {
           urgencia: fechaNecesaria ? urgenciaParaFecha(fechaNecesaria) : values.urgency,
           fecha_necesaria: fechaNecesaria,
           archivos_adjuntos: successfulUploads,
+          modalidad_pago: values.modalidadPago,
+          hitos_sugeridos: values.modalidadPago === "hitos" ? values.hitos : [],
         })
       }
 
@@ -439,6 +447,11 @@ const SolicitudServicioForm = ({ embedded = false, usuarioId }: Props) => {
               </FormItem>
             )}
           />
+        </div>
+
+        <div className="space-y-4 rounded-xl border p-4">
+          <ModalidadPagoSelector value={form.watch("modalidadPago")} onChange={value => form.setValue("modalidadPago", value, { shouldDirty: true })} disabled={isSubmitting} sugerencia />
+          {form.watch("modalidadPago") === "hitos" && <PlanHitosEditor value={form.watch("hitos")} onChange={value => form.setValue("hitos", value, { shouldDirty: true })} disabled={isSubmitting} sugerencia />}
         </div>
 
         {/* File attachments */}

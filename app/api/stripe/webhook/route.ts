@@ -2,7 +2,7 @@ import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
-import { conciliarSesionPagada, liquidarPagoReclamado } from "@/lib/flujo-pagos"
+import { conciliarSesionPagada, liquidarPagoReclamado, validarIdentidadPagoHito } from "@/lib/flujo-pagos"
 import { registrarEventoOperativo } from "@/lib/operaciones"
 import { errorIdentidadCuentaStripe, errorIdentidadCuentaStripeEmpresa } from "@/lib/stripe-connect-identidad"
 import { actualizarContracargoStripe } from "@/lib/stripe-contracargos"
@@ -117,13 +117,16 @@ export async function POST(request: Request) {
       case "checkout.session.async_payment_failed": {
         const session = event.data.object
         if (!esPagoDiime(session.metadata)) break
-        let query = supabase.from("transacciones_escrow").select("id,stripe_session_id")
+        let query = supabase.from("transacciones_escrow").select("id,stripe_session_id,trabajo_id,hito_id")
         query = session.metadata?.escrow_id
           ? query.eq("id", session.metadata.escrow_id)
           : query.eq("stripe_session_id", session.id)
         const { data: intento, error: readError } = await query.maybeSingle()
         if (readError) throw readError
         if (intento) {
+          if (intento.hito_id || session.metadata?.hito_id || session.metadata?.contrato_id) {
+            validarIdentidadPagoHito(session.metadata, intento)
+          }
           const { error: cierreError } = await supabase.rpc("diime_cerrar_intento", {
             p_escrow: intento.id, p_session: session.id,
           })
@@ -170,6 +173,9 @@ export async function POST(request: Request) {
         const { data: escrow, error: readError } = await supabase.from("transacciones_escrow")
           .select("*").eq("id", escrowId).single()
         if (readError) throw readError
+        if (escrow.hito_id || refund.metadata?.hito_id || refund.metadata?.contrato_id) {
+          validarIdentidadPagoHito(refund.metadata, escrow)
+        }
         const paymentIntentId = typeof refund.payment_intent === "string" ? refund.payment_intent : refund.payment_intent?.id
         if (!escrow.liquidacion_operacion_id ||
           refund.metadata?.liquidacion_operacion_id !== escrow.liquidacion_operacion_id ||

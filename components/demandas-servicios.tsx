@@ -61,6 +61,8 @@ import { PresetsFiltrosDemandas } from "@/components/presets-filtros-demandas"
 import type { FiltrosDemandas } from "@/lib/presets-demandas"
 import { useNotificacionesSeccion } from "@/hooks/use-notificaciones-seccion"
 import { AvisosTarjeta, type AvisoTarjeta } from "@/components/avisos-tarjeta"
+import { ModalidadPagoSelector, PlanHitosEditor, nuevoHito } from "@/components/hitos/plan-hitos-editor"
+import { validarPlanHitos, type HitoBorrador, type ModalidadPago } from "@/lib/hitos"
 
 type ClientePublico = {
   id?: string
@@ -75,6 +77,8 @@ type ClientePublico = {
 }
 
 type Demanda = {
+  modalidad_pago?: ModalidadPago
+  hitos_sugeridos?: HitoBorrador[]
   empresa?: { id: string; nombre: string } | null
   id: string
   titulo: string
@@ -157,6 +161,8 @@ export default function DemandasServicios() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   // Aceptación explícita de los gastos de servicio, requerida en cada oferta.
   const [aceptaGastos, setAceptaGastos] = useState(false)
+  const [modalidadPago, setModalidadPago] = useState<ModalidadPago>("unico")
+  const [hitos, setHitos] = useState<HitoBorrador[]>([])
   const [demandas, setDemandas] = useState<Demanda[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -186,13 +192,14 @@ export default function DemandasServicios() {
     descripcion: "",
     materiales: "",
   })
+  const errorPlan = modalidadPago === "hitos" ? validarPlanHitos(hitos, Math.round(Number(formData.precio) * 100)) : null
 
   useEffect(() => {
     const autor = autorBorrador.current
     if (!dialogAbierto || !demandaSeleccionada || !autor || (usuarioActualId && usuarioActualId !== autor)) return
     const guardar = () => guardarBorradorOferta(almacenBorradorOferta(), {
       usuarioId: autor, solicitudId: demandaSeleccionada.id, empresaId,
-      valores: formData, adjuntos: [...adjuntosPendientes, ...attachedFiles.map(file => file.name)],
+      modalidadPago, hitos, valores: formData, adjuntos: [...adjuntosPendientes, ...attachedFiles.map(file => file.name)],
     })
     guardar()
     const caducada = (evento: Event) => {
@@ -200,7 +207,7 @@ export default function DemandasServicios() {
     }
     window.addEventListener("diime:sesion-caducada", caducada)
     return () => window.removeEventListener("diime:sesion-caducada", caducada)
-  }, [dialogAbierto, demandaSeleccionada, empresaId, formData, adjuntosPendientes, attachedFiles, usuarioActualId])
+  }, [dialogAbierto, demandaSeleccionada, empresaId, formData, adjuntosPendientes, attachedFiles, usuarioActualId, modalidadPago, hitos])
 
   useEffect(() => {
     let activo = true
@@ -249,7 +256,7 @@ export default function DemandasServicios() {
     if (!usuarioActualId || !autor || usuarioActualId === autor) return
     if (dialogAbierto && demandaSeleccionada) guardarBorradorOferta(almacenBorradorOferta(), {
       usuarioId: autor, solicitudId: demandaSeleccionada.id, empresaId,
-      valores: formData, adjuntos: [...adjuntosPendientes, ...attachedFiles.map(file => file.name)],
+      modalidadPago, hitos, valores: formData, adjuntos: [...adjuntosPendientes, ...attachedFiles.map(file => file.name)],
     })
     autorBorrador.current = null
     borradorRestaurado.current = ""
@@ -259,7 +266,7 @@ export default function DemandasServicios() {
     setAdjuntosPendientes([])
     setAceptaGastos(false)
     setEmpresaId(null)
-  }, [usuarioActualId, dialogAbierto, demandaSeleccionada, empresaId, formData, adjuntosPendientes, attachedFiles])
+  }, [usuarioActualId, dialogAbierto, demandaSeleccionada, empresaId, formData, adjuntosPendientes, attachedFiles, modalidadPago, hitos])
 
   // Notification links open the exact request even when saved filters exclude it.
   useEffect(() => {
@@ -291,6 +298,8 @@ export default function DemandasServicios() {
     autorBorrador.current = usuarioActualId
     setDemandaSeleccionada(demanda)
     setFormData(borrador.valores)
+    setModalidadPago(borrador.modalidadPago ?? "unico")
+    setHitos(borrador.hitos ?? [])
     setEmpresaId(borrador.empresaId)
     setAdjuntosPendientes(borrador.adjuntos)
     setAceptaGastos(false)
@@ -433,6 +442,8 @@ export default function DemandasServicios() {
         return
       }
       setDemandaSeleccionada(demanda)
+      setModalidadPago(demanda.modalidad_pago ?? "unico")
+      setHitos((demanda.hitos_sugeridos ?? []).map(hito => ({ ...hito, id: crypto.randomUUID() })))
       autorBorrador.current = user.id
       // La aceptación de gastos es por oferta: se pide de nuevo cada vez.
       setAceptaGastos(false)
@@ -445,6 +456,7 @@ export default function DemandasServicios() {
   const handleSubmitOferta = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!demandaSeleccionada) return
+    if (errorPlan) { toast({ title: t("Revisa los hitos"), description: t(errorPlan), variant: "destructive" }); return }
     // Nada de importes ni tiempos negativos o cero.
     if (!(Number.parseFloat(formData.precio) > 0)) {
       toast({ title: t("Precio no válido"), description: t("El precio propuesto debe ser mayor que 0."), variant: "destructive" })
@@ -469,7 +481,7 @@ export default function DemandasServicios() {
       // before invoking it so AppChrome can safely unmount private content.
       if (autorBorrador.current) guardarBorradorOferta(almacenBorradorOferta(), {
         usuarioId: autorBorrador.current, solicitudId: demandaSeleccionada.id, empresaId,
-        valores: formData, adjuntos: [...adjuntosPendientes, ...attachedFiles.map(file => file.name)],
+        modalidadPago, hitos, valores: formData, adjuntos: [...adjuntosPendientes, ...attachedFiles.map(file => file.name)],
       })
       // Validate before uploading or sending. Preserve the draft under its
       // original actor, so a different account cannot inherit their proposal.
@@ -480,7 +492,7 @@ export default function DemandasServicios() {
         const autor = autorBorrador.current
         const guardado = autor && guardarBorradorOferta(almacenBorradorOferta(), {
           usuarioId: autor, solicitudId: demandaSeleccionada.id, empresaId,
-          valores: formData, adjuntos: [...adjuntosPendientes, ...attachedFiles.map(file => file.name)],
+          modalidadPago, hitos, valores: formData, adjuntos: [...adjuntosPendientes, ...attachedFiles.map(file => file.name)],
         })
         if (!guardado) {
           toast({ title: t("Error"), description: t("No se pudo guardar el borrador. Mantén esta página abierta e inicia sesión en otra pestaña antes de reintentar."), variant: "destructive" })
@@ -517,6 +529,8 @@ export default function DemandasServicios() {
         materiales_incluidos: formData.materiales,
         archivos: successfulUploads,
         acepta_gastos: aceptaGastos,
+        modalidad_pago: modalidadPago,
+        plan_hitos: modalidadPago === "hitos" ? hitos : [],
       })
 
       if (result.error) {
@@ -1131,6 +1145,13 @@ export default function DemandasServicios() {
                   </Select>
                 </div>
               </div>
+            </div>
+
+            <div className="space-y-4 rounded-xl border p-3">
+              <p className="text-xs text-muted-foreground">{t("Preferencia del cliente")}: <strong>{t(demandaSeleccionada?.modalidad_pago === "hitos" ? "Por hitos" : "Pago único")}</strong></p>
+              <ModalidadPagoSelector value={modalidadPago} onChange={value => { setModalidadPago(value); if (value === "hitos" && !hitos.length) setHitos([nuevoHito(), nuevoHito()]) }} disabled={isSubmitting} />
+              {modalidadPago !== (demandaSeleccionada?.modalidad_pago ?? "unico") && <p className="text-xs text-amber-700 dark:text-amber-400">{t("Propones otra modalidad. El cliente deberá aceptarla expresamente.")}</p>}
+              {modalidadPago === "hitos" && <PlanHitosEditor value={hitos} onChange={setHitos} totalCentimos={Math.round(Number(formData.precio) * 100) || 0} disabled={isSubmitting} error={errorPlan} />}
             </div>
 
             <div className="space-y-2">

@@ -25,6 +25,12 @@ const migrationOnlyAssertions = new Set([
   "Expected exactly one existing workspace offer projection; migration aborted",
   "Expected exactly one original company-message notification query",
   "Expected the reviewed company notification function exactly once",
+  "Expected exactly one workspace company projection; migration aborted",
+  "Expected workspace identity projection; migration aborted",
+  "No se encontró la proyección de trabajos de empresa",
+  "Company operation projection changed",
+  "Contract document projection changed",
+  "La protección de avisos de empresa cambió; revisa su ruta antes de migrar",
   "Conversaciones ambiguas para la misma pareja y contexto; revisar manualmente antes de migrar",
 ])
 for (const dir of ["scripts", "supabase/migrations"]) {

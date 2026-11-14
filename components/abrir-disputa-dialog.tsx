@@ -21,13 +21,14 @@ import { useToast } from "@/hooks/use-toast"
 
 interface AbrirDisputaDialogProps {
   trabajoId: string
+  hitoId?: string
   // Quién abre la disputa, para adaptar el texto de ayuda.
   rol?: "cliente" | "proveedor"
   trigger?: React.ReactNode
   onCreated?: () => void
 }
 
-export function AbrirDisputaDialog({ trabajoId, rol, trigger, onCreated }: AbrirDisputaDialogProps) {
+export function AbrirDisputaDialog({ trabajoId, hitoId, rol, trigger, onCreated }: AbrirDisputaDialogProps) {
   const motivoId = useId()
   const t = useT()
 
@@ -49,7 +50,7 @@ export function AbrirDisputaDialog({ trabajoId, rol, trigger, onCreated }: Abrir
       return
     }
     setSubmitting(true)
-    const res = await crearDisputa({ trabajo_id: trabajoId, motivo: motivo.trim() })
+    const res = await crearDisputa({ trabajo_id: trabajoId, hito_id: hitoId, motivo: motivo.trim() })
     if (res.error) {
       toast({ title: t("No se pudo abrir la disputa"), description: t(res.error), variant: "destructive" })
     } else {
@@ -77,8 +78,8 @@ export function AbrirDisputaDialog({ trabajoId, rol, trigger, onCreated }: Abrir
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Scale className="h-5 w-5 text-amber-600" />{t("Abrir una disputa")}</DialogTitle>
-          <DialogDescription>{t("Úsala si hay un problema con este trabajo y no llegáis a un acuerdo. Al abrirla, la transferencia queda")}{" "}<strong>{t("congelada")}</strong>{" "}{t("y el equipo de Diime revisará la conversación y las pruebas para decidir si se reembolsa al cliente o se libera al proveedor.")}</DialogDescription>
+            <Scale className="h-5 w-5 text-amber-600" />{t(hitoId ? "Abrir disputa de este hito" : "Abrir una disputa")}</DialogTitle>
+          <DialogDescription>{t(hitoId ? "Úsala si hay un problema con este hito y no llegáis a un acuerdo. Su transferencia queda" : "Úsala si hay un problema con este trabajo y no llegáis a un acuerdo. Al abrirla, la transferencia queda")}{" "}<strong>{t("congelada")}</strong>{" "}{t("y el equipo de Diime revisará la conversación y las pruebas para decidir si se reembolsa al cliente o se libera al proveedor.")}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-1.5 py-2">

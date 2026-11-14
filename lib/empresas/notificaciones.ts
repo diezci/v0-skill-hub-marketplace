@@ -7,7 +7,7 @@ export async function destinatariosOperacionEmpresa(
   supabase: SupabaseClient,
   empresaId: string | null | undefined,
   operadorId: string | null | undefined,
-  permiso: "encargos" | "ver_cobros" = "encargos",
+  permiso: "encargos" | "presupuestos" | "ver_cobros" = "encargos",
 ): Promise<string[]> {
   if (!empresaId) return operadorId ? [operadorId] : []
   const { data: miembros, error } = await supabase.from("empresa_miembros")

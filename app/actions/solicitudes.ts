@@ -10,11 +10,12 @@ import { revalidatePath } from "next/cache"
 import { identidadesEmpresas, validarEmpresaOperacion } from "@/lib/empresas/identidad"
 import { after } from "next/server"
 import { buscarYEnviarInvitaciones } from "./invitaciones"
-import { evaluarContenidoSolicitud } from "@/lib/moderacion"
+import { evaluarContenidoSolicitud, errorContenidoProhibido } from "@/lib/moderacion"
 import { CATEGORIAS_SERVICIO_NOMBRES } from "@/lib/categorias"
 import { esFechaISOValida, fechaHoyEnEspana } from "@/lib/urgencias"
 import { esRangoPresupuestoValido } from "@/lib/precios"
 import { seleccionarContratoVigente, seleccionarEscrowContrato } from "@/lib/historial-contratos"
+import { validarHitosSugeridos, type HitoBorrador, type ModalidadPago } from "@/lib/hitos"
 
 function claveCategoria(nombre: string) {
   return nombre
@@ -77,6 +78,8 @@ export async function crearSolicitud(formData: {
   urgencia: string
   fecha_necesaria?: string
   archivos_adjuntos?: string[]
+  modalidad_pago?: ModalidadPago
+  hitos_sugeridos?: HitoBorrador[]
 }) {
   const supabase = await createClient()
   if (!supabase) {
@@ -103,6 +106,14 @@ export async function crearSolicitud(formData: {
 
   const errorEmpresa = await validarEmpresaOperacion(supabase, formData.empresa_id)
   if (errorEmpresa) return { error: await textoServidor(errorEmpresa) }
+
+  const modalidadPago = formData.modalidad_pago ?? "unico"
+  if (!["unico", "hitos"].includes(modalidadPago)) return { error: "Elige pago único o por hitos." }
+  const hitosSugeridos = modalidadPago === "hitos" ? formData.hitos_sugeridos ?? [] : []
+  const errorHitos = validarHitosSugeridos(hitosSugeridos)
+  if (errorHitos) return { error: errorHitos }
+  const moderacionHitos = errorContenidoProhibido(...hitosSugeridos.flatMap((hito) => [hito.titulo, hito.descripcion, hito.criterio_aceptacion]))
+  if (moderacionHitos) return { error: await textoServidor(moderacionHitos) }
 
   // No confiamos en la validacion del formulario: esta accion tambien puede
   // invocarse directamente. Limites, taxonomia y moderacion se aplican siempre
@@ -182,6 +193,8 @@ export async function crearSolicitud(formData: {
       ...(envioId ? { id: envioId } : {}),
       cliente_id: user.id,
       empresa_id: formData.empresa_id || null,
+      modalidad_pago: modalidadPago,
+      hitos_sugeridos: hitosSugeridos,
       titulo: titulo.valor,
       descripcion: descripcion.valor,
       categoria_id: categoria_uuid,
@@ -772,7 +785,8 @@ export async function obtenerSolicitudesPorUsuario() {
           actor_usuario_id,
           archivos,
           materiales_incluidos,
-          condiciones_pago
+          condiciones_pago,
+          modalidad_pago, plan_hitos, plan_version, plan_aceptado_cliente, plan_aceptado_proveedor
         `)
         .eq("solicitud_id", solicitud.id)
 

@@ -19,6 +19,11 @@ const { traducir } = require("../lib/i18n.ts")
 const ui = new Proxy({ __esModule: true }, { get: (target, key) => key in target ? target[key] : String(key) })
 const texto = tree => Array.isArray(tree) ? tree.map(texto).join("") : tree && typeof tree === "object" ? texto(tree.props?.children) : typeof tree === "string" || typeof tree === "number" ? String(tree) : ""
 const nodos = tree => Array.isArray(tree) ? tree.flatMap(nodos) : !tree?.props ? [] : [tree, ...nodos(tree.props.children)]
+// Resolve the real payment content inside its Suspense boundary while keeping
+// UI primitives mocked. Assertions below still exercise the rendered checkout.
+const renderizar = tree => Array.isArray(tree) ? tree.map(renderizar) : !tree?.props ? tree
+  : typeof tree.type === "function" ? renderizar(tree.type(tree.props))
+  : { ...tree, props: { ...tree.props, children: renderizar(tree.props.children) } }
 const dinero = (importe, idioma = "es") => new Intl.NumberFormat(idioma === "en" ? "en-GB" : "es-ES", { style: "currency", currency: "EUR" }).format(importe)
 function cargar(ruta, dependencias) {
   const modulo = { exports: {} }
@@ -131,11 +136,12 @@ for (const idioma of ["es", "en"]) {
   const pagina = cargar("app/pago/[trabajoId]/page.tsx", {
     react: { useState: () => [estados[cursor++], () => {}], useEffect() {}, useCallback: fn => fn },
     "@/components/idioma-provider": { useT: () => t, useIdioma: () => ({ idioma }) },
-    "next/navigation": { useParams: () => ({ trabajoId: "fixture" }), useRouter: () => ({}) },
+    "next/navigation": { useParams: () => ({ trabajoId: "fixture" }), useSearchParams: () => new URLSearchParams(), useRouter: () => ({}) },
     "@stripe/stripe-js": { loadStripe: () => null }, "@stripe/react-stripe-js": ui,
     "@/app/actions/escrow": { crearPagoEscrow() { throw Error("No debe crear pago") }, confirmarPagoEscrow() { throw Error("No debe confirmar pago") } },
+    "@/app/actions/hitos": { pagarHito() { throw Error("El pago único no debe crear un pago por hitos") } },
   })
-  tree = pagina.default()
+  tree = renderizar(pagina.default())
   assert.ok(nodos(tree).some(n => n.type === "EmbeddedCheckoutProvider"), "El desglose se informa antes de pagar")
   assert.match(texto(tree), idioma === "es" ? /Diime conserva los gastos de servicio del cliente: 2\s*€/ : /Diime keeps the client service fees: €2/)
   assert.match(texto(tree), idioma === "es" ? /Los pagos tardíos que no activan la contratación se devuelven íntegramente/ : /Late payments that do not activate the contract are refunded in full/)
@@ -149,11 +155,12 @@ for (const idioma of ["es", "en"]) {
   const pagina = cargar("app/pago/[trabajoId]/page.tsx", {
     react: { useState: () => [estados[cursor++], () => {}], useEffect() {}, useCallback: fn => fn },
     "@/components/idioma-provider": { useT: () => (key, params) => traducir(idioma, key, params), useIdioma: () => ({ idioma }) },
-    "next/navigation": { useParams: () => ({ trabajoId: "fixture" }), useRouter: () => ({}) },
+    "next/navigation": { useParams: () => ({ trabajoId: "fixture" }), useSearchParams: () => new URLSearchParams(), useRouter: () => ({}) },
     "@stripe/stripe-js": { loadStripe: () => null }, "@stripe/react-stripe-js": ui,
     "@/app/actions/escrow": { crearPagoEscrow() { throw Error("No debe crear pago") } },
+    "@/app/actions/hitos": { pagarHito() { throw Error("El pago único no debe crear un pago por hitos") } },
   })
-  tree = pagina.default()
+  tree = renderizar(pagina.default())
   assert.equal(nodos(tree).some(n => n.type === "EmbeddedCheckoutProvider"), false)
   assert.equal(nodos(tree).find(n => n.type === "Link")?.props.href, "/trabajos/fixture/factura")
   assert.match(texto(tree), idioma === "es" ? /Consulta el estado del contrato/ : /Check the contract status/)
@@ -183,7 +190,7 @@ const avisos = [], llamadas = []
 let cursor = 0
 const estados = ["cliente", false, false, null, false, false, "", "", "", [], [], [], [], false]
 const cancelacion = cargar("components/cancelacion-trabajo.tsx", {
-  react: { useState: () => [estados[cursor++], () => {}], useEffect() {} },
+  react: { useState: () => [estados[cursor++], () => {}], useEffect() {}, useId: () => "cancelacion-qa" },
   "@/components/idioma-provider": { useT: () => (clave, params) => traducir("es", clave, params), useIdioma: () => ({ idioma: "es" }) },
   "@/lib/i18n": { localeDe: () => "es-ES" },
   "next/navigation": { useRouter: () => ({ refresh() {} }) },

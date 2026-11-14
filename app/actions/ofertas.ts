@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { identidadesEmpresas, validarEmpresaOperacion } from "@/lib/empresas/identidad"
 import { errorContenidoProhibido } from "@/lib/moderacion"
+import { validarPlanHitos, type HitoBorrador, type ModalidadPago } from "@/lib/hitos"
 import {
   calcularPagoProveedor,
   calcularPagoProveedorConTarifa,
@@ -40,6 +41,8 @@ export async function crearOferta(formData: {
   // El profesional debe aceptar explícitamente los gastos de servicio de la
   // plataforma en CADA oferta que envía.
   acepta_gastos?: boolean
+  modalidad_pago?: ModalidadPago
+  plan_hitos?: HitoBorrador[]
 }) {
   const supabase = await createClient()
   if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
@@ -116,6 +119,15 @@ export async function crearOferta(formData: {
   // Se guarda la tarifa aceptada junto a la oferta. De ese modo una subida
   // futura no altera silenciosamente lo que cobrará el profesional.
   const liquidacionPrevista = calcularPagoProveedor(formData.precio)
+  const modalidadPago = formData.modalidad_pago ?? "unico"
+  if (!["unico", "hitos"].includes(modalidadPago)) return { error: "Elige pago único o por hitos." }
+  const planHitos = modalidadPago === "hitos" ? formData.plan_hitos ?? [] : []
+  if (modalidadPago === "hitos") {
+    const errorHitos = validarPlanHitos(planHitos, Math.round(formData.precio * 100))
+    if (errorHitos) return { error: errorHitos }
+    const moderacion = errorContenidoProhibido(...planHitos.flatMap((hito) => [hito.titulo, hito.descripcion, hito.criterio_aceptacion]))
+    if (moderacion) return { error: await textoServidor(moderacion) }
+  }
 
   // Puede haber ofertas históricas del mismo profesional para esta demanda. La
   // consulta anterior usaba maybeSingle(), por lo que dejaba de funcionar en
@@ -162,6 +174,8 @@ export async function crearOferta(formData: {
 
   const ahora = new Date().toISOString()
   const camposOferta = {
+    modalidad_pago: modalidadPago,
+    plan_hitos: planHitos,
     oferta_origen_id: formData.oferta_origen_id || null,
     empresa_id: formData.empresa_id || null,
     profesional_id: user.id,
@@ -271,6 +285,7 @@ export async function obtenerMisOfertas() {
   const idsAceptadas = (data || []).filter((o: any) => o.estado === "aceptada").map((o: any) => o.id)
   type TrabajoOferta = {
     id: string
+    modalidad_pago: "unico" | "hitos"
     estado: string
     oferta_id: string
     cliente_id: string
@@ -289,7 +304,7 @@ export async function obtenerMisOfertas() {
   for (let inicio = 0; inicio < idsAceptadas.length; inicio += 50) {
     const { data: trabajosDeOfertas, error: trabajosError } = await supabase
       .from("trabajos")
-      .select("id, estado, oferta_id, cliente_id, profesional_id, cancelacion_estado, cancelacion_solicitada_por, cancelacion_razon, cancelacion_revision, cancelacion_adjuntos_solicitante, cancelacion_respuesta_razon, cancelacion_adjuntos_respuesta")
+      .select("id, modalidad_pago, estado, oferta_id, cliente_id, profesional_id, cancelacion_estado, cancelacion_solicitada_por, cancelacion_razon, cancelacion_revision, cancelacion_adjuntos_solicitante, cancelacion_respuesta_razon, cancelacion_adjuntos_respuesta")
       .in("oferta_id", idsAceptadas.slice(inicio, inicio + 50))
       .order("created_at", { ascending: false })
     if (trabajosError) return { error: await textoServidor("No se pudo consultar el estado de tus contratos. Inténtalo de nuevo.") }
@@ -377,7 +392,7 @@ export async function actualizarOferta(
   // Solo el profesional dueño y mientras la oferta no esté aceptada.
   const { data: oferta } = await supabase
     .from("ofertas")
-    .select("profesional_id, estado, solicitud_id, precio, comision_proveedor_porcentaje, comision_proveedor_minima, comision_proveedor_prevista, pago_neto_proveedor_previsto")
+    .select("profesional_id, estado, solicitud_id, precio, modalidad_pago, comision_proveedor_porcentaje, comision_proveedor_minima, comision_proveedor_prevista, pago_neto_proveedor_previsto")
     .eq("id", ofertaId)
     .maybeSingle()
 
@@ -386,6 +401,9 @@ export async function actualizarOferta(
   }
   if (oferta.estado === "aceptada") {
     return { error: await textoServidor("No puedes editar una oferta que ya ha sido aceptada.") }
+  }
+  if (oferta.modalidad_pago === "hitos" && campos.precio !== undefined && Math.round(campos.precio * 100) !== Math.round(Number(oferta.precio) * 100)) {
+    return { error: "Esta oferta tiene un plan de hitos. Conserva el precio al redistribuirlos o envía un nuevo presupuesto con el nuevo importe." }
   }
   if (campos.precio != null && (!Number.isFinite(campos.precio) || campos.precio <= 0)) {
     return { error: await textoServidor("El precio propuesto debe ser mayor que 0.") }
@@ -581,7 +599,7 @@ export async function eliminarOfertaPerdida(ofertaId: string) {
   return { success: true }
 }
 
-export async function aceptarOferta(ofertaId: string) {
+export async function aceptarOferta(ofertaId: string, planVersion?: number) {
   const supabase = await createClient()
   if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
 
@@ -614,6 +632,7 @@ export async function aceptarOferta(ofertaId: string) {
     oferta_id: ofertaId,
     solicitud_id: oferta.solicitud_id,
     profesional_id: oferta.profesional_id,
+    plan_version: planVersion,
   })
 
   if (trabajoResult.error) {

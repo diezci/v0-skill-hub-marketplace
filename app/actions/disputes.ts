@@ -24,6 +24,18 @@ function fechasDisputaUTC<T extends Record<string, unknown>>(disputa: T): T {
   return result as T
 }
 
+// The caller has already authorized the dispute. Read only the stage's public
+// contractual identity, never the other party's financial terms.
+async function hitoDeDisputaAutorizada(escrowId?: string | null) {
+  if (!escrowId) return null
+  const admin = createAdminClient()
+  if (!admin) throw new Error("No se pudo consultar el hito de la disputa.")
+  const { data, error } = await admin.from("transacciones_escrow")
+    .select("hito:trabajos_hitos!escrow_hito_trabajo_fk(id,titulo,importe_centimos)").eq("id", escrowId).maybeSingle()
+  if (error) throw error
+  return data?.hito || null
+}
+
 // Comprueba que el usuario actual es un empleado de Diime (es_admin).
 async function requireAdmin(supabase: any) {
   const {
@@ -43,6 +55,7 @@ async function requireAdmin(supabase: any) {
 
 export async function crearDisputa(data: {
   trabajo_id: string
+  hito_id?: string
   motivo: string
   avisoOtraParte?: { titulo: string; mensaje: string }
 }) {
@@ -57,13 +70,19 @@ export async function crearDisputa(data: {
   const motivo = data.motivo?.trim()
   if (!motivo) return { error: await textoServidor("Describe el motivo de la disputa.") }
   try {
-    const { error: bloqueoError } = await admin.rpc("diime_bloquear_checkout", {
-      p_trabajo: data.trabajo_id, p_actor: user.id,
-    })
-    if (bloqueoError) throw bloqueoError
-    await cerrarCheckoutsPendientes(admin, data.trabajo_id)
-    const { data: disputa, error } = await admin.rpc("diime_abrir_disputa", {
+    const { data: plan, error: planError } = await admin.from("trabajos").select("modalidad_pago").eq("id", data.trabajo_id).single()
+    if (planError) throw planError
+    if (plan.modalidad_pago === "hitos" && !data.hito_id) throw new Error("Elige el hito afectado en el plan del trabajo para abrir la disputa.")
+    if (!data.hito_id) {
+      const { error: bloqueoError } = await admin.rpc("diime_bloquear_checkout", {
+        p_trabajo: data.trabajo_id, p_actor: user.id,
+      })
+      if (bloqueoError) throw bloqueoError
+      await cerrarCheckoutsPendientes(admin, data.trabajo_id)
+    }
+    const { data: disputa, error } = await admin.rpc(data.hito_id ? "diime_abrir_disputa_hito" : "diime_abrir_disputa", {
       p_trabajo: data.trabajo_id, p_actor: user.id, p_motivo: motivo,
+      ...(data.hito_id ? { p_hito: data.hito_id } : {}),
     })
     if (error) throw error
     const { data: trabajoAviso } = await admin.from("trabajos").select("titulo, operador_cliente_id, operador_proveedor_id, empresa_cliente_id, empresa_proveedora_id").eq("id", data.trabajo_id).maybeSingle()
@@ -86,6 +105,7 @@ export async function crearDisputa(data: {
     revalidatePath("/mis-trabajos")
     revalidatePath("/mis-solicitudes")
     revalidatePath("/mi-empresa")
+    revalidatePath(`/trabajos/${data.trabajo_id}/hitos`)
     return { data: disputa }
   } catch (error: any) {
     return { error: await textoServidor(error.message || "No se pudo abrir la disputa.") }
@@ -158,7 +178,7 @@ export async function obtenerMisDisputas() {
 
   const { data, error } = await supabase
     .from("disputas")
-    .select("id, trabajo_id, cliente_id, profesional_id, tipo, motivo, estado, origen, stripe_disputa_id, stripe_disputa_estado, stripe_disputa_plazo, stripe_transfer_reversal_id, resolucion, resultado, fecha_resolucion, created_at")
+    .select("id, trabajo_id, escrow_id, cliente_id, profesional_id, tipo, motivo, estado, origen, stripe_disputa_id, stripe_disputa_estado, stripe_disputa_plazo, stripe_transfer_reversal_id, resolucion, resultado, fecha_resolucion, created_at")
     .or(`cliente_id.eq.${user.id},profesional_id.eq.${user.id}`)
     .order("created_at", { ascending: false })
 
@@ -196,6 +216,7 @@ export async function obtenerMisDisputas() {
       const miRol = d.cliente_id === user.id ? "cliente" : "proveedor"
       return {
         ...fechasDisputaUTC(d),
+        hito: await hitoDeDisputaAutorizada(d.escrow_id),
         trabajo_titulo: trabajo?.titulo ?? "Trabajo",
         trabajo_estado: trabajo?.estado ?? null,
         cancelacion_solicitada_por: trabajo?.cancelacion_solicitada_por ?? null,
@@ -339,7 +360,7 @@ export async function obtenerDisputas() {
         .select("nombre, apellido, foto_perfil")
         .eq("id", d.profesional_id)
         .maybeSingle()
-      return { ...fechasDisputaUTC(d), trabajo, cliente, profesional, responsable: responsables.data?.find((p: any) => p.id === d.responsable_id) || null }
+      return { ...fechasDisputaUTC(d), hito: await hitoDeDisputaAutorizada(d.escrow_id), trabajo, cliente, profesional, responsable: responsables.data?.find((p: any) => p.id === d.responsable_id) || null }
     }),
   )
 
@@ -478,6 +499,7 @@ export async function obtenerDetalleDisputa(disputaId: string) {
   return {
     data: {
       disputa: fechasDisputaUTC(disputa),
+      hito: await hitoDeDisputaAutorizada(disputa.escrow_id),
       stripe_dashboard_url: disputa.stripe_disputa_id ? `https://dashboard.stripe.com/${
         process.env.DIIME_QA_PROFILE === "sandbox" && /^acct_[A-Za-z0-9]+$/.test(process.env.DIIME_QA_STRIPE_ACCOUNT_ID || "")
           ? `${process.env.DIIME_QA_STRIPE_ACCOUNT_ID}/` : ""

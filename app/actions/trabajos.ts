@@ -16,6 +16,7 @@ export async function crearTrabajo(data: {
   solicitud_id: string
   profesional_id: string
   fecha_estimada_fin?: string
+  plan_version?: number
 }) {
   const supabase = await createClient()
   if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
@@ -35,6 +36,7 @@ export async function crearTrabajo(data: {
     p_solicitud_id: data.solicitud_id,
     p_profesional_id: data.profesional_id,
     p_fecha_estimada_fin: data.fecha_estimada_fin ?? null,
+    p_plan_version: data.plan_version ?? null,
   })
   if (error) return { error: await textoServidor(error.message) }
   if (!resultado?.trabajo?.id) return { error: await textoServidor("No se pudo confirmar la contratación. Inténtalo de nuevo.") }

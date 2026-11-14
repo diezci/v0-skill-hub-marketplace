@@ -2,11 +2,12 @@
 
 import { useT, useIdioma } from "@/components/idioma-provider"
 
-import { useState, useEffect, useCallback } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { Suspense, useState, useEffect, useCallback } from "react"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { loadStripe } from "@stripe/stripe-js"
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js"
+import { pagarHito } from "@/app/actions/hitos"
 import { crearPagoEscrow, confirmarPagoEscrow } from "@/app/actions/escrow"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -21,12 +22,17 @@ const stripePromise = loadStripe(
 )
 
 export default function PagoPage() {
+  return <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>}><PagoContenido /></Suspense>
+}
+
+function PagoContenido() {
   const t = useT()
   const { idioma } = useIdioma()
 
   const params = useParams()
   const router = useRouter()
   const trabajoId = params.trabajoId as string
+  const hitoId = useSearchParams().get("hito")
 
   const [status, setStatus] = useState<"loading" | "ready" | "confirming" | "complete" | "closed" | "error">("loading")
   const [error, setError] = useState<string | null>(null)
@@ -37,18 +43,16 @@ export default function PagoPage() {
     precioBase: number
     comisionCliente: number
     totalCliente: number
-    comisionProveedor: number
-    pagoNeto: number
   } | null>(null)
 
   useEffect(() => {
     let vigente = true
     async function initCheckout() {
-      const result = await crearPagoEscrow({ trabajo_id: trabajoId })
+      const result = hitoId ? await pagarHito(trabajoId, hitoId) : await crearPagoEscrow({ trabajo_id: trabajoId })
       if (!vigente) return
 
       if (result.codigo === "CHECKOUT_CERRADO" && result.hrefContrato) {
-        setError(result.error)
+        setError(result.error || "Consulta el estado del contrato.")
         setHrefContrato(result.hrefContrato)
         setClientSecret(null)
         setStatus("closed")
@@ -74,7 +78,7 @@ export default function PagoPage() {
 
     initCheckout()
     return () => { vigente = false }
-  }, [trabajoId])
+  }, [trabajoId, hitoId])
 
   const handleComplete = useCallback(async () => {
     // Stripe ya cobró: confirmar en nuestra base de datos (escrow →
@@ -98,9 +102,9 @@ export default function PagoPage() {
       // página desplazada, y el navegador conservaba esa posición al llegar a
       // Mis Solicitudes, que aparecía a media altura como si hubiera saltado sola.
       window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
-      router.push("/mis-solicitudes")
+      router.push(hitoId ? `/trabajos/${trabajoId}/hitos` : "/mis-solicitudes")
     }, 3000)
-  }, [router, sessionId, t])
+  }, [router, sessionId, t, hitoId, trabajoId])
 
   if (status === "closed") {
     return (
@@ -154,8 +158,8 @@ export default function PagoPage() {
           <CardContent className="pt-6 text-center">
             <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2">{t("Pago realizado con exito")}</h2>
-            <p className="text-muted-foreground mb-2">{t("Los fondos quedan retenidos de forma segura hasta que confirmes la finalizacion del trabajo.")}</p>
-            <p className="text-sm text-muted-foreground">{t("Redirigiendo a Mis Solicitudes...")}</p>
+            <p className="text-muted-foreground mb-2">{t(hitoId ? "El pago de este hito se ha registrado. La aprobación de su entrega autorizará la transferencia al proveedor." : "Los fondos quedan retenidos de forma segura hasta que confirmes la finalizacion del trabajo.")}</p>
+            <p className="text-sm text-muted-foreground">{t(hitoId ? "Volviendo a los hitos del trabajo…" : "Redirigiendo a Mis Solicitudes...")}</p>
           </CardContent>
         </Card>
       </div>
@@ -178,13 +182,13 @@ export default function PagoPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <ShieldCheck className="h-5 w-5 text-emerald-500" />{t("Pago Protegido")}</CardTitle>
+                  <ShieldCheck className="h-5 w-5 text-emerald-500" />{t(hitoId ? "Pago de este hito" : "Pago Protegido")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 space-y-2">
                   <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
                     <ShieldCheck className="h-4 w-4" />{" "}{t("Tu dinero está protegido")}</p>
-                  <p className="text-sm text-muted-foreground">{t("El plazo del servicio empieza cuando se confirma el pago.")}</p>
+                  <p className="text-sm text-muted-foreground">{t(hitoId ? "Este pago corresponde a una sola fase. Los siguientes hitos se pagarán cuando les llegue el turno." : "El plazo del servicio empieza cuando se confirma el pago.")}</p>
                   <p className="text-sm text-muted-foreground">{t("El pago al profesional queda aplazado hasta que confirmes la entrega o se resuelva una disputa. Si hay un problema, puedes solicitar la mediación de Diime.")}</p>
                 </div>
 
@@ -195,7 +199,7 @@ export default function PagoPage() {
                     <h3 className="font-medium text-sm">{t("Desglose del pago")}</h3>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between gap-3">
-                        <span className="text-muted-foreground">{t("Precio final del servicio")}</span>
+                        <span className="text-muted-foreground">{t(hitoId ? "Importe de este hito" : "Precio final del servicio")}</span>
                         <span className="shrink-0">{formatearPrecio(desglose.precioBase, idioma)}</span>
                       </div>
                       <div className="flex justify-between gap-3">

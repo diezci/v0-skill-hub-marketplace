@@ -36,6 +36,7 @@ export async function renderFactura(opts={}){
   'react/jsx-runtime':jsx,
   '@/lib/i18n-servidor':{getT:async()=>({t,idioma})},
   'next/navigation':{notFound(){throw Error('NOT_FOUND')}},
+  'next/link':{default:props=>jsx.jsx('a',props)},
   '@/lib/comisiones':comisiones,
   '@/components/boton-imprimir':{BotonImprimir:()=>jsx.jsx('button',{type:'button',className:'no-print',children:t('Imprimir / Guardar PDF')})},
   '@/components/adjuntos-lista':{AdjuntosLista:()=>null},

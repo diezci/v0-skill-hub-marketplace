@@ -23,7 +23,8 @@ function load(path, dependencies) {
 const walk = (node) => Array.isArray(node) ? node.flatMap(walk)
   : !node || typeof node !== "object" ? [] : [node, ...walk(node.props?.children)]
 const user = { id: "synthetic-registered", is_anonymous: false }
-const drafts = load("lib/borrador-solicitud.ts", { zod: z, "@/lib/precios": { PRECIO_MAX: 100000 } })
+const hitosBorrador = load("lib/hitos-borrador-ui.ts", { zod: z })
+const drafts = load("lib/borrador-solicitud.ts", { zod: z, "@/lib/precios": { PRECIO_MAX: 100000 }, "@/lib/hitos-borrador-ui": hitosBorrador })
 
 test("server excludes the questionnaire for visitors, anonymous users and invalid sessions", async () => {
   for (const result of [
@@ -92,8 +93,8 @@ function fixture(account = user) {
     onAuthStateChange: (fn) => { callback = fn; return { data: { subscription: { unsubscribe: () => { callback = null } } } } },
   } }
   const controls = (names) => Object.fromEntries(names.map((name) => [name, name]))
-  let formValues = { category: "", title: "", description: "", location: "", budget: [0, 100000], urgency: "", neededDate: "" }
-  const form = { handleSubmit: (fn) => fn, control: {}, reset: (value) => { if (value) formValues = value }, getValues: () => formValues, watch: () => ({ unsubscribe() {} }) }
+  let formValues = { modalidadPago: "unico", hitos: [], category: "", title: "", description: "", location: "", budget: [0, 100000], urgency: "", neededDate: "" }
+  const form = { handleSubmit: (fn) => fn, control: {}, reset: (value) => { if (value) formValues = value }, getValues: () => formValues, watch: key => typeof key === "string" ? formValues[key] : ({ unsubscribe() {} }), setValue: (key, value) => { formValues[key] = value } }
   const { default: Component } = load("components/solicitud-servicio-form.tsx", {
     react: hooks, "react/jsx-runtime": jsx, zod: z,
     "@/components/selector-identidad-empresa": { SelectorIdentidadEmpresa: "Identity" },
@@ -102,6 +103,8 @@ function fixture(account = user) {
     "react-hook-form": { useForm: () => form },
     "@supabase/supabase-js": { isAuthRetryableFetchError },
     "@/lib/borrador-solicitud": drafts,
+    "@/lib/hitos-borrador-ui": hitosBorrador,
+    "@/components/hitos/plan-hitos-editor": controls(["ModalidadPagoSelector", "PlanHitosEditor"]),
     "@/components/ui/button": controls(["Button"]),
     "@/components/ui/form": controls(["Form", "FormControl", "FormField", "FormItem", "FormLabel", "FormMessage"]),
     "@/components/ui/input": controls(["Input"]), "@/components/ui/textarea": controls(["Textarea"]),
@@ -152,7 +155,7 @@ test("refreshing the same session keeps the questionnaire available", () => {
   f.cleanup()
 })
 
-const values = { category: "synthetic", title: "Synthetic request", description: "Synthetic test description", location: "Madrid", budget: [50, 100], urgency: "flexible", neededDate: "" }
+const values = { modalidadPago: "unico", hitos: [], category: "synthetic", title: "Synthetic request", description: "Synthetic test description", location: "Madrid", budget: [50, 100], urgency: "flexible", neededDate: "" }
 test("expired or switched sessions cannot upload attachments or publish a filled form", async () => {
   for (const result of [
     { data: { user: null }, error: null },
@@ -274,6 +277,7 @@ test("direct server action rejects both absent and anonymous users before queryi
   for (const usuario of [null, { id: "anonymous", is_anonymous: true }]) {
     const { crearSolicitud } = load("app/actions/solicitudes.ts", {
       "@/lib/notificaciones-contexto": {}, "@/lib/i18n-servidor": { textoServidor: async (text) => text },
+      "@/lib/hitos": load("lib/hitos.ts", {}),
       "@/lib/supabase/admin": {},
       "@/lib/supabase/server": { createClient: async () => ({ auth: { getUser: async () => ({ data: { user: usuario } }) }, from: () => assert.fail("Must not query user data") }) },
       "next/cache": {}, "@/lib/empresas/identidad": {}, "next/server": {}, "./invitaciones": {},
