@@ -2,9 +2,14 @@
 
 import { textoServidor } from "@/lib/i18n-servidor"
 
+import { createHash, randomUUID } from "node:crypto"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { validarArchivo } from "@/lib/archivos"
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import type {
+  DatosAcreditacionProfesional,
+  DocumentoAcreditacionProfesional,
   EstadoVerificacionProfesional,
   EventoVerificacionProfesional,
   MiVerificacionProfesional,
@@ -38,13 +43,14 @@ export async function obtenerMiVerificacionProfesional(): Promise<{ data?: MiVer
   const contexto = await contextoAutenticado()
   if ("error" in contexto) return { error: await textoServidor(contexto.error) }
   const { supabase, user } = contexto
-  const [perfilRes, profesionalRes, solicitudRes, miembroRes] = await Promise.all([
+  const [perfilRes, profesionalRes, solicitudRes, miembroRes, acreditacionRes] = await Promise.all([
     supabase.from("profiles").select("verificado").eq("id", user.id).maybeSingle(),
     supabase.from("profesionales").select("id").eq("id", user.id).maybeSingle(),
     supabase.from("solicitudes_verificacion_profesional").select(CAMPOS_SOLICITUD).eq("profesional_id", user.id).maybeSingle(),
     supabase.rpc("empresa_contexto_actual"),
+    supabase.rpc("mi_acreditacion_profesional"),
   ])
-  if (perfilRes.error || profesionalRes.error || solicitudRes.error || miembroRes.error) {
+  if (perfilRes.error || profesionalRes.error || solicitudRes.error || miembroRes.error || acreditacionRes.error) {
     return { error: await textoServidor("No se pudo cargar tu verificación. Inténtalo de nuevo.") }
   }
   if (!perfilRes.data || !profesionalRes.data) return { error: await textoServidor("Primero completa tu perfil profesional.") }
@@ -56,19 +62,23 @@ export async function obtenerMiVerificacionProfesional(): Promise<{ data?: MiVer
       verificado: !!perfilRes.data.verificado,
       solicitud: solicitudRes.data as SolicitudVerificacionProfesional | null,
       empresa,
+      acreditacion: acreditacionRes.data?.acreditacion || null,
+      identidadCobrosBloqueada: acreditacionRes.data?.identidadCobrosBloqueada === true,
+      tipoCobrosBloqueado: acreditacionRes.data?.tipoCobrosBloqueado === true,
     },
   }
 }
 
-export async function solicitarVerificacionProfesional(mensaje: string): Promise<{ success?: boolean; error?: string }> {
+export async function solicitarVerificacionProfesional(mensaje: string, acreditacion?: DatosAcreditacionProfesional): Promise<{ success?: boolean; error?: string }> {
   if (typeof mensaje !== "string" || mensaje.trim().length > 2000) {
     return { error: await textoServidor("El mensaje debe tener como máximo 2.000 caracteres.") }
   }
+  if (!acreditacion) return { error: await textoServidor("Completa los datos y documentos de acreditación.") }
   const contexto = await contextoAutenticado()
   if ("error" in contexto) return { error: await textoServidor(contexto.error) }
   const { supabase, user } = contexto
   // La función deriva el proveedor de la sesión y evita solicitudes duplicadas.
-  const { data, error } = await supabase.rpc("solicitar_verificacion_profesional", { p_mensaje: mensaje.trim() })
+  const { data, error } = await supabase.rpc("solicitar_acreditacion_profesional", { p_mensaje: mensaje.trim(), p_datos: acreditacion })
   if (error) return { error: await textoServidor(error.message) }
   if (!data) return { error: await textoServidor("No se pudo registrar tu solicitud. Inténtalo de nuevo.") }
   refrescarVerificacion(user.id)
@@ -90,13 +100,14 @@ export async function obtenerSolicitudesVerificacionAdmin(): Promise<{ data?: Ve
     if (!solicitudes.length) break
     const ids = solicitudes.map(s => s.profesional_id)
     const empresasIds = [...new Set(solicitudes.map(s => s.empresa_id).filter((id): id is string => !!id))]
-    const [perfilesRes, contactosRes, profesionalesRes, empresasRes] = await Promise.all([
+    const [perfilesRes, contactosRes, profesionalesRes, empresasRes, acreditacionesRes] = await Promise.all([
       supabase.from("profiles").select("id, nombre, apellido, verificado, cargo_empresa").in("id", ids),
       supabase.rpc("contacto_perfiles", { p_ids: ids }),
       supabase.from("profesionales").select("id, titulo").in("id", ids),
       empresasIds.length ? supabase.from("empresas").select("id, nombre").in("id", empresasIds) : Promise.resolve({ data: [], error: null }),
+      supabase.rpc("acreditaciones_profesionales_admin", { p_ids: ids }),
     ])
-    if (perfilesRes.error || contactosRes.error || profesionalesRes.error || empresasRes.error) {
+    if (perfilesRes.error || contactosRes.error || profesionalesRes.error || empresasRes.error || acreditacionesRes.error) {
       return { error: await textoServidor("No se pudieron cargar los datos de contacto de los proveedores.") }
     }
     const perfiles = new Map((perfilesRes.data || []).map(p => [p.id, p]))
@@ -116,6 +127,10 @@ export async function obtenerSolicitudesVerificacionAdmin(): Promise<{ data?: Ve
         verificado: !!perfil?.verificado,
         empresa_nombre: solicitud.empresa_id ? empresas.get(solicitud.empresa_id)?.nombre || "Empresa vinculada" : null,
         cargo_empresa: perfil?.cargo_empresa || null,
+        acreditacion: (acreditacionesRes.data || []).find((a: { profesional_id: string }) => a.profesional_id === solicitud.profesional_id)?.acreditacion || null,
+        identidadCobrosBloqueada: (acreditacionesRes.data || []).find((a: { profesional_id: string }) => a.profesional_id === solicitud.profesional_id)?.identidadCobrosBloqueada === true,
+        tipoCobrosBloqueado: (acreditacionesRes.data || []).find((a: { profesional_id: string }) => a.profesional_id === solicitud.profesional_id)?.tipoCobrosBloqueado === true,
+        cuentaStripe: (acreditacionesRes.data || []).find((a: { profesional_id: string }) => a.profesional_id === solicitud.profesional_id)?.cuentaStripe || null,
       })
     }
     if (solicitudes.length < 200) break
@@ -140,6 +155,9 @@ export async function revisarVerificacionProfesional(params: {
   actualizadaAt: string
   comentarioPublico?: string
   notaInterna?: string
+  identidadComprobada?: boolean
+  cualificacionComprobada?: boolean
+  representacionComprobada?: boolean
 }): Promise<{ success?: boolean; error?: string }> {
   if (!params || !UUID_RE.test(params.profesionalId || "") || !["en_revision", "verificado", "no_aprobado", "retirada"].includes(params.estado)) {
     return { error: await textoServidor("La revisión no es válida.") }
@@ -155,18 +173,22 @@ export async function revisarVerificacionProfesional(params: {
   if (["no_aprobado", "retirada"].includes(params.estado) && !comentario) {
     return { error: await textoServidor("Indica al proveedor el motivo para que pueda revisarlo.") }
   }
+  if (params.estado === "verificado" && (params.identidadComprobada !== true || params.cualificacionComprobada !== true || nota.length < 20)) return { error: await textoServidor("Confirma la identidad y cualificación y describe las comprobaciones realizadas (mínimo 20 caracteres).") }
   const contexto = await contextoAutenticado(true)
   if ("error" in contexto) return { error: await textoServidor(contexto.error) }
   const { supabase } = contexto
   const anterior = await supabase.from("solicitudes_verificacion_profesional")
     .select("estado").eq("profesional_id", params.profesionalId).maybeSingle()
   if (anterior.error) return { error: await textoServidor("No se pudo comprobar el estado de la solicitud.") }
-  const { data, error } = await supabase.rpc("revisar_verificacion_profesional", {
+  const { data, error } = await supabase.rpc("revisar_acreditacion_profesional", {
     p_profesional_id: params.profesionalId,
     p_estado: params.estado,
     p_comentario_publico: comentario,
     p_nota_interna: nota,
     p_actualizada_at: params.actualizadaAt,
+    p_identidad_comprobada: params.identidadComprobada === true,
+    p_cualificacion_comprobada: params.cualificacionComprobada === true,
+    p_representacion_comprobada: params.representacionComprobada === true,
   })
   if (error) return { error: await textoServidor(error.message) }
   if (!data) return { error: await textoServidor("No se pudo guardar la revisión.") }
@@ -192,4 +214,40 @@ export async function revisarVerificacionProfesional(params: {
     }
   }
   return { success: true }
+}
+
+
+export async function subirDocumentoAcreditacionProfesional(formData: FormData): Promise<{ data?: DocumentoAcreditacionProfesional; error?: string }> {
+  const contexto = await contextoAutenticado()
+  if ("error" in contexto) return { error: contexto.error }
+  const file = formData.get("file"), categoria = formData.get("categoria")
+  if (!(file instanceof File) || file.size < 6 || file.size > 4 * 1024 * 1024 || !["identidad", "cualificacion", "representacion"].includes(String(categoria))) return { error: "Adjunta un PDF de hasta 4 MB y selecciona su finalidad." }
+  const validacion = await validarArchivo(file)
+  if ("error" in validacion || validacion.tipo !== "application/pdf") return { error: "Adjunta un documento PDF válido de hasta 4 MB." }
+  const admin = createAdminClient()
+  if (!admin) return { error: "El almacenamiento de documentos no está disponible." }
+  const id = randomUUID(), storagePath = `${contexto.user.id}/${id}.pdf`
+  const bucket = admin.storage.from("acreditaciones-profesionales")
+  const bytes = Buffer.from(await file.arrayBuffer())
+  const subida = await bucket.upload(storagePath, bytes, { contentType: "application/pdf", upsert: false })
+  if (subida.error) return { error: "No se pudo subir el documento. Vuelve a intentarlo." }
+  const registro = await admin.rpc("registrar_documento_acreditacion_profesional", {
+    p_id: id, p_usuario_id: contexto.user.id, p_categoria: categoria, p_storage_path: storagePath,
+    p_nombre: validacion.nombre, p_bytes: file.size, p_sha256: createHash("sha256").update(bytes).digest("hex"),
+  })
+  if (registro.error) { await bucket.remove([storagePath]); return { error: "No se pudo registrar el documento. Vuelve a intentarlo." } }
+  return { data: { categoria: categoria as DocumentoAcreditacionProfesional["categoria"], url: `acreditacion://${id}`, nombre: validacion.nombre } }
+}
+
+export async function abrirDocumentoAcreditacionProfesional(url: string): Promise<{ data?: { url: string }; error?: string }> {
+  if (typeof url !== "string" || !/^acreditacion:\/\/[0-9a-f-]{36}$/.test(url)) return { error: "Documento no disponible." }
+  const contexto = await contextoAutenticado()
+  if ("error" in contexto) return { error: contexto.error }
+  const { data, error } = await contexto.supabase.rpc("documento_acreditacion_profesional_metadata", { p_url: url })
+  if (error || !data) return { error: "No tienes acceso a este documento." }
+  const admin = createAdminClient()
+  if (!admin) return { error: "El almacenamiento de documentos no está disponible." }
+  const resultado = await admin.storage.from("acreditaciones-profesionales").createSignedUrl(data.storage_path, 60, { download: data.nombre })
+  if (resultado.error || !resultado.data?.signedUrl) return { error: "No se pudo abrir el documento." }
+  return { data: { url: resultado.data.signedUrl } }
 }

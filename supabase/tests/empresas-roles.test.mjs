@@ -278,5 +278,31 @@ await asRole()
 await db.exec(await read('../migrations/20261103221856_empresa_domicilio_identidad_publica.sql'))
 const { testDomicilioEmpresa } = await import('./empresa-domicilio-scenarios.mjs')
 await testDomicilioEmpresa({ db, asRole, one, rpc, check, expectError })
+await asRole()
+const antesPausa = await one(`select
+  (select count(*) from public.empresas) empresas,
+  (select count(*) from public.empresa_miembros) miembros,
+  (select count(*) from public.trabajos) trabajos`)
+await db.exec(await read('../migrations/20261115155424_aparcar_altas_empresa_especializada.sql'))
+for (const funcion of [
+  'public.vincular_mi_empresa(text,text,text,text,text,text,text)',
+  'diime_private.vincular_empresa(text,text,text,text,text,text,text)',
+  'public.empresa_crear_invitacion(text,text,text,jsonb,boolean)',
+  'diime_private.empresa_crear_invitacion(text,text,text,jsonb,boolean)',
+  'public.empresa_aceptar_invitacion(text)',
+  'diime_private.empresa_aceptar_invitacion(text)',
+]) {
+  for (const rol of ['anon','authenticated']) check(!(await one('select has_function_privilege($1,$2,\'EXECUTE\') permitida',[rol,funcion])).permitida, `${rol} no puede reabrir altas por ${funcion}`)
+}
+await asRole('authenticated',ids.owner)
+await expectError(() => rpc('empresa_crear_invitacion',['pausada@example.test','Técnico','miembro',JSON.stringify({mensajes:true}),false]), /permission denied/, 'La RPC directa no permite invitar al aparcar el alta')
+await expectError(() => rpc('empresa_aceptar_invitacion',['token-pendiente']), /permission denied/, 'Las invitaciones anteriores tampoco amplían el equipo mientras está pausado')
+check((await rpc('empresa_workspace')).empresa.id === ids.company, 'El titular conserva la gestión de su empresa existente')
+check((await rpc('empresa_contexto_actual')).id === ids.company, 'Se conserva la identidad de operaciones anteriores')
+await asRole()
+check(JSON.stringify(await one(`select
+  (select count(*) from public.empresas) empresas,
+  (select count(*) from public.empresa_miembros) miembros,
+  (select count(*) from public.trabajos) trabajos`)) === JSON.stringify(antesPausa), 'La pausa no borra ni transforma entidades, miembros o contratos')
 console.log(`OK ${assertions} comprobaciones PostgreSQL: roles reales, revisión, permisos, alcance, privacidad y continuidad.`)
 await db.close()

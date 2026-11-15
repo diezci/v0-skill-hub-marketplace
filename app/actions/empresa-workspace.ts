@@ -1,6 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { EMPRESA_ESPECIALIZADA_HABILITADA, MENSAJE_ALTA_EMPRESA_PAUSADA } from "@/lib/producto"
 import { validarAdjuntosEntrega } from "@/lib/entregas"
 import { empresaLocalStore, validarCoberturaEmpresa, validarPreferenciasEmpresa, validarDatosProfesionalesEmpresa } from "@/lib/empresas/local-store"
 import { esEmpresasLocal, obtenerActorEmpresaLocal } from "@/lib/empresas/service"
@@ -78,6 +79,7 @@ export async function guardarPerfilEmpresa(input: InputPerfilEmpresa): Promise<R
   return ejecutar((actor) => empresaLocalStore.guardarPerfil(actor, input))
 }
 export async function invitarMiembroEmpresa(input: InputMiembro & { cargo?: string; perfilPublico?: boolean }): Promise<ResultadoEmpresa<{ url: string }>> {
+  if (!EMPRESA_ESPECIALIZADA_HABILITADA) return { error: MENSAJE_ALTA_EMPRESA_PAUSADA }
   if (!esEmpresasLocal()) {
     const resultado = await ejecutarReal<{ token: string }>("empresa_crear_invitacion", { p_email: input.email, p_cargo: input.cargo || "", p_rol: input.rol, p_permisos: input.permisos, p_perfil_publico: input.perfilPublico === true })
     return resultado.error ? { error: resultado.error } : { data: { url: `/mi-empresa/invitaciones/${encodeURIComponent(resultado.data!.token)}` } }
@@ -99,6 +101,7 @@ export async function cancelarInvitacionEmpresa(id: string): Promise<ResultadoEm
   return ejecutar((actor) => empresaLocalStore.cancelarInvitacion(actor, id))
 }
 export async function aceptarInvitacionEmpresa(token: string): Promise<ResultadoEmpresa> {
+  if (!EMPRESA_ESPECIALIZADA_HABILITADA) return { error: MENSAJE_ALTA_EMPRESA_PAUSADA }
   if (!esEmpresasLocal()) {
     const result = await ejecutarReal<string>("empresa_aceptar_invitacion", { p_token: token })
     return result.error ? { error: result.error } : { data: undefined }

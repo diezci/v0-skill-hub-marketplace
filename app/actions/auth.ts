@@ -3,6 +3,7 @@
 import { idiomaActual, textoServidor } from "@/lib/i18n-servidor"
 
 import { destinoAuthSeguro } from "@/lib/auth-redirect"
+import { EMPRESA_ESPECIALIZADA_HABILITADA, MENSAJE_ALTA_EMPRESA_PAUSADA } from "@/lib/producto"
 import { createClient } from "@/lib/supabase/server"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
@@ -41,6 +42,9 @@ export async function registrarUsuario(formData: {
   const texto = (valor: unknown) => typeof valor === "string" ? valor.trim() : ""
   if (formData.tipoEntidad !== "particular" && formData.tipoEntidad !== "empresa") {
     return { error: await textoServidor("Selecciona un tipo de registro válido.") }
+  }
+  if (!EMPRESA_ESPECIALIZADA_HABILITADA && formData.tipoEntidad === "empresa") {
+    return { error: await textoServidor(MENSAJE_ALTA_EMPRESA_PAUSADA) }
   }
   if (!texto(formData.nombre) || !texto(formData.apellido)) {
     return { error: await textoServidor("Indica tu nombre y apellidos.") }

@@ -33,3 +33,19 @@ export function errorIdentidadCuentaStripeEmpresa(cuenta: CuentaStripeIdentifica
   }
   return null
 }
+
+/** A company using the common professional profile has its own explicit legal
+ * type. It is never inferred from membership or from editable Stripe metadata. */
+export function errorIdentidadCuentaStripeProveedor(
+  cuenta: CuentaStripeIdentificable,
+  profesional: { id: string; tipoProveedor: "particular" | "empresa" },
+): string | null {
+  if (profesional.tipoProveedor === "particular") return errorIdentidadCuentaStripe(cuenta, profesional)
+  if (cuenta.deleted || cuenta.business_type !== "company"
+    || cuenta.metadata?.diime_profesional_id !== profesional.id
+    || cuenta.metadata?.diime_empresa_id
+    || cuenta.metadata?.diime_proveedor_tipo !== "profesional_empresa") {
+    return "La cuenta de cobros no corresponde a la sociedad acreditada en tu perfil. Contacta con Diime para revisar la titularidad."
+  }
+  return null
+}

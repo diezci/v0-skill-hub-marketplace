@@ -71,7 +71,7 @@ export async function crearPagoEscrow(data: {
   // desde la oferta aceptada y la solicitud que la originó.
   const { data: trabajo, error: trabajoError } = await admin
     .from("trabajos")
-    .select("id, titulo, precio_acordado, profesional_id, cliente_id, estado, oferta_id, solicitud_id, pago_bloqueado, cancelacion_estado, empresa_cliente_id, empresa_proveedora_id, actor_contratacion_id, proveedor_cobros_usuario_id, proveedor_stripe_account_id, created_at, modalidad_pago")
+    .select("id, titulo, precio_acordado, profesional_id, cliente_id, estado, oferta_id, solicitud_id, pago_bloqueado, cancelacion_estado, empresa_cliente_id, empresa_proveedora_id, actor_contratacion_id, proveedor_cobros_usuario_id, proveedor_stripe_account_id, proveedor_tipo, created_at, modalidad_pago")
     .eq("id", data.trabajo_id)
     .single()
 
@@ -183,7 +183,7 @@ export async function crearPagoEscrow(data: {
     if (destinoError) throw destinoError
     const identidadCobro = {
       proveedor_cobros_usuario_id: titularId || "",
-      diime_proveedor_tipo: trabajo.empresa_proveedora_id ? "empresa" : "personal",
+      diime_proveedor_tipo: trabajo.empresa_proveedora_id ? "empresa" : trabajo.proveedor_tipo === "empresa" ? "profesional_empresa" : "personal",
       proveedor_stripe_account_id: destino,
       empresa_proveedora_id: trabajo.empresa_proveedora_id || "",
       empresa_cliente_id: trabajo.empresa_cliente_id || "",

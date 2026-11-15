@@ -10,6 +10,7 @@ import {
   obtenerSolicitudesVerificacionAdmin,
   revisarVerificacionProfesional,
 } from "@/app/actions/verificacion-profesionales"
+import { AdminAcreditacionDetalle } from "@/components/admin-acreditacion-detalle"
 import { AdminChatUsuarioButton } from "@/components/admin-chat-usuario-button"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -49,7 +50,7 @@ const decisionesPorEstado: Record<EstadoVerificacionProfesional, readonly Decisi
 
 const textoDecision: Record<Decision, { accion: string; descripcion: string }> = {
   en_revision: { accion: "Marcar en revisión", descripcion: "La solicitud quedará en revisión por el equipo de Diime." },
-  verificado: { accion: "Verificar proveedor", descripcion: "Confirma que el equipo ha contactado con el proveedor y revisado su perfil antes de conceder la insignia «Verificado por Diime». Las licencias y titulaciones requieren una comprobación específica." },
+  verificado: { accion: "Verificar proveedor", descripcion: "Comprueba la identidad, la documentación de la actividad y, si representa a una empresa, sus facultades. La aprobación acredita los servicios revisados por Diime." },
   no_aprobado: { accion: "Solicitar corrección", descripcion: "El proveedor podrá corregir su solicitud y volver a enviarla. No tendrá la insignia de verificación." },
   retirada: { accion: "Retirar verificación", descripcion: "La solicitud quedará cerrada y el proveedor no tendrá la insignia de verificación. Explica el motivo para que sepa cómo proceder." },
 }
@@ -83,6 +84,8 @@ export default function AdminVerificacionesPage() {
   const [comentarioPublico, setComentarioPublico] = useState("")
   const [notaInterna, setNotaInterna] = useState("")
   const [contactoRevisado, setContactoRevisado] = useState(false)
+  const [cualificacionComprobada, setCualificacionComprobada] = useState(false)
+  const [representacionComprobada, setRepresentacionComprobada] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [errorDecision, setErrorDecision] = useState("")
   const [confirmacion, setConfirmacion] = useState("")
@@ -148,9 +151,11 @@ export default function AdminVerificacionesPage() {
     (estado === "todos" || solicitud.estado === estado) &&
     (!termino || normalizarBusqueda([
       solicitud.nombre, solicitud.apellido, solicitud.email, solicitud.telefono,
-      solicitud.empresa_nombre, solicitud.titulo, solicitud.cargo_empresa,
+      solicitud.empresa_nombre, solicitud.titulo, solicitud.cargo_empresa, solicitud.acreditacion?.nombreLegal, solicitud.acreditacion?.nif,
     ].filter(Boolean).join(" ")).includes(termino)),
   )
+  const esEmpresa = seleccionada?.acreditacion?.tipoProveedor === "empresa"
+  const acreditacionesComprobadas = contactoRevisado && cualificacionComprobada && (!esEmpresa || representacionComprobada) && Boolean(seleccionada?.acreditacion)
   const comentarioObligatorio = decision === "no_aprobado" || decision === "retirada"
 
   function abrirSolicitud(solicitud: VerificacionAdmin) {
@@ -167,6 +172,8 @@ export default function AdminVerificacionesPage() {
     setComentarioPublico("")
     setNotaInterna("")
     setContactoRevisado(false)
+    setCualificacionComprobada(false)
+    setRepresentacionComprobada(false)
     setErrorDecision("")
     setDecision(nuevaDecision)
   }
@@ -174,8 +181,8 @@ export default function AdminVerificacionesPage() {
   async function guardarDecision(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!seleccionada || !decision || guardando) return
-    if (decision === "verificado" && !contactoRevisado) {
-      setErrorDecision("Confirma que has contactado con el proveedor y revisado su perfil.")
+    if (decision === "verificado" && !acreditacionesComprobadas) {
+      setErrorDecision("Confirma la revisión de todas las acreditaciones antes de aprobar el perfil.")
       return
     }
     if (comentarioObligatorio && !comentarioPublico.trim()) {
@@ -192,6 +199,9 @@ export default function AdminVerificacionesPage() {
         estado: decision,
         comentarioPublico: comentarioPublico.trim() || undefined,
         notaInterna: notaInterna.trim() || undefined,
+        identidadComprobada: contactoRevisado,
+        cualificacionComprobada,
+        representacionComprobada,
       })
       if (!montado.current) return
       if (resultado.error || !resultado.success) {
@@ -270,8 +280,8 @@ export default function AdminVerificacionesPage() {
                   <div className="flex flex-wrap items-center gap-2"><h2 className="break-words font-semibold">{nombreProveedor(solicitud, t)}</h2><EstadoBadge estado={solicitud.estado} /></div>
                   {solicitud.titulo && <p className="break-words text-sm">{solicitud.titulo}</p>}
                   <p className="flex items-start gap-2 text-sm text-muted-foreground">
-                    {solicitud.empresa_id ? <Building2 className="mt-0.5 h-4 w-4 shrink-0" /> : <UserRound className="mt-0.5 h-4 w-4 shrink-0" />}
-                    <span className="min-w-0 break-words">{solicitud.empresa_id ? `${t("Empresa: {nombre}", { nombre: solicitud.empresa_nombre || t("Sin nombre disponible") })}${solicitud.cargo_empresa ? ` · ${solicitud.cargo_empresa}` : ""}` : t("Particular")}</span>
+                    {solicitud.empresa_id || solicitud.acreditacion?.tipoProveedor === "empresa" ? <Building2 className="mt-0.5 h-4 w-4 shrink-0" /> : <UserRound className="mt-0.5 h-4 w-4 shrink-0" />}
+                    <span className="min-w-0 break-words">{solicitud.empresa_id ? `${t("Empresa: {nombre}", { nombre: solicitud.empresa_nombre || t("Sin nombre disponible") })}${solicitud.cargo_empresa ? ` · ${solicitud.cargo_empresa}` : ""}` : solicitud.acreditacion?.tipoProveedor === "empresa" ? solicitud.acreditacion.nombreLegal : t("Profesional particular")}</span>
                   </p>
                   <p className="break-all text-sm text-muted-foreground">{solicitud.email || t("Sin email disponible")}{solicitud.telefono ? ` · ${solicitud.telefono}` : ""}</p>
                   <p className="text-xs text-muted-foreground">{t("Solicitada:")} {formatearFecha(solicitud.solicitada_at, idioma)}</p>
@@ -293,23 +303,28 @@ export default function AdminVerificacionesPage() {
             <>
               <DialogHeader className="pr-6 text-left">
                 <DialogTitle>{decision ? t(textoDecision[decision].accion) : t("Revisar solicitud")}</DialogTitle>
-                <DialogDescription className="break-words">{nombreProveedor(seleccionada, t)}{seleccionada.empresa_id ? ` · ${seleccionada.empresa_nombre || t("Empresa")}` : t(" · Particular")}</DialogDescription>
+                <DialogDescription className="break-words">{nombreProveedor(seleccionada, t)}{seleccionada.empresa_id || esEmpresa ? ` · ${seleccionada.acreditacion?.tipoProveedor === "empresa" ? seleccionada.acreditacion.nombreLegal : seleccionada.empresa_nombre || t("Empresa")}` : t(" · Particular")}</DialogDescription>
               </DialogHeader>
               {decision ? (
                 <form onSubmit={guardarDecision} className="space-y-4">
                   <p className="text-sm">{t(textoDecision[decision].descripcion)}</p>
                   {decision === "verificado" && <div className="flex items-start gap-3 rounded-lg border p-3">
                     <Checkbox id="contacto-revisado-verificacion" checked={contactoRevisado} onCheckedChange={(valor) => setContactoRevisado(valor === true)} disabled={guardando} />
-                    <Label htmlFor="contacto-revisado-verificacion" className="leading-relaxed">{t("He contactado con el proveedor y revisado su perfil.")}</Label>
+                    <Label htmlFor="contacto-revisado-verificacion" className="leading-relaxed">{t(seleccionada.cuentaStripe ? "He comprobado la identidad, la documentación y su correspondencia con la cuenta de cobros vinculada." : "He comprobado la identidad y la documentación identificativa.")}</Label>
                   </div>}
+                  {decision === "verificado" && <>
+                    <div className="flex items-start gap-3 rounded-lg border p-3"><Checkbox id="cualificacion-comprobada" checked={cualificacionComprobada} onCheckedChange={valor => setCualificacionComprobada(valor === true)} disabled={guardando} /><Label htmlFor="cualificacion-comprobada" className="leading-relaxed">{t("He revisado la experiencia y las habilitaciones exigibles para los servicios declarados.")}</Label></div>
+                    {esEmpresa && <div className="flex items-start gap-3 rounded-lg border p-3"><Checkbox id="representacion-comprobada" checked={representacionComprobada} onCheckedChange={valor => setRepresentacionComprobada(valor === true)} disabled={guardando} /><Label htmlFor="representacion-comprobada" className="leading-relaxed">{t("He comprobado las facultades vigentes del representante de la sociedad.")}</Label></div>}
+                    {!seleccionada.acreditacion && <p className="text-sm text-destructive">{t("Solicita las acreditaciones antes de aprobar este perfil.")}</p>}
+                  </>}
                   <div className="space-y-2">
                     <Label htmlFor="comentario-verificacion">{t("Comentario para el proveedor")}{" "}{comentarioObligatorio ? "(obligatorio)" : "(opcional)"}</Label>
                     <Textarea id="comentario-verificacion" value={comentarioPublico} onChange={(event) => setComentarioPublico(event.target.value)} rows={4} maxLength={2000} required={comentarioObligatorio} disabled={guardando} aria-describedby="ayuda-comentario-verificacion" />
                     <p id="ayuda-comentario-verificacion" className="text-xs text-muted-foreground">{t("El proveedor podrá ver este comentario en su solicitud.")}</p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="nota-verificacion">{t("Nota interna (opcional)")}</Label>
-                    <Textarea id="nota-verificacion" value={notaInterna} onChange={(event) => setNotaInterna(event.target.value)} rows={3} maxLength={4000} disabled={guardando} aria-describedby="ayuda-nota-verificacion" />
+                    <Label htmlFor="nota-verificacion">{t(decision === "verificado" ? "Comprobaciones realizadas (obligatorio)" : "Nota interna (opcional)")}</Label>
+                    <Textarea id="nota-verificacion" required={decision === "verificado"} minLength={decision === "verificado" ? 20 : undefined} value={notaInterna} onChange={(event) => setNotaInterna(event.target.value)} rows={3} maxLength={4000} disabled={guardando} aria-describedby="ayuda-nota-verificacion" />
                     <p id="ayuda-nota-verificacion" className="text-xs text-muted-foreground">{t("Solo la verá el equipo de administración de Diime.")}</p>
                   </div>
                   {errorDecision && <div className="space-y-2">
@@ -318,7 +333,7 @@ export default function AdminVerificacionesPage() {
                   </div>}
                   <DialogFooter>
                     <Button type="button" variant="outline" disabled={guardando} onClick={() => setDecision(null)}>{t("Volver a la solicitud")}</Button>
-                    <Button type="submit" variant={decision === "retirada" ? "destructive" : "default"} disabled={guardando || cargando || Boolean(error) || (decision === "verificado" && !contactoRevisado) || (comentarioObligatorio && !comentarioPublico.trim())}>
+                    <Button type="submit" variant={decision === "retirada" ? "destructive" : "default"} disabled={guardando || cargando || Boolean(error) || (decision === "verificado" && !acreditacionesComprobadas) || (comentarioObligatorio && !comentarioPublico.trim())}>
                       {guardando && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       {guardando ? t("Guardando…") : t("Confirmar decisión")}
                     </Button>
@@ -333,12 +348,14 @@ export default function AdminVerificacionesPage() {
                     <div><dt className="text-muted-foreground">{t("Email")}</dt><dd className="break-all">{seleccionada.email || t("No disponible")}</dd></div>
                     <div><dt className="text-muted-foreground">{t("Teléfono")}</dt><dd>{seleccionada.telefono || t("No disponible")}</dd></div>
                     <div><dt className="text-muted-foreground">{t("Actividad")}</dt><dd className="break-words">{seleccionada.titulo || t("No indicada")}</dd></div>
-                    <div><dt className="text-muted-foreground">{t("Actúa como")}</dt><dd className="break-words">{seleccionada.empresa_id ? `${seleccionada.empresa_nombre || t("Empresa")} · ${seleccionada.cargo_empresa || t("Cargo no indicado")}` : t("Particular")}</dd></div>
+                    <div><dt className="text-muted-foreground">{t("Actúa como")}</dt><dd className="break-words">{esEmpresa ? `${seleccionada.acreditacion!.nombreLegal} · ${t(seleccionada.acreditacion!.cargoRepresentacion || "Cargo no indicado")}` : seleccionada.empresa_id ? `${seleccionada.empresa_nombre || t("Empresa")} · ${seleccionada.cargo_empresa || t("Cargo no indicado")}` : t("Particular")}</dd></div>
                   </dl>
                   <div className="flex flex-wrap gap-2">
                     <Button asChild variant="outline" size="sm"><Link href={`/profesional/${seleccionada.profesional_id}?vista_admin=1`} target="_blank" rel="noopener noreferrer">{t("Ver perfil")}<ExternalLink className="ml-2 h-3 w-3" /><span className="sr-only"> {" "}{t("(nueva pestaña)")}</span></Link></Button>
                     <AdminChatUsuarioButton usuarioId={seleccionada.profesional_id} nombre={nombreProveedor(seleccionada, t)} compacto />
                   </div>
+                  <AdminAcreditacionDetalle key={seleccionada.actualizada_at} datos={seleccionada.acreditacion} />
+                  {seleccionada.cuentaStripe && /^acct_[A-Za-z0-9_]+$/.test(seleccionada.cuentaStripe) && <div className="space-y-2 rounded-lg border p-3 text-sm"><p>{t("Contrasta la identidad acreditada con el titular de la cuenta de cobros vinculada antes de aprobar.")}</p><Button asChild size="sm" variant="outline"><a href={`https://dashboard.stripe.com/connect/accounts/${seleccionada.cuentaStripe}`} target="_blank" rel="noopener noreferrer">{t("Consultar cuenta de cobros")}<ExternalLink className="ml-2 size-3" /></a></Button></div>}
                   <section className="space-y-2"><h3 className="text-sm font-semibold">{t("Mensaje del proveedor")}</h3><p className="whitespace-pre-wrap break-words rounded-lg bg-muted p-3 text-sm">{seleccionada.mensaje || t("Sin mensaje adjunto.")}</p></section>
                   {seleccionada.comentario_publico && <section className="space-y-2"><h3 className="text-sm font-semibold">{t("Último comentario para el proveedor")}</h3><p className="whitespace-pre-wrap break-words text-sm">{seleccionada.comentario_publico}</p></section>}
                   <section className="space-y-3 border-t pt-4">

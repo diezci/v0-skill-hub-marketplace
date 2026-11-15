@@ -7,6 +7,7 @@ const valoresSchema = z.object({
   duracion: z.string().max(200), presupuesto: z.string().max(100),
   trabajo_id: z.union([z.literal(""), z.string().uuid()]),
   contexto_proveedor: z.string().max(20000),
+  evidencia_acreditacion: z.string().max(4000).default(""),
 })
 const schema = z.object({
   version: z.literal(1), usuarioId: z.string().uuid(), guardadoAt: z.number(),

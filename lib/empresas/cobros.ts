@@ -1,13 +1,14 @@
 import "server-only"
 import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
-import { errorIdentidadCuentaStripe, errorIdentidadCuentaStripeEmpresa } from "@/lib/stripe-connect-identidad"
+import { errorIdentidadCuentaStripe, errorIdentidadCuentaStripeEmpresa, errorIdentidadCuentaStripeProveedor } from "@/lib/stripe-connect-identidad"
 
 export type TrabajoCobros = {
   id: string; cliente_id: string; profesional_id: string
   actor_contratacion_id?: string | null
   empresa_cliente_id?: string | null; empresa_proveedora_id?: string | null
   proveedor_cobros_usuario_id?: string | null; proveedor_stripe_account_id?: string | null
+  proveedor_tipo?: "particular" | "empresa" | null
 }
 
 /** Recheck the live session as well as current operator and financial authority. */
@@ -29,9 +30,16 @@ export function validarCuentaCobroContrato(
   titularId: string | null,
   empresaId?: string | null,
   contratoHistorico = false,
+  tipoProveedor?: "particular" | "empresa" | null,
 ) {
   if (empresaId) {
     const error = errorIdentidadCuentaStripeEmpresa(cuenta, empresaId)
+    if (error) throw new Error(error)
+    return
+  }
+  if (tipoProveedor) {
+    if (!titularId) throw new Error("La contratación no tiene un titular de cobros identificado.")
+    const error = errorIdentidadCuentaStripeProveedor(cuenta, { id: titularId, tipoProveedor })
     if (error) throw new Error(error)
     return
   }
@@ -58,7 +66,7 @@ export async function obtenerDestinoCobroTrabajo(admin: any, trabajo: TrabajoCob
   if (!destino) throw new Error("El titular del servicio aún no ha configurado su cuenta de cobros. No se realizará ningún cargo.")
   const cuenta = await stripe.accounts.retrieve(destino)
   const contratoHistorico = !trabajo.actor_contratacion_id && !trabajo.proveedor_cobros_usuario_id && !empresaId
-  validarCuentaCobroContrato(cuenta, titularId, empresaId, contratoHistorico)
+  validarCuentaCobroContrato(cuenta, titularId, empresaId, contratoHistorico, trabajo.proveedor_tipo)
   if (cuenta.deleted || !cuenta.details_submitted || cuenta.capabilities?.transfers !== "active" || !cuenta.payouts_enabled) {
     throw new Error("La cuenta de cobros del titular del servicio aún no está habilitada. No se realizará ningún cargo.")
   }

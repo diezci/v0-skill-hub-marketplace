@@ -26,6 +26,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     }
     const result = await obtenerProfesionalPorId(id)
 
+    if ("noPublicable" in result && result.noPublicable) {
+      return { title: t("Perfil no encontrado | Diime"), robots: { index: false, follow: false } }
+    }
+
     if (!result.data) {
       const miembro = await obtenerEmpleadoEmpresa(id)
       if (miembro) return { title: `${miembro.perfil.nombre} - ${miembro.empresa.empresa.nombre} | Diime`, description: miembro.perfil.bio }
@@ -37,6 +41,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
     return {
       title: `${nombre} - ${profile.titulo || t("Profesional")} | Diime`,
+      ...(!profile.verificado ? { robots: { index: false, follow: false } } : {}),
       description: `${profile.perfil?.bio || t("Profesional en Diime")} - ${t(profile.proyectos_completados === 1 ? "{cantidad} proyecto completado." : "{cantidad} proyectos completados.", { cantidad: profile.proyectos_completados || 0 })}`,
     }
   } catch {
@@ -72,6 +77,9 @@ export default async function ProfilePage({
     if (afiliacion) return <PerfilMiembro perfil={afiliacion.perfil} empresa={afiliacion.empresa} />
     notFound()
   }
+
+  // Una afiliación histórica no permite publicar una ficha aún sin acreditar.
+  if (result && "noPublicable" in result && result.noPublicable) notFound()
 
   if (!result?.data) {
     if (afiliacion) return <PerfilMiembro perfil={afiliacion.perfil} empresa={afiliacion.empresa} />
@@ -114,6 +122,7 @@ export default async function ProfilePage({
       categoria: item.categoria,
       imagen: item.imagen || "",
       trabajo_id: item.trabajo_id,
+      acreditacion: item.acreditacion,
       contexto_proveedor: item.contexto_proveedor,
       ubicacion: item.ubicacion,
       duracion: item.duracion,

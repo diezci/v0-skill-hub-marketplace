@@ -178,4 +178,38 @@ await check('Webhook rejects a Checkout whose economic recipient differs from th
   }), /titular de cobros/)
   assert.equal(f.movements.length, 0)
 })
+const unifiedAccount = { ...account, metadata: { diime_profesional_id: 'provider-employee', diime_proveedor_tipo: 'profesional_empresa' } }
+const unifiedWork = { ...trabajo, empresa_proveedora_id: null, proveedor_cobros_usuario_id: 'provider-employee', proveedor_tipo: 'empresa' }
+await check('A unified company contract validates its frozen legal type without current profile reads', async () => {
+  const f = setup(unifiedAccount)
+  const result = await f.cobros.obtenerDestinoCobroTrabajo({ from() { throw Error('Current identity must not replace contract identity') } }, unifiedWork)
+  assert.equal(result.destino, 'acct_company'); assert.equal(result.titularId, 'provider-employee'); assert.equal(result.empresaId, null)
+})
+await check('A frozen company type rejects personal, legacy company, wrong-owner and deleted destinations', async () => {
+  for (const override of [{ business_type: 'individual' }, { metadata: account.metadata }, { metadata: { ...unifiedAccount.metadata, diime_profesional_id: 'other' } }, { deleted: true }]) {
+    const f = setup({ ...unifiedAccount, ...override })
+    await assert.rejects(() => f.cobros.obtenerDestinoCobroTrabajo(f.admin, unifiedWork))
+  }
+  const f = setup(unifiedAccount)
+  await assert.rejects(() => f.cobros.obtenerDestinoCobroTrabajo(f.admin, { ...unifiedWork, proveedor_tipo: 'particular' }))
+})
+const unifiedEscrow = { ...escrow, liquidacion_contexto: { destino: 'acct_company', proveedor_tipo: 'empresa', proveedor_cobros_usuario_id: 'provider-employee' } }
+await check('Unified-company settlement validates the frozen recipient and labels its transfer correctly', async () => {
+  const f = setup(unifiedAccount)
+  await f.flujo.liquidarPagoReclamado(f.admin, unifiedEscrow)
+  assert.deepEqual(f.reads, ['acct_company']); assert.equal(f.movements.length, 1)
+  assert.equal(f.movements[0].connectedAccountId, 'acct_company')
+  assert.equal(f.movements[0].metadata.diime_proveedor_tipo, 'profesional_empresa')
+  assert.equal(f.movements[0].metadata.proveedor_cobros_usuario_id, 'provider-employee')
+})
+await check('Unified-company settlement stops before any money movement when recipient identity mismatches', async () => {
+  const f = setup({ ...unifiedAccount, business_type: 'individual' })
+  await assert.rejects(() => f.flujo.liquidarPagoReclamado(f.admin, unifiedEscrow))
+  assert.equal(f.movements.length, 0)
+})
+await check('Completed unified-company transfers can repair DB closure without issuing another transfer', async () => {
+  const f = setup({ ...unifiedAccount, deleted: true })
+  await f.flujo.liquidarPagoReclamado(f.admin, { ...unifiedEscrow, liquidacion_estado: 'completada', stripe_transfer_id: 'transfer' })
+  assert.equal(f.reads.length, 0); assert.equal(f.movements.length, 0); assert.equal(f.rpcCalls.length, 1)
+})
 console.log(`${passed} company payment scenarios passed without network or money movements.`)

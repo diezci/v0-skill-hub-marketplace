@@ -26,6 +26,7 @@ export async function crearItemPortfolio(data: {
   duracion?: string
   presupuesto?: string
   trabajo_id?: string
+  evidencia_acreditacion?: string
   contexto_proveedor?: string
 }) {
   const supabase = await createClient()
@@ -44,6 +45,10 @@ export async function crearItemPortfolio(data: {
   let ubicacion = data.ubicacion?.trim() || null
   if (!titulo || !descripcion) {
     return { error: await textoServidor("Completa título y descripción.") }
+  }
+  if ((data.evidencia_acreditacion !== undefined && (typeof data.evidencia_acreditacion !== "string" || data.evidencia_acreditacion.length > 4000))
+    || (!data.trabajo_id && (!data.evidencia_acreditacion || data.evidencia_acreditacion.trim().length < 20))) {
+    return { error: await textoServidor("Añade referencias o evidencias del proyecto (20–4.000 caracteres).") }
   }
   const errorModeracion = errorContenidoProhibido(titulo, descripcion, data.contexto_proveedor)
   if (errorModeracion) return { error: await textoServidor(errorModeracion) }
@@ -84,6 +89,7 @@ export async function crearItemPortfolio(data: {
       presupuesto: parsePresupuesto(data.presupuesto),
       fecha_proyecto: data.fecha_completado || null,
       contexto_proveedor: data.contexto_proveedor?.trim() || null,
+      ...(data.evidencia_acreditacion !== undefined ? { evidencia_acreditacion: data.evidencia_acreditacion.trim() || null } : {}),
     })
     .select("id")
     .single()
@@ -109,6 +115,7 @@ export async function actualizarItemPortfolio(
     duracion?: string
     presupuesto?: string
     trabajo_id?: string
+    evidencia_acreditacion?: string
     contexto_proveedor?: string
   },
 ) {
@@ -126,6 +133,10 @@ export async function actualizarItemPortfolio(
   let ubicacion = data.ubicacion?.trim() || null
   if (!titulo || !descripcion) {
     return { error: await textoServidor("Completa título y descripción.") }
+  }
+  if ((data.evidencia_acreditacion !== undefined && (typeof data.evidencia_acreditacion !== "string" || data.evidencia_acreditacion.length > 4000))
+    || (!data.trabajo_id && (!data.evidencia_acreditacion || data.evidencia_acreditacion.trim().length < 20))) {
+    return { error: await textoServidor("Añade referencias o evidencias del proyecto (20–4.000 caracteres).") }
   }
   const errorModeracion = errorContenidoProhibido(titulo, descripcion, data.contexto_proveedor)
   if (errorModeracion) return { error: await textoServidor(errorModeracion) }
@@ -163,6 +174,7 @@ export async function actualizarItemPortfolio(
       presupuesto: parsePresupuesto(data.presupuesto),
       fecha_proyecto: data.fecha_completado || null,
       contexto_proveedor: data.contexto_proveedor?.trim() || null,
+      ...(data.evidencia_acreditacion !== undefined ? { evidencia_acreditacion: data.evidencia_acreditacion.trim() || null } : {}),
     })
     .eq("id", itemId)
     .eq("profesional_id", user.id)
@@ -212,7 +224,9 @@ export async function obtenerPortfolioPorProfesional(profesionalId: string) {
     return { error: await textoServidor(error.message) }
   }
 
-  return { data }
+  const { data: revisiones, error: revisionError } = await supabase.rpc("mis_acreditaciones_portfolio")
+  if (revisionError) return { error: await textoServidor(revisionError.message) }
+  return { data: (data || []).map((item: any) => ({ ...item, ...(revisiones || []).find((revision: any) => revision.id === item.id) })) }
 }
 
 export async function eliminarItemPortfolio(itemId: string) {

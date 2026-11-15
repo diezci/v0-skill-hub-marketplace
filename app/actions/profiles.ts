@@ -21,7 +21,7 @@ export async function obtenerProfesionales(filtros?: {
     return { error: await textoServidor("Base de datos no disponible"), data: [] }
   }
 
-  // Todos los que tienen ficha de profesional (perfil profesional creado).
+  // El directorio solo publica profesionales acreditados por Diime.
   // `disponible` es lo que deja fuera a quien se ha dado de baja: al eliminar la
   // cuenta la ficha no se borra (arrastraría en cascada los trabajos y facturas
   // del cliente), se vacía y se marca como no disponible. Ver scripts/046.
@@ -29,9 +29,10 @@ export async function obtenerProfesionales(filtros?: {
     .from("profesionales")
     .select(`
       *,
-      perfil:profiles(nombre, apellido, ubicacion, foto_perfil, foto_portada, bio, verificado)
+      perfil:profiles!inner(nombre, apellido, ubicacion, foto_perfil, foto_portada, bio, verificado)
     `)
     .eq("disponible", true)
+    .eq("perfil.verificado", true)
     .order("rating_promedio", { ascending: false })
 
   if (filtros?.rating_min) {
@@ -68,6 +69,19 @@ export async function obtenerProfesionalPorId(id: string) {
     return { error: await textoServidor(profError.message) }
   }
 
+  // La ficha pendiente sigue disponible para su titular y administradores.
+  // Esta frontera de publicación no cambia los contactos de encargos o chats.
+  if (!profesional.perfil?.verificado) {
+    const { data: { user } } = await supabase.auth.getUser()
+    let puedePrevisualizar = user?.id === id
+    if (user && !puedePrevisualizar) {
+      const { data: actor } = await supabase.from("profiles")
+        .select("es_admin, cuenta_eliminada").eq("id", user.id).single()
+      puedePrevisualizar = actor?.es_admin === true && !actor.cuenta_eliminada
+    }
+    if (!puedePrevisualizar) return { error: await textoServidor("Perfil no disponible"), noPublicable: true }
+  }
+
   // La función devuelve solo columnas públicas y un identificador de tramo;
   // nunca entrega el importe guardado en `portfolio.presupuesto`.
   const { data: portfolio } = await supabase.rpc("portfolio_publico", { p_profesional_id: id })
@@ -100,6 +114,7 @@ export async function obtenerProfesionalPorId(id: string) {
       portfolio: (portfolio || []).map((item: any) => ({
         id: item.id,
         trabajo_id: item.trabajo_id,
+        acreditacion: item.trabajo_id ? "diime" : "acreditado",
         titulo: item.titulo,
         descripcion: item.descripcion,
         categoria: item.categoria,
@@ -352,11 +367,13 @@ export async function obtenerProfesionalesDestacados() {
     }
 
     try {
-      // First, get professionals
+      // Filtrar antes del límite evita que fichas pendientes desplacen a las
+      // acreditadas y que una segunda consulta incompleta publique un perfil.
       const { data: profesionales, error: profError } = await supabase
         .from("profesionales")
-        .select('id, titulo, tarifa_por_hora, rating_promedio, "total_reseñas", disponible')
+        .select('id, titulo, tarifa_por_hora, rating_promedio, "total_reseñas", disponible, perfil:profiles!inner(nombre, apellido, foto_perfil, foto_portada, ubicacion, verificado)')
         .eq("disponible", true)
+        .eq("perfil.verificado", true)
         .order("total_reseñas", { ascending: false })
         .limit(6)
 
@@ -368,22 +385,8 @@ export async function obtenerProfesionalesDestacados() {
         return []
       }
 
-      // Then get profiles for these professionals
-      const profIds = profesionales.map(p => p.id)
-      const { data: profiles, error: profilesError } = await supabase
-        .from("profiles")
-        .select("id, nombre, apellido, foto_perfil, foto_portada, ubicacion, verificado")
-        .in("id", profIds)
-
-      if (profilesError) {
-        // Continue with available data
-      }
-
-      // Create a map for quick profile lookup
-      const profilesMap = new Map((profiles || []).map(p => [p.id, p]))
-
       return profesionales.map((prof: any) => {
-        const profile = profilesMap.get(prof.id)
+        const profile = prof.perfil
         return {
           id: prof.id,
           titulo_profesional: prof.titulo || "Profesional",

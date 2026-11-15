@@ -12,6 +12,8 @@ function cargar(ruta, dependencias) {
     exports: modulo.exports, module: modulo,
     require(nombre) {
       if (nombre in dependencias) return dependencias[nombre]
+      if (nombre === "@/lib/empresas/avisos-demanda") return { destinatariosDemandaEmpresa: async () => [] }
+      if (nombre === "@/lib/producto") return { EMPRESA_ESPECIALIZADA_HABILITADA: true }
       if (nombre === "@/lib/i18n-servidor") return { textoServidor: async texto => texto, idiomaActual: async () => "es" }
       if (nombre === "@/lib/auth-redirect") return cargar("lib/auth-redirect.ts", {})
       if (nombre === "@/lib/notificaciones-contexto") return cargar("lib/notificaciones-contexto.ts", {})
@@ -32,7 +34,7 @@ function cliente({ user = { id: "yo", email: "yo@example.test" }, tablas = {}, r
       getUser: async () => ({ data: { user } }),
       updateUser: async (datos) => { llamadas.push(["metadata", datos]); return { error: null } },
     },
-    rpc: async (...args) => { llamadas.push(["rpc", ...args]); return rpc },
+    rpc: async (...args) => { llamadas.push(["rpc", ...args]); return args[0] === "mi_identidad_proveedor_cobros" ? { data: { tipo_proveedor: "particular", nombre_legal: "Ana Prueba", version: 0, verificado: true } } : rpc },
     from(tabla) {
       const consulta = { tabla, operacion: "select" }
       const cadena = {
@@ -77,7 +79,7 @@ for (const [propietario, estado, permitido] of [["otro", "abierta", false], ["yo
   const acciones = cargar("app/actions/invitaciones.ts", {
     "@/lib/supabase/server": { createClient: async () => sesion },
     "@/lib/supabase/admin": { createAdminClient: () => admin },
-    "@/lib/filtros-notificaciones": { encajaEnPresupuestoDeAvisos: () => true },
+    "@/lib/filtros-notificaciones": { encajaEnPresupuestoDeAvisos: () => true, cubreZonaDeAvisos: () => true },
     "@/lib/utils": { formatearRangoPresupuesto: () => "100 €" },
     "@/lib/emails/enviar": { enviarAvisoPorEmail: async () => {} },
   })
@@ -136,7 +138,7 @@ for (const empresa of [null, "empresa-1"]) {
   assert.ok((await acciones.crearEnlaceOnboardingStripe()).data)
   assert.equal(creadas[0].business_type, "individual", "Membership does not change personal legal identity")
   assert.equal(creadas[0].business_profile.name, "Ana Prueba")
-  assert.equal(admin.llamadas.filter(([op, name]) => op === "rpc" && name === "registrar_cuenta_stripe_personal").length, 1)
+  assert.equal(admin.llamadas.filter(([op, name]) => op === "rpc" && name === "registrar_cuenta_stripe_proveedor").length, 1)
   assert.equal(sesion.llamadas.some(([op]) => op === "update"), false)
 }
 {

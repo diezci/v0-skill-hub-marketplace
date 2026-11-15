@@ -1,6 +1,8 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import vm from "node:vm"
+import * as crypto from "node:crypto"
+import { File } from "node:buffer"
 import ts from "typescript"
 
 // Ejecuta las acciones reales con dependencias cerradas: sin red, correos ni BD.
@@ -9,12 +11,18 @@ const codigo = ts.transpileModule(readFileSync(new URL(`../${ruta}`, import.meta
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText
 
+const archivosModulo = { exports: {} }
+vm.runInNewContext(ts.transpileModule(readFileSync(new URL("../lib/archivos.ts", import.meta.url), "utf8"), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+}).outputText, { exports: archivosModulo.exports, module: archivosModulo, Uint8Array })
+
 const PROVEEDOR = "11111111-1111-4111-8111-111111111111"
 const AJENO = "22222222-2222-4222-8222-222222222222"
 const ADMIN = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 const EMPRESA = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 const NOTA_INTERNA = "NOTA_RESERVADA_SOLO_ADMIN_67439"
-const normalizar = (valor) => JSON.parse(JSON.stringify(valor))
+const normalizar = (valor) => valor === undefined ? undefined : JSON.parse(JSON.stringify(valor))
+const ACREDITACION = { tipoProveedor: "particular", nombreLegal: "Persona Prueba", nif: "12345678Z", domicilioFiscal: "Calle Prueba 1", actividad: "Montaje", cualificacion: "Experiencia documentada", documentos: [{ categoria: "identidad", url: "acreditacion://dddddddd-dddd-4ddd-8ddd-dddddddddddd", nombre: "id.pdf" }, { categoria: "cualificacion", url: "acreditacion://eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", nombre: "experiencia.pdf" }], consentimiento: true }
 
 function solicitud(profesionalId, overrides = {}) {
   return {
@@ -48,7 +56,7 @@ function preparar(opciones = {}) {
     ],
     ...opciones.tablas,
   }
-  const consultas = [], rpcs = [], revalidaciones = [], avisos = [], eventos = []
+  const consultas = [], rpcs = [], revalidaciones = [], avisos = [], eventos = [], storage = []
   let lecturasSesion = 0
 
   function consultar(tabla) {
@@ -114,14 +122,33 @@ function preparar(opciones = {}) {
       if (nombre === "contacto_perfiles") {
         return { data: parametros.p_ids.map((id) => ({ id, email: `${id}@example.test`, telefono: "600000000" })), error: null }
       }
-      if (["solicitar_verificacion_profesional", "revisar_verificacion_profesional"].includes(nombre)) {
+      if (nombre === "empresa_contexto_actual") {
+        const id = tablas.profiles.find(p => p.id === usuario?.id)?.empresa_id
+        const empresa = tablas.empresas.find(e => e.id === id)
+        return { data: empresa || null, error: id && !empresa ? { message: "Empresa no disponible" } : null }
+      }
+      if (nombre === "mi_acreditacion_profesional") return { data: { acreditacion: ACREDITACION, identidadCobrosBloqueada: false, tipoCobrosBloqueado: false }, error: null }
+      if (nombre === "acreditaciones_profesionales_admin") return { data: parametros.p_ids.map(id => ({ profesional_id: id, acreditacion: ACREDITACION, identidadCobrosBloqueada: true, tipoCobrosBloqueado: true, cuentaStripe: "acct_test" })), error: null }
+      if (nombre === "documento_acreditacion_profesional_metadata") return { data: { storage_path: `${PROVEEDOR}/documento.pdf`, nombre: "documento.pdf" }, error: null }
+      if (["solicitar_acreditacion_profesional", "revisar_acreditacion_profesional"].includes(nombre)) {
         return { data: true, error: null }
       }
       throw new Error(`RPC no simulada: ${nombre}`)
     },
   }
 
+  const admin = {
+    storage: { from(bucket) { return {
+      async upload(ruta, bytes, options) { storage.push({ tipo: "upload", bucket, ruta, bytes, options }); return { error: opciones.errorSubida || null } },
+      async remove(rutas) { storage.push({ tipo: "remove", bucket, rutas }); return { error: null } },
+      async createSignedUrl(ruta, ttl, options) { storage.push({ tipo: "signed", bucket, ruta, ttl, options }); return opciones.errorFirma ? { data: null, error: opciones.errorFirma } : { data: { signedUrl: "https://storage.test/private-signed" }, error: null } },
+    } } },
+    async rpc(nombre, parametros) { rpcs.push({ nombre, parametros }); return { data: null, error: opciones.errorRegistro || null } },
+  }
   const dependencias = {
+    "node:crypto": crypto,
+    "@/lib/archivos": archivosModulo.exports,
+    "@/lib/supabase/admin": { createAdminClient: () => opciones.sinAlmacenamiento ? null : admin },
     "@/lib/i18n-servidor": { textoServidor: async (texto) => texto },
     "next/cache": { revalidatePath(ruta) { revalidaciones.push(ruta); eventos.push({ tipo: "revalidacion", ruta }) } },
     "@/lib/supabase/server": { createClient: async () => opciones.sinConexion ? null : supabase },
@@ -135,14 +162,14 @@ function preparar(opciones = {}) {
   }
   const modulo = { exports: {} }
   vm.runInNewContext(codigo, {
-    exports: modulo.exports, module: modulo,
+    exports: modulo.exports, module: modulo, File, Buffer,
     console: { error() {}, info() {} },
     require(nombre) {
       if (nombre in dependencias) return dependencias[nombre]
       throw new Error(`Dependencia sin simular: ${nombre}`)
     },
   }, { filename: ruta })
-  return { acciones: modulo.exports, consultas, rpcs, revalidaciones, avisos, eventos, lecturasSesion: () => lecturasSesion }
+  return { acciones: modulo.exports, consultas, rpcs, revalidaciones, avisos, eventos, storage, lecturasSesion: () => lecturasSesion }
 }
 
 function conError(resultado) {
@@ -158,7 +185,7 @@ function sinEfectos(f) {
   assert.equal(f.avisos.length, 0)
 }
 
-const revisionValida = { profesionalId: PROVEEDOR, estado: "verificado", actualizadaAt: "2026-09-09T20:00:00Z" }
+const revisionValida = { profesionalId: PROVEEDOR, estado: "verificado", actualizadaAt: "2026-09-09T20:00:00Z", identidadComprobada: true, cualificacionComprobada: true, notaInterna: "Identidad y cualificación comprobadas con evidencias." }
 let casos = 0
 async function comprobar(nombre, prueba) {
   await prueba()
@@ -168,7 +195,7 @@ async function comprobar(nombre, prueba) {
 
 for (const [nombre, invocar] of [
   ["consulta propia", (a) => a.obtenerMiVerificacionProfesional()],
-  ["solicitud", (a) => a.solicitarVerificacionProfesional("")],
+  ["solicitud", (a) => a.solicitarVerificacionProfesional("", ACREDITACION)],
   ["listado administrativo", (a) => a.obtenerSolicitudesVerificacionAdmin()],
   ["historial", (a) => a.obtenerHistorialVerificacionAdmin(PROVEEDOR)],
   ["revisión", (a) => a.revisarVerificacionProfesional(revisionValida)],
@@ -183,7 +210,7 @@ for (const [nombre, invocar] of [
 
 await comprobar("Una sesión con error no se usa aunque incluya un usuario", async () => {
   const f = preparar({ errorSesion: { message: "Sesión inválida" } })
-  conError(await f.acciones.solicitarVerificacionProfesional("Mensaje"))
+  conError(await f.acciones.solicitarVerificacionProfesional("Mensaje", ACREDITACION))
   assert.equal(f.consultas.length, 0)
   sinEfectos(f)
 })
@@ -219,7 +246,7 @@ await comprobar("Un error al comprobar el administrador impide acceder a datos p
 await comprobar("Una cuenta cliente sin perfil profesional recibe un error", async () => {
   const f = preparar({ tablas: { profesionales: [] } })
   conError(await f.acciones.obtenerMiVerificacionProfesional())
-  sinEfectos(f)
+  assert.equal(f.revalidaciones.length, 0)
 })
 
 await comprobar("La consulta del proveedor se limita a su identidad y excluye el historial interno", async () => {
@@ -237,14 +264,13 @@ await comprobar("La empresa visible procede del perfil autenticado", async () =>
   const f = preparar({ tablas: { profiles: [{ id: PROVEEDOR, verificado: false, empresa_id: EMPRESA }] } })
   const resultado = await f.acciones.obtenerMiVerificacionProfesional()
   assert.deepEqual(normalizar(resultado.data.empresa), { id: EMPRESA, nombre: "Empresa sintética" })
-  const consultaEmpresa = f.consultas.find((q) => q.tabla === "empresas")
-  assert.deepEqual(consultaEmpresa.filtros, [{ tipo: "eq", campo: "id", valor: EMPRESA }])
+  assert.ok(f.rpcs.some(rpc => rpc.nombre === "empresa_contexto_actual"))
 })
 
 await comprobar("Un error en los datos propios no se presenta como ausencia de solicitud", async () => {
   const f = preparar({ errorConsulta: (q) => q.tabla === "solicitudes_verificacion_profesional" ? { code: "42501" } : null })
   conError(await f.acciones.obtenerMiVerificacionProfesional())
-  sinEfectos(f)
+  assert.equal(f.revalidaciones.length, 0)
 })
 
 await comprobar("Una empresa vinculada que no se puede consultar bloquea el resultado incompleto", async () => {
@@ -261,11 +287,11 @@ for (const [nombre, mensaje] of [["mensaje nulo", null], ["identidad en lugar de
   })
 }
 
-await comprobar("Solicitar envía únicamente el mensaje normalizado; no acepta otra identidad", async () => {
+await comprobar("Solicitar envía el expediente y mensaje; la identidad procede de la sesión", async () => {
   const f = preparar()
-  const resultado = await f.acciones.solicitarVerificacionProfesional("  Revisar mi perfil  ", AJENO)
+  const resultado = await f.acciones.solicitarVerificacionProfesional("  Revisar mi perfil  ", ACREDITACION)
   assert.equal(resultado.success, true)
-  assert.deepEqual(f.rpcs, [{ nombre: "solicitar_verificacion_profesional", parametros: { p_mensaje: "Revisar mi perfil" } }])
+  assert.deepEqual(f.rpcs, [{ nombre: "solicitar_acreditacion_profesional", parametros: { p_mensaje: "Revisar mi perfil", p_datos: ACREDITACION } }])
   assert.ok(f.revalidaciones.includes(`/profesional/${PROVEEDOR}`))
   assert.equal(f.revalidaciones.some((ruta) => ruta.includes(AJENO)), false)
   assert.equal(f.avisos.length, 0)
@@ -274,14 +300,14 @@ await comprobar("Solicitar envía únicamente el mensaje normalizado; no acepta 
 await comprobar("El mensaje es opcional y acepta el límite válido de 2.000 caracteres", async () => {
   for (const mensaje of ["", "x".repeat(2000)]) {
     const f = preparar()
-    assert.equal((await f.acciones.solicitarVerificacionProfesional(mensaje)).success, true)
+    assert.equal((await f.acciones.solicitarVerificacionProfesional(mensaje, ACREDITACION)).success, true)
     assert.equal(f.rpcs[0].parametros.p_mensaje, mensaje)
   }
 })
 
 for (const [nombre, invocar, rpc] of [
-  ["solicitud", (a) => a.solicitarVerificacionProfesional("Mensaje"), "solicitar_verificacion_profesional"],
-  ["revisión", (a) => a.revisarVerificacionProfesional(revisionValida), "revisar_verificacion_profesional"],
+  ["solicitud", (a) => a.solicitarVerificacionProfesional("Mensaje", ACREDITACION), "solicitar_acreditacion_profesional"],
+  ["revisión", (a) => a.revisarVerificacionProfesional(revisionValida), "revisar_acreditacion_profesional"],
 ]) {
   for (const [motivo, respuesta] of [["error", { data: null, error: { message: "Operación denegada" } }], ["sin resultado", { data: false, error: null }]]) {
     await comprobar(`La RPC de ${nombre} con ${motivo} no confirma, revalida ni avisa`, async () => {
@@ -305,6 +331,9 @@ for (const [nombre, parametros] of [
   ["comentario demasiado largo", { ...revisionValida, comentarioPublico: "x".repeat(2001) }],
   ["nota demasiado larga", { ...revisionValida, notaInterna: "x".repeat(4001) }],
   ["rechazo sin motivo", { ...revisionValida, estado: "no_aprobado", comentarioPublico: "  " }],
+  ["aprobación sin identidad revisada", { ...revisionValida, identidadComprobada: false }],
+  ["aprobación sin cualificación revisada", { ...revisionValida, cualificacionComprobada: false }],
+  ["aprobación sin comprobaciones detalladas", { ...revisionValida, notaInterna: "Breve" }],
   ["retirada sin motivo", { ...revisionValida, estado: "retirada", comentarioPublico: "" }],
 ]) {
   await comprobar(`La revisión rechaza ${nombre} antes de consultar datos`, async () => {
@@ -359,7 +388,7 @@ await comprobar("Una revisión obsoleta rechazada bajo bloqueo no anuncia ni pub
   const f = preparar({
     usuario: { id: ADMIN },
     tablas: { solicitudes_verificacion_profesional: [solicitud(PROVEEDOR, { actualizada_at: "2026-09-09T21:00:00Z" })] },
-    respuestasRpc: { revisar_verificacion_profesional: { data: null, error: { code: "40001", message: "La solicitud ha cambiado" } } },
+    respuestasRpc: { revisar_acreditacion_profesional: { data: null, error: { code: "40001", message: "La solicitud ha cambiado" } } },
   })
   conError(await f.acciones.revisarVerificacionProfesional(revisionValida))
   assert.equal(f.rpcs[0].parametros.p_actualizada_at, revisionValida.actualizadaAt)
@@ -413,7 +442,9 @@ await comprobar("El listado administrativo obtiene el contacto por RPC y relacio
   assert.equal(resultado.data[0].email, `${PROVEEDOR}@example.test`)
   assert.equal(resultado.data[0].telefono, "600000000")
   assert.equal(resultado.data[0].empresa_nombre, "Empresa sintética")
-  assert.deepEqual(f.rpcs, [{ nombre: "contacto_perfiles", parametros: { p_ids: [PROVEEDOR] } }])
+  assert.deepEqual(f.rpcs.map(r => r.nombre), ["contacto_perfiles", "acreditaciones_profesionales_admin"])
+  assert.equal(resultado.data[0].cuentaStripe, "acct_test")
+  assert.deepEqual(normalizar(resultado.data[0].acreditacion), ACREDITACION)
   assert.equal(f.consultas.some((q) => q.tabla === "profiles" && /email|telefono/.test(q.columnas)), false)
 })
 
@@ -441,6 +472,89 @@ await comprobar("El listado no pierde las solicitudes que superan una página de
   const contactos = f.rpcs.filter((rpc) => rpc.nombre === "contacto_perfiles")
   assert.equal(new Set(contactos.flatMap((rpc) => rpc.parametros.p_ids)).size, 201)
   assert.equal(contactos.some((rpc) => rpc.parametros.p_ids.includes(AJENO)), false)
+})
+
+await comprobar("Un mensaje sin expediente no puede solicitar acreditación", async () => {
+  const f = preparar()
+  conError(await f.acciones.solicitarVerificacionProfesional("Revisar"))
+  sinEfectos(f)
+})
+
+const formulario = (file, categoria = "identidad") => ({ get: key => key === "file" ? file : key === "categoria" ? categoria : null })
+const pdf = () => new File(["%PDF-1.7\nDocumento sintético de prueba"], "identidad.pdf", { type: "application/pdf" })
+for (const [nombre, file, categoria] of [
+  ["sin archivo", null, "identidad"],
+  ["contenido no PDF con extensión PDF", new File(["<script>contenido</script>"], "falso.pdf", { type: "application/pdf" }), "identidad"],
+  ["imagen con formato permitido para otros adjuntos", new File([new Uint8Array([255, 216, 255, 0, 0, 0])], "foto.jpg"), "identidad"],
+  ["PDF de 4 MiB más un byte", new File(["%PDF-", new Uint8Array(4 * 1024 * 1024 - 4)], "grande.pdf"), "identidad"],
+  ["PDF del antiguo límite de 5 MiB", new File(["%PDF-", new Uint8Array(5 * 1024 * 1024 - 5)], "limite-anterior.pdf"), "identidad"],
+  ["categoría desconocida", pdf(), "publico"],
+]) await comprobar(`No sube ${nombre}`, async () => {
+  const f = preparar()
+  conError(await f.acciones.subirDocumentoAcreditacionProfesional(formulario(file, categoria)))
+  assert.equal(f.storage.length, 0)
+  assert.equal(f.rpcs.length, 0)
+})
+await comprobar("Subida sin sesión no escribe ni registra archivos", async () => {
+  const f = preparar({ usuario: null })
+  conError(await f.acciones.subirDocumentoAcreditacionProfesional(formulario(pdf())))
+  assert.equal(f.storage.length, 0)
+  sinEfectos(f)
+})
+await comprobar("PDF válido se guarda privado con propietario derivado de sesión y referencia canónica", async () => {
+  const f = preparar(), file = pdf()
+  const resultado = await f.acciones.subirDocumentoAcreditacionProfesional(formulario(file))
+  assert.match(resultado.data.url, /^acreditacion:\/\/[0-9a-f-]{36}$/)
+  assert.equal(resultado.data.categoria, "identidad")
+  const upload = f.storage[0], registro = f.rpcs[0]
+  assert.equal(upload.bucket, "acreditaciones-profesionales")
+  assert.equal(upload.options.upsert, false)
+  assert.equal(upload.ruta, `${PROVEEDOR}/${resultado.data.url.slice(15)}.pdf`)
+  assert.equal(registro.nombre, "registrar_documento_acreditacion_profesional")
+  assert.equal(registro.parametros.p_usuario_id, PROVEEDOR)
+  assert.equal(registro.parametros.p_sha256, crypto.createHash("sha256").update(Buffer.from(await file.arrayBuffer())).digest("hex"))
+  assert.equal(JSON.stringify(resultado).includes("https://"), false)
+})
+await comprobar("PDF de exactamente 4 MiB se admite y registra su tamaño exacto", async () => {
+  const f = preparar()
+  const file = new File(["%PDF-", new Uint8Array(4 * 1024 * 1024 - 5)], "limite.pdf", { type: "application/pdf" })
+  assert.equal(file.size, 4 * 1024 * 1024)
+  const resultado = await f.acciones.subirDocumentoAcreditacionProfesional(formulario(file))
+  assert.equal(resultado.error, undefined)
+  assert.match(resultado.data.url, /^acreditacion:\/\/[0-9a-f-]{36}$/)
+  assert.equal(f.storage[0].bytes.length, file.size)
+  assert.equal(f.rpcs[0].parametros.p_bytes, file.size)
+})
+await comprobar("Registro fallido limpia el PDF recién subido y no devuelve referencia utilizable", async () => {
+  const f = preparar({ errorRegistro: { message: "error" } })
+  conError(await f.acciones.subirDocumentoAcreditacionProfesional(formulario(pdf())))
+  assert.equal(f.storage[1].tipo, "remove")
+  assert.deepEqual(normalizar(f.storage[1].rutas), [f.storage[0].ruta])
+})
+await comprobar("Fallo de almacenamiento no registra metadata", async () => {
+  const f = preparar({ errorSubida: { message: "error" } })
+  conError(await f.acciones.subirDocumentoAcreditacionProfesional(formulario(pdf())))
+  assert.equal(f.rpcs.length, 0)
+})
+await comprobar("La apertura rechaza URLs externas antes de firmar", async () => {
+  const f = preparar()
+  conError(await f.acciones.abrirDocumentoAcreditacionProfesional("https://otro.test/documento.pdf"))
+  assert.equal(f.storage.length, 0)
+  sinEfectos(f)
+})
+await comprobar("La referencia ajena rechazada por SQL nunca recibe URL firmada", async () => {
+  const f = preparar({ respuestasRpc: { documento_acreditacion_profesional_metadata: { data: null, error: null } } })
+  conError(await f.acciones.abrirDocumentoAcreditacionProfesional(ACREDITACION.documentos[0].url))
+  assert.equal(f.storage.length, 0)
+})
+await comprobar("Solo la referencia autorizada por SQL se firma durante 60 segundos", async () => {
+  const f = preparar()
+  const resultado = await f.acciones.abrirDocumentoAcreditacionProfesional(ACREDITACION.documentos[0].url)
+  assert.equal(resultado.data.url, "https://storage.test/private-signed")
+  assert.equal(f.rpcs[0].nombre, "documento_acreditacion_profesional_metadata")
+  assert.equal(f.storage[0].bucket, "acreditaciones-profesionales")
+  assert.equal(f.storage[0].ttl, 60)
+  assert.equal(f.storage[0].ruta, `${PROVEEDOR}/documento.pdf`)
 })
 
 console.log(`${casos} pruebas de acciones de verificación completadas, sin red ni base de datos.`)

@@ -47,6 +47,9 @@ function loadModules(overrides = {}, ui = {}) {
     const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText
     const customRequire = (name) => {
       if (ui.mockModules && Object.hasOwn(ui.mockModules, name)) return ui.mockModules[name]
+      // These legacy permission scenarios also cover the retained, reactivatable
+      // onboarding implementation. The default-off boundary has its own suite.
+      if (name === '@/lib/producto') return { EMPRESA_ESPECIALIZADA_HABILITADA: true }
       if (name.endsWith('.module.css')) return { __esModule: true, default: new Proxy({}, { get: (_, key) => String(key) }) }
       if (name === 'server-only') return {}
       if (name === 'react' && ui.react) return { ...React, ...ui.react }
