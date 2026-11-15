@@ -72,13 +72,13 @@ export async function liquidarPagoReclamado(admin: any, escrow: any) {
       .eq("estado", "resuelta").eq("stripe_disputa_estado", "won")
       .eq("contracargo_conciliacion->>estado", "completada")
     if (bancosError) throw bancosError
-    if (contexto.empresa_proveedora_id && Number(escrow.pago_neto_proveedor) > 0 &&
+    if ((contexto.empresa_proveedora_id || contexto.proveedor_tipo) && Number(escrow.pago_neto_proveedor) > 0 &&
       escrow.liquidacion_estado !== "completada" && !escrow.stripe_transfer_id) {
       if (!contexto.destino) {
         throw new Error("La liquidación no tiene el destinatario de empresa fijado.")
       }
       const cuenta = await stripe.accounts.retrieve(contexto.destino)
-      validarCuentaCobroContrato(cuenta, contexto.proveedor_cobros_usuario_id || null, contexto.empresa_proveedora_id)
+      validarCuentaCobroContrato(cuenta, contexto.proveedor_cobros_usuario_id || (contexto.empresa_proveedora_id ? null : escrow.profesional_id), contexto.empresa_proveedora_id, false, contexto.proveedor_tipo)
     }
     const movimientos = escrow.liquidacion_estado === "completada"
       ? {
@@ -108,6 +108,10 @@ export async function liquidarPagoReclamado(admin: any, escrow: any) {
               empresa_proveedora_id: contexto.empresa_proveedora_id,
               diime_proveedor_tipo: "empresa",
               ...(contexto.proveedor_cobros_usuario_id ? { proveedor_cobros_usuario_id: contexto.proveedor_cobros_usuario_id } : {}),
+            } : {}),
+            ...(!contexto.empresa_proveedora_id && contexto.proveedor_tipo ? {
+              diime_proveedor_tipo: contexto.proveedor_tipo === "empresa" ? "profesional_empresa" : "personal",
+              proveedor_cobros_usuario_id: contexto.proveedor_cobros_usuario_id || escrow.profesional_id,
             } : {}),
             ...(contexto.disputa_id ? { disputa_id: contexto.disputa_id } : {}),
           },

@@ -7,6 +7,7 @@ import { vistaPreviaEmpresaReal } from "@/lib/empresas/production-store"
 import { getT } from "@/lib/i18n-servidor"
 import { idNotificacionValido } from "@/lib/notificaciones-contexto"
 import type { EmpresaPublica, OperacionInicialEmpresa } from "@/lib/empresas/types"
+import { EMPRESA_ESPECIALIZADA_HABILITADA } from "@/lib/producto"
 
 export const dynamic = "force-dynamic"
 
@@ -20,7 +21,10 @@ export default async function MiEmpresaPage({ searchParams }: { searchParams: Pr
     const next = `/mi-empresa${query.size ? `?${query}` : ""}`
     redirect(`/auth/login?next=${encodeURIComponent(next)}`)
   }
-  if (resultado.codigo === "SIN_EMPRESA") return <RegistroEmpresaLegacy />
+  if (resultado.codigo === "SIN_EMPRESA") {
+    if (!EMPRESA_ESPECIALIZADA_HABILITADA) redirect("/mi-perfil")
+    return <RegistroEmpresaLegacy />
+  }
   const { t } = await getT()
   if (resultado.error || !resultado.data) {
     return <div className="container mx-auto max-w-xl px-4 py-16 text-center">

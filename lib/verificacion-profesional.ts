@@ -16,9 +16,13 @@ export type MiVerificacionProfesional = {
   verificado: boolean
   solicitud: SolicitudVerificacionProfesional | null
   empresa: { id: string; nombre: string } | null
+  acreditacion: DatosAcreditacionProfesional | null
+  identidadCobrosBloqueada: boolean
+  tipoCobrosBloqueado: boolean
 }
 
 export type VerificacionAdmin = SolicitudVerificacionProfesional & {
+  cuentaStripe: string | null
   nombre: string
   apellido: string
   email: string
@@ -27,6 +31,9 @@ export type VerificacionAdmin = SolicitudVerificacionProfesional & {
   verificado: boolean
   empresa_nombre: string | null
   cargo_empresa: string | null
+  acreditacion: DatosAcreditacionProfesional | null
+  identidadCobrosBloqueada: boolean
+  tipoCobrosBloqueado: boolean
 }
 
 export type EventoVerificacionProfesional = {
@@ -43,4 +50,31 @@ export const etiquetasVerificacion: Record<EstadoVerificacionProfesional, string
   verificado: "Verificado por Diime",
   no_aprobado: "Necesita corrección",
   retirada: "Verificación retirada",
+}
+
+export type TipoProveedorProfesional = "particular" | "empresa"
+export type DocumentoAcreditacionProfesional = {
+  categoria: "identidad" | "cualificacion" | "representacion"
+  url: string
+  nombre: string
+}
+export type DatosAcreditacionProfesional = {
+  tipoProveedor: TipoProveedorProfesional
+  nombreLegal: string
+  nif: string
+  domicilioFiscal: string
+  actividad: string
+  cualificacion: string
+  representanteNombre?: string
+  cargoRepresentacion?: string
+  documentos: DocumentoAcreditacionProfesional[]
+  consentimiento: boolean
+}
+export type IdentidadProveedorCobros = {
+  tipo_proveedor: TipoProveedorProfesional
+  nombre_legal: string
+  nif: string | null
+  domicilio_fiscal: string | null
+  verificado: boolean
+  version: number
 }

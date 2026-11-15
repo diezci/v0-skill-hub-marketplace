@@ -142,6 +142,7 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
   const [isUploading, setIsUploading] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const [tienePerfilProfesional, setTienePerfilProfesional] = useState(false)
+  const [revisionAcreditacion, setRevisionAcreditacion] = useState(0)
   const mostrarEditorProfesional = !!adaptador || tienePerfilProfesional || completarProfesional
 
   const [editData, setEditData] = useState<DatosPerfilProfesional>(adaptador?.datos ?? datosInicialesPerfil)
@@ -183,6 +184,7 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
     presupuesto: "",
     trabajo_id: "",
     contexto_proveedor: "",
+    evidencia_acreditacion: "",
   }
   const [newPortfolioItem, setNewPortfolioItem] = useState(PORTFOLIO_VACIO)
   const [propietarioBorrador, setPropietarioBorrador] = useState<string | null>(null)
@@ -354,14 +356,21 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
       return
     }
 
+    if (!adaptador && !newPortfolioItem.trabajo_id && newPortfolioItem.evidencia_acreditacion.trim().length < 20) {
+      toast({ title: t("Añade evidencias"), description: t("Describe cómo podemos comprobar este trabajo, con al menos 20 caracteres."), variant: "destructive" })
+      return
+    }
+
     if (savingPortfolio || uploadingPortfolioImg) return
     const version = versionPortfolio.current
     setSavingPortfolio(true)
     let result: { error?: string }
     try {
+      const { evidencia_acreditacion, ...datosLegacy } = newPortfolioItem
+      const datosProyecto = adaptador ? datosLegacy : newPortfolioItem
       result = editingPortfolioId
-        ? await (adaptador?.actualizarProyecto ?? actualizarItemPortfolio)(editingPortfolioId, newPortfolioItem)
-        : await (adaptador?.crearProyecto ?? crearItemPortfolio)(newPortfolioItem)
+        ? await (adaptador?.actualizarProyecto ?? actualizarItemPortfolio)(editingPortfolioId, datosProyecto)
+        : await (adaptador?.crearProyecto ?? crearItemPortfolio)(datosProyecto)
     } catch {
       if (versionPortfolio.current === version) {
         toast({ title: t("Error"), description: t("Inténtalo de nuevo en unos segundos."), variant: "destructive" })
@@ -379,7 +388,7 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
 
     toast({
       title: editingPortfolioId ? t("Proyecto actualizado") : t("Proyecto añadido"),
-      description: t("Ya aparece en tu portfolio."),
+      description: t(!adaptador && !newPortfolioItem.trabajo_id ? "Enviado a revisión. Se publicará cuando Diime lo acredite." : "Ya aparece en tu portfolio."),
     })
     renovarFormularioPortfolio()
     if (profesionalId) borrarBorradorPortfolio(almacenBorradorPortfolio(), profesionalId)
@@ -406,6 +415,7 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
       presupuesto: item.presupuesto != null ? String(item.presupuesto) : "",
       trabajo_id: item.trabajo_id || "",
       contexto_proveedor: item.contexto_proveedor || "",
+      evidencia_acreditacion: item.evidencia_acreditacion || "",
     })
     setShowPortfolioDialog(true)
   }
@@ -533,6 +543,7 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
       })
       setSnapshotEdicion(null)
       setIsEditing(false)
+      if (!adaptador) setRevisionAcreditacion(actual => actual + 1)
       if (mostrarEditorProfesional) setTienePerfilProfesional(true)
       if (completarProfesional) router.replace("/mi-perfil")
       router.refresh()
@@ -919,10 +930,10 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
         </div>
       </ProfileHeader>
 
-      {!adaptador && editable && tienePerfilProfesional && !editData.verificado ? (
+      {!adaptador && editable && tienePerfilProfesional ? (
         <div className="px-4 md:px-0">
           <SolicitudVerificacionProfesional
-            key={profesionalId}
+            key={`${profesionalId}-${revisionAcreditacion}`}
             onVerificacionActualizada={actualizarVerificacion}
           />
         </div>
@@ -952,7 +963,7 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
               >
                 {t("Valoraciones")}
               </TabsTrigger>
-              {adaptador && <TabsTrigger value="equipo" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">{t("Equipo")}</TabsTrigger>}
+              {adaptador?.equipo && <TabsTrigger value="equipo" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">{t("Equipo")}</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="sobre-mi" className="space-y-6 pt-6">
@@ -1219,6 +1230,7 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
             </TabsContent>
 
             <TabsContent value="portfolio" className="pt-6">
+              {!adaptador && <p className="mb-4 text-sm text-muted-foreground">{t("Publica trabajos completados en Diime o envía proyectos externos para que nuestro equipo los acredite. Los cambios en un proyecto externo vuelven a revisión.")}</p>}
               {editable && (
                 <div className="flex justify-end mb-4">
                   <Button
@@ -1289,11 +1301,13 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
                       <h4 className="font-semibold">{item.titulo}</h4>
                       {item.trabajo_id ? (
                         <Badge className="mt-2 gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                          <BadgeCheck className="h-3.5 w-3.5" /> {t("Verificado por Diime")}
+                          <BadgeCheck className="h-3.5 w-3.5" /> {t("Realizado en Diime")}
                         </Badge>
                       ) : (
-                        <Badge variant="secondary" className="mt-2">{t("Proyecto externo")}</Badge>
+                        <Badge variant="secondary" className="mt-2">{t(adaptador ? "Proyecto externo" : item.acreditacion === "acreditado" ? "Acreditado por Diime" : item.acreditacion === "requiere_informacion" ? "Necesita información" : "Pendiente de acreditar")}</Badge>
                       )}
+                      {!adaptador && !item.trabajo_id && item.acreditacion !== "acreditado" && <p className="mt-2 text-xs text-muted-foreground">{t("Solo visible para ti hasta que Diime lo acredite.")}</p>}
+                      {!adaptador && item.nota_acreditacion && <p className="mt-2 rounded-md bg-muted p-2 text-xs"><strong>{t("Observación de Diime")}: </strong>{item.nota_acreditacion}</p>}
                       <p className="text-sm text-muted-foreground">{item.descripcion}</p>
                       {item.contexto_proveedor && (
                         <div className="mt-3 border-t pt-3">
@@ -1398,7 +1412,7 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
                 ))}
               </div>
             </TabsContent>
-            {adaptador && <TabsContent value="equipo" className="pt-6">{adaptador.equipo}</TabsContent>}
+            {adaptador?.equipo && <TabsContent value="equipo" className="pt-6">{adaptador.equipo}</TabsContent>}
           </Tabs>
         </div>
 
@@ -1436,7 +1450,7 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
           <DialogHeader>
             <DialogTitle>{editingPortfolioId ? t("Editar proyecto del portfolio") : t("Añadir proyecto al portfolio")}</DialogTitle>
             <DialogDescription>
-              {t("Muestra un trabajo que ya hayas realizado. Aparecerá en tu perfil público.")}
+              {t(adaptador ? "Muestra un trabajo que ya hayas realizado. Aparecerá en tu perfil público." : "Muestra un trabajo realizado en Diime o solicita la acreditación de un proyecto externo.")}
             </DialogDescription>
           </DialogHeader>
 
@@ -1513,6 +1527,16 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
                 <p className="text-xs text-muted-foreground">{t("Este texto lo publicó el cliente y se muestra tal cual en el portfolio.")}</p>
               )}
             </div>
+
+            {!adaptador && !newPortfolioItem.trabajo_id && (
+              <div className="space-y-1.5">
+                <Label htmlFor="pf-evidencias">{t("Referencias y evidencias del trabajo")}</Label>
+                <Textarea id="pf-evidencias" rows={4} minLength={20} maxLength={4000} required value={newPortfolioItem.evidencia_acreditacion}
+                  onChange={(e) => setNewPortfolioItem({ ...newPortfolioItem, evidencia_acreditacion: e.target.value })}
+                  placeholder={t("Indica qué hiciste y cómo podemos comprobarlo: referencia del proyecto, enlace a evidencias o documentación disponible.")} />
+                <p className="text-xs text-muted-foreground">{t("Solo lo verá el equipo de Diime para acreditar este proyecto. No incluyas datos personales de clientes sin su autorización.")}</p>
+              </div>
+            )}
 
             {newPortfolioItem.trabajo_id && (
               <div className="space-y-1.5">
@@ -1649,7 +1673,7 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
                   {t("Guardando...")}
                 </>
               ) : (
-                editingPortfolioId ? t("Guardar proyecto") : t("Añadir proyecto")
+                !adaptador && !newPortfolioItem.trabajo_id ? t("Enviar a acreditación") : editingPortfolioId ? t("Guardar proyecto") : t("Añadir proyecto")
               )}
             </Button>
           </DialogFooter>

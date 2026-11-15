@@ -192,7 +192,7 @@ export async function pagarHito(trabajoId: string, hitoId: string): Promise<{
         actor_pago_id: escrow.actor_pago_id,
         proveedor_cobros_usuario_id: titularId || "", proveedor_stripe_account_id: destino,
         empresa_cliente_id: trabajo.empresa_cliente_id || "", empresa_proveedora_id: trabajo.empresa_proveedora_id || "",
-        diime_proveedor_tipo: trabajo.empresa_proveedora_id ? "empresa" : "personal",
+        diime_proveedor_tipo: trabajo.empresa_proveedora_id ? "empresa" : trabajo.proveedor_tipo === "empresa" ? "profesional_empresa" : "personal",
       }
       // Stable parameters also recover a crash after Stripe accepted the request
       // but before its session ID was saved. Never rotate the idempotency key.

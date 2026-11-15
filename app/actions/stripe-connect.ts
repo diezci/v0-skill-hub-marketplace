@@ -4,7 +4,7 @@ import { textoServidor } from "@/lib/i18n-servidor"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
-import { errorIdentidadCuentaStripe, errorIdentidadCuentaStripeEmpresa } from "@/lib/stripe-connect-identidad"
+import { errorIdentidadCuentaStripeProveedor, errorIdentidadCuentaStripeEmpresa } from "@/lib/stripe-connect-identidad"
 import { revalidatePath } from "next/cache"
 
 function siteUrl() {
@@ -71,6 +71,7 @@ export type EstadoStripeConnect = {
 type ContextoConnect = {
   supabase: any; admin: any; user: { id: string; email?: string }
   id: string; empresaId: string | null; accountId: string | null; nombre: string; email?: string
+  identidad?: { tipo_proveedor: "particular" | "empresa"; nombre_legal: string | null; nif: string | null; verificado: boolean; version: number }
 }
 
 async function comprobarAccesoEmpresa(supabase: any, empresaId: string, gestionar = false): Promise<boolean> {
@@ -112,7 +113,12 @@ async function usuarioCobros(empresaId?: string, gestionar = false): Promise<Con
   ])
   if (perfilError || error) return { error: "No se pudo leer tu perfil de cobros." }
   if (!perfil || !profesional) return { error: "Necesitas un perfil profesional antes de configurar cobros." }
-  return { supabase, admin, user, id: user.id, empresaId: null, accountId: profesional.stripe_account_id || null, nombre: [perfil.nombre, perfil.apellido].filter(Boolean).join(" "), email: user.email }
+  const { data: identidad, error: identidadError } = await supabase.rpc("mi_identidad_proveedor_cobros")
+  if (identidadError || !identidad || !["particular", "empresa"].includes(identidad.tipo_proveedor) || !Number.isInteger(identidad.version)) {
+    return { error: "No se pudo comprobar la identidad acreditada para los cobros." }
+  }
+  return { supabase, admin, user, id: user.id, empresaId: null, accountId: profesional.stripe_account_id || null,
+    nombre: identidad.nombre_legal || [perfil.nombre, perfil.apellido].filter(Boolean).join(" "), email: user.email, identidad }
 }
 
 function estadoCuenta(account: Awaited<ReturnType<typeof stripe.accounts.retrieve>>) {
@@ -124,7 +130,7 @@ function estadoCuenta(account: Awaited<ReturnType<typeof stripe.accounts.retriev
   }
 }
 function errorIdentidad(account: Awaited<ReturnType<typeof stripe.accounts.retrieve>>, contexto: ContextoConnect) {
-  return contexto.empresaId ? errorIdentidadCuentaStripeEmpresa(account, contexto.empresaId) : errorIdentidadCuentaStripe(account, { id: contexto.id })
+  return contexto.empresaId ? errorIdentidadCuentaStripeEmpresa(account, contexto.empresaId) : errorIdentidadCuentaStripeProveedor(account, { id: contexto.id, tipoProveedor: contexto.identidad!.tipo_proveedor })
 }
 const sinCuenta: EstadoStripeConnect = {
   conectado: false, onboardingCompletado: false, transferenciasHabilitadas: false,
@@ -272,17 +278,21 @@ async function crearOnboarding(opciones: OpcionesOnboarding, empresaId?: string)
     let accountId = contexto.accountId
     if (!accountId) {
       const empresa = !!contexto.empresaId
+      const empresaEnPerfil = !empresa && contexto.identidad?.tipo_proveedor === "empresa"
+      if (!empresa && !contexto.identidad?.verificado) return { error: await textoServidor("Diime debe aprobar tus acreditaciones antes de configurar una nueva cuenta de cobros.") }
       const cuenta = await stripe.accounts.create({
-        type: "express", country: "ES", business_type: empresa ? "company" : "individual",
+        controller: { fees: { payer: "application" }, losses: { payments: "application" }, stripe_dashboard: { type: "express" } },
+        country: "ES", business_type: empresa || empresaEnPerfil ? "company" : "individual",
+        ...(empresaEnPerfil ? { company: { name: contexto.identidad!.nombre_legal || undefined, tax_id: contexto.identidad!.nif || undefined } } : {}),
         email: contexto.email || undefined,
         business_profile: { name: contexto.nombre || undefined, product_description: "Servicios profesionales contratados a través de Diime" },
         capabilities: { transfers: { requested: true } },
         metadata: empresa
           ? { diime_proveedor_tipo: "empresa", diime_empresa_id: contexto.id, diime_actor_creacion_id: contexto.user.id }
-          : { diime_proveedor_tipo: "personal", diime_profesional_id: contexto.id },
-      }, { idempotencyKey: `diime-connect-${empresa ? "empresa" : "personal"}-${contexto.id}` })
-      const { data, error } = await contexto.admin.rpc(empresa ? "registrar_cuenta_stripe_empresa" : "registrar_cuenta_stripe_personal", {
-        ...(empresa ? { p_empresa_id: contexto.id, p_actor: contexto.user.id } : { p_profesional_id: contexto.id }),
+          : { diime_proveedor_tipo: empresaEnPerfil ? "profesional_empresa" : "personal", diime_profesional_id: contexto.id },
+      }, { idempotencyKey: empresa ? `diime-connect-empresa-${contexto.id}` : `diime-connect-proveedor-${contexto.id}-v${contexto.identidad!.version}` })
+      const { data, error } = await contexto.admin.rpc(empresa ? "registrar_cuenta_stripe_empresa" : "registrar_cuenta_stripe_proveedor", {
+        ...(empresa ? { p_empresa_id: contexto.id, p_actor: contexto.user.id } : { p_profesional_id: contexto.id, p_version_esperada: contexto.identidad!.version, p_tipo_esperado: contexto.identidad!.tipo_proveedor }),
         p_account_id: cuenta.id,
       })
       if (error) throw error

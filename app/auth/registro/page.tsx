@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { destinoAuthSeguro } from "@/lib/auth-redirect"
 import { BotonesOAuth } from "@/components/botones-oauth"
+import { EMPRESA_ESPECIALIZADA_HABILITADA } from "@/lib/producto"
 
 const provincias = [
   "Álava", "Albacete", "Alicante", "Almería", "Asturias", "Ávila",
@@ -280,7 +281,7 @@ export default function RegistroPage() {
                   />
                 </div>
 
-                <div className="grid gap-2">
+                {EMPRESA_ESPECIALIZADA_HABILITADA && <div className="grid gap-2">
                   <Label htmlFor="tipo-entidad">{t("Tipo de Registro")}</Label>
                   <Select value={tipoEntidad} onValueChange={(val) => setTipoEntidad(val as "particular" | "empresa")}>
                     <SelectTrigger>
@@ -291,7 +292,7 @@ export default function RegistroPage() {
                       <SelectItem value="empresa">{t("Empresa")}</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
+                </div>}
 
                 {tipoEntidad === "empresa" && (
                   <div className="grid gap-2">

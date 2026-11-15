@@ -10,6 +10,8 @@ import {
   obtenerMiVerificacionProfesional,
   solicitarVerificacionProfesional,
 } from "@/app/actions/verificacion-profesionales"
+import { AcreditacionProfesionalForm, acreditacionVacia } from "@/components/acreditacion-profesional-form"
+import type { DatosAcreditacionProfesional } from "@/lib/verificacion-profesional"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -44,6 +46,9 @@ export function SolicitudVerificacionProfesional({
   const [cargando, setCargando] = useState(true)
   const [revision, setRevision] = useState(0)
   const [mensaje, setMensaje] = useState("")
+  const [acreditacion, setAcreditacion] = useState<DatosAcreditacionProfesional>(acreditacionVacia)
+  const [subiendo, setSubiendo] = useState(false)
+  const [editarAcreditacion, setEditarAcreditacion] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmacion, setConfirmacion] = useState<string | null>(null)
   const [envioSinConfirmar, setEnvioSinConfirmar] = useState(false)
@@ -64,6 +69,7 @@ export function SolicitudVerificacionProfesional({
         }
 
         setDatos(resultado.data)
+        if (resultado.data.acreditacion) setAcreditacion({ ...resultado.data.acreditacion, consentimiento: false })
         setError(null)
         setEnvioSinConfirmar(false)
         onVerificacionActualizada?.(resultado.data.verificado)
@@ -83,9 +89,7 @@ export function SolicitudVerificacionProfesional({
 
   const solicitud = datos?.solicitud
   const estado = datos?.verificado ? "verificado" : solicitud?.estado
-  const puedeSolicitar = Boolean(datos) && !datos?.verificado && (
-    !solicitud || solicitud.estado === "no_aprobado" || solicitud.estado === "retirada"
-  )
+  const puedeSolicitar = Boolean(datos) && (editarAcreditacion || (!datos?.verificado && (!solicitud || solicitud.estado === "no_aprobado" || solicitud.estado === "retirada")))
 
   function actualizarEstado() {
     setCargando(true)
@@ -95,21 +99,22 @@ export function SolicitudVerificacionProfesional({
 
   function enviarSolicitud(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (enviando || cargando || envioSinConfirmar || !puedeSolicitar) return
+    if (enviando || cargando || subiendo || envioSinConfirmar || !puedeSolicitar) return
 
     startTransition(async () => {
       setError(null)
       setConfirmacion(null)
 
       try {
-        const resultado = await solicitarVerificacionProfesional(mensaje.trim())
+        const resultado = await solicitarVerificacionProfesional(mensaje.trim(), acreditacion)
         if (resultado.error || !resultado.success) {
           setError(resultado.error || "No se pudo enviar la solicitud. Inténtalo de nuevo.")
           return
         }
 
         setMensaje("")
-        setConfirmacion("Solicitud enviada. Diime se pondrá en contacto contigo para revisar tu perfil.")
+        setEditarAcreditacion(false)
+        setConfirmacion("Documentación enviada. Diime revisará tu identidad y la acreditación de tus servicios.")
         actualizarEstado()
         router.refresh()
       } catch {
@@ -127,7 +132,7 @@ export function SolicitudVerificacionProfesional({
           {t("Verificación por Diime")}
         </CardTitle>
         <CardDescription>
-          {t("Solicita la revisión de tu perfil profesional. Diime te contactará por chat, correo electrónico o teléfono.")}
+          {t("Un mismo perfil para profesionales particulares y empresas. Presenta tus acreditaciones para que Diime revise tu identidad y actividad.")}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -170,8 +175,11 @@ export function SolicitudVerificacionProfesional({
               </div>
             ) : null}
 
+            {!puedeSolicitar && datos.verificado ? <Button type="button" variant="outline" onClick={() => setEditarAcreditacion(true)}>{t("Actualizar acreditaciones")}</Button> : null}
             {puedeSolicitar ? (
-              <form onSubmit={enviarSolicitud} className="space-y-3">
+              <form onSubmit={enviarSolicitud} className="space-y-6">
+                {datos.verificado && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">{t("Si cambias los datos o documentos acreditados, Diime revisará la nueva versión antes de volver a publicar tu perfil.")}</p>}
+                <AcreditacionProfesionalForm value={acreditacion} onChange={setAcreditacion} disabled={enviando || envioSinConfirmar} identidadBloqueada={datos.identidadCobrosBloqueada} tipoBloqueado={datos.tipoCobrosBloqueado} onCargando={setSubiendo} />
                 <div className="space-y-2">
                   <Label htmlFor={mensajeId}>{t("Mensaje para Diime (opcional)")}</Label>
                   <Textarea
@@ -189,9 +197,9 @@ export function SolicitudVerificacionProfesional({
                     {mensaje.length} / {MAX_MENSAJE} {t("caracteres")}
                   </p>
                 </div>
-                <Button type="submit" disabled={enviando || envioSinConfirmar} className="min-h-11 w-full whitespace-normal sm:w-auto">
+                <Button type="submit" disabled={enviando || subiendo || envioSinConfirmar || !acreditacion.consentimiento} className="min-h-11 w-full whitespace-normal sm:w-auto">
                   {enviando ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" /> : null}
-                  {enviando ? t("Enviando…") : solicitud ? t("Volver a solicitar verificación") : t("Solicitar verificación")}
+                  {enviando ? t("Enviando…") : solicitud ? t("Volver a solicitar verificación") : t("Enviar acreditaciones a Diime")}
                 </Button>
               </form>
             ) : null}
@@ -213,7 +221,7 @@ export function SolicitudVerificacionProfesional({
               setConfirmacion(null)
               actualizarEstado()
             }}
-            disabled={cargando || enviando}
+            disabled={cargando || enviando || subiendo}
             className="min-h-11 w-full sm:w-auto"
           >
             <RefreshCw className="h-4 w-4 shrink-0" aria-hidden="true" />

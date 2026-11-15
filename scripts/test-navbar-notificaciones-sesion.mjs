@@ -7,6 +7,7 @@ let usuarioId = 'A', cursor = 0, dirty = false, authChange, tree
 const listeners = new Map()
 let estadoTrabajo = 'entregado'
 let consultaPendiente = null
+let empresaId = null
 const slots = [], effects = []
 const aviso = { id: 'aviso-A', trabajo_id: 'job-A', tipo: 'trabajo_entregado', titulo: 'Entrega privada de A', mensaje: 'Trabajo de A', created_at: new Date().toISOString() }
 let resumen = { noLeidas: 1, mensajesNoLeidos: 0, porSeccion: {}, notificaciones: [aviso] }
@@ -29,11 +30,12 @@ const t = text => text, router = { push() {} }, toast = () => {}
 const storage = () => { const data = new Map(); return { getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, value) } }
 const supabase = {
   auth: { getSession: () => new Promise(() => {}), onAuthStateChange: callback => { authChange = callback; return { data: { subscription: { unsubscribe() {} } } } } },
-  from: () => ({ select() { return this }, eq() { return this }, maybeSingle: async () => ({ data: { nombre: 'Actor', es_admin: false } }), in: async () => consultaPendiente || ({ data: [{id: 'job-A', estado: estadoTrabajo, transacciones_escrow: [{estado: estadoTrabajo === 'completado' ? 'completado' : 'fondos_retenidos', liquidacion_estado: null}]}], error: null }) }),
+  from: () => ({ select() { return this }, eq() { return this }, maybeSingle: async () => ({ data: { nombre: 'Actor', es_admin: false, empresa_id: empresaId } }), in: async () => consultaPendiente || ({ data: [{id: 'job-A', estado: estadoTrabajo, transacciones_escrow: [{estado: estadoTrabajo === 'completado' ? 'completado' : 'fondos_retenidos', liquidacion_estado: null}]}], error: null }) }),
 }
 const ui = new Proxy({ __esModule: true }, { get: (object, name) => name in object ? object[name] : String(name) })
 const helpers = {}; vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/celebraciones-vigentes.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports:helpers});
 const deps = {
+  '@/lib/producto': { EMPRESA_ESPECIALIZADA_HABILITADA: false },
   '@/lib/celebraciones-vigentes': helpers,
   react: hooks, 'react/jsx-runtime': { jsx, jsxs: jsx },
   'next/navigation': { usePathname: () => '/mis-trabajos', useRouter: () => router },
@@ -55,6 +57,7 @@ const visible = () => walk(tree).filter(node => node.type === 'CelebracionNotifi
 function render(runEffects = true) { dirty = false; cursor = 0; tree = module.exports.default(); if (runEffects) effects.splice(0).forEach(effect => effect()) }
 async function flush() { for (let i = 0; i < 8; i++) { await Promise.resolve(); if (dirty) render() } }
 render(); authChange('SIGNED_IN', { user: { id: 'A' } }); await flush()
+assert.equal(walk(tree).some(node => node.props?.href === '/mi-empresa'), false, 'New accounts only see their shared profile')
 assert.equal(walk(tree).some(node => node.type === 'CampanaNotificaciones'), false, 'The public navbar has no notification bell in either its desktop or mobile branch')
 assert.deepEqual(visible(), ['aviso-A'])
 estadoTrabajo = 'completado'
@@ -94,3 +97,9 @@ assert.deepEqual(visible(), [], 'Returning to the previous account does not rest
 usuarioId = null; render(false)
 assert.deepEqual(visible(), [], 'Logout never displays a private notification snapshot')
 console.log('Navbar notification session OK: own overlay, immediate account switch, cache reset and logout; no network.')
+empresaId = 'legacy-company'
+authChange('SIGNED_IN', { user: { id: 'legacy-owner' } }); await flush()
+assert.equal(walk(tree).some(node => node.props?.href === '/mi-empresa'), true, 'Existing company members retain access to their operations and payments')
+empresaId = null
+authChange('SIGNED_IN', { user: { id: 'new-account' } }); await flush()
+assert.equal(walk(tree).some(node => node.props?.href === '/mi-empresa'), false, 'A previous company navigation entry does not leak to the next account')

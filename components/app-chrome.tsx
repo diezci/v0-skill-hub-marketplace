@@ -27,11 +27,12 @@ export function AppChrome({ children, actorEmpresaLocal }: { children: React.Rea
   useViewportAdaptable()
   const t = useT()
   const pathname = usePathname()
+  const esPreviewLocal = process.env.NODE_ENV !== "production" && pathname === "/local-perfil-unificado-preview"
   const esMensajes = pathname?.startsWith("/mensajes") ?? false
   const [sesionCerrada, setSesionCerrada] = useState<string | null>(null)
 
   useEffect(() => {
-    if (actorEmpresaLocal) return
+    if (actorEmpresaLocal || esPreviewLocal) return
     const solicitar = (ruta: unknown) => {
       if (cierreSesionSolicitado()) return
       const destino = `/auth/login?next=${encodeURIComponent(destinoAuthSeguro(ruta))}`
@@ -63,7 +64,7 @@ export function AppChrome({ children, actorEmpresaLocal }: { children: React.Rea
       window.removeEventListener(EVENTO_REAUTENTICACION, reautenticar)
       unsubscribe?.()
     }
-  }, [actorEmpresaLocal])
+  }, [actorEmpresaLocal, esPreviewLocal])
 
   useEffect(() => {
     // El cierre explícito desmonta los datos privados aquí, pero su botón
@@ -93,6 +94,8 @@ export function AppChrome({ children, actorEmpresaLocal }: { children: React.Rea
   // Desmontar primero impide que una respuesta tardía o la caché de navegación
   // mantengan tarjetas privadas mientras se carga la página pública.
   if (sesionCerrada) return <main role="status" className="flex min-h-screen items-center justify-center">{t("Sesión cerrada")}</main>
+
+  if (esPreviewLocal) return <main className="min-h-screen bg-background">{children}</main>
 
   if (pathname?.startsWith("/admin")) {
     return <main className="min-h-screen">{children}</main>

@@ -21,6 +21,9 @@ if (process.env.DIIME_REMOTE_MIGRATION_DIR) {
   const dir = path.resolve(process.env.DIIME_REMOTE_MIGRATION_DIR);
   migrationFiles.push(...(await fs.readdir(dir)).filter(f => /^\d{14}_.*\.sql$/.test(f)).sort().map(f => path.join(dir, f)));
 }
+// First exercise the historical workflow, then upgrade the same database and
+// verify the unified dossier. This keeps the pre-migration history observable.
+const unifiedMigrations = migrationFiles.filter(name => /^20261115155/.test(path.basename(name)));
 async function restore(name,withMigrations) {
   await server.createDatabase(name);
   const db=new pg.Client({...conn,database:name});await db.connect();
@@ -29,6 +32,12 @@ async function restore(name,withMigrations) {
       DO $$ BEGIN CREATE ROLE authenticated NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
       DO $$ BEGIN CREATE ROLE service_role NOLOGIN BYPASSRLS; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
       CREATE SCHEMA auth; CREATE SCHEMA extensions; CREATE EXTENSION pgcrypto WITH SCHEMA extensions;
+      CREATE SCHEMA storage;
+      CREATE TABLE storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
+      CREATE TABLE storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text);
+      ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+      GRANT USAGE ON SCHEMA storage TO anon,authenticated,service_role;
+      GRANT ALL ON storage.objects TO service_role;
       CREATE TABLE auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,raw_user_meta_data jsonb DEFAULT '{}',raw_app_meta_data jsonb DEFAULT '{}',banned_until timestamptz,phone text,encrypted_password text,email_change text,phone_change text,confirmation_token text,recovery_token text,updated_at timestamptz);
       CREATE TABLE auth.sessions(id uuid primary key,user_id uuid);
       CREATE TABLE auth.identities(id uuid default gen_random_uuid(),user_id uuid);
@@ -47,7 +56,7 @@ async function restore(name,withMigrations) {
     for(const p of schema.policies)await db.query(`CREATE POLICY ${quote(p.policyname)} ON public.${quote(p.tablename)} AS ${p.permissive} FOR ${p.cmd} TO ${p.roles.map(quote).join(',')}${p.qual?' USING ('+p.qual+')':''}${p.with_check?' WITH CHECK ('+p.with_check+')':''}`);
     for(const g of grants.tables)await db.query(`GRANT ${g.privilege} ON public.${quote(g.table)} TO ${g.role==='PUBLIC'?'PUBLIC':quote(g.role)}`);
     for(const g of grants.columns)await db.query(`GRANT ${g.privilege} (${quote(g.column)}) ON public.${quote(g.table)} TO ${g.role==='PUBLIC'?'PUBLIC':quote(g.role)}`);
-    if(withMigrations)for(const name of migrationFiles){await db.query('BEGIN');try{await db.query(await fs.readFile(path.isAbsolute(name) ? name : path.join(root,'supabase/migrations',name),'utf8'));await db.query('COMMIT')}catch(e){await db.query('ROLLBACK');throw new Error(`${name}: ${e.message}`,{cause:e})}}
+    if(withMigrations)for(const name of migrationFiles.filter(name => !unifiedMigrations.includes(name))){await db.query('BEGIN');try{await db.query(await fs.readFile(path.isAbsolute(name) ? name : path.join(root,'supabase/migrations',name),'utf8'));await db.query('COMMIT')}catch(e){await db.query('ROLLBACK');throw new Error(`${name}: ${e.message}`,{cause:e})}}
   }finally{await db.end();}
 }
 
@@ -208,6 +217,9 @@ try {
   assert.equal((await snapshot('empresa')).empresa_id,company);
   await review('empresa','verificado');
   await invariant('empresa','verificado',true);
+  // Current verification uses active membership; update the fixture's actual
+  // membership together with the legacy owner field when simulating a move.
+  await db.query("update public.empresa_miembros set empresa_id=$1,rol='miembro' where usuario_id=$2",[legacyCompany,ids.empresa]);
   await db.query('update public.profiles set empresa_id=$1 where id=$2',[legacyCompany,ids.empresa]);
   await invariant('empresa','retirada',false);
   assert.equal((await snapshot('empresa')).empresa_id,company);
@@ -217,9 +229,10 @@ try {
   await db.query('update public.solicitudes_verificacion_profesional set empresa_id=null where profesional_id=$1',[ids.empresa]);
   await denied('no aprueba snapshot de empresa diferente', 'admin', reviewSql, [ids.empresa,'verificado','',''], 'authenticated', '22023');
   await db.query('update public.solicitudes_verificacion_profesional set empresa_id=$1 where profesional_id=$2',[legacyCompany,ids.empresa]);
-  checks.push('empresa se toma del perfil; cambio invalida petición/insignia y conserva representación histórica');
+  checks.push('empresa se toma de membresía activa; cambio invalida petición/insignia y conserva representación histórica');
   const versionA = (await db.query('select actualizada_at::text as version from public.solicitudes_verificacion_profesional where profesional_id=$1',[ids.empresa])).rows[0].version;
   const idAntes = (await snapshot('empresa')).id;
+  await db.query("update public.empresa_miembros set empresa_id=$1,rol='principal' where usuario_id=$2",[company,ids.empresa]);
   await db.query('update public.profiles set empresa_id=$1 where id=$2',[company,ids.empresa]);
   await request('empresa','Reenvío representando a la empresa B');
   assert.equal((await snapshot('empresa')).id,idAntes);
@@ -276,6 +289,9 @@ try {
     const { run } = await import(process.env.DIIME_EMPRESA_EXTRA_SCENARIOS);
     await run({ db, actor, ids, connection, migrationFiles });
   }
+  for (const name of unifiedMigrations) await db.query(await fs.readFile(path.isAbsolute(name) ? name : path.join(root,'supabase/migrations',name),'utf8'));
+  const { run: unifiedScenarios } = await import('./acreditacion-profesional-integration-scenarios.mjs');
+  await unifiedScenarios({ db, actor, ids, connection, pg, checks });
   const evidence = {resultado:'correcto',pruebas:checks.length,postgres:17,migraciones:migrationFiles,checks};
   await fs.writeFile(path.join(root,'.build','verification-integration-results.json'),JSON.stringify(evidence,null,2));
   console.log(JSON.stringify(evidence,null,2));

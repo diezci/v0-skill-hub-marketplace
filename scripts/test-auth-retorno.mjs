@@ -92,6 +92,7 @@ function registration() {
   const calls = []
   const client = { auth: { signUp: async (input) => { calls.push(input); return { data: { user: { id: 'synthetic-user' }, session: null }, error: null } } } }
   const api = transpilar('app/actions/auth.ts', {
+    '@/lib/producto': transpilar('lib/producto.ts'),
     '@/lib/auth-redirect': helper,
     '@/lib/i18n-servidor': { textoServidor: async (v) => v, idiomaActual: async () => 'es' },
     '@/lib/supabase/server': { createClient: async () => client },

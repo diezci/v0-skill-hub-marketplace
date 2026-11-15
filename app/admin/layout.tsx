@@ -17,13 +17,15 @@ import { NotificacionesProvider, useResumenNotificaciones } from "@/hooks/use-no
 import { CampanaNotificaciones } from "@/components/campana-notificaciones"
 import { AvisosSeccion } from "@/components/avisos-seccion"
 import { obtenerConteoDemandasSinOferta } from "@/app/actions/operaciones"
+import { EMPRESA_ESPECIALIZADA_HABILITADA } from "@/lib/producto"
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/operaciones", label: "Operaciones", icon: BellRing },
   { href: "/admin/usuarios", label: "Usuarios", icon: Users },
   { href: "/admin/verificaciones", label: "Verificaciones", icon: BadgeCheck },
-  { href: "/admin/verificaciones-empresas", label: "Empresas", icon: Briefcase },
+  { href: "/admin/portfolio", label: "Portfolio", icon: BadgeCheck },
+  { href: "/admin/verificaciones-empresas", label: EMPRESA_ESPECIALIZADA_HABILITADA ? "Empresas" : "Empresas existentes", icon: Briefcase },
   { href: "/admin/trabajos", label: "Trabajos y justificantes", icon: Briefcase },
   { href: "/admin/disputas", label: "Disputas", icon: Scale },
   { href: "/admin/incidencias", label: "Incidencias", icon: ShieldAlert },

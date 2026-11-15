@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
 import { conciliarSesionPagada, liquidarPagoReclamado, validarIdentidadPagoHito } from "@/lib/flujo-pagos"
 import { registrarEventoOperativo } from "@/lib/operaciones"
-import { errorIdentidadCuentaStripe, errorIdentidadCuentaStripeEmpresa } from "@/lib/stripe-connect-identidad"
+import { errorIdentidadCuentaStripeProveedor, errorIdentidadCuentaStripeEmpresa } from "@/lib/stripe-connect-identidad"
 import { actualizarContracargoStripe } from "@/lib/stripe-contracargos"
 
 function getAdminClient() {
@@ -147,9 +147,13 @@ export async function POST(request: Request) {
         if (profesionalError) throw profesionalError
         if (empresaCuenta && profesional) throw new Error("Una cuenta Stripe no puede pertenecer a empresa y profesional a la vez.")
         if (empresaCuenta || profesional) {
+          const identidad = profesional ? await supabase.rpc("identidad_proveedor_cobros", { p_profesional_id: profesional.id }) : null
+          if (identidad?.error || (profesional && (!identidad?.data || !["particular", "empresa"].includes(identidad.data.tipo_proveedor)))) {
+            throw new Error("No se pudo comprobar la identidad del proveedor para actualizar sus cobros.")
+          }
           const identidadError = empresaCuenta
             ? errorIdentidadCuentaStripeEmpresa(account, empresaCuenta.empresa_id)
-            : errorIdentidadCuentaStripe(account, { id: profesional!.id })
+            : errorIdentidadCuentaStripeProveedor(account, { id: profesional!.id, tipoProveedor: identidad!.data.tipo_proveedor })
           const { error: actualizarError } = await supabase.rpc(empresaCuenta ? "actualizar_estado_cuenta_stripe_empresa" : "actualizar_estado_cuenta_stripe", {
             ...(empresaCuenta ? { p_empresa_id: empresaCuenta.empresa_id } : { p_profesional_id: profesional!.id, p_empresa_esperada: null }),
             p_account_id: account.id,

@@ -7,9 +7,10 @@ new Function('require','exports',ts.transpileModule(fs.readFileSync('lib/borrado
 const {guardarBorradorPortfolio:save,leerBorradorPortfolio:read,borrarBorradorPortfolio:clear,almacenBorradorPortfolio:storage}=exports;
 const a='00000000-0000-4000-8000-000000000001',b='00000000-0000-4000-8000-000000000002',job='00000000-0000-4000-8000-000000000003';
 const entries=new Map(),store={getItem:k=>entries.get(k)??null,setItem:(k,v)=>entries.set(k,v),removeItem:k=>entries.delete(k)};
-const draft={usuarioId:a,itemId:b,valores:{titulo:'Trabajo propio',descripcion:'Texto del cliente',imagen_url:'https://example.test/foto.png',categoria:'Electricidad',fecha_completado:'2026-10-14',ubicacion:'Madrid',duracion:'2 días',presupuesto:'123.45',trabajo_id:job,contexto_proveedor:'Mi aporte separado'}};
+const draft={usuarioId:a,itemId:b,valores:{titulo:'Trabajo propio',descripcion:'Texto del cliente',imagen_url:'https://example.test/foto.png',categoria:'Electricidad',fecha_completado:'2026-10-14',ubicacion:'Madrid',duracion:'2 días',presupuesto:'123.45',trabajo_id:job,contexto_proveedor:'Mi aporte separado',evidencia_acreditacion:'Referencia privada y evidencias disponibles para revisión'}};
 assert.ok(save(store,draft,1000));assert.deepEqual(read(store,a,1001).valores,draft.valores);assert.equal(read(store,a,1001).itemId,b);assert.equal(read(store,b,1001),null);
 const key=entries.keys().next().value,raw=entries.get(key);
+const legacy=JSON.parse(raw); delete legacy.valores.evidencia_acreditacion; entries.set(key,JSON.stringify(legacy)); assert.equal(read(store,a,1001).valores.evidencia_acreditacion,''); entries.set(key,raw);
 for(const value of ['{',JSON.stringify({...JSON.parse(raw),usuarioId:b}),JSON.stringify({...JSON.parse(raw),guardadoAt:2000}),JSON.stringify({...JSON.parse(raw),itemId:'forged'}),JSON.stringify({...JSON.parse(raw),valores:{...draft.valores,trabajo_id:'forged'}})]){entries.set(key,value);assert.equal(read(store,a,1001),null);assert.equal(entries.has(key),false);}
 entries.set(key,raw);assert.equal(read(store,a,1000+86400000),null);
 save(store,draft,1000);clear(store,b);assert.ok(read(store,a,1001));clear(store,a);assert.equal(entries.size,0);

@@ -4,6 +4,7 @@ import { textoServidor } from "@/lib/i18n-servidor"
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { EMPRESA_ESPECIALIZADA_HABILITADA, MENSAJE_ALTA_EMPRESA_PAUSADA } from "@/lib/producto"
 
 export type RegistroEmpresa = {
   tokenInvitacion?: string
@@ -26,6 +27,7 @@ export async function obtenerRegistroEmpresaPendiente() {
 }
 
 export async function completarRegistroEmpresa(datos: RegistroEmpresa) {
+  if (!EMPRESA_ESPECIALIZADA_HABILITADA) return { error: await textoServidor(MENSAJE_ALTA_EMPRESA_PAUSADA) }
   const supabase = await createClient()
   if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
   const { data: { user } } = await supabase.auth.getUser()

@@ -13,7 +13,7 @@ const identidad = load('lib/stripe-connect-identidad.ts')
 const empresa = '00000000-0000-4000-8000-000000000010'
 const personal = { id: 'acct_personal', metadata: { diime_profesional_id: 'actor' }, business_type: 'individual', details_submitted: true, capabilities: { transfers: 'active' }, payouts_enabled: true, requirements: { currently_due: [] } }
 const company = { ...personal, id: 'acct_company', business_type: 'company', metadata: { diime_empresa_id: empresa, diime_proveedor_tipo: 'empresa' } }
-function scenario({ account = personal, companyAccount = company, user = { id: 'actor', email: 'actor@example.test' }, canRead = true, principal = true, revokeAt = null, rpcData = true, balanceError = false } = {}) {
+function scenario({ account = personal, companyAccount = company, user = { id: 'actor', email: 'actor@example.test' }, canRead = true, principal = true, revokeAt = null, rpcData = true, balanceError = false, providerIdentity = { tipo_proveedor: 'particular', nombre_legal: 'Persona', nif: '12345678Z', version: 0, verificado: true }, registerError = null } = {}) {
   const calls = [], accounts = new Map()
   if (account) accounts.set(account.id, account)
   if (companyAccount) accounts.set(companyAccount.id, companyAccount)
@@ -23,13 +23,14 @@ function scenario({ account = personal, companyAccount = company, user = { id: '
     auth: { getUser: async () => ({ data: { user } }) },
     from(table) { return chain(table === 'profiles' ? { id: 'actor', nombre: 'Persona', empresa_id: empresa } : { id: 'actor', stripe_account_id: account?.id || null }) },
     rpc: async (name, args) => {
+      if (name === 'mi_identidad_proveedor_cobros') return { data: providerIdentity }
       calls.push({ op: 'permission', name, args })
       return { data: name === 'empresa_comprobar_permiso' ? allowed : { id: empresa, es_responsable_principal: principal } }
     },
   }
   const admin = {
     from(table) { assert.ok(['empresas', 'empresa_cuentas_stripe'].includes(table)); return chain(table === 'empresas' ? { id: empresa, nombre: 'Empresa', email: 'company@example.test' } : companyAccount ? { stripe_account_id: companyAccount.id } : null) },
-    rpc: async (name, args) => { calls.push({ op: 'rpc', name, args }); return { data: name.startsWith('registrar_') ? args.p_account_id : rpcData } },
+    rpc: async (name, args) => { calls.push({ op: 'rpc', name, args }); return { data: name.startsWith('registrar_') ? args.p_account_id : rpcData, error: name.startsWith('registrar_') ? registerError : null } },
   }
   const read = (op, value) => async (_, options) => {
     calls.push({ op, account: options.stripeAccount })
@@ -101,8 +102,8 @@ await test('Personal onboarding never creates a company account because the acto
   assert.ok((await f.actions.crearEnlaceOnboardingStripe()).data)
   const c = f.calls.find(c => c.op === 'create')
   assert.equal(c.params.business_type, 'individual'); assert.equal(c.params.metadata.diime_empresa_id, undefined)
-  assert.equal(c.options.idempotencyKey, 'diime-connect-personal-actor')
-  assert.equal(f.calls.find(c => c.op === 'rpc').name, 'registrar_cuenta_stripe_personal')
+  assert.equal(c.options.idempotencyKey, 'diime-connect-proveedor-actor-v0')
+  assert.equal(f.calls.find(c => c.op === 'rpc').name, 'registrar_cuenta_stripe_proveedor')
 })
 await test('Unknown, legacy owner, other company and deleted company accounts expose no money or links', async () => {
   for (const override of [{ deleted: true }, { business_type: 'individual' }, { metadata: { diime_empresa_id: empresa, diime_profesional_id: 'actor' } }, { metadata: { diime_empresa_id: 'other', diime_proveedor_tipo: 'empresa' } }, { metadata: {} }]) {
@@ -131,5 +132,39 @@ await test('A legacy company stored as personal remains untouched and blocked pe
   assert.ok((await f.actions.obtenerEstadoStripeConnect()).error)
   assert.ok((await f.actions.crearEnlaceOnboardingStripe()).error)
   assert.equal(f.calls.some(c => c.op === 'create'), false)
+})
+const unifiedCompany = { tipo_proveedor: 'empresa', nombre_legal: 'Sociedad QA SL', nif: 'B12345678', version: 4, verificado: true }
+await test('Unified company creates a company account from approved private identity, with version-bound registration', async () => {
+  const f = scenario({ account: null, providerIdentity: unifiedCompany })
+  assert.ok((await f.actions.crearEnlaceOnboardingStripe()).data)
+  const c = f.calls.find(c => c.op === 'create')
+  assert.equal(c.params.business_type, 'company'); assert.equal(c.params.company.name, unifiedCompany.nombre_legal)
+  assert.equal(c.params.company.tax_id, unifiedCompany.nif)
+  assert.equal(c.params.metadata.diime_profesional_id, 'actor'); assert.equal(c.params.metadata.diime_proveedor_tipo, 'profesional_empresa')
+  assert.equal(c.params.metadata.diime_empresa_id, undefined)
+  assert.equal(c.options.idempotencyKey, 'diime-connect-proveedor-actor-v4')
+  const rpc = f.calls.find(c => c.name === 'registrar_cuenta_stripe_proveedor')
+  assert.equal(rpc.args.p_version_esperada, 4); assert.equal(rpc.args.p_tipo_esperado, 'empresa')
+})
+await test('Pending providers cannot create accounts and a stale approval cannot issue an onboarding link', async () => {
+  for (const tipo_proveedor of ['particular', 'empresa']) {
+    const f = scenario({ account: null, providerIdentity: { ...unifiedCompany, tipo_proveedor, verificado: false } })
+    assert.ok((await f.actions.crearEnlaceOnboardingStripe()).error)
+    assert.equal(f.calls.some(c => ['create', 'onboarding'].includes(c.op)), false)
+  }
+  const f = scenario({ account: null, providerIdentity: unifiedCompany, registerError: { message: 'La identidad ha cambiado' } })
+  assert.ok((await f.actions.crearEnlaceOnboardingStripe()).error)
+  assert.equal(f.calls.some(c => c.op === 'onboarding'), false)
+})
+await test('Unified company rejects personal and specialized-company accounts, while exact company identity works', async () => {
+  for (const account of [personal, company]) {
+    const f = scenario({ account, providerIdentity: unifiedCompany })
+    assert.ok((await f.actions.crearEnlaceDashboardStripe()).error)
+    assert.equal(f.calls.some(c => c.op === 'login'), false)
+  }
+  const account = { ...company, id: 'acct_unified', metadata: { diime_profesional_id: 'actor', diime_proveedor_tipo: 'profesional_empresa' } }
+  const f = scenario({ account, providerIdentity: unifiedCompany })
+  assert.ok((await f.actions.crearEnlaceDashboardStripe()).data)
+  assert.ok((await f.actions.obtenerEstadoStripeConnect()).data)
 })
 console.log(`${count} independent Connect ownership/authorization scenarios passed.`)
