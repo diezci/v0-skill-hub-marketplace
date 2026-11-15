@@ -486,7 +486,8 @@ for (const [nombre, file, categoria] of [
   ["sin archivo", null, "identidad"],
   ["contenido no PDF con extensión PDF", new File(["<script>contenido</script>"], "falso.pdf", { type: "application/pdf" }), "identidad"],
   ["imagen con formato permitido para otros adjuntos", new File([new Uint8Array([255, 216, 255, 0, 0, 0])], "foto.jpg"), "identidad"],
-  ["PDF mayor de 5 MB", new File(["%PDF-", new Uint8Array(5 * 1024 * 1024)], "grande.pdf"), "identidad"],
+  ["PDF de 4 MiB más un byte", new File(["%PDF-", new Uint8Array(4 * 1024 * 1024 - 4)], "grande.pdf"), "identidad"],
+  ["PDF del antiguo límite de 5 MiB", new File(["%PDF-", new Uint8Array(5 * 1024 * 1024 - 5)], "limite-anterior.pdf"), "identidad"],
   ["categoría desconocida", pdf(), "publico"],
 ]) await comprobar(`No sube ${nombre}`, async () => {
   const f = preparar()
@@ -513,6 +514,16 @@ await comprobar("PDF válido se guarda privado con propietario derivado de sesi�
   assert.equal(registro.parametros.p_usuario_id, PROVEEDOR)
   assert.equal(registro.parametros.p_sha256, crypto.createHash("sha256").update(Buffer.from(await file.arrayBuffer())).digest("hex"))
   assert.equal(JSON.stringify(resultado).includes("https://"), false)
+})
+await comprobar("PDF de exactamente 4 MiB se admite y registra su tamaño exacto", async () => {
+  const f = preparar()
+  const file = new File(["%PDF-", new Uint8Array(4 * 1024 * 1024 - 5)], "limite.pdf", { type: "application/pdf" })
+  assert.equal(file.size, 4 * 1024 * 1024)
+  const resultado = await f.acciones.subirDocumentoAcreditacionProfesional(formulario(file))
+  assert.equal(resultado.error, undefined)
+  assert.match(resultado.data.url, /^acreditacion:\/\/[0-9a-f-]{36}$/)
+  assert.equal(f.storage[0].bytes.length, file.size)
+  assert.equal(f.rpcs[0].parametros.p_bytes, file.size)
 })
 await comprobar("Registro fallido limpia el PDF recién subido y no devuelve referencia utilizable", async () => {
   const f = preparar({ errorRegistro: { message: "error" } })

@@ -38,8 +38,8 @@ export function AcreditacionProfesionalForm({ value, onChange, disabled = false,
   async function subir(file: File | undefined, categoria: "identidad" | "cualificacion" | "representacion") {
     if (!file || bloqueado) return
     setError("")
-    if (file.type !== "application/pdf" || !file.size || file.size > 5 * 1024 * 1024) {
-      setError("Adjunta un PDF de hasta 5 MB.")
+    if (file.type !== "application/pdf" || !file.size || file.size > 4 * 1024 * 1024) {
+      setError("Adjunta un PDF de hasta 4 MB.")
       return
     }
     if (demostracion) {
@@ -98,7 +98,7 @@ export function AcreditacionProfesionalForm({ value, onChange, disabled = false,
           <div className="mt-3 flex min-w-0 items-center gap-2">
             <label className={`relative flex min-h-12 min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-lg border border-dashed border-primary/40 bg-background px-3 py-2 text-sm hover:bg-primary/5 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 ${bloqueado ? 'pointer-events-none opacity-60' : ''}`}>
               {subiendo === categoria ? <Loader2 className="size-5 shrink-0 animate-spin text-primary" /> : documento ? <FileCheck2 className="size-5 shrink-0 text-primary" /> : <Upload className="size-5 shrink-0 text-primary" />}
-              <span className="min-w-0"><span className="block truncate font-medium">{documento?.nombre || t("Adjuntar PDF")}</span><span className="text-xs text-muted-foreground">{documento ? t("Pulsa para sustituir el archivo") : t("Máximo 5 MB por documento")}</span></span>
+              <span className="min-w-0"><span className="block truncate font-medium">{documento?.nombre || t("Adjuntar PDF")}</span><span className="text-xs text-muted-foreground">{documento ? t("Pulsa para sustituir el archivo") : t("Máximo 4 MB por documento")}</span></span>
               <input aria-label={`${t('Adjuntar PDF')}: ${t(titulo)}`} type="file" accept="application/pdf,.pdf" disabled={bloqueado} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" onChange={e => { void subir(e.target.files?.[0], categoria); e.target.value = '' }} />
             </label>
             {documento && <Button type="button" variant="ghost" size="icon" aria-label={`${t('Quitar')}: ${documento.nombre}`} disabled={bloqueado} onClick={() => campo('documentos', value.documentos.filter(d => d.categoria !== categoria))}><X className="size-4" /></Button>}

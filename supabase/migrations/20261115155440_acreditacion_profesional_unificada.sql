@@ -18,7 +18,7 @@ create table diime_private.documentos_acreditacion_profesional (
  id uuid primary key, propietario_id uuid not null references public.profiles(id),
  categoria text not null check(categoria in ('identidad','cualificacion','representacion')),
  storage_path text not null unique, nombre text not null check(length(nombre) between 1 and 180),
- bytes integer not null check(bytes between 6 and 5242880),sha256 text not null check(sha256 ~ '^[a-f0-9]{64}$'),
+ bytes integer not null check(bytes between 6 and 4194304),sha256 text not null check(sha256 ~ '^[a-f0-9]{64}$'),
  creado_at timestamptz not null default now()
 );
 create table diime_private.acreditaciones_profesionales (
@@ -40,8 +40,8 @@ revoke all on diime_private.documentos_acreditacion_profesional,diime_private.ac
 do $$ begin
  if to_regclass('storage.buckets') is not null then
   insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
-  values('acreditaciones-profesionales','acreditaciones-profesionales',false,5242880,array['application/pdf'])
-  on conflict(id) do update set public=false,file_size_limit=5242880,allowed_mime_types=array['application/pdf'];
+  values('acreditaciones-profesionales','acreditaciones-profesionales',false,4194304,array['application/pdf'])
+  on conflict(id) do update set public=false,file_size_limit=4194304,allowed_mime_types=array['application/pdf'];
  end if;
  if to_regclass('storage.objects') is not null then
   create policy acreditaciones_profesionales_solo_servidor on storage.objects as restrictive
@@ -232,6 +232,10 @@ create function public.registrar_cuenta_stripe_proveedor(p_profesional_id uuid,p
 returns text language plpgsql security definer set search_path='' as $$
 declare p public.profesionales; identidad jsonb;
 begin
+ if p_account_id is null or p_account_id !~ '^acct_[A-Za-z0-9]+$' then raise exception 'Cuenta de cobros no válida.' using errcode='22023'; end if;
+ -- Share the account lock with registrar_cuenta_stripe_empresa: the same
+ -- destination cannot be assigned concurrently across the two provider models.
+ perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_account_id,0));
  -- Same lock order as submission and review. Account creation uses a snapshot;
  -- registration must fail if that snapshot changed while Stripe was called.
  select * into p from public.profesionales where id=p_profesional_id for update;
@@ -239,7 +243,8 @@ begin
  perform 1 from public.profiles where id=p_profesional_id and cuenta_eliminada is null for update;
  if not found then raise exception 'Perfil no disponible.' using errcode='42501'; end if;
  identidad:=diime_private.identidad_proveedor_cobros(p_profesional_id);
- if p_account_id is null or p_account_id !~ '^acct_[A-Za-z0-9]+$' then raise exception 'Cuenta de cobros no válida.' using errcode='22023'; end if;
+ if exists(select 1 from public.empresa_cuentas_stripe where stripe_account_id=p_account_id) then
+  raise exception 'La cuenta de cobros ya pertenece a un espacio empresarial. No puede vincularse a otro proveedor.' using errcode='22023'; end if;
  if p_version_esperada is distinct from (identidad->>'version')::integer or p_tipo_esperado is distinct from identidad->>'tipo_proveedor' then
   raise exception 'La identidad ha cambiado. Actualiza el perfil antes de conectar los cobros.' using errcode='40001'; end if;
  if (identidad->>'verificado')::boolean is distinct from true then raise exception 'Completa la acreditación de Diime antes de activar los cobros.' using errcode='42501'; end if;
@@ -252,6 +257,9 @@ begin
 end; $$;
 revoke all on function public.registrar_cuenta_stripe_proveedor(uuid,text,integer,text) from public,anon,authenticated;
 grant execute on function public.registrar_cuenta_stripe_proveedor(uuid,text,integer,text) to service_role;
+-- Cached actions from an older deployment must not bypass identity/version
+-- validation by using the pre-accreditation account registration RPC.
+revoke execute on function public.registrar_cuenta_stripe_personal(uuid,text) from public,anon,authenticated,service_role;
 
 alter table public.ofertas add column acreditacion_version integer;
 alter table public.trabajos add column proveedor_tipo text check(proveedor_tipo in ('particular','empresa'));

@@ -221,9 +221,9 @@ export async function subirDocumentoAcreditacionProfesional(formData: FormData):
   const contexto = await contextoAutenticado()
   if ("error" in contexto) return { error: contexto.error }
   const file = formData.get("file"), categoria = formData.get("categoria")
-  if (!(file instanceof File) || file.size < 6 || file.size > 5 * 1024 * 1024 || !["identidad", "cualificacion", "representacion"].includes(String(categoria))) return { error: "Adjunta un PDF de hasta 5 MB y selecciona su finalidad." }
+  if (!(file instanceof File) || file.size < 6 || file.size > 4 * 1024 * 1024 || !["identidad", "cualificacion", "representacion"].includes(String(categoria))) return { error: "Adjunta un PDF de hasta 4 MB y selecciona su finalidad." }
   const validacion = await validarArchivo(file)
-  if ("error" in validacion || validacion.tipo !== "application/pdf") return { error: "Adjunta un documento PDF válido de hasta 5 MB." }
+  if ("error" in validacion || validacion.tipo !== "application/pdf") return { error: "Adjunta un documento PDF válido de hasta 4 MB." }
   const admin = createAdminClient()
   if (!admin) return { error: "El almacenamiento de documentos no está disponible." }
   const id = randomUUID(), storagePath = `${contexto.user.id}/${id}.pdf`

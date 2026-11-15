@@ -18,12 +18,18 @@ try {
  await db.exec(await read('../supabase/tests/fixtures/empresas-baseline.sql'))
  await db.exec(`create function public.is_admin() returns boolean language sql stable security definer as $$ select coalesce((select es_admin from public.profiles where id=auth.uid()),false) $$;
  create table public.empresa_miembros(empresa_id uuid,usuario_id uuid,estado text,rol text,cargo text);
+ create table public.empresa_cuentas_stripe(empresa_id uuid primary key,stripe_account_id text not null unique);
  alter table public.empresas add column razon_social text;
  alter table public.ofertas add column empresa_id uuid;
  alter table public.trabajos add column empresa_cliente_id uuid;alter table public.trabajos add column empresa_proveedora_id uuid;alter table public.trabajos add column actor_contratacion_id uuid;
  create function diime_private.es_miembro_empresa(e uuid,u uuid) returns boolean language sql stable as $$ select exists(select 1 from public.empresa_miembros where empresa_id=e and usuario_id=u and estado='activo') $$;
  grant select,update,insert on public.profiles,public.profesionales,public.ofertas,public.trabajos to authenticated;
  grant all on all tables in schema public to service_role;`)
+ // Load the actual old registration RPC so the new migration must close it,
+ // including the service role previously used by older deployed server actions.
+ const stripeMigration=await read('../supabase/migrations/20261005164234_empresa_stripe_independiente.sql')
+ await db.exec(stripeMigration.slice(stripeMigration.indexOf('create function public.registrar_cuenta_stripe_personal('),stripeMigration.indexOf('create function public.actualizar_estado_cuenta_stripe_empresa(')))
+ await db.exec('revoke all on function public.registrar_cuenta_stripe_personal(uuid,text) from public,anon,authenticated; grant execute on function public.registrar_cuenta_stripe_personal(uuid,text) to service_role;')
  await db.exec(await read('../supabase/migrations/20260909220319_verificacion_profesional_manual.sql'))
  await db.exec(await read('../supabase/migrations/20261023162708_verificacion_profesional_membresia_vigente.sql'))
  await db.exec(await read('../supabase/migrations/20260921223402_empresa_facturacion_snapshot.sql'))
@@ -76,6 +82,12 @@ try {
  await approve('persona');await approve('empresa')
  await submit('admin');await denied(()=>approve('admin'),/propio/,'Administrador no aprueba su expediente')
  await role('service_role');check((await rpc('identidad_proveedor_cobros',[ids.legacy])).version===0,'Identidad legacy conserva fallback particular versión cero')
+ await denied(()=>rpc('registrar_cuenta_stripe_personal',[ids.empresa,'acct_legacyBypass']),/permission denied/,'Deployment antiguo no puede eludir tipo o versión por RPC personal')
+ const oversizedId='91000000-0000-4000-8000-000000000099'
+ await denied(()=>rpc('registrar_documento_acreditacion_profesional',[oversizedId,ids.empresa,'identidad',`${ids.empresa}/${oversizedId}.pdf`,'grande.pdf',4194305,'a'.repeat(64)]),/check constraint/,'SQL rechaza PDF por encima de4MiB')
+ await db.query('insert into public.empresa_cuentas_stripe values($1,$2)',[ids.ajeno,'acct_workspace'])
+ await denied(()=>rpc('registrar_cuenta_stripe_proveedor',[ids.empresa,'acct_workspace',1,'empresa']),/espacio empresarial/,'Cuenta de espacio empresarial no se vincula a otro proveedor')
+ check((await one('select stripe_account_id from public.profesionales where id=$1',[ids.empresa])).stripe_account_id===null,'Rechazo de cuenta ajena no cambia titularidad')
  await denied(()=>rpc('registrar_cuenta_stripe_proveedor',[ids.empresa,'acct_emp',0,'empresa']),/identidad ha cambiado/,'CAS no registra cuenta con versión obsoleta')
  check(await rpc('registrar_cuenta_stripe_proveedor',[ids.empresa,'acct_emp',1,'empresa'])==='acct_emp','CAS registra cuenta bajo identidad acreditada')
  check(await rpc('registrar_cuenta_stripe_proveedor',[ids.empresa,'acct_emp',1,'empresa'])==='acct_emp','CAS idempotente no reemplaza cuenta')

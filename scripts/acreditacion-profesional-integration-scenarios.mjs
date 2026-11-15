@@ -50,6 +50,34 @@ export async function run({ db, actor, ids, connection, pg, checks }) {
   assert.equal((await db.query('select empresa_id from public.profiles where id=$1', [ids.unificadaEmpresa])).rows[0].empresa_id, null);
   checks.push('empresa usa un solo perfil, documentos privados y revisión de representación; seis envíos son idempotentes');
 
+  await assert.rejects(actor(null, 'select public.registrar_cuenta_stripe_personal($1,$2)', [ids.unificadaEmpresa, 'acct_oldDeployment'], 'service_role'), /permission denied/);
+  assert.equal((await db.query('select stripe_account_id from public.profesionales where id=$1', [ids.unificadaEmpresa])).rows[0].stripe_account_id, null);
+  checks.push('service_role tampoco puede vincular una cuenta por la RPC personal de deployments antiguos');
+
+  const legacyCompany = (await db.query('select id from public.empresas where propietario_id=$1', [ids.historicoEmpresa])).rows[0].id;
+  const sharedAccount = 'acct_crossModelRace';
+  const accountBlocker = new pg.Client(connection); await accountBlocker.connect();
+  let crossResults;
+  try {
+    await accountBlocker.query('begin');
+    await accountBlocker.query('select pg_advisory_xact_lock(hashtextextended($1,0))', [sharedAccount]);
+    const unifiedRegistration = actor(null, 'select public.registrar_cuenta_stripe_proveedor($1,$2,$3,$4)', [ids.unificadaEmpresa, sharedAccount, 1, 'empresa'], 'service_role');
+    const workspaceRegistration = actor(null, 'select public.registrar_cuenta_stripe_empresa($1,$2,$3)', [legacyCompany, ids.historicoEmpresa, sharedAccount], 'service_role');
+    let unifiedSettled = false, workspaceSettled = false;
+    unifiedRegistration.then(() => { unifiedSettled = true; }, () => { unifiedSettled = true; });
+    workspaceRegistration.then(() => { workspaceSettled = true; }, () => { workspaceSettled = true; });
+    const settled = Promise.allSettled([unifiedRegistration, workspaceRegistration]);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    assert.equal(unifiedSettled, false, 'Unified registration waits for the common account lock');
+    assert.equal(workspaceSettled, false, 'Legacy workspace registration waits for the same lock');
+    await accountBlocker.query('commit');
+    crossResults = await settled;
+  } finally { await accountBlocker.query('rollback'); await accountBlocker.end(); }
+  assert.equal(crossResults.filter(r => r.status === 'fulfilled').length, 1);
+  const linkedAccounts = (await db.query('select count(*)::int n from (select stripe_account_id from public.profesionales union all select stripe_account_id from public.empresa_cuentas_stripe) a where stripe_account_id=$1', [sharedAccount])).rows[0].n;
+  assert.equal(linkedAccounts, 1);
+  checks.push('registro simultáneo en perfil y espacio empresarial usa el mismo bloqueo y asigna la cuenta a un único proveedor');
+
   const metadata = 'select public.documento_acreditacion_profesional_metadata($1) as documento';
   assert.equal((await actor('unificadaPersona', metadata, [expedientes.unificadaEmpresa.documentos[0].url])).rows[0].documento, null);
   assert.ok((await actor('admin', metadata, [expedientes.unificadaEmpresa.documentos[0].url])).rows[0].documento.storage_path);
@@ -63,7 +91,9 @@ export async function run({ db, actor, ids, connection, pg, checks }) {
   await db.query('insert into storage.objects(bucket_id,name) values($1,$2)', ['acreditaciones-profesionales', `${ids.unificadaEmpresa}/privado.pdf`]);
   assert.equal((await actor('unificadaEmpresa', 'select * from storage.objects where bucket_id=$1', ['acreditaciones-profesionales'])).rowCount, 0);
   await assert.rejects(actor('unificadaEmpresa', 'insert into storage.objects(bucket_id,name) values($1,$2)', ['acreditaciones-profesionales', 'suplantado.pdf']), /row-level security/);
-  assert.equal((await db.query('select public from storage.buckets where id=$1', ['acreditaciones-profesionales'])).rows[0].public, false);
+  const bucket = (await db.query('select public,file_size_limit from storage.buckets where id=$1', ['acreditaciones-profesionales'])).rows[0];
+  assert.equal(bucket.public, false);
+  assert.equal(Number(bucket.file_size_limit), 4194304);
   checks.push('bucket privado deniega acceso directo incluso ante una política genérica de almacenamiento permisiva');
 
   // The same row lock serializes a new identity submission and registering the
