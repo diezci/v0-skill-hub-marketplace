@@ -6,7 +6,7 @@ El espacio empresarial avanzado queda conservado en la rama `codex/mi-empresa-di
 
 Esta implementación parte de `origin/main` (`1834d57`, incluyendo pagos por hitos) en `codex/perfil-profesional-unificado`. La copia de escritorio con cambios anteriores permanece intacta.
 
-Las nuevas cuentas usan `/mi-perfil`, tanto particulares como sociedades. No se crean nuevos espacios empresariales ni equipos. Los espacios existentes conservan acceso a sus operaciones, miembros y cobros; no se convierten sus contratos ni cuentas bancarias automáticamente.
+Las cuentas usan `/mi-perfil`, tanto particulares como sociedades, incluidas las que ya tienen una empresa vinculada. No se muestra Mi Empresa ni Gestión de empresa en los menús de escritorio o móvil. No se crean nuevos espacios empresariales ni equipos. Los espacios existentes conservan los enlaces operativos a sus contratos y cobros; no se convierten sus contratos ni cuentas bancarias automáticamente.
 
 ## Acreditaciones y revisión
 
@@ -25,9 +25,9 @@ La creación de cuentas comprueba la versión de identidad bajo bloqueo. El bloq
 
 Los cambios mantienen la integración Stripe existente; no se crean cuentas ni se realizan pagos reales durante la validación.
 
-## Publicación pendiente
+## Publicación
 
-No se han aplicado cambios en Supabase remoto ni desplegado esta rama. Las migraciones preparadas deben revisarse y aplicarse en este orden antes de publicar la interfaz:
+El perfil unificado se publicó el 15 de noviembre de 2026 mediante la PR #100 (`a1ff4db`). Se aplicaron únicamente estas tres migraciones, en este orden, y se comprobaron permisos, privacidad y continuidad de los contratos y cuentas de cobro existentes:
 
 1. `20261115155239_portfolio_perfil_acreditado.sql`
 2. `20261115155424_aparcar_altas_empresa_especializada.sql`

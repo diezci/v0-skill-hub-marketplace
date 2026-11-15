@@ -99,7 +99,12 @@ assert.deepEqual(visible(), [], 'Logout never displays a private notification sn
 console.log('Navbar notification session OK: own overlay, immediate account switch, cache reset and logout; no network.')
 empresaId = 'legacy-company'
 authChange('SIGNED_IN', { user: { id: 'legacy-owner' } }); await flush()
-assert.equal(walk(tree).some(node => node.props?.href === '/mi-empresa'), true, 'Existing company members retain access to their operations and payments')
+assert.equal(walk(tree).some(node => node.props?.href === '/mi-empresa'), false, 'Existing company members also use the shared profile navigation')
+walk(tree).find(node => node.props?.['aria-controls'] === 'mobile-navigation').props.onClick()
+await flush()
+assert.equal(walk(tree).some(node => node.props?.id === 'mobile-navigation'), true, 'The mobile menu is open')
+assert.equal(walk(tree).some(node => node.props?.href === '/mi-empresa'), false, 'The open mobile menu also hides specialised company management')
+assert.equal(walk(tree).some(node => node.props?.href === '/mi-perfil'), true, 'The shared profile remains reachable for existing company members')
 empresaId = null
 authChange('SIGNED_IN', { user: { id: 'new-account' } }); await flush()
 assert.equal(walk(tree).some(node => node.props?.href === '/mi-empresa'), false, 'A previous company navigation entry does not leak to the next account')

@@ -72,7 +72,6 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
   const [userPhoto, setUserPhoto] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [isProfessional, setIsProfessional] = useState(false)
-  const [tieneEmpresa, setTieneEmpresa] = useState(!!actorEmpresaLocal)
   const [closingSession, setClosingSession] = useState(false)
   const cierrePendiente = useRef(false)
   const { resumen, usuarioId } = useResumenNotificaciones()
@@ -105,7 +104,6 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
       setUserEmail(actorEmpresaLocal.email)
       setIsAdmin(false)
       setIsProfessional(false)
-      setTieneEmpresa(true)
       return
     }
     let supabase
@@ -128,7 +126,6 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
       if (usuarioVisible !== (user?.id ?? null)) {
         setIsAdmin(false)
         setIsProfessional(false)
-        setTieneEmpresa(false)
         setUserName(null)
         setUserPhoto(null)
       }
@@ -136,7 +133,6 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
       if (!user) {
         setIsAdmin(false)
         setIsProfessional(false)
-        setTieneEmpresa(false)
         setUserName(null)
         setUserPhoto(null)
         return
@@ -145,7 +141,7 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
       const [{ data: profile }, { data: professional }] = await Promise.all([
         supabase
           .from("profiles")
-          .select("es_admin, nombre, apellido, foto_perfil, empresa_id")
+          .select("es_admin, nombre, apellido, foto_perfil")
           .eq("id", user.id)
           .maybeSingle(),
         supabase.from("profesionales").select("id").eq("id", user.id).maybeSingle(),
@@ -153,7 +149,6 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
       if (!activo || revision !== actual) return
       setIsAdmin(!!profile?.es_admin)
       setIsProfessional(!!professional)
-      setTieneEmpresa(!!profile?.empresa_id)
       const nombreCompleto = `${profile?.nombre ?? ""} ${profile?.apellido ?? ""}`.trim()
       setUserName(nombreCompleto || null)
       setUserPhoto(profile?.foto_perfil ?? null)
@@ -420,10 +415,10 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
                       <ShieldAlert className="mr-2 h-4 w-4" />
                        {t("Incidencias")}{porSeccion["/incidencias"] > 0 && <span className="ml-2 rounded-full bg-red-500 px-1.5 text-xs text-white">{porSeccion["/incidencias"]}</span>} </Link>
                   </DropdownMenuItem>
-                  {(EMPRESA_ESPECIALIZADA_HABILITADA || tieneEmpresa) && <DropdownMenuItem asChild>
+                  {EMPRESA_ESPECIALIZADA_HABILITADA && <DropdownMenuItem asChild>
                     <Link href="/mi-empresa" className="cursor-pointer">
                       <Building2 className="h-4 w-4 mr-2" />
-                       {t(EMPRESA_ESPECIALIZADA_HABILITADA ? "Mi empresa" : "Gestión de empresa")} </Link>
+                       {t("Mi empresa")} </Link>
                   </DropdownMenuItem>}
                   <DropdownMenuItem asChild>
                     <Link href="/mi-cuenta" className="cursor-pointer">
@@ -575,13 +570,13 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
                   >
                     <ShieldAlert className="h-5 w-5 shrink-0" />
                      {t("Incidencias")}{porSeccion["/incidencias"] > 0 && <span className="ml-2 rounded-full bg-red-500 px-1.5 text-xs text-white">{porSeccion["/incidencias"]}</span>} </Link>
-                  {(EMPRESA_ESPECIALIZADA_HABILITADA || tieneEmpresa) && <Link
+                  {EMPRESA_ESPECIALIZADA_HABILITADA && <Link
                     href="/mi-empresa"
                     onClick={() => setIsOpen(false)}
                     className="px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted flex items-center gap-3"
                   >
                     <Building2 className="h-5 w-5 shrink-0" />
-                     {t(EMPRESA_ESPECIALIZADA_HABILITADA ? "Mi empresa" : "Gestión de empresa")} </Link>}
+                     {t("Mi empresa")} </Link>}
                   <Link
                     href="/mi-cuenta"
                     onClick={() => setIsOpen(false)}
