@@ -604,7 +604,6 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
     setLoggingOut(true)
     try {
       await cerrarSesionActual("global")
-      window.location.replace("/")
     } catch {
       toast({ title: t("No se pudo cerrar la sesión"), description: t("Tu sesión sigue abierta. Comprueba la conexión y vuelve a intentarlo."), variant: "destructive" })
     } finally {

@@ -81,6 +81,7 @@ export function BotonesOAuth({
 
     try {
       const esAppNativa = Capacitor.isNativePlatform()
+      const googleEnIOS = esAppNativa && proveedor === "google" && Capacitor.getPlatform() === "ios"
       const callbackWeb = new URL("/auth/callback", window.location.origin)
       const requested = destinoAuthSeguro(new URLSearchParams(window.location.search).get("next"), "")
       const esRegistro = window.location.pathname === "/auth/registro"
@@ -89,23 +90,37 @@ export function BotonesOAuth({
         callbackWeb.searchParams.set("terms", "1")
         callbackWeb.searchParams.set("age", "1")
       }
-      if (esAppNativa) {
-        guardarRetornoOAuthNativo({ destino: requested || "/", terms: esRegistro && aceptaTerminos, age: esRegistro && confirmaMayoriaEdad }, window.localStorage)
-      }
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: proveedor,
         options: {
           redirectTo: esAppNativa ? AUTH_DEEP_LINK : callbackWeb.toString(),
           skipBrowserRedirect: esAppNativa,
-          // Solo Google admite estos parámetros; a Apple no se le mandan.
-          ...(proveedor === "google"
+          // En iOS el servidor aplica estos parámetros al resolver el salto.
+          ...(proveedor === "google" && !googleEnIOS
             ? { queryParams: { access_type: "offline", prompt: "consent" } }
             : {}),
         },
       })
       if (error) throw error
-      if (esAppNativa && data.url) {
-        await Browser.open({ url: data.url, presentationStyle: "popover" })
+      if (esAppNativa) {
+        let url = data.url
+        if (googleEnIOS && url) {
+          // El SDK ya ha guardado el verificador PKCE en la WebView.
+          const challenge = new URL(url).searchParams.get("code_challenge")
+          const inicio = await fetch("/api/auth/google/nativo", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ challenge }),
+          }).then((respuesta) => respuesta.ok ? respuesta.json() : null).catch(() => null)
+          url = typeof inicio?.url === "string" ? inicio.url : ""
+        }
+        if (!url) {
+          onError(t("Error al continuar con {proveedor}", { proveedor: proveedor === "google" ? "Google" : "Apple" }))
+          onCargando(false)
+          return
+        }
+        guardarRetornoOAuthNativo({ destino: requested || "/", terms: esRegistro && aceptaTerminos, age: esRegistro && confirmaMayoriaEdad }, window.localStorage)
+        await Browser.open({ url, presentationStyle: "popover" })
       }
       // Si no hay error el navegador se va al proveedor: no se quita el
       // "cargando" a propósito, para que no se pueda pulsar dos veces.

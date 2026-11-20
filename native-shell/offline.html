@@ -24,10 +24,19 @@
         </svg>
         <h1>Estás sin conexión</h1>
         <p>Comprueba tu conexión a internet para volver a cargar tus demandas, mensajes y trabajos.</p>
-        <button type="button" onclick="location.replace('https://www.diime.es/')">Volver a intentarlo</button>
+        <button type="button">Volver a intentarlo</button>
       </section>
     </main>
     <script>
+      const retryButton = document.querySelector("button");
+      retryButton.addEventListener("click", () => {
+        const nativeRetry = window.webkit?.messageHandlers?.diimeRetryConnection;
+        if (nativeRetry) {
+          nativeRetry.postMessage(null);
+        } else {
+          location.replace("https://www.diime.es/");
+        }
+      });
       // The local Capacitor error origin cannot read the remote site's cookie.
       // Use the device language for this pre-connection screen.
       if ((navigator.language || "es").toLowerCase().startsWith("en")) {
@@ -35,7 +44,7 @@
         document.title = "Offline · Diime";
         document.querySelector("h1").textContent = "You are offline";
         document.querySelector("p").textContent = "Check your internet connection to reload your requests, messages and jobs.";
-        document.querySelector("button").textContent = "Try again";
+        retryButton.textContent = "Try again";
       }
     </script>
   </body>

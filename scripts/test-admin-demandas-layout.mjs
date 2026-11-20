@@ -60,7 +60,7 @@ function setup({ user = "A", administrator = true } = {}) {
     "@/hooks/use-toast": { useToast: () => ({ toast() {} }) },
     "@/lib/utils": { cn: (...values) => values.filter(Boolean).join(" ") },
     "@/lib/supabase/client": { createClient: () => client },
-    "@/lib/auth-logout": { cerrarSesionActual: async () => {} },
+    "@/lib/auth-logout": { cerrarSesionActual: async () => {}, cierreSesionSolicitado: () => false },
     "@/app/actions/operaciones": { obtenerConteoDemandasSinOferta: () => { calls.push(currentUser); return countResponse() } },
   }
   const exports = {}

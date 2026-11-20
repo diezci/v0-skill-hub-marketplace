@@ -8,6 +8,8 @@ import ts from 'typescript'
 
 const CALLBACK = 'es.diime.app://auth/callback'
 const RETURN_KEY = 'diime_oauth_return_v1'
+const PKCE_CHALLENGE = 'a'.repeat(43)
+const GOOGLE_URL = 'https://accounts.google.com/o/oauth2/v2/auth?state=synthetic'
 const jsx = (type, props) => ({ type, props })
 const plain = value => JSON.parse(JSON.stringify(value))
 const tick = async () => { for (let i = 0; i < 30; i++) await Promise.resolve() }
@@ -59,22 +61,30 @@ function authFixture(saved = { destino: '/', terms: false, age: false }) {
   }
 }
 
-function buttonsFixture({ platform = 'native', idioma = 'en', path = '/auth/registro', next = '/mi-empresa/invitaciones/synthetic?from=mail#accept', accepts = true, adult = true } = {}) {
-  const savedStorage = storage(), calls = [], browser = [], errors = [], loading = []
-  const traducciones = { 'Continuar con Google': 'Continue with Google', 'Continuar con Apple': 'Continue with Apple' }
+function buttonsFixture({ platform = 'ios', idioma = 'en', path = '/auth/registro', next = '/mi-empresa/invitaciones/synthetic?from=mail#accept', accepts = true, adult = true, inicioGoogle = async () => Response.json({ url: GOOGLE_URL }) } = {}) {
+  const savedStorage = storage(), calls = [], starts = [], browser = [], errors = [], loading = []
+  const traducciones = {
+    'Continuar con Google': 'Continue with Google',
+    'Continuar con Apple': 'Continue with Apple',
+    'Error al continuar con {proveedor}': 'Unable to continue with {proveedor}',
+  }
+  const authorizeUrl = provider => `https://supabase.test/auth/v1/authorize?provider=${provider}&code_challenge=${PKCE_CHALLENGE}`
   const component = load('components/botones-oauth.tsx', {
     'react/jsx-runtime': { jsx, jsxs: jsx },
-    '@/components/idioma-provider': { useT: () => text => idioma === 'en' ? traducciones[text] || text : text },
+    '@/components/idioma-provider': { useT: () => (text, params) => (idioma === 'en' ? traducciones[text] || text : text).replace('{proveedor}', params?.proveedor) },
     '@/components/ui/button': { Button: 'Button' },
-    '@/lib/supabase/client': { createClient: () => ({ auth: { signInWithOAuth: async input => { calls.push(plain(input)); return { data: { url: `https://provider.test/authorize?provider=${input.provider}` }, error: null } } } }) },
-    '@capacitor/core': { Capacitor: { isNativePlatform: () => platform === 'native' } },
+    '@/lib/supabase/client': { createClient: () => ({ auth: { signInWithOAuth: async input => { calls.push(plain(input)); return { data: { url: authorizeUrl(input.provider) }, error: null } } } }) },
+    '@capacitor/core': { Capacitor: { isNativePlatform: () => platform !== 'web', getPlatform: () => platform } },
     '@capacitor/browser': { Browser: { open: async input => browser.push(plain(input)) } },
     '@/lib/auth-redirect': redirect,
     '@/lib/auth-native': native,
-  }, { window: { location: { origin: 'https://www.diime.es', pathname: path, search: `?next=${encodeURIComponent(next)}` }, localStorage: savedStorage } })
+  }, {
+    window: { location: { origin: 'https://www.diime.es', pathname: path, search: `?next=${encodeURIComponent(next)}` }, localStorage: savedStorage },
+    async fetch(url, options) { starts.push({ url, options: plain(options) }); return inicioGoogle() },
+  })
   const tree = component.BotonesOAuth({ cargando: false, onCargando: value => loading.push(value), onError: value => errors.push(value), aceptaTerminos: accepts, confirmaMayoriaEdad: adult })
   const buttons = walk(tree).filter(node => node.type === 'Button')
-  return { storage: savedStorage, calls, browser, errors, loading, buttons,
+  return { storage: savedStorage, calls, starts, browser, errors, loading, buttons, authorizeUrl,
     async click(provider) { const button = buttons[provider === 'google' ? 0 : 1]; assert.ok(button); await button.props.onClick() },
   }
 }
@@ -89,8 +99,12 @@ for (const idioma of ['es', 'en']) for (const provider of ['google', 'apple']) f
     assert.equal(input.options.redirectTo, CALLBACK)
     assert.equal(input.options.skipBrowserRedirect, true)
     assert.equal(new URL(input.options.redirectTo).search, '')
-    assert.deepEqual(input.options.queryParams, provider === 'google' ? { access_type: 'offline', prompt: 'consent' } : undefined)
-    assert.deepEqual(app.browser, [{ url: `https://provider.test/authorize?provider=${provider}`, presentationStyle: 'popover' }])
+    assert.equal(input.options.queryParams, undefined)
+    assert.deepEqual(app.starts, provider === 'google' ? [{
+      url: '/api/auth/google/nativo',
+      options: { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ challenge: PKCE_CHALLENGE }) },
+    }] : [])
+    assert.deepEqual(app.browser, [{ url: provider === 'google' ? GOOGLE_URL : app.authorizeUrl(provider), presentationStyle: 'popover' }])
     const pending = JSON.parse(app.storage.getItem(RETURN_KEY))
     assert.equal(pending.destino, '/mi-empresa/invitaciones/synthetic?from=mail#accept')
     assert.equal(pending.terms, path === '/auth/registro')
@@ -113,10 +127,97 @@ for (const provider of ['google', 'apple']) for (const path of ['/auth/login', '
     assert.equal(callback.searchParams.get('terms'), path === '/auth/registro' ? '1' : null)
     assert.equal(callback.searchParams.get('age'), path === '/auth/registro' ? '1' : null)
     assert.equal(web.calls[0].options.skipBrowserRedirect, false)
+    assert.deepEqual(web.calls[0].options.queryParams, provider === 'google' ? { access_type: 'offline', prompt: 'consent' } : undefined)
+    assert.deepEqual(web.starts, [])
     assert.equal(web.storage.getItem(RETURN_KEY), null)
     assert.deepEqual(web.browser, [])
   })
 }
+
+test('Android Google login retains its original OAuth launch', async () => {
+  const app = buttonsFixture({ platform: 'android' })
+  await app.click('google')
+  assert.deepEqual(app.calls[0].options.queryParams, { access_type: 'offline', prompt: 'consent' })
+  assert.deepEqual(app.starts, [])
+  assert.deepEqual(app.browser, [{ url: app.authorizeUrl('google'), presentationStyle: 'popover' }])
+})
+
+test('failed iOS Google launch can be retried without opening the Supabase domain', async () => {
+  let disponible = false
+  const app = buttonsFixture({ inicioGoogle: async () => disponible ? Response.json({ url: GOOGLE_URL }) : new Response(null, { status: 502 }) })
+  await app.click('google')
+  assert.deepEqual(app.browser, [])
+  assert.equal(app.storage.getItem(RETURN_KEY), null)
+  assert.deepEqual(app.errors, ['', 'Unable to continue with Google'])
+  assert.deepEqual(app.loading, [true, false])
+  disponible = true
+  await app.click('google')
+  assert.deepEqual(app.browser, [{ url: GOOGLE_URL, presentationStyle: 'popover' }])
+  assert.ok(app.storage.getItem(RETURN_KEY))
+})
+
+function googleStartFixture({ location = GOOGLE_URL, status = 302 } = {}) {
+  const calls = []
+  const { POST } = load('app/api/auth/google/nativo/route.ts', { '@/lib/auth-native': native }, {
+    process: { env: { NEXT_PUBLIC_SUPABASE_URL: 'https://supabase.test' } },
+    AbortSignal,
+    Response,
+    async fetch(url, options) {
+      calls.push({ url, options })
+      return new Response(null, { status, headers: { Location: location } })
+    },
+  })
+  return {
+    calls,
+    start(challenge = PKCE_CHALLENGE, contentType = 'application/json') {
+      return POST(new Request('https://www.diime.es/api/auth/google/nativo', {
+        method: 'POST',
+        headers: { 'Content-Type': contentType },
+        body: JSON.stringify({ challenge, provider: 'untrusted', redirect_to: 'https://untrusted.test' }),
+      }))
+    },
+  }
+}
+
+test('Google launch resolves a single uncached Supabase redirect with the webview PKCE challenge', async () => {
+  const start = googleStartFixture()
+  const respuesta = await start.start()
+  assert.equal(respuesta.status, 200)
+  assert.equal(respuesta.headers.get('Cache-Control'), 'no-store')
+  assert.deepEqual(await respuesta.json(), { url: GOOGLE_URL })
+  assert.equal(start.calls.length, 1)
+  const [{ url, options }] = start.calls
+  assert.equal(url.origin, 'https://supabase.test')
+  assert.equal(url.pathname, '/auth/v1/authorize')
+  assert.deepEqual(Object.fromEntries(url.searchParams), {
+    provider: 'google',
+    redirect_to: CALLBACK,
+    code_challenge: PKCE_CHALLENGE,
+    code_challenge_method: 's256',
+    access_type: 'offline',
+    prompt: 'consent',
+  })
+  assert.equal(options.redirect, 'manual')
+  assert.equal(options.cache, 'no-store')
+  assert.equal(options.headers, undefined)
+})
+
+test('Google launch rejects malformed challenges and unexpected provider redirects', async () => {
+  const start = googleStartFixture()
+  assert.equal((await start.start('bad')).status, 400)
+  assert.equal((await start.start(PKCE_CHALLENGE, 'text/plain')).status, 415)
+  assert.equal(start.calls.length, 0)
+  const incorrectos = [
+    { location: 'https://accounts.google.com.invalid/o/oauth2/v2/auth?state=synthetic' },
+    { location: 'https://user@accounts.google.com/o/oauth2/v2/auth?state=synthetic' },
+    { location: 'https://accounts.google.com/other?state=synthetic' },
+    { location: 'https://accounts.google.com/o/oauth2/v2/auth' },
+    { status: 200 },
+  ]
+  for (const opciones of incorrectos) {
+    assert.equal((await googleStartFixture(opciones).start()).status, 502)
+  }
+})
 
 test('registration cannot start OAuth without either required confirmation', async () => {
   for (const options of [{ accepts: false }, { adult: false }]) {

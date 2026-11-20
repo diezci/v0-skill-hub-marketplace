@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
-import { cerrarSesionActual } from "@/lib/auth-logout"
+import { cerrarSesionActual, cierreSesionSolicitado } from "@/lib/auth-logout"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2, Users, Scale, CreditCard, LayoutDashboard, LogOut, ChevronRight, ShieldAlert, MessageSquare, Briefcase, Bell, BellRing, BadgeCheck, ExternalLink, WalletCards } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -95,7 +95,7 @@ function AdminLayoutContenido({ children }: { children: React.ReactNode }) {
         setIsAdmin(false); setAdminName(""); setPendientes({})
         setAdminUsuarioId(null)
         setDemandasSinOferta(null); setErrorDemandas(false)
-        if (!cierrePendiente.current) router.replace("/auth/login")
+        if (!cierreSesionSolicitado()) router.replace("/auth/login")
       } else if (session?.user.id && session.user.id !== ultimoUsuario) {
         revision++; ultimoUsuario = session.user.id
         revisionSesion.current++
@@ -166,7 +166,6 @@ function AdminLayoutContenido({ children }: { children: React.ReactNode }) {
     setClosingSession(true)
     try {
       await cerrarSesionActual("global")
-      window.location.replace("/")
     } catch {
       toast({ title: t("No se pudo cerrar la sesión"), description: t("Tu sesión sigue abierta. Comprueba la conexión y vuelve a intentarlo."), variant: "destructive" })
     } finally {
