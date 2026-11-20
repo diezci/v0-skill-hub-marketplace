@@ -31,16 +31,16 @@ interface FeaturedGig {
 const GigCard = ({ gig }: { gig: FeaturedGig }) => {
  const { t, idioma } = useIdioma()
  return (
-  <Card className="overflow-hidden card-hover cursor-pointer group h-full">
-    <div className="relative h-40 overflow-hidden">
+  <Card className="min-w-0 gap-0 overflow-hidden py-0 card-hover cursor-pointer group h-full">
+    <div className="relative h-40 shrink-0 overflow-hidden">
       <img
         src={gig.image || "/placeholder.svg"}
         alt={gig.title}
         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-      <Badge className="absolute top-3 left-3 bg-background/90 text-foreground hover:bg-background/90">
-        {t(gig.category)}
+      <Badge className="absolute top-3 left-3 max-w-[calc(100%-3.5rem)] bg-background/90 text-foreground hover:bg-background/90">
+        <span className="truncate">{t(gig.category)}</span>
       </Badge>
       {gig.verified && (
         <div className="absolute top-3 right-3 bg-primary/90 text-primary-foreground rounded-full p-1" title={t("Perfil revisado y verificado por el equipo de Diime")} aria-label={t("Verificado por Diime")}>
@@ -53,33 +53,33 @@ const GigCard = ({ gig }: { gig: FeaturedGig }) => {
             <AvatarImage src={gig.freelancer.avatar || "/placeholder.svg"} />
             <AvatarFallback>{gig.freelancer.name.charAt(0)}</AvatarFallback>
           </Avatar>
-          <div className="text-white">
-            <p className="text-sm font-medium leading-none">{gig.freelancer.name}</p>
+          <div className="min-w-0 text-white">
+            <p className="truncate text-sm font-medium leading-none" title={gig.freelancer.name}>{gig.freelancer.name}</p>
             <p className="text-xs opacity-80">{t(gig.freelancer.level)}</p>
           </div>
         </div>
       </div>
     </div>
 
-    <div className="p-4">
-      <h3 className="font-semibold mb-1 line-clamp-1">{gig.title}</h3>
-      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{t(gig.description || "Profesional cualificado")}</p>
+    <div className="flex min-w-0 flex-1 flex-col p-4">
+      <h3 className="min-h-[1lh] font-semibold mb-1 truncate" title={gig.title}>{gig.title}</h3>
+      <p className="min-h-[2lh] break-words text-sm text-muted-foreground mb-3 line-clamp-2">{t(gig.description || "Profesional cualificado")}</p>
 
-      <div className="flex items-center justify-between text-sm">
-        <div className="flex items-center gap-3">
+      <div className="mt-auto flex items-center justify-between gap-2 text-sm">
+        <div className="min-w-0 flex flex-col gap-1">
           {gig.reviews > 0 ? <span className="flex items-center gap-1 text-amber-500">
             <Star className="h-3.5 w-3.5 fill-current" />
             <span className="font-medium">{gig.rating.toFixed(1)}</span>
             <span className="text-muted-foreground">({gig.reviews})</span>
-          </span> : <span className="text-muted-foreground">{t("Sin valoraciones")}</span>}
+          </span> : <span className="truncate text-muted-foreground">{t("Sin valoraciones")}</span>}
           {gig.location && (
-            <span className="flex items-center gap-1 text-muted-foreground">
-              <MapPin className="h-3 w-3" />
-              {gig.location === "España" || gig.location === "Ubicación no especificada" ? t(gig.location) : gig.location}
+            <span className="min-w-0 flex items-center gap-1 text-muted-foreground">
+              <MapPin className="h-3 w-3 shrink-0" />
+              <span className="truncate">{gig.location === "España" || gig.location === "Ubicación no especificada" ? t(gig.location) : gig.location}</span>
             </span>
           )}
         </div>
-        <span className="font-bold text-primary">{gig.price > 0 ? `${formatearPrecioEuros(gig.price, idioma)}/h` : t("Consultar")}</span>
+        <span className="shrink-0 font-bold text-primary">{gig.price > 0 ? `${formatearPrecioEuros(gig.price, idioma)}/h` : t("Consultar")}</span>
       </div>
     </div>
   </Card>
@@ -150,7 +150,7 @@ const FeaturedGigs = () => {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {gigs.map((gig) => (
-            <Link key={gig.id} href={`/profesional/${gig.id}`}>
+            <Link key={gig.id} href={`/profesional/${gig.id}`} className="min-w-0">
               <GigCard gig={gig} />
             </Link>
           ))}

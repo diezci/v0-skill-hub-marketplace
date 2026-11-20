@@ -68,19 +68,19 @@ const Categories = () => {
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] sm:grid-cols-3 lg:grid-cols-4 gap-4">
         {categorias.map((cat) => {
           const Icono = cat.icono
           return (
-            <Link key={cat.nombre} href={cat.href}>
-              <Card className="h-full p-5 cursor-pointer group border-border/40 hover:border-primary/40 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 rounded-2xl">
+            <Link key={cat.nombre} href={cat.href} className="min-w-0">
+              <Card className="h-full gap-0 p-5 cursor-pointer group border-border/40 hover:border-primary/40 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 rounded-2xl">
                 <div
                   className={`h-12 w-12 rounded-xl bg-gradient-to-br ${cat.fondo} flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-110`}
                 >
                   <Icono className={`h-6 w-6 ${cat.color}`} />
                 </div>
-                <h3 className="font-semibold text-base mb-1 leading-tight">{t(cat.nombre)}</h3>
-                <p className="text-xs text-muted-foreground leading-snug line-clamp-2">{cat.ejemplos.split(" · ").map((nombre) => t(nombre)).join(" · ")}</p>
+                <h3 className="font-semibold text-base mb-1 leading-tight [overflow-wrap:anywhere]">{t(cat.nombre)}</h3>
+                <p className="mt-auto min-h-[2lh] break-words text-xs text-muted-foreground leading-snug line-clamp-2">{cat.ejemplos.split(" · ").map((nombre) => t(nombre)).join(" · ")}</p>
                 <p className="text-[11px] text-muted-foreground/70 mt-2">
                   {cat.total} {cat.total !== 1 ? t("categorias.servicios") : t("categorias.servicio")}
                 </p>

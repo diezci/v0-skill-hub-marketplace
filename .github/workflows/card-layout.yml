@@ -1,0 +1,53 @@
+name: Card layout
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/card-layout.yml'
+      - 'app/**'
+      - 'components/**'
+      - 'lib/**'
+      - 'styles/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'postcss.config.mjs'
+      - 'scripts/test-*-layout.mjs'
+      - 'scripts/fixtures/layout-*.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: card-layout-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  layout:
+    name: Responsive cards (${{ matrix.engine }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [chromium, webkit]
+    env:
+      DIIME_LAYOUT_ENGINE: ${{ matrix.engine }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --global pnpm@10.34.5
+      - run: pnpm install --frozen-lockfile
+      - name: Install browser for layout checks
+        run: |
+          npm install --prefix "$RUNNER_TEMP/layout-tools" --no-package-lock --ignore-scripts playwright@1.62.1
+          "$RUNNER_TEMP/layout-tools/node_modules/.bin/playwright" install --with-deps "$DIIME_LAYOUT_ENGINE"
+          echo "DIIME_PLAYWRIGHT_MODULE=$RUNNER_TEMP/layout-tools/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+      - name: Professional and company cards
+        run: node scripts/test-profesionales-layout.mjs
+      - name: Home page cards
+        run: node scripts/test-home-layout.mjs
