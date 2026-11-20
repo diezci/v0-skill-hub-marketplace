@@ -9,7 +9,8 @@ import { useMemo, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { obtenerProfesionales } from "@/app/actions/profiles"
 import { crearConversacion } from "@/app/actions/messages"
-import { Card, CardContent, CardFooter } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
+import { PieTarjetaDirectorio } from "@/components/pie-tarjeta-directorio"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Star, Grid3X3, List, MapPin, MessageSquare } from "lucide-react"
@@ -199,7 +200,7 @@ const GigListing = ({ filtros, empresas = [] }: GigListingProps) => {
             )}
           </p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder={t("Ordenar por")} />
@@ -244,125 +245,131 @@ const GigListing = ({ filtros, empresas = [] }: GigListingProps) => {
           </CardContent>
         </Card>
       ) : viewMode === "grid" ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {filtered.map((gig) => gig.empresa ? <TarjetaEmpresa key={gig.id} datos={gig.empresa} /> : (
-            <Link key={gig.id} href={`/profesional/${gig.id}`}>
-              <Card className="h-full overflow-hidden transition-all duration-200 hover:shadow-md hover:-translate-y-1 cursor-pointer">
-                <div className="relative h-48 overflow-hidden">
+            <Link key={gig.id} href={`/profesional/${gig.id}`} className="block min-w-0">
+              <Card className="@container h-full min-w-0 gap-0 py-0 overflow-hidden transition-all duration-200 hover:shadow-md hover:-translate-y-1 cursor-pointer">
+                <div className="relative h-48 shrink-0 overflow-hidden">
                   <img
                     src={gig.image || "/placeholder.svg"}
                     alt={gig.title}
                     className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                   />
-                  {gig.category && <Badge className="absolute top-2 right-2">{t(gig.category)}</Badge>}
+                  {gig.category && (
+                    <Badge className="absolute top-2 right-2 max-w-[calc(100%-1rem)]" title={t(gig.category)}>
+                      <span className="truncate">{t(gig.category)}</span>
+                    </Badge>
+                  )}
                 </div>
-                <CardContent className="p-6">
-                  <div className="flex items-center space-x-2 mb-4">
-                    <Avatar className="h-8 w-8">
+                <CardContent className="flex min-w-0 flex-1 flex-col p-6">
+                  <div className="flex min-w-0 items-center gap-2 mb-4">
+                    <Avatar className="h-8 w-8 shrink-0">
                       <AvatarImage src={gig.freelancer.avatar || "/placeholder.svg"} />
                       <AvatarFallback>{gig.freelancer.name.charAt(0)}</AvatarFallback>
                     </Avatar>
-                    <div>
-                      <p className="text-sm font-medium">{gig.freelancer.name}</p>
-                      <p className="text-xs text-muted-foreground">{t(gig.freelancer.level)}</p>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium" title={gig.freelancer.name}>{gig.freelancer.name}</p>
+                      <p className="truncate text-xs text-muted-foreground">{t(gig.freelancer.level)}</p>
                     </div>
                   </div>
-                  <h3 className="text-xl font-semibold mb-2">{gig.title}</h3>
-                  <p className="text-muted-foreground mb-3 line-clamp-2">{gig.description || t("Profesional en Diime")}</p>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-1 text-amber-500">
-                      <Star className="h-4 w-4 fill-current" />
+                  {/* Reservar dos líneas mantiene alineadas las secciones con cualquier longitud de texto. */}
+                  <h3 className="min-h-14 line-clamp-2 break-words text-xl leading-7 font-semibold mb-2" title={gig.title}>{gig.title}</h3>
+                  <p className="min-h-12 line-clamp-2 break-words text-muted-foreground leading-6 mb-3">{gig.description || t("Profesional en Diime")}</p>
+                  <div className="mt-auto flex min-w-0 items-center justify-between gap-2">
+                    <div className="flex shrink-0 items-center space-x-1 text-amber-500">
+                      <Star className="h-4 w-4 shrink-0 fill-current" />
                       <span className="font-medium">{gig.rating}</span>
                       <span className="text-muted-foreground text-sm">({gig.reviews})</span>
                     </div>
-                    <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />
-                      {gig.provincia}
+                    <span className="min-w-0 text-xs text-muted-foreground inline-flex items-center gap-1" title={gig.provincia}>
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{gig.provincia}</span>
                     </span>
                   </div>
                 </CardContent>
-                <CardFooter className="p-6 pt-0 border-t flex justify-between items-center gap-2">
+                <PieTarjetaDirectorio precio={
                   <div>
                     <p className="text-sm text-muted-foreground">{t("Desde")}</p>
                     <p className="text-xl font-bold">€{gig.price}</p>
                   </div>
+                }>
                   {(gig as any).esReal && (
                     <Button
                       size="sm"
                       variant="outline"
-                      className="bg-transparent"
+                      className="w-full bg-transparent"
                       disabled={enviando === String(gig.id)}
                       onClick={(e) => handleMensaje(e, String(gig.id))}
                     >
                       <MessageSquare className="h-4 w-4 mr-1.5" />
                        {t("Mensaje")} </Button>
                   )}
-                </CardFooter>
+                </PieTarjetaDirectorio>
               </Card>
             </Link>
           ))}
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="grid min-w-0 gap-4">
           {filtered.map((gig) => gig.empresa ? <TarjetaEmpresa key={gig.id} datos={gig.empresa} /> : (
-            <Link key={gig.id} href={`/profesional/${gig.id}`}>
-              <Card className="overflow-hidden transition-all duration-200 hover:shadow-md cursor-pointer">
-                <div className="flex flex-col md:flex-row">
-                  <div className="relative md:w-1/4 h-48 md:h-auto overflow-hidden">
-                    <img
-                      src={gig.image || "/placeholder.svg"}
-                      alt={gig.title}
-                      className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                    />
-                    {gig.category && <Badge className="absolute top-2 right-2">{t(gig.category)}</Badge>}
-                  </div>
-                  <div className="flex-1 p-6">
-                    <div className="flex items-center space-x-2 mb-4">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={gig.freelancer.avatar || "/placeholder.svg"} />
-                        <AvatarFallback>{gig.freelancer.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="text-sm font-medium">{gig.freelancer.name}</p>
-                        <p className="text-xs text-muted-foreground">{t(gig.freelancer.level)}</p>
-                      </div>
-                      <div className="ml-auto flex items-center gap-3">
-                        <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {gig.provincia}
-                        </span>
-                        <div className="flex items-center space-x-1 text-amber-500">
-                          <Star className="h-4 w-4 fill-current" />
-                          <span className="font-medium">{gig.rating}</span>
-                          <span className="text-muted-foreground text-sm">({gig.reviews})</span>
-                        </div>
+            <Card key={gig.id} className="@container relative min-w-0 gap-0 overflow-hidden py-0 transition-shadow duration-200 hover:shadow-md">
+              <div className="flex min-w-0 flex-col @2xl:flex-row">
+                <div className="relative h-48 shrink-0 overflow-hidden @2xl:h-auto @2xl:w-1/4">
+                  <img
+                    src={gig.image || "/placeholder.svg"}
+                    alt={gig.title}
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                  {gig.category && <Badge className="absolute top-2 right-2 max-w-[calc(100%-1rem)]" title={t(gig.category)}><span className="truncate">{t(gig.category)}</span></Badge>}
+                </div>
+                <div className="min-w-0 flex-1 p-6">
+                  <div className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-3">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={gig.freelancer.avatar || "/placeholder.svg"} />
+                      <AvatarFallback>{gig.freelancer.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium" title={gig.freelancer.name}>{gig.freelancer.name}</p>
+                      <p className="truncate text-xs text-muted-foreground">{t(gig.freelancer.level)}</p>
+                    </div>
+                    <div className="flex min-w-0 basis-full items-center justify-between gap-3 @2xl:max-w-[50%] @2xl:basis-auto">
+                      <span className="inline-flex min-w-0 items-center gap-1 text-xs text-muted-foreground" title={gig.provincia}>
+                        <MapPin className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{gig.provincia}</span>
+                      </span>
+                      <div className="flex shrink-0 items-center space-x-1 text-amber-500">
+                        <Star className="h-4 w-4 fill-current" />
+                        <span className="font-medium">{gig.rating}</span>
+                        <span className="text-muted-foreground text-sm">({gig.reviews})</span>
                       </div>
                     </div>
-                    <h3 className="text-xl font-semibold mb-2">{gig.title}</h3>
-                    <p className="text-muted-foreground mb-4">{gig.description || t("Profesional en Diime")}</p>
-                    <div className="flex justify-between items-center mt-4">
-                      <div>
-                        <p className="text-sm text-muted-foreground">{t("Desde")}</p>
-                        <p className="text-xl font-bold">€{gig.price}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {(gig as any).esReal && (
-                          <Button
-                            variant="outline"
-                            className="bg-transparent"
-                            disabled={enviando === String(gig.id)}
-                            onClick={(e) => handleMensaje(e, String(gig.id))}
-                          >
-                            <MessageSquare className="h-4 w-4 mr-1.5" />
-                             {t("Mensaje")} </Button>
-                        )}
-                        <Button>{t("Ver Detalles")}</Button>
-                      </div>
+                  </div>
+                  <h3 className="mb-2 break-words text-xl font-semibold">{gig.title}</h3>
+                  <p className="mb-4 break-words text-muted-foreground">{gig.description || t("Profesional en Diime")}</p>
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm text-muted-foreground">{t("Desde")}</p>
+                      <p className="text-xl font-bold">€{gig.price}</p>
+                    </div>
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      {(gig as any).esReal && (
+                        <Button
+                          variant="outline"
+                          className="relative z-10 bg-transparent"
+                          disabled={enviando === String(gig.id)}
+                          onClick={(e) => handleMensaje(e, String(gig.id))}
+                        >
+                          <MessageSquare className="h-4 w-4 mr-1.5" />
+                           {t("Mensaje")} </Button>
+                      )}
+                      <Button asChild>
+                        <Link href={`/profesional/${gig.id}`} className="after:absolute after:inset-0">{t("Ver Detalles")}</Link>
+                      </Button>
                     </div>
                   </div>
                 </div>
-              </Card>
-            </Link>
+              </div>
+            </Card>
           ))}
         </div>
       )}

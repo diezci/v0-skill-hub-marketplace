@@ -35,7 +35,7 @@ const HowItWorks = () => {
           return (
             <div
               key={step.number}
-              className="relative bg-card border border-border/50 rounded-2xl p-6 hover:border-primary/40 hover:shadow-lg transition-all duration-300 group"
+              className="relative md:row-span-3 md:grid md:grid-rows-subgrid md:gap-y-0 bg-card border border-border/50 rounded-2xl p-6 hover:border-primary/40 hover:shadow-lg transition-all duration-300 group"
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="h-12 w-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300">
