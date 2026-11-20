@@ -38,7 +38,7 @@ import { cn } from "@/lib/utils"
 import { DiimeLogo } from "@/components/diime-logo"
 import { createClient } from "@/lib/supabase/client"
 import { sincronizarBadgeApp } from "@/lib/push/client"
-import { cerrarSesionActual } from "@/lib/auth-logout"
+import { cerrarSesionActual, cierreSesionSolicitado } from "@/lib/auth-logout"
 import { useResumenNotificaciones } from "@/hooks/use-notificaciones-seccion"
 import type { NotificacionContextual } from "@/lib/notificaciones-contexto"
 import { CelebracionNotificacion } from "@/components/celebracion-notificacion"
@@ -182,6 +182,7 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
     const esDocumentoContratacion = /^\/trabajos\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/factura\/?$/i.test(pathname || "")
     if (
       isAdmin &&
+      !cierreSesionSolicitado() &&
       pathname &&
       !pathname.startsWith("/admin") &&
       !pathname.startsWith("/auth") &&
@@ -257,16 +258,6 @@ const Navbar = ({ actorEmpresaLocal }: { actorEmpresaLocal?: ActorEmpresa | null
     setClosingSession(true)
     try {
       await cerrarSesionActual()
-      setIsAuthenticated(false)
-      setUserEmail(null)
-      setUserName(null)
-      setUserPhoto(null)
-      setIsAdmin(false)
-      setIsProfessional(false)
-      setIsOpen(false)
-      // AppChrome ya vacía el árbol privado. El botón es el único responsable
-      // de navegar cuando el cierre de sesión queda confirmado.
-      window.location.replace("/")
     } catch {
       toast({ title: t("No se pudo cerrar la sesión"), description: t("Tu sesión sigue abierta. Comprueba la conexión y vuelve a intentarlo."), variant: "destructive" })
     } finally {

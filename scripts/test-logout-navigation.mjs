@@ -57,7 +57,7 @@ function adminFixture() {
   const helper = load('lib/auth-logout.ts', {
     '@/lib/supabase/client': { createClient: () => client },
     '@/lib/push/client': { desvincularPushActual: () => stopUnlink || Promise.resolve() },
-  })
+  }, { window: { location: { replace: path => paths.push(['replace', path]) } } })
   const router = { replace: path => paths.push(['router.replace', path]), push: path => paths.push(['router.push', path]) }
   const component = load('app/admin/layout.tsx', {
     react: hooks,
@@ -82,6 +82,7 @@ function adminFixture() {
     holdUnlink() { stopUnlink = new Promise(resolve => { fixture.release = resolve }) },
     async mount() { render(); for (let i = 0; i < 8; i++) await Promise.resolve(); render() },
     logout() { return walk(tree).find(node => node.type === 'Button' && node.props.onClick)?.props.onClick() },
+    logoutFromSharedControl() { return helper.cerrarSesionActual() },
     expire() { session = null; authChange('SIGNED_OUT', null) },
     cleanup() { slots.forEach(slot => slot?.cleanup?.()) },
   }
@@ -134,11 +135,20 @@ test('external session expiry still sends the administrator to login', async () 
   app.cleanup()
 })
 
+test('admin session listener leaves navigation to another explicit logout control', async () => {
+  const app = adminFixture()
+  await app.mount()
+  await app.logoutFromSharedControl()
+  assert.deepEqual(app.paths, [['replace', '/']])
+  app.cleanup()
+})
+
 // Run the real AppChrome and each real logout handler together. Rendering the
 // SIGNED_OUT update before signOut resolves reproduces the competing navigation
 // that an isolated button test cannot see.
 function integratedLogout(file) {
   let cursor = 0, dirty = false, tree, session = { user: { id: 'synthetic-user' } }, fail = false
+  let signOutCalls = 0, stopUnlink
   const slots = [], effects = [], paths = [], errors = [], callbacks = new Set(), listeners = new Map()
   const route = file.includes('/admin/') ? '/admin' : '/mi-cuenta'
   const hooks = {
@@ -171,6 +181,7 @@ function integratedLogout(file) {
     onAuthStateChange(callback) { callbacks.add(callback); return { data: { subscription: { unsubscribe: () => callbacks.delete(callback) } } } },
     getSession: async () => ({ data: { session }, error: null }),
     async signOut() {
+      signOutCalls++
       if (fail) return { error: new Error('Synthetic outage') }
       session = null
       callbacks.forEach(callback => callback('SIGNED_OUT', null))
@@ -180,8 +191,8 @@ function integratedLogout(file) {
   } }
   const helper = load('lib/auth-logout.ts', {
     '@/lib/supabase/client': { createClient: () => client },
-    '@/lib/push/client': { desvincularPushActual: async () => {} },
-  })
+    '@/lib/push/client': { desvincularPushActual: () => stopUnlink || Promise.resolve() },
+  }, { window })
   const redirects = load('lib/auth-redirect.ts', {}, { window, CustomEvent, URL })
   const chrome = load('components/app-chrome.tsx', {
     react: hooks, 'react/jsx-runtime': { jsx, jsxs: jsx },
@@ -197,28 +208,35 @@ function integratedLogout(file) {
     effects.splice(0).forEach(effect => effect())
   }
   async function flush() { for (let i = 0; i < 8; i++) { await Promise.resolve(); if (dirty) render() } }
-  const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8')
-  const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
-  const name = file.includes('confirmar-mayoria') ? 'salir' : 'handleLogout'
-  let handlerSource
-  const visit = node => {
-    if (ts.isVariableDeclaration(node) && node.name.getText(ast) === name) handlerSource = node.initializer.getText(ast)
-    ts.forEachChild(node, visit)
+  const control = controlFile => {
+    const source = readFileSync(new URL(`../${controlFile}`, import.meta.url), 'utf8')
+    const ast = ts.createSourceFile(controlFile, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+    const name = controlFile.includes('confirmar-mayoria') ? 'salir' : 'handleLogout'
+    let handlerSource
+    const visit = node => {
+      if (ts.isVariableDeclaration(node) && node.name.getText(ast) === name) handlerSource = node.initializer.getText(ast)
+      ts.forEachChild(node, visit)
+    }
+    visit(ast)
+    assert.ok(handlerSource)
+    return vm.runInNewContext(ts.transpileModule(`(${handlerSource})`, {
+      compilerOptions: { target: ts.ScriptTarget.ES2022 },
+    }).outputText, {
+      window, actorEmpresaLocal: null, cierrePendiente: { current: false }, loggingOut: false, guardando: false,
+      cerrarSesionActual: helper.cerrarSesionActual,
+      setIsLoading() {}, setClosingSession() {}, setLoggingOut() {}, setGuardando() {}, setIsOpen() {},
+      t: value => value, toast: error => errors.push(error), setError: error => { if (error) errors.push(error) },
+      router: { push: path => paths.push({ path, method: 'push' }), replace: path => paths.push({ path, method: 'router.replace' }), refresh: () => paths.push({ method: 'refresh' }) },
+    })
   }
-  visit(ast)
-  assert.ok(handlerSource)
-  const handler = vm.runInNewContext(ts.transpileModule(`(${handlerSource})`, {
-    compilerOptions: { target: ts.ScriptTarget.ES2022 },
-  }).outputText, {
-    window, actorEmpresaLocal: null, cierrePendiente: { current: false }, loggingOut: false, guardando: false,
-    cerrarSesionActual: helper.cerrarSesionActual,
-    setIsLoading() {}, setClosingSession() {}, setLoggingOut() {}, setGuardando() {},
-    setIsAuthenticated() {}, setUserEmail() {}, setUserName() {}, setUserPhoto() {}, setIsAdmin() {}, setIsProfessional() {}, setIsOpen() {},
-    t: value => value, toast: error => errors.push(error), setError: error => { if (error) errors.push(error) },
-    router: { push: path => paths.push({ path, method: 'push' }), replace: path => paths.push({ path, method: 'router.replace' }), refresh: () => paths.push({ method: 'refresh' }) },
-  })
   return {
-    paths, errors, privateVisible, handler, flush,
+    paths, errors, privateVisible, handler: control(file), control, flush,
+    get signOutCalls() { return signOutCalls },
+    holdUnlink() {
+      let release
+      stopUnlink = new Promise(resolve => { release = resolve })
+      return release
+    },
     async mount() { render(); await flush() },
     setFail: value => { fail = value },
     async expire() { await client.auth.signOut(); await flush() },
@@ -246,6 +264,21 @@ for (const file of ['components/navbar.tsx', 'components/logout-button.tsx', 'co
     app.cleanup()
   })
 }
+
+test('two logout controls and a late tap share one sign-out and one home navigation', async () => {
+  const app = integratedLogout('components/logout-button.tsx')
+  const otherControl = app.control('components/navbar.tsx')
+  await app.mount()
+  const release = app.holdUnlink()
+  const pending = [app.handler(), otherControl()]
+  assert.equal(app.signOutCalls, 0)
+  release()
+  await Promise.all(pending)
+  await otherControl()
+  assert.equal(app.signOutCalls, 1)
+  assert.deepEqual(app.paths, [{ path: '/', privateVisible: false }])
+  app.cleanup()
+})
 
 test('AppChrome still owns external session expiry and preserves a safe return destination', async () => {
   const app = integratedLogout('components/logout-button.tsx')

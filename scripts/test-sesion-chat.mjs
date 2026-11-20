@@ -40,13 +40,15 @@ function sdkFixture(status = 204) {
   return { sdk, calls, store, key, events, setStatus: x => { status = x } }
 }
 function logoutHandler(file, sdk, unlink = async () => {}, native = false) {
-  const helper = load('lib/auth-logout.ts', { '@/lib/supabase/client': { createClient: () => ({ auth: sdk }) }, '@/lib/push/client': { desvincularPushActual: unlink } }).value
   const state = { busy: false, authenticated: true, errors: [], paths: [], refreshes: 0 }
+  const window = { location: { assign: p => state.paths.push(p), replace: p => state.paths.push(p) } }
+  const helper = load('lib/auth-logout.ts', { '@/lib/supabase/client': { createClient: () => ({ auth: sdk }) }, '@/lib/push/client': { desvincularPushActual: unlink } }, { window }).value
+  sdk.onAuthStateChange((event, session) => { if (event === 'SIGNED_OUT') state.authenticated = !!session?.user })
   const deps = { Capacitor: { isNativePlatform: () => native }, actorEmpresaLocal: null, cierrePendiente: { current: false }, loggingOut: false, guardando: false, closingSession: false,
     cerrarSesionActual: helper.cerrarSesionActual, setIsLoading: v => state.busy = v, setClosingSession: v => state.busy = v, setLoggingOut: v => state.busy = v, setGuardando: v => state.busy = v,
     setIsAuthenticated: v => state.authenticated = v, setIsOpen() {}, setUserEmail() {}, setUserName() {}, setUserPhoto() {}, setIsAdmin() {}, setIsProfessional() {},
     toast: v => state.errors.push(v), setError: v => { if (v) state.errors.push(v) }, t: x => x,
-    router: { push: p => state.paths.push(p), refresh: () => state.refreshes++ }, window: { location: { assign: p => state.paths.push(p), replace: p => state.paths.push(p) } } }
+    router: { push: p => state.paths.push(p), refresh: () => state.refreshes++ }, window }
   return { state, run: extract(file, file.includes('confirmar-mayoria') ? 'salir' : 'handleLogout', deps) }
 }
 await test('Navbar nativo confirma Auth y navega al inicio una sola vez', async () => {
@@ -65,9 +67,10 @@ for (const file of logoutFiles) {
     assert.equal(a.calls.length, 0); assert.equal(h.state.paths.length, 0); assert.equal(h.state.errors.length, 1); assert.equal(h.state.busy, false)
   })
 }
-await test('Logout: intención manual disponible durante SIGNED_OUT y liberada tras éxito o fallo', async () => {
+await test('Logout: la intención manual se conserva hasta que se descargue el documento tras el éxito', async () => {
   const a = sdkFixture(503)
-  const helper = load('lib/auth-logout.ts', { '@/lib/supabase/client': { createClient: () => ({ auth: a.sdk }) }, '@/lib/push/client': { desvincularPushActual: async () => {} } }).value
+  const window = { location: { replace() {} } }
+  const helper = load('lib/auth-logout.ts', { '@/lib/supabase/client': { createClient: () => ({ auth: a.sdk }) }, '@/lib/push/client': { desvincularPushActual: async () => {} } }, { window }).value
   const observed = []
   a.sdk.onAuthStateChange(event => { if (event === 'SIGNED_OUT') observed.push(helper.cierreSesionSolicitado()) })
   assert.equal(helper.cierreSesionSolicitado(), false)
@@ -79,7 +82,7 @@ await test('Logout: intención manual disponible durante SIGNED_OUT y liberada t
   a.setStatus(204)
   await helper.cerrarSesionActual()
   assert.deepEqual(observed, [true])
-  assert.equal(helper.cierreSesionSolicitado(), false)
+  assert.equal(helper.cierreSesionSolicitado(), true)
 })
 await test('Logout: doble clic comparte operación pendiente y no duplica revocación', async () => {
   const a = sdkFixture(), pending = deferred(); let removals = 0
