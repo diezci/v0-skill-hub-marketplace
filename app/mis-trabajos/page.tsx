@@ -125,6 +125,17 @@ const estadoTrabajoConfig: Record<
   },
 }
 
+function netoEnResumenProveedor(trabajo: any) {
+  if (trabajo.modalidad_pago === "hitos") {
+    const cobros = trabajo.cobros_hitos_proveedor
+    const centimos = trabajo.estado === "completado" ? cobros?.liquidado_centimos : cobros?.retenido_centimos
+    return Number(centimos ?? 0) / 100
+  }
+  const pago = trabajo.transaccion_escrow
+  if (trabajo.estado === "completado" && pago?.estado !== "completado") return 0
+  return Number(pago?.pago_neto_proveedor ?? calcularPagoProveedor(trabajo.precio_acordado || 0).pagoNeto)
+}
+
 export default function MisTrabajosPage() {
   return <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>}><MisTrabajosPageContenido /></Suspense>
 }
@@ -313,18 +324,13 @@ function MisTrabajosPageContenido() {
   const trabajosCancelados = trabajos.filter((t) => t.estado === "cancelado")
 
   // Importes NETOS para el proveedor (tras la comisión de la plataforma).
-  const netoDe = (t: any) =>
-    Number(t.transaccion_escrow?.pago_neto_proveedor ?? calcularPagoProveedor(t.precio_acordado || 0).pagoNeto)
-  const totalPendienteCobro = trabajosEntregados.reduce((sum, t) => sum + netoDe(t), 0)
-  // Histórico cobrado: escrows con el pago ya liberado (estado "completado").
-  const totalCobrado = trabajosCompletados
-    .filter((t) => t.transaccion_escrow?.estado === "completado")
-    .reduce((sum, t) => sum + netoDe(t), 0)
+  const totalPendienteCobro = trabajosEntregados.reduce((sum, t) => sum + netoEnResumenProveedor(t), 0)
+  const totalCobrado = trabajosCompletados.reduce((sum, t) => sum + netoEnResumenProveedor(t), 0)
   // Total neto (a cobrar) de los trabajos activos (ya pagados y en curso).
-  const totalActivosNeto = trabajosEnProgreso.reduce((sum, t) => sum + netoDe(t), 0)
+  const totalActivosNeto = trabajosEnProgreso.reduce((sum, t) => sum + netoEnResumenProveedor(t), 0)
   // Dinero retenido por una disputa abierta: es lo que está en juego mientras
   // Diime decide, y lo primero que se quiere ver de un vistazo.
-  const totalEnDisputa = trabajosEnDisputa.reduce((sum, t) => sum + netoDe(t), 0)
+  const totalEnDisputa = trabajosEnDisputa.reduce((sum, t) => sum + netoEnResumenProveedor(t), 0)
 
   useDestinoNotificacion({
     cargando: loading,

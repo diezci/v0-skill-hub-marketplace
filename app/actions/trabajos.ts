@@ -47,6 +47,31 @@ export async function crearTrabajo(data: {
   return { data: resultado.trabajo, reutilizado: resultado.reutilizado === true }
 }
 
+// La liquidación ya ajusta el neto por reembolsos y resoluciones parciales.
+function resumirCobrosHitos(pagos: Array<{
+  hito_id: string | null
+  estado: string
+  liquidacion_estado: string | null
+  stripe_transfer_id: string | null
+  pago_neto_proveedor: number | string | null
+}>) {
+  let liquidadoCentimos = 0
+  let retenidoCentimos = 0
+  for (const pago of pagos) {
+    if (!pago.hito_id) continue
+    const liquidado = ["completado", "liberado"].includes(pago.estado) && pago.liquidacion_estado === "completada"
+    const retenido = ["retenido", "fondos_retenidos", "liquidando", "disputa"].includes(pago.estado) &&
+      pago.liquidacion_estado !== "completada" && !pago.stripe_transfer_id
+    if (!liquidado && !retenido) continue
+
+    const centimos = Math.round(Number(pago.pago_neto_proveedor) * 100)
+    if (pago.pago_neto_proveedor == null || !Number.isSafeInteger(centimos) || centimos < 0) return null
+    if (liquidado) liquidadoCentimos += centimos
+    else retenidoCentimos += centimos
+  }
+  return { liquidado_centimos: liquidadoCentimos, retenido_centimos: retenidoCentimos }
+}
+
 export async function obtenerMisTrabajos() {
   const supabase = await createClient()
   if (!supabase) return { error: await textoServidor("Base de datos no disponible") }
@@ -119,6 +144,10 @@ export async function obtenerMisTrabajos() {
       (escrows || []).find((fila: any) => fila.estado === "pendiente") ??
       null
 
+    const mostrarCobrosHitos = trabajo.modalidad_pago === "hitos" && trabajo.profesional_id === user.id && trabajo.cliente_id !== user.id
+    const cobrosHitos = mostrarCobrosHitos ? resumirCobrosHitos(escrows || []) : null
+    if (mostrarCobrosHitos && !cobrosHitos) errorCobros = true
+
     const { notas_privadas_proveedor: _notasPrivadas, entregas, ...trabajoCompartido } = trabajo
     const entrega = (entregas || []).filter((actualizacion: any) => actualizacion.tipo === "entrega")
       .sort((a: any, b: any) => (b.created_at || "").localeCompare(a.created_at || "") || (b.id || "").localeCompare(a.id || ""))[0]
@@ -137,6 +166,7 @@ export async function obtenerMisTrabajos() {
       // componentes de cliente, así que la fila entera acabaría viajando al
       // navegador y bastaría con mirar la respuesta para verlo todo.
       transaccion_escrow: recortarEscrowSegunRol(escrow, trabajo.cliente_id === user.id),
+      ...(cobrosHitos ? { cobros_hitos_proveedor: cobrosHitos } : {}),
     }
   }
   // Acotar la concurrencia evita agotar conexiones en historiales largos.
