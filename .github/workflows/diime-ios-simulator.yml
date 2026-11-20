@@ -1,0 +1,39 @@
+name: Diime iOS Simulator
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/diime-ios-simulator.yml'
+      - 'scripts/emuladores/ios-*'
+      - 'scripts/test-*-layout.mjs'
+      - 'scripts/fixtures/layout-*.mjs'
+      - 'components/**'
+      - 'app/globals.css'
+      - 'ios/**'
+      - 'capacitor.config.ts'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ios-cards-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --global pnpm@10.34.5 && pnpm install --frozen-lockfile
+      - name: Check cards in the Diime app on an iPhone Simulator
+        run: bash scripts/emuladores/ios-run.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-simulator-card-layout
+          path: ${{ runner.temp }}/diime-ios/results
+          if-no-files-found: warn
+          retention-days: 7

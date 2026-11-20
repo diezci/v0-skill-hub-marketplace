@@ -191,7 +191,7 @@ function renderFixture(idioma, fontSize, includeChecks = false, viewMode = "grid
   const markup = renderToStaticMarkup(React.createElement("main", { "data-app-main": "", className: "flex-1 pt-16" },
     React.createElement("div", { className: "container mx-auto px-4 py-8" }, renderDirectory(viewMode))))
   const nativeAttrs = platform === "web" ? "" : `data-native="true" data-native-platform="${platform}"`
-  const safeArea = platform === "web" ? "" : "--diime-safe-top:24px;--diime-safe-bottom:20px;--diime-safe-left:8px;--diime-safe-right:8px;"
+  const safeArea = platform === "web" || includeChecks ? "" : "--diime-safe-top:24px;--diime-safe-bottom:20px;--diime-safe-left:8px;--diime-safe-right:8px;"
   const checks = includeChecks ? `<script>
     const measureLayout = ${measureLayout.toString()};
     const checkLayout = ${checkLayout.toString()};
@@ -207,7 +207,7 @@ function renderFixture(idioma, fontSize, includeChecks = false, viewMode = "grid
     document.fonts.ready.then(window.runLayoutChecks);
   </script>` : ""
   const status = includeChecks ? '<output id="layout-status" style="position:fixed;bottom:8px;left:8px;max-width:90vw;z-index:1000;background:#fff;border:1px solid #333;padding:8px;font:12px monospace">Checking layout…</output>' : ""
-  return `<!doctype html><html lang="${idioma}" ${nativeAttrs}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style><style>html{font-size:${fontSize}px;${safeArea}}</style></head><body>${markup}${status}${checks}</body></html>`
+  return `<!doctype html><html lang="${idioma}" ${nativeAttrs}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>${css}</style><style>html{font-size:${fontSize}px;${safeArea}}</style></head><body>${markup}${status}${checks}</body></html>`
 }
 
 // Useful when the host cannot launch Chromium: these self-checking pages run
@@ -215,9 +215,10 @@ function renderFixture(idioma, fontSize, includeChecks = false, viewMode = "grid
 if (process.env.DIIME_LAYOUT_FIXTURE_DIR) {
   const directory = process.env.DIIME_LAYOUT_FIXTURE_DIR
   mkdirSync(directory, { recursive: true })
-  for (const idioma of ["es", "en"]) for (const fontSize of [16, 20]) {
-    const file = path.join(directory, `profesionales-${idioma}-${fontSize}.html`)
-    writeFileSync(file, renderFixture(idioma, fontSize, true))
+  const platform = process.env.DIIME_LAYOUT_PLATFORM || "web"
+  for (const mode of ["grid", "list"]) for (const idioma of ["es", "en"]) for (const fontSize of [16, 20]) {
+    const file = path.join(directory, `profesionales-${mode}-${idioma}-${fontSize}.html`)
+    writeFileSync(file, renderFixture(idioma, fontSize, true, mode, platform))
     console.log(`WROTE ${file}`)
   }
   process.exit(0)

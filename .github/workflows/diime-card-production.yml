@@ -1,0 +1,38 @@
+name: Production card layout
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'components/gig-listing.tsx'
+      - 'components/pie-tarjeta-directorio.tsx'
+      - 'components/empresas/tarjeta-empresa.tsx'
+      - 'scripts/test-card-production.mjs'
+      - '.github/workflows/diime-card-production.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: diime-production-card-check
+  cancel-in-progress: true
+
+jobs:
+  public-directory:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Chromium
+        run: |
+          npm install --prefix "$RUNNER_TEMP/layout-tools" --no-package-lock --ignore-scripts playwright@1.62.1
+          "$RUNNER_TEMP/layout-tools/node_modules/.bin/playwright" install --with-deps chromium
+          echo "DIIME_PLAYWRIGHT_MODULE=$RUNNER_TEMP/layout-tools/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+      - name: Measure cards on www.diime.es
+        run: node scripts/test-card-production.mjs

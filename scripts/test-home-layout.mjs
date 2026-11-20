@@ -38,13 +38,19 @@ featured()
 effects.splice(0).forEach(effect => effect())
 await new Promise(resolve => setImmediate(resolve))
 const css = await compileLayoutCss()
-function fixture(locale, size, native) {
+function fixture(locale, size, native, platform = "web", selfCheck = false) {
   lang = locale
   stateIndex = 0
   const section = (id, component) => React.createElement("div", { id }, React.createElement(component))
   const markup = renderToStaticMarkup(React.createElement("main", { "data-app-main": true },
     section("categories", categories), section("steps", steps), section("featured", featured)))
-  return `<!DOCTYPE html><html lang="${locale}" data-native="${native}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>${css}</style><style>html{font-size:${size}px}</style></head><body>${markup}</body></html>`
+  const checkScript = selfCheck ? `<script>
+    window.runLayoutChecks = () => {
+      const errors = (${checkHomeCards.toString()})();
+      return { passed: errors.length === 0, error: errors.join(", ") };
+    };
+  </script>` : ""
+  return `<!DOCTYPE html><html lang="${locale}" data-native="${native}" data-native-platform="${platform}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>${css}</style><style>html{font-size:${size}px}</style></head><body>${markup}${checkScript}</body></html>`
 }
 
 function checkHomeCards() {
@@ -79,7 +85,8 @@ if (process.env.DIIME_LAYOUT_FIXTURE_DIR) {
   const dir = process.env.DIIME_LAYOUT_FIXTURE_DIR
   mkdirSync(dir, { recursive: true })
   for (const locale of ["es", "en"]) for (const size of [16, 20]) {
-    const html = fixture(locale, size, false)
+    const platform = process.env.DIIME_LAYOUT_PLATFORM || "web"
+    const html = fixture(locale, size, platform !== "web", platform, true)
     assert.equal((html.match(/href="\/profesional\/\d"/g) || []).length, 4)
     writeFileSync(path.join(dir, `home-${locale}-${size}.html`), html)
   }
