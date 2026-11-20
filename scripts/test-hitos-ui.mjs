@@ -138,6 +138,18 @@ test("only the next funded stage can be approved, and certification is required"
   assert.match(text(page.render({ trabajoId: "work" })), /Reintenta la liquidación/)
 })
 
+test("both participants can open the contract receipt from the plan, outside the preview", () => {
+  for (const rol of ["cliente", "proveedor"]) {
+    const page = harness("components/hitos/trabajo-hitos.tsx", "PanelHitosTrabajo")
+    const plan = { rol, modalidad_pago: "hitos", precio_centimos: 10000, hitos: [], propuesta: null }
+    page.state(0, plan)
+    page.state(1, false)
+    const receipt = props => walk(page.render(props)).find(node => node.type === "EnlaceJustificante")
+    assert.equal(receipt({ trabajoId: "work" }).props.trabajoId, "work")
+    assert.equal(receipt({ trabajoId: "work", vistaPrevia: plan }), undefined)
+  }
+})
+
 test("a partial refund shows the settled service amount rather than the entire milestone", () => {
   const page = harness("components/hitos/trabajo-hitos.tsx", "PanelHitosTrabajo")
   const plan = { trabajo_id: "work", titulo: "Reforma", rol: "cliente", modalidad_pago: "hitos", estado: "en_progreso", plan_version: 2, precio_centimos: 10000, propuesta: null,

@@ -10,6 +10,7 @@ import { ResumenPlanHitos } from "@/components/hitos/resumen-plan-hitos"
 import { AbrirDisputaDialog } from "@/components/abrir-disputa-dialog"
 import { IncidenciasTrabajoEmpresa } from "@/components/empresas/incidencias-trabajo-empresa"
 import { EntregaAdjuntos } from "@/components/entrega-adjuntos"
+import { EnlaceJustificante } from "@/components/enlace-justificante"
 import { AdjuntosLista } from "@/components/adjuntos-lista"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -101,6 +102,12 @@ export function PanelHitosTrabajo({ trabajoId, vistaPrevia }: { trabajoId: strin
       {datos.modalidad_pago !== "hitos" ? <Card><CardContent className="space-y-3 pt-6"><p>{t("Este contrato mantiene la modalidad de pago único.")}</p><Button asChild><Link href={`/pago/${trabajoId}`}>{t("Continuar al pago")}</Link></Button></CardContent></Card> : <>
         <div className="grid gap-3 sm:grid-cols-3">{[{ titulo: "Pendiente de pagar", valor: sumas.pendiente }, { titulo: "Pagado pendiente de liberación", valor: sumas.retenido }, { titulo: "Servicio aprobado", valor: sumas.liberado }].map(item => <Card key={item.titulo}><CardContent className="p-4"><p className="text-xs text-muted-foreground">{t(item.titulo)}</p><p className="mt-1 text-xl font-semibold">{moneda(item.valor)}</p></CardContent></Card>)}</div>
         <p className="text-xs text-muted-foreground">{t("El resumen muestra importes del servicio, sin gastos de Diime. El servicio aprobado refleja la parte adjudicada al proveedor tras la liquidación; no confirma su ingreso en el banco.")}</p>
+        {!vistaPrevia && (
+          <EnlaceJustificante trabajoId={trabajoId} className="inline-flex min-h-11 items-center gap-2 text-sm text-primary hover:underline">
+            <FileCheck2 className="h-4 w-4" aria-hidden="true" />
+            {t("Ver justificante y términos")}
+          </EnlaceJustificante>
+        )}
         {sumas.reembolsado > 0 && <p className="rounded-lg border p-3 text-sm">{t("Servicio reembolsado")}: <strong>{moneda(sumas.reembolsado)}</strong></p>}
         {pendienteCambio && datos.propuesta && <Card className="border-amber-500/40"><CardHeader><CardTitle className="text-lg">{t("Propuesta de cambio pendiente")}</CardTitle></CardHeader><CardContent className="space-y-4"><p className="text-sm text-muted-foreground">{t(datos.propuesta.propuesto_parte === datos.rol ? "Has propuesto este cambio. La otra parte debe aceptarlo antes de aplicarlo." : "La otra parte propone reorganizar estos hitos. El plan actual se conserva hasta que lo aceptes.")}</p><ResumenPlanHitos hitos={datos.propuesta.plan_hitos} />{datos.propuesta.propuesto_parte !== datos.rol && datos.puede_editar && <div className="flex flex-wrap gap-2"><Button disabled={ocupado} onClick={() => ejecutar(() => responderPlanHitos(trabajoId, datos.propuesta!.version, true), "Nuevo plan acordado.")}>{t("Aceptar cambios")}</Button><Button variant="outline" disabled={ocupado} onClick={() => ejecutar(() => responderPlanHitos(trabajoId, datos.propuesta!.version, false), "Se conserva el plan anterior.")}>{t("Rechazar cambios")}</Button></div>}</CardContent></Card>}
         <Card><CardHeader><div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle className="text-lg">{t("Plan acordado")}</CardTitle><p className="mt-1 text-xs text-muted-foreground">{t("Versión {numero}", { numero: datos.plan_version })} · {moneda(datos.precio_centimos)}</p></div>{datos.puede_editar && !editando && <Button variant="outline" disabled={ocupado} onClick={() => { setHitos(filas.map(hito => ({ id: hito.id, titulo: hito.titulo, descripcion: hito.descripcion, criterio_aceptacion: hito.criterio_aceptacion, fecha_limite: hito.fecha_limite, importe_centimos: hito.importe_centimos }))); setEditando(true); setError("") }}><Pencil className="mr-2 h-4 w-4" />{t("Añadir o quitar hitos")}</Button>}</div></CardHeader><CardContent className="space-y-5">

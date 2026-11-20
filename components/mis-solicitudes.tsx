@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { EnlaceJustificante } from "@/components/enlace-justificante"
 import { TarjetaTrabajoHitos } from "@/components/hitos/resumen-plan-hitos"
 import { solicitarReautenticacion } from "@/lib/auth-redirect"
 
@@ -1005,12 +1006,11 @@ function MisSolicitudesContenido() {
                         )}
                         <AdjuntosLista archivos={trabajo.oferta?.archivos} />
                         <div className="flex min-w-0 flex-wrap gap-3 pt-1">
-                          <a
-                            href={`/trabajos/${trabajo.id}/factura`}
-                            target="_blank"
+                          <EnlaceJustificante
+                            trabajoId={trabajo.id}
                             className="inline-flex min-w-0 max-w-full items-center gap-1 break-words text-xs text-primary hover:underline"
                           >
-                            <FileText className="h-3 w-3 shrink-0" />{" "}{t("Ver justificante y términos")}</a>
+                            <FileText className="h-3 w-3 shrink-0" />{" "}{t("Ver justificante y términos")}</EnlaceJustificante>
                         </div>
                       </div>
                     )}
@@ -1208,12 +1208,11 @@ function MisSolicitudesContenido() {
                             </p>
                           )}
                           {solicitud.trabajo?.id && (
-                            <a
-                              href={`/trabajos/${solicitud.trabajo.id}/factura`}
-                              target="_blank"
+                            <EnlaceJustificante
+                              trabajoId={solicitud.trabajo.id}
                               className="mt-2 inline-flex max-w-full items-center gap-1 break-words text-xs text-primary hover:underline"
                             >
-                              <FileText className="h-3 w-3 shrink-0" />{" "}{t("Ver justificante y términos")}</a>
+                              <FileText className="h-3 w-3 shrink-0" />{" "}{t("Ver justificante y términos")}</EnlaceJustificante>
                           )}
                           {(solicitud.trabajo?.mensaje_entrega || !!solicitud.trabajo?.archivos_entrega?.length) && (
                             <div className="mt-3 min-w-0 space-y-2">
@@ -1261,7 +1260,7 @@ function MisSolicitudesContenido() {
                   <p className="text-sm">{formatearPrecioEuros(trabajo.precio_acordado, idioma)}</p>
                   <AvisoLiquidacionPago escrow={trabajo.transaccion_escrow} parte="cliente" />
                   <div className="flex flex-wrap gap-4 text-sm">
-                    <a className="inline-flex items-center gap-1 text-primary hover:underline" href={`/trabajos/${trabajo.id}/factura`} target="_blank" rel="noopener noreferrer"><FileText className="h-4 w-4" />{t("Ver justificante y términos")}</a>
+                    <EnlaceJustificante className="inline-flex items-center gap-1 text-primary hover:underline" trabajoId={trabajo.id}><FileText className="h-4 w-4" />{t("Ver justificante y términos")}</EnlaceJustificante>
                     <Button size="sm" variant="outline" onClick={() => handleContactar(trabajo.profesional_id, trabajo.solicitud_id, trabajo.id)}><MessageSquare className="mr-1 h-4 w-4" />{t("Ver conversación")}</Button>
                   </div>
                 </CardContent>

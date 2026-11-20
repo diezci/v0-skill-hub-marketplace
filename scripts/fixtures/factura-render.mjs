@@ -46,7 +46,7 @@ export async function renderFactura(opts={}){
  const module={exports:{}}
  const code=ts.transpileModule(readFileSync(new URL('../../app/trabajos/[id]/factura/page.tsx',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText
  vm.runInNewContext(code,{module,exports:module.exports,Date,Intl,console,require(name){if(!(name in deps))throw Error(`Unexpected dependency ${name}`);return deps[name]}})
- const tree=await resolver(await module.exports.default({params:Promise.resolve({id:datos?.trabajo.id||'unknown'}),searchParams:Promise.resolve({vista})}))
+ const tree=await resolver(await module.exports.default({params:Promise.resolve({id:datos?.trabajo?.id||'unknown'}),searchParams:Promise.resolve({vista})}))
  if(JSON.stringify(datos)!==before)throw Error('Receipt render changed persisted fixture amounts')
  return tree
 }

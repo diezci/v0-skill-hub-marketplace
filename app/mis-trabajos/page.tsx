@@ -1,6 +1,7 @@
 "use client"
 
 import { TarjetaTrabajoHitos } from "@/components/hitos/resumen-plan-hitos"
+import { EnlaceJustificante } from "@/components/enlace-justificante"
 import { useIdioma } from "@/components/idioma-provider"
 import { localeDe } from "@/lib/i18n"
 
@@ -122,6 +123,17 @@ const estadoTrabajoConfig: Record<
     icon: Scale,
     description: "En revisión por el equipo de Diime",
   },
+}
+
+function netoEnResumenProveedor(trabajo: any) {
+  if (trabajo.modalidad_pago === "hitos") {
+    const cobros = trabajo.cobros_hitos_proveedor
+    const centimos = trabajo.estado === "completado" ? cobros?.liquidado_centimos : cobros?.retenido_centimos
+    return Number(centimos ?? 0) / 100
+  }
+  const pago = trabajo.transaccion_escrow
+  if (trabajo.estado === "completado" && pago?.estado !== "completado") return 0
+  return Number(pago?.pago_neto_proveedor ?? calcularPagoProveedor(trabajo.precio_acordado || 0).pagoNeto)
 }
 
 export default function MisTrabajosPage() {
@@ -312,18 +324,13 @@ function MisTrabajosPageContenido() {
   const trabajosCancelados = trabajos.filter((t) => t.estado === "cancelado")
 
   // Importes NETOS para el proveedor (tras la comisión de la plataforma).
-  const netoDe = (t: any) =>
-    Number(t.transaccion_escrow?.pago_neto_proveedor ?? calcularPagoProveedor(t.precio_acordado || 0).pagoNeto)
-  const totalPendienteCobro = trabajosEntregados.reduce((sum, t) => sum + netoDe(t), 0)
-  // Histórico cobrado: escrows con el pago ya liberado (estado "completado").
-  const totalCobrado = trabajosCompletados
-    .filter((t) => t.transaccion_escrow?.estado === "completado")
-    .reduce((sum, t) => sum + netoDe(t), 0)
+  const totalPendienteCobro = trabajosEntregados.reduce((sum, t) => sum + netoEnResumenProveedor(t), 0)
+  const totalCobrado = trabajosCompletados.reduce((sum, t) => sum + netoEnResumenProveedor(t), 0)
   // Total neto (a cobrar) de los trabajos activos (ya pagados y en curso).
-  const totalActivosNeto = trabajosEnProgreso.reduce((sum, t) => sum + netoDe(t), 0)
+  const totalActivosNeto = trabajosEnProgreso.reduce((sum, t) => sum + netoEnResumenProveedor(t), 0)
   // Dinero retenido por una disputa abierta: es lo que está en juego mientras
   // Diime decide, y lo primero que se quiere ver de un vistazo.
-  const totalEnDisputa = trabajosEnDisputa.reduce((sum, t) => sum + netoDe(t), 0)
+  const totalEnDisputa = trabajosEnDisputa.reduce((sum, t) => sum + netoEnResumenProveedor(t), 0)
 
   useDestinoNotificacion({
     cargando: loading,
@@ -935,12 +942,11 @@ function TrabajoCard({
                 <span className="font-medium text-foreground">{formatCurrency(pagoNeto)} {" "}{t("netos")}</span>
               </p>
               <div className="flex gap-3 mt-2">
-                <a
-                  href={`/trabajos/${trabajo.id}/factura`}
-                  target="_blank"
+                <EnlaceJustificante
+                  trabajoId={trabajo.id}
                   className="text-xs text-primary hover:underline inline-flex items-center gap-1"
                 >
-                  <FileText className="h-3 w-3" /> {" "}{t("Ver justificante y términos")}</a>
+                  <FileText className="h-3 w-3" /> {" "}{t("Ver justificante y términos")}</EnlaceJustificante>
               </div>
             </div>
           </div>

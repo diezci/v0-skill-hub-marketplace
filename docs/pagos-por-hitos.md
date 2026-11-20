@@ -112,7 +112,7 @@ También pasaron de nuevo la compilación de producción, la comprobación indep
 
 Las compilaciones internas Android e iOS resultaron correctas. iOS instaló la app QA y cargó la bienvenida real de Diime desde el servidor local. La interacción posterior quedó bloqueada por la herramienta de control (`noWindowsAvailable`), incluso tras reiniciarla. Android API 36 no pudo arrancar por espacio disponible; API 35 sí arrancó, pero la herramienta no pudo seleccionar su ventana (`Invalid app`). No se realizaron cargos desde los simuladores.
 
-Por tanto, sesión, retorno 3DS, adjuntos y notificaciones dentro de iOS/Android no quedan certificados por esta prueba. La prueba de navegador y el flujo real de Stripe TEST sí están completos. La entrega utiliza los formularios compartidos que carga la app instalada desde `https://www.diime.es`; no cambia el contenedor nativo ni requiere una nueva versión de tienda.
+Esta primera ejecución cubrió el recorrido web. Las pruebas posteriores completaron los cuatro contratos en la app, incluidos autenticación 3DS de prueba, retorno, entrega y liberación. El contenedor nativo carga las pantallas compartidas de `https://www.diime.es`. [Resultados de la validación en iOS y Android](hitos/validacion-nativa-2026-11-15.md).
 
 ## Vista previa
 
