@@ -190,7 +190,7 @@ function integratedLogout(file) {
     '@/lib/auth-logout': helper, '@/lib/auth-redirect': redirects,
     '@/components/idioma-provider': { useT: () => value => value },
     '@/hooks/use-viewport-adaptable': { useViewportAdaptable() {} },
-  }, { window, CustomEvent, document: { documentElement: { dataset: {} } } })
+  }, { window, CustomEvent, process: { env: { NODE_ENV: 'production' } }, document: { documentElement: { dataset: {} } } })
   const render = () => {
     cursor = 0; dirty = false
     tree = chrome.AppChrome({ children: { type: 'PrivateCard', props: {} } })
