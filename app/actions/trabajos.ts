@@ -76,66 +76,76 @@ export async function obtenerMisTrabajos() {
 
   const empresas = await identidadesEmpresas(supabase, (data || []).flatMap((trabajo: any) => [trabajo.empresa_cliente_id, trabajo.empresa_proveedora_id]))
 
-  // Get client and professional profiles separately
-  const dataWithProfiles = await Promise.all(
-    data.map(async (trabajo: any) => {
-      const { data: cliente } = await supabase
-        .from("profiles")
-        .select("nombre, apellido, foto_perfil")
-        .eq("id", trabajo.cliente_id)
-        .single()
+  // Una lectura financiera fallida no equivale a un trabajo sin pagar.
+  // La pantalla conserva sus datos anteriores y ofrece reintentar si falla
+  // cualquier consulta necesaria para sus estados y totales de cobro.
+  let errorCobros = false
+  const perfiles = new Map<string, Promise<any>>()
+  const obtenerPerfil = (id: string) => {
+    let consulta = perfiles.get(id)
+    if (!consulta) {
+      consulta = Promise.resolve(supabase.from("profiles").select("nombre, apellido, foto_perfil").eq("id", id).single())
+      perfiles.set(id, consulta)
+    }
+    return consulta
+  }
 
-      const { data: profesional } = await supabase
-        .from("profiles")
-        .select("nombre, apellido, foto_perfil")
-        .eq("id", trabajo.profesional_id)
-        .single()
+  const cargarTrabajo = async (trabajo: any) => {
+    const [{ data: cliente }, { data: profesional }] = await Promise.all([
+      obtenerPerfil(trabajo.cliente_id), obtenerPerfil(trabajo.profesional_id),
+    ])
 
-      const { data: escrows } = await supabase
-        .from("transacciones_escrow")
-        .select("*")
-        .eq("trabajo_id", trabajo.id)
-        .order("created_at", { ascending: false })
+    const { data: escrows, error: escrowError } = await supabase
+      .from("transacciones_escrow")
+      .select("*")
+      .eq("trabajo_id", trabajo.id)
+      .order("created_at", { ascending: false })
+    if (escrowError) errorCobros = true
 
-      // Puede haber varios intentos de Checkout cerrados para un mismo
-      // trabajo. Se usa la transacción que llegó a mover dinero, no un intento
-      // cancelado ni una consulta `.single()` que falle con varias filas.
-      const estadosEconomicos = new Set([
-        "retenido",
-        "fondos_retenidos",
-        "liquidando",
-        "liberado",
-        "completado",
-        "reembolsado",
-        "disputa",
-      ])
-      const escrow =
-        (escrows || []).find((fila: any) => fila.fecha_retencion || estadosEconomicos.has(fila.estado)) ??
-        (escrows || []).find((fila: any) => fila.estado === "pendiente") ??
-        null
+    // Puede haber varios intentos de Checkout cerrados para un mismo
+    // trabajo. Se usa la transacción que llegó a mover dinero, no un intento
+    // cancelado ni una consulta `.single()` que falle con varias filas.
+    const estadosEconomicos = new Set([
+      "retenido",
+      "fondos_retenidos",
+      "liquidando",
+      "liberado",
+      "completado",
+      "reembolsado",
+      "disputa",
+    ])
+    const escrow =
+      (escrows || []).find((fila: any) => fila.fecha_retencion || estadosEconomicos.has(fila.estado)) ??
+      (escrows || []).find((fila: any) => fila.estado === "pendiente") ??
+      null
 
-      const { notas_privadas_proveedor: _notasPrivadas, entregas, ...trabajoCompartido } = trabajo
-      const entrega = (entregas || []).filter((actualizacion: any) => actualizacion.tipo === "entrega")
-        .sort((a: any, b: any) => (b.created_at || "").localeCompare(a.created_at || "") || (b.id || "").localeCompare(a.id || ""))[0]
-      return {
-        ...trabajoCompartido,
-        archivos_entrega: entrega?.archivos || [],
-        mensaje_entrega: entrega?.mensaje || null,
-        empresa_cliente: empresas[trabajo.empresa_cliente_id] || null,
-        empresa_proveedora: empresas[trabajo.empresa_proveedora_id] || null,
-        cliente,
-        profesional,
-        // Cada parte solo se lleva su lado del dinero. Lo que Diime le cobra al
-        // cliente y lo que le descuenta al profesional son dos acuerdos
-        // distintos, y ninguno de los dos tiene por qué conocer el del otro.
-        // Se recorta aquí y no solo en la pantalla: esta acción la llaman
-        // componentes de cliente, así que la fila entera acabaría viajando al
-        // navegador y bastaría con mirar la respuesta para verlo todo.
-        transaccion_escrow: recortarEscrowSegunRol(escrow, trabajo.cliente_id === user.id),
-      }
-    }),
-  )
+    const { notas_privadas_proveedor: _notasPrivadas, entregas, ...trabajoCompartido } = trabajo
+    const entrega = (entregas || []).filter((actualizacion: any) => actualizacion.tipo === "entrega")
+      .sort((a: any, b: any) => (b.created_at || "").localeCompare(a.created_at || "") || (b.id || "").localeCompare(a.id || ""))[0]
+    return {
+      ...trabajoCompartido,
+      archivos_entrega: entrega?.archivos || [],
+      mensaje_entrega: entrega?.mensaje || null,
+      empresa_cliente: empresas[trabajo.empresa_cliente_id] || null,
+      empresa_proveedora: empresas[trabajo.empresa_proveedora_id] || null,
+      cliente,
+      profesional,
+      // Cada parte solo se lleva su lado del dinero. Lo que Diime le cobra al
+      // cliente y lo que le descuenta al profesional son dos acuerdos
+      // distintos, y ninguno de los dos tiene por qué conocer el del otro.
+      // Se recorta aquí y no solo en la pantalla: esta acción la llaman
+      // componentes de cliente, así que la fila entera acabaría viajando al
+      // navegador y bastaría con mirar la respuesta para verlo todo.
+      transaccion_escrow: recortarEscrowSegunRol(escrow, trabajo.cliente_id === user.id),
+    }
+  }
+  // Acotar la concurrencia evita agotar conexiones en historiales largos.
+  const dataWithProfiles = []
+  for (let inicio = 0; inicio < data.length; inicio += 8) {
+    dataWithProfiles.push(...await Promise.all(data.slice(inicio, inicio + 8).map(cargarTrabajo)))
+  }
 
+  if (errorCobros) return { error: await textoServidor("No se pudieron cargar tus trabajos. Inténtalo de nuevo.") }
   return { data: dataWithProfiles }
 }
 

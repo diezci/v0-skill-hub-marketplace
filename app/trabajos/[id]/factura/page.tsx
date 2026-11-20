@@ -261,7 +261,7 @@ export default async function FacturaPage({
       }`}</style>
 
       <div className="flex items-start justify-between mb-8 no-print">
-        <div />
+        <Link className="text-sm text-primary underline" href={esCliente ? "/mis-solicitudes" : esProfesional ? "/mis-trabajos" : "/admin/trabajos"}>{t("Volver")}</Link>
         <BotonImprimir />
       </div>
 

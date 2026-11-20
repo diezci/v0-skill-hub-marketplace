@@ -1,6 +1,7 @@
 "use client"
 
 import { TarjetaTrabajoHitos } from "@/components/hitos/resumen-plan-hitos"
+import { EnlaceJustificante } from "@/components/enlace-justificante"
 import { useIdioma } from "@/components/idioma-provider"
 import { localeDe } from "@/lib/i18n"
 
@@ -935,12 +936,11 @@ function TrabajoCard({
                 <span className="font-medium text-foreground">{formatCurrency(pagoNeto)} {" "}{t("netos")}</span>
               </p>
               <div className="flex gap-3 mt-2">
-                <a
-                  href={`/trabajos/${trabajo.id}/factura`}
-                  target="_blank"
+                <EnlaceJustificante
+                  trabajoId={trabajo.id}
                   className="text-xs text-primary hover:underline inline-flex items-center gap-1"
                 >
-                  <FileText className="h-3 w-3" /> {" "}{t("Ver justificante y términos")}</a>
+                  <FileText className="h-3 w-3" /> {" "}{t("Ver justificante y términos")}</EnlaceJustificante>
               </div>
             </div>
           </div>
