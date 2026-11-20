@@ -30,9 +30,9 @@ export function ProfileHeader({ coverUrl, coverAlt, coverActions, avatar, avatar
   </div>
 }
 
-export function ProfileHeaderAvatar({ src, alt, fallback }: { src?: string; alt?: string; fallback: ReactNode }) {
+export function ProfileHeaderAvatar({ src, alt, fallback, showPlaceholder = true }: { src?: string; alt?: string; fallback: ReactNode; showPlaceholder?: boolean }) {
   return <Avatar className="h-28 w-28 md:h-36 md:w-36 border-4 border-background shadow-xl">
-    <AvatarImage src={src || "/placeholder.svg"} alt={alt} />
+    <AvatarImage src={src || (showPlaceholder ? "/placeholder.svg" : undefined)} alt={alt} />
     <AvatarFallback className="text-3xl">{fallback}</AvatarFallback>
   </Avatar>
 }

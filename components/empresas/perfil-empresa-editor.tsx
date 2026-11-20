@@ -1,5 +1,6 @@
 "use client"
 
+import type { ReactNode } from "react"
 import { guardarPerfilEmpresa } from "@/app/actions/empresa-workspace"
 import { crearItemPortfolioEmpresa, actualizarItemPortfolioEmpresa, eliminarItemPortfolioEmpresa, obtenerPortfolioEmpresa, obtenerTrabajosCompletadosParaPortfolioEmpresa } from "@/app/actions/portfolio-empresa"
 import PerfilProfesional from "@/components/perfil-profesional"
@@ -37,10 +38,11 @@ export async function subirImagenEmpresa(file: File, empresaId: string, tipo: "l
 
 // The company supplies data and authorized actions; the entire UI is the same
 // professional profile, including its image controls, portfolio and statistics.
-export function PerfilEmpresaEditor({ datos, puedeEditar, integrado = false, onGuardar = guardarPerfilEmpresa }: {
+export function PerfilEmpresaEditor({ datos, puedeEditar, integrado = false, gestionEmpresa, onGuardar = guardarPerfilEmpresa }: {
   datos: EmpresaPublica
   puedeEditar: boolean
   integrado?: boolean
+  gestionEmpresa?: ReactNode
   onGuardar?: typeof guardarPerfilEmpresa
 }) {
   const adaptador: AdaptadorPerfilProfesional = {
@@ -51,9 +53,10 @@ export function PerfilEmpresaEditor({ datos, puedeEditar, integrado = false, onG
       presupuesto_interes: [datos.empresa.presupuestoMinInteres ?? 0, datos.empresa.presupuestoMaxInteres ?? PRECIO_MAX],
     },
     equipo: <EquipoEmpresa datos={datos} />,
+    gestionEmpresa,
     guardar: (cambios) => onGuardar(cambiosPerfilEmpresa(cambios, datos.empresa)),
     subirImagen: (file, tipo) => subirImagenEmpresa(file, datos.empresa.id, tipo),
-    obtenerPortfolio: puedeEditar && !datos.local ? obtenerPortfolioEmpresa : async () => ({ data: perfilProfesionalDeEmpresa(datos).portfolio }),
+    obtenerPortfolio: puedeEditar ? obtenerPortfolioEmpresa : async () => ({ data: perfilProfesionalDeEmpresa(datos).portfolio }),
     crearProyecto: crearItemPortfolioEmpresa,
     actualizarProyecto: actualizarItemPortfolioEmpresa,
     eliminarProyecto: eliminarItemPortfolioEmpresa,

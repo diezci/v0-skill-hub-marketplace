@@ -121,7 +121,7 @@ const provincias = [
   { provincia: "Melilla", codigo: "52" },
 ]
 
-import { AvatarPerfilEmpresa, BarraEdicionEmpresa, CabeceraPerfilEmpresa, EditarSeccionEmpresa } from "@/components/empresas/cabecera-perfil-empresa"
+import { EditarSeccionEmpresa } from "@/components/empresas/cabecera-perfil-empresa"
 import { datosInicialesPerfil, type AdaptadorPerfilProfesional, type DatosPerfilProfesional } from "@/lib/perfil-profesional-editor"
 
 interface PerfilProfesionalProps {
@@ -731,7 +731,6 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
   // The company's accreditation can change in the separate legal-data editor.
   // Read its latest server state without overwriting an unsaved profile draft.
   const verificacionVigente = adaptador ? adaptador.datos.verificado : editData.verificado
-  const CabeceraPerfil = adaptador ? CabeceraPerfilEmpresa : ProfileHeader
   const editarSeccionEmpresa = (seccion: string) => {
     if (!isEditing) iniciarEdicion()
     setPestanaPerfil("sobre-mi")
@@ -744,10 +743,7 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
 
   return (
     <div className="space-y-6" aria-busy={saving} inert={saving || undefined}>
-      {adaptador && <BarraEdicionEmpresa editando={isEditing} guardando={saving} subiendo={isUploading}
-        puedeEditar={editable} onEditar={() => { iniciarEdicion(); setPestanaPerfil("sobre-mi") }}
-        onGuardar={handleSave} onCancelar={cancelarEdicion} />}
-      <CabeceraPerfil
+      <ProfileHeader
         coverUrl={editData.foto_portada}
         coverAlt={t(adaptador ? "Portada de la empresa" : "Cover")}
         coverActions={
@@ -773,7 +769,7 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
             </>
           )
         }
-        avatar={adaptador ? <AvatarPerfilEmpresa src={editData.foto_perfil} nombre={editData.nombre} /> : <ProfileHeaderAvatar src={editData.foto_perfil} fallback={editData.nombre?.charAt(0)} />}
+        avatar={<ProfileHeaderAvatar src={editData.foto_perfil} alt={adaptador ? editData.nombre : undefined} showPlaceholder={!adaptador} fallback={adaptador ? editData.nombre.trim().split(/\s+/).slice(0, 2).map(parte => parte[0]).join("").toUpperCase() : editData.nombre?.charAt(0)} />}
         avatarActions={<>
           {verificacionVigente && (
             <div className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full p-1.5">
@@ -894,13 +890,13 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
           </div>
 
           {/* Actions */}
-          {!adaptador && <div className="flex flex-col gap-2 shrink-0">
+          {(editable || !adaptador) && <div className="flex flex-col gap-2 shrink-0">
             {editable ? (
               isEditing ? (
                 <>
                   <Button onClick={handleSave} disabled={saving || isUploading}>
                     {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    {t("Guardar cambios")}
+                    {t(adaptador && saving ? "Guardando..." : "Guardar cambios")}
                   </Button>
                   <Button
                     variant="outline"
@@ -912,11 +908,11 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
                 </>
               ) : (
                 <>
-                  <Button onClick={iniciarEdicion}>
+                  <Button onClick={() => { iniciarEdicion(); if (adaptador) setPestanaPerfil("sobre-mi") }}>
                     <Edit2 className="h-4 w-4 mr-2" />
                     {t("Editar perfil")}
                   </Button>
-                  <Button
+                  {!adaptador && <Button
                     variant="outline"
                     onClick={handleLogout}
                     disabled={loggingOut} aria-busy={loggingOut}
@@ -928,7 +924,7 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
                       <LogOut className="h-4 w-4 mr-2" />
                     )}
                     {t("Cerrar sesion")}
-                  </Button>
+                  </Button>}
                 </>
               )
             ) : adaptador ? null : (
@@ -945,7 +941,7 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
             )}
           </div>}
         </div>
-      </CabeceraPerfil>
+      </ProfileHeader>
 
       {!adaptador && editable && tienePerfilProfesional && !editData.verificado ? (
         <div className="px-4 md:px-0">
@@ -957,11 +953,11 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
       ) : null}
 
       {/* Main Content */}
-      <div className={cn("grid grid-cols-1 lg:grid-cols-3 gap-6 md:px-0", !adaptador && "px-4")}>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 px-4 md:px-0">
         {/* Left Column - Main Info */}
         <div className="min-w-0 lg:col-span-2 space-y-6">
           <Tabs value={pestanaPerfil} onValueChange={setPestanaPerfil} className="w-full">
-            <TabsList data-company-tabs={adaptador ? "" : undefined} aria-label={t(adaptador ? "Contenido del perfil de empresa" : "Contenido del perfil")} className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent [&>button]:px-2 [&>button]:text-xs sm:[&>button]:px-3 sm:[&>button]:text-sm">
+            <TabsList aria-label={t(adaptador ? "Contenido del perfil de empresa" : "Contenido del perfil")} className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent [&>button]:px-2 [&>button]:text-xs sm:[&>button]:px-3 sm:[&>button]:text-sm">
               <TabsTrigger
                 value="sobre-mi"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
@@ -1437,7 +1433,8 @@ export default function PerfilProfesional({ editable = false, adaptador }: Perfi
         </div>
 
         {/* Right Column - Sidebar */}
-        <div className="space-y-6">
+        <div className={adaptador?.gestionEmpresa ? "contents lg:block lg:space-y-6" : "space-y-6"}>
+          {adaptador?.gestionEmpresa && <div className="order-first lg:order-none">{adaptador.gestionEmpresa}</div>}
           {/* Stats */}
           <Card>
             <CardHeader>

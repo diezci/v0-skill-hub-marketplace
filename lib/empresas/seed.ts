@@ -16,7 +16,9 @@ export function crearDatosEmpresaIniciales() {
   const empresa: EmpresaFicha = {
     id: "reformas-garcia", slug: "reformas-garcia", nombre: "Reformas García", razonSocial: "Reformas García, S. L.", nif: "B00000000",
     descripcion: "Reformas de viviendas y locales con un equipo cercano, una planificación clara y atención a cada detalle. Coordinamos albañilería, fontanería, electricidad y acabados para que tengas un único interlocutor de principio a fin.",
-    web: "https://reformas-garcia.example", ubicacion: "Madrid y alrededores", servicios: ["Reformas integrales", "Cocinas y baños", "Pintura", "Fontanería"],
+    portadaUrl: "/kitchen-renovation-open-concept.jpg", titulo: "Reformas de viviendas y locales",
+    anosExperiencia: 12, provincias: ["Madrid"],
+    web: "https://reformas-garcia.example", ubicacion: "Madrid y alrededores", servicios: ["Reformas integrales", "Solados y alicatados", "Pintura y decoración", "Fontanería"],
     estadoVerificacion: "verificada", representanteNombre: "Javier García", cargoLegal: "Administrador único",
   }
   const miembros: MiembroEmpresa[] = [
@@ -34,5 +36,18 @@ export function crearDatosEmpresaIniciales() {
     { id: "resena-2", trabajoId: "trabajo-bano", autor: "Carlos R.", puntuacion: 5, comentario: "Un equipo puntual y cuidadoso. Mario resolvió muy bien los detalles del baño y dejaron todo limpio.", fecha: "2026-07-16" },
     { id: "resena-3", trabajoId: "trabajo-vivienda", autor: "Beatriz S.", puntuacion: 4, comentario: "Buena coordinación y comunicación durante toda la reforma. Hubo un ajuste de plazos que nos avisaron con tiempo.", fecha: "2026-06-10" },
   ]
-  return { empresa, miembros, trabajos, resenas }
+  // Contracts are separate from portfolio cards: deleting a card must never
+  // delete its contract, and only completed work of this company is eligible.
+  const contratosPortfolio = [
+    ...trabajos.map((trabajo, index) => ({
+      id: trabajo.id, empresaId: empresa.id, estado: "completado",
+      titulo: trabajo.titulo, descripcion: trabajo.descripcion, categoria: trabajo.categoria,
+      ubicacion: trabajo.ubicacion, fechaFin: trabajo.fecha, precioAcordado: [12000, 6500, 32000][index],
+      imagenes: trabajo.imagen ? [trabajo.imagen] : [], participantesIds: trabajo.participantesIds,
+    })),
+    { id: "contrato-pintura-completado", empresaId: empresa.id, estado: "completado", titulo: "Pintura de un piso en Madrid", descripcion: "Pintura de paredes y techos con reparación de pequeñas grietas.", categoria: "Pintura", ubicacion: "Madrid", fechaFin: "2026-09-10", precioAcordado: 1800, imagenes: [], participantesIds: ["mario"] },
+    { id: "contrato-en-curso", empresaId: empresa.id, estado: "en_curso", titulo: "Reforma todavía en curso", descripcion: "Trabajo que aún no se ha entregado al cliente.", categoria: "Reformas integrales", ubicacion: "Madrid", fechaFin: "", precioAcordado: 20000, imagenes: [], participantesIds: ["ana"] },
+    { id: "contrato-otra-empresa", empresaId: "otra-empresa", estado: "completado", titulo: "Trabajo de otra empresa", descripcion: "Contrato ajeno que no puede añadirse a este portfolio.", categoria: "Pintura", ubicacion: "Madrid", fechaFin: "2026-09-09", precioAcordado: 900, imagenes: [], participantesIds: [] },
+  ]
+  return { empresa, miembros, trabajos, resenas, contratosPortfolio }
 }

@@ -31,6 +31,18 @@ export async function obtenerEmpresaPublica(id: string): Promise<EmpresaPublica 
   try { await validarAccesoEmpresasLocal(); return await empresaLocalStore.publica(id) } catch { return null }
 }
 
+// Only the private editor may hydrate the demand preferences omitted by the public profile.
+export async function perfilParaEditorLocal(espacio: EspacioEmpresa): Promise<EmpresaPublica | null> {
+  await validarAccesoEmpresasLocal()
+  const perfil = await empresaLocalStore.publica(espacio.empresa.id)
+  if (!perfil || !espacio.miembroActual?.permisos.perfil) return perfil
+  return { ...perfil, empresa: {
+    ...perfil.empresa,
+    presupuestoMinInteres: espacio.empresa.presupuestoMinInteres,
+    presupuestoMaxInteres: espacio.empresa.presupuestoMaxInteres,
+  } }
+}
+
 export async function obtenerEspacioEmpresa(): Promise<ResultadoEmpresa<EspacioEmpresa>> {
   if (!esEmpresasLocal()) return espacioEmpresaReal()
   try { return await empresaLocalStore.espacio(await obtenerActorEmpresaLocal()) }

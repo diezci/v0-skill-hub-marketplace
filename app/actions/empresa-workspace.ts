@@ -161,6 +161,19 @@ export async function retirarVerificacionEmpresa(input: { empresaId: string; ver
 }
 
 export async function descargarVerificacionEmpresa(empresaId: string): Promise<ResultadoEmpresa<{ nombre: string; base64: string }>> {
+  if (esEmpresasLocal()) {
+    try {
+      const actor = await obtenerActorEmpresaLocal()
+      const espacio = await empresaLocalStore.espacio(actor)
+      if (espacio.error || !espacio.data) return { error: espacio.error || "No hay documentación disponible para esta empresa." }
+      if (espacio.data.empresa.id !== empresaId) return { error: "No tienes acceso al documento de representación" }
+      const documento = await empresaLocalStore.documentoVerificacion(actor)
+      if (documento.error || !documento.data) return { error: documento.error || "No hay documentación disponible para esta empresa." }
+      return { data: { nombre: documento.data.nombre, base64: Buffer.from(documento.data.contenido).toString("base64") } }
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : "No se pudo descargar el documento." }
+    }
+  }
   const resultado = await rpcEmpresa<{ nombre: string; base64: string } | null>("empresa_verificacion_documento", { p_empresa_id: empresaId })
   if (resultado.error) return { error: resultado.error }
   return resultado.data ? { data: resultado.data } : { error: "No hay documentación disponible para esta empresa." }

@@ -1,6 +1,8 @@
 import { del, put } from "@vercel/blob"
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { empresaLocalStore } from "@/lib/empresas/local-store"
+import { esEmpresasLocal, obtenerActorEmpresaLocal } from "@/lib/empresas/service"
 
 const MAX_LOGO_BYTES = 3 * 1024 * 1024
 const EXTENSIONES = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" } as const
@@ -45,11 +47,17 @@ export async function subirImagenEmpresa(request: NextRequest, imagen: "logo" | 
     .replace(/El logo/g, imagen === "portada" ? "La portada" : "La imagen del proyecto")
   let subidaUrl: string | undefined
   try {
-    const supabase = await createClient()
-    if (!supabase) throw new ErrorLogo("No se pudo comprobar el acceso a tu empresa. Vuelve a intentarlo.", 503)
+    const local = esEmpresasLocal()
+    const actorLocal = local ? await obtenerActorEmpresaLocal() : null
+    const espacioLocal = actorLocal ? await empresaLocalStore.espacio(actorLocal) : null
+    if (local && (!espacioLocal?.data?.miembroActual?.permisos.perfil)) throw new ErrorLogo("No tienes permiso para cambiar el logo de esta empresa.", 403)
+    const supabase = local ? null : await createClient()
+    if (!local && !supabase) throw new ErrorLogo("No se pudo comprobar el acceso a tu empresa. Vuelve a intentarlo.", 503)
     // Authentication and current database permissions precede file parsing and
     // Blob writes. No company identity or storage path is trusted from the form.
-    const acceso = await comprobarAcceso(supabase)
+    const acceso = actorLocal && espacioLocal?.data
+      ? { usuarioId: actorLocal.id, empresaId: espacioLocal.data.empresa.id }
+      : await comprobarAcceso(supabase!)
     const contentLength = Number(request.headers.get("content-length"))
     if (Number.isFinite(contentLength) && contentLength > MAX_LOGO_BYTES + 64 * 1024) {
       throw new ErrorLogo("El logo no puede superar los 3 MB.", 413)
@@ -75,13 +83,19 @@ export async function subirImagenEmpresa(request: NextRequest, imagen: "logo" | 
     if (bytes.byteLength > MAX_LOGO_BYTES) throw new ErrorLogo("El logo no puede superar los 3 MB.", 413)
     if (!cabeceraValida(bytes, tipo)) throw new ErrorLogo("El archivo no coincide con una imagen PNG, JPEG o WebP válida.", 415)
 
+    if (actorLocal) {
+      const result = await empresaLocalStore.guardarImagen(actorLocal, acceso.empresaId, bytes, tipo)
+      if (result.error) throw new ErrorLogo(result.error, 403)
+      return NextResponse.json(result.data)
+    }
+
     const blob = await put(`empresas/${acceso.empresaId}/${imagen}.${EXTENSIONES[tipo]}`, file, {
       access: "public", addRandomSuffix: true, contentType: tipo,
     })
     subidaUrl = blob.url
     // A revocation or context change during network upload must not return a
     // usable logo URL. Only the new upload is removed, never a previous logo.
-    const accesoActual = await comprobarAcceso(supabase)
+    const accesoActual = await comprobarAcceso(supabase!)
     if (accesoActual.usuarioId !== acceso.usuarioId || accesoActual.empresaId !== acceso.empresaId) {
       throw new ErrorLogo("La empresa activa ha cambiado. Recarga la página antes de guardar.", 409)
     }

@@ -44,6 +44,7 @@ export interface AdaptadorPerfilProfesional {
   identidad: string
   datos: DatosPerfilProfesional
   equipo: ReactNode
+  gestionEmpresa?: ReactNode
   guardar: (datos: DatosPerfilProfesional) => Promise<{ error?: string }>
   subirImagen: (file: File, tipo: "logo" | "portada" | "portfolio") => Promise<{ url: string } | null>
   obtenerPortfolio: () => Promise<{data?: any[]; error?: string}>

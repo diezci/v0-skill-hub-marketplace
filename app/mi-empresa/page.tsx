@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation"
 import { Building2 } from "lucide-react"
-import { EmpresaWorkspace } from "@/components/empresas/empresa-workspace"
+import { EmpresaWorkspaceReal } from "@/components/empresas/empresa-workspace-real"
 import RegistroEmpresaLegacy from "@/components/empresas/registro-empresa-legacy"
-import { obtenerEmpresaPublica, obtenerEspacioEmpresa } from "@/lib/empresas/service"
+import { obtenerEmpresaPublica, obtenerEspacioEmpresa, perfilParaEditorLocal } from "@/lib/empresas/service"
 import { vistaPreviaEmpresaReal } from "@/lib/empresas/production-store"
 import { getT } from "@/lib/i18n-servidor"
 import { idNotificacionValido } from "@/lib/notificaciones-contexto"
@@ -10,13 +10,14 @@ import type { EmpresaPublica, OperacionInicialEmpresa } from "@/lib/empresas/typ
 
 export const dynamic = "force-dynamic"
 
-export default async function MiEmpresaPage({ searchParams }: { searchParams: Promise<{ stripe_connect?: string | string[]; trabajo?: string | string[]; oferta?: string | string[]; solicitud?: string | string[] }> }) {
+export default async function MiEmpresaPage({ searchParams }: { searchParams: Promise<{ seccion?: string; stripe_connect?: string | string[]; trabajo?: string | string[]; oferta?: string | string[]; solicitud?: string | string[] }> }) {
   const params = await searchParams
   const resultado = await obtenerEspacioEmpresa()
   if (resultado.codigo === "NO_AUTENTICADO") {
     const query = new URLSearchParams()
     for (const clave of ["trabajo", "oferta", "solicitud"] as const) if (idNotificacionValido(params[clave])) query.set(clave, params[clave])
     if (params.stripe_connect === "return" || params.stripe_connect === "refresh") query.set("stripe_connect", params.stripe_connect)
+    if (typeof params.seccion === "string") query.set("seccion", params.seccion)
     const next = `/mi-empresa${query.size ? `?${query}` : ""}`
     redirect(`/auth/login?next=${encodeURIComponent(next)}`)
   }
@@ -31,7 +32,9 @@ export default async function MiEmpresaPage({ searchParams }: { searchParams: Pr
     </div>
   }
   let perfilPublico: EmpresaPublica | null = null
-  if (!resultado.data.local) {
+  if (resultado.data.local) {
+    perfilPublico = await perfilParaEditorLocal(resultado.data)
+  } else {
     const { empresa, miembroActual } = resultado.data
     const puedePrevisualizar = miembroActual?.rol === "principal" || miembroActual?.rol === "administrador" || miembroActual?.permisos.perfil === true
     try {
@@ -48,5 +51,5 @@ export default async function MiEmpresaPage({ searchParams }: { searchParams: Pr
     ? { tipo: "trabajos", id: params.trabajo }
     : idNotificacionValido(params.oferta) ? { tipo: "ofertas", id: params.oferta }
     : idNotificacionValido(params.solicitud) ? { tipo: "solicitudes", id: params.solicitud } : undefined
-  return <EmpresaWorkspace key={`${resultado.data.empresa.id}-${resultado.data.actor.id}-${operacionInicial?.tipo || ""}-${operacionInicial?.id || ""}`} espacio={resultado.data} perfilPublico={perfilPublico} mostrarCobrosIniciales={mostrarCobrosIniciales} operacionInicial={operacionInicial} />
+  return <EmpresaWorkspaceReal seccion={params.seccion} key={`${resultado.data.empresa.id}-${resultado.data.actor.id}-${operacionInicial?.tipo || ""}-${operacionInicial?.id || ""}`} espacio={resultado.data} perfilPublico={perfilPublico} mostrarCobrosIniciales={mostrarCobrosIniciales} operacionInicial={operacionInicial} />
 }

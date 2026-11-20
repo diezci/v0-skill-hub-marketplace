@@ -56,7 +56,7 @@ export default function PortfolioAdminPage() {
       <DialogHeader><DialogTitle>{actual.titulo}</DialogTitle><DialogDescription>{actual.proveedor} · {t(actual.tipo === "empresa" ? "Empresa" : "Profesional")}</DialogDescription></DialogHeader>
       <p className="whitespace-pre-line text-sm leading-relaxed">{actual.descripcion}</p>
       {actual.contexto_proveedor && <p className="whitespace-pre-line text-sm text-muted-foreground">{actual.contexto_proveedor}</p>}
-      {actual.imagenes?.filter(url => /^https:\/\//i.test(url)).map(url => <img key={url} src={url} alt={actual.titulo} className="max-h-72 w-full rounded-xl object-contain" />)}
+      {actual.imagenes?.filter(url => /^https:\/\//i.test(url) || /^\/api\/empresas\/imagen-local\/[0-9a-f-]{36}$/.test(url)).map(url => <img key={url} src={url} alt={actual.titulo} className="max-h-72 w-full rounded-xl object-contain" />)}
       <section className="rounded-xl border bg-muted/30 p-4"><h2 className="text-sm font-semibold">{t("Referencias y evidencias del trabajo")}</h2><p className="mt-2 whitespace-pre-line break-words text-sm">{actual.evidencia_acreditacion || t("No ha aportado evidencias. Solicita información antes de acreditar.")}</p></section>
       {actual.nota && <p className="text-sm">{t("Revisión anterior")}: {actual.nota}</p>}
       <div className="space-y-2"><Label htmlFor="portfolio-nota">{t("Motivo y comprobaciones realizadas")}</Label><Textarea id="portfolio-nota" value={nota} maxLength={2000} minLength={10} disabled={pending} onChange={e => setNota(e.target.value)} /><p className="text-xs text-muted-foreground">{t("El proveedor podrá ver esta nota. No incluyas datos privados de terceros.")}</p></div>

@@ -33,6 +33,7 @@ function scenario(options={}){
  const dependencies={
   '@vercel/blob':blob,'next/server':{NextResponse:Response},
   '@/lib/supabase/server':{createClient:async()=>options.noClient?null:client},
+  '@/lib/empresas/service':{esEmpresasLocal:()=>false}, '@/lib/empresas/local-store':{},
  }
  const compile=(filename)=>{
   const module={exports:{}}

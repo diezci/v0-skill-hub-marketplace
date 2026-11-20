@@ -5,6 +5,7 @@ import { Eye } from "lucide-react"
 import { VistaPreviaEmpresa } from "@/components/empresas/vista-previa-empresa"
 import { Button } from "@/components/ui/button"
 import { espacioEmpresaReal, vistaPreviaEmpresaReal } from "@/lib/empresas/production-store"
+import { esEmpresasLocal, obtenerEspacioEmpresa, perfilParaEditorLocal } from "@/lib/empresas/service"
 import { getT } from "@/lib/i18n-servidor"
 
 export const dynamic = "force-dynamic"
@@ -15,6 +16,14 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function VistaPreviaEmpresaPage() {
+  if (esEmpresasLocal()) {
+    const { data: espacio } = await obtenerEspacioEmpresa()
+    const miembro = espacio?.miembroActual
+    if (!espacio || !miembro || !(miembro.permisos.perfil || miembro.rol === "principal" || miembro.rol === "administrador")) redirect("/mi-empresa")
+    const datos = await perfilParaEditorLocal(espacio)
+    if (!datos) redirect("/mi-empresa")
+    return <VistaPreviaEmpresa datos={datos} puedeEditar={miembro.permisos.perfil} />
+  }
   const [resultado, espacio, { t }] = await Promise.all([vistaPreviaEmpresaReal(), espacioEmpresaReal().catch(() => null), getT()])
   if (resultado.codigo === "NO_AUTENTICADO") redirect("/auth/login?next=%2Fmi-empresa%2Fvista-previa")
   if (resultado.codigo === "SIN_EMPRESA") redirect("/mi-empresa")

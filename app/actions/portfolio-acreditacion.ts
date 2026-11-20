@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
+import { empresaLocalStore } from "@/lib/empresas/local-store"
+import { esEmpresasLocal, obtenerActorEmpresaLocal } from "@/lib/empresas/service"
 
 export type AcreditacionPortfolio = {
   tipo: "personal" | "empresa"
@@ -20,6 +22,10 @@ export type AcreditacionPortfolio = {
 }
 
 export async function listarAcreditacionesPortfolio(): Promise<{ data?: AcreditacionPortfolio[]; error?: string }> {
+  if (esEmpresasLocal()) {
+    try { return await empresaLocalStore.acreditacionesPortfolio(await obtenerActorEmpresaLocal()) }
+    catch (error) { return { error: error instanceof Error ? error.message : "No se pudieron cargar los proyectos." } }
+  }
   const supabase = await createClient()
   if (!supabase) return { error: "Base de datos no disponible" }
   const { data, error } = await supabase.rpc("portfolio_acreditaciones_listar")
@@ -30,6 +36,15 @@ export async function revisarAcreditacionPortfolio(input: {
   tipo: "personal" | "empresa"; itemId: string; revisionId: string
   decision: "acreditado" | "requiere_informacion"; nota: string
 }) {
+  if (esEmpresasLocal()) {
+    try {
+      const result = await empresaLocalStore.revisarAcreditacionPortfolio(await obtenerActorEmpresaLocal(), input)
+      if (result.error) return { error: result.error }
+      for (const route of ["/admin/portfolio", "/local-mi-empresa-preview", "/mi-empresa", "/mi-empresa/vista-previa"]) revalidatePath(route)
+      revalidatePath("/empresa/[id]", "page")
+      return { success: true }
+    } catch (error) { return { error: error instanceof Error ? error.message : "No se pudo guardar la revisión." } }
+  }
   const supabase = await createClient()
   if (!supabase) return { error: "Base de datos no disponible" }
   const { error } = await supabase.rpc("portfolio_acreditacion_revisar", {

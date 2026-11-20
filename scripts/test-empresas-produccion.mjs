@@ -178,8 +178,8 @@ function workspaceHarness(load, espacio, component = "EmpresaWorkspaceReal", opt
   const componentFile = { OperacionesEmpresa: 'operaciones-empresa', EmpresaWorkspaceReal: 'empresa-workspace-real', IncidenciasTrabajoEmpresa: 'incidencias-trabajo-empresa', PerfilEmpresaEditor: 'perfil-empresa-editor' }[component]
   const Component = runtime.load(`components/empresas/${componentFile}.tsx`)[component]
   function children(node) {
-    if (['PreferenciasDemandas', 'DatosLegalesEmpresaCard', 'BarraEdicionEmpresa', 'EditarSeccionEmpresa'].includes(node.type?.name)) return [node.type(node.props)]
-    return [node.props?.children, node.props?.acciones, node.props?.estado, node.props?.preferencias, ...Object.values(node.props?.edicion || {})]
+    if (['PreferenciasDemandas', 'DatosLegalesEmpresaCard', 'EditarSeccionEmpresa'].includes(node.type?.name)) return [node.type(node.props)]
+    return [node.props?.children, node.props?.acciones, node.props?.gestionEmpresa, node.props?.estado, node.props?.preferencias, ...Object.values(node.props?.edicion || {})]
   }
   function elements(node, predicate, found = []) {
     if (node == null || typeof node !== 'object') return found
@@ -311,6 +311,7 @@ test('workspace loads only an authorized matching profile and keeps its other se
   const { load } = loadModules({}, { mockModules: {
     '@/lib/empresas/service': {
       obtenerEspacioEmpresa: async () => ({ data: espacio }),
+      perfilParaEditorLocal: async local => { calls.push(['local', local.empresa.id]); return profile },
       obtenerEmpresaPublica: async id => { calls.push(['public', id]); return publicResult },
     },
     '@/lib/empresas/production-store': {
@@ -326,12 +327,12 @@ test('workspace loads only an authorized matching profile and keeps its other se
     ['miembro', true, 'borrador', false, 'preview'],
     ['miembro', false, 'borrador', false, null],
     ['miembro', false, 'verificada', false, 'public'],
-    ['principal', true, 'verificada', true, null],
+    ['principal', true, 'verificada', true, 'local'],
   ]) {
     calls.length = 0
     espacio = { ...base, local, empresa: { ...base.empresa, estadoVerificacion: estado }, miembroActual: { ...base.miembroActual, rol, permisos: { ...base.miembroActual.permisos, perfil } } }
     const page = await route.default({ searchParams: Promise.resolve({}) })
-    assert.deepEqual(calls, expected ? [expected === 'public' ? ['public', empresaId] : ['preview']] : [])
+    assert.deepEqual(calls, expected ? [expected === 'preview' ? ['preview'] : [expected, empresaId]] : [])
     assert.equal(page.props.perfilPublico, expected ? profile : null)
     if (expected) assert.doesNotMatch(JSON.stringify(page.props.perfilPublico), /PRIVADO|invitaciones|permisos|"email":|actividad/)
   }
@@ -359,7 +360,7 @@ test('workspace loads only an authorized matching profile and keeps its other se
 test('real owner can invite an administrator with explicit permissions and optional public visibility', async () => {
   const { load } = loadModules()
   const espacio = (await load('lib/empresas/production-store.ts').espacioEmpresaReal()).data
-  const h = workspaceHarness(load, espacio)
+  const h = workspaceHarness(load, espacio, 'EmpresaWorkspaceReal', { props: { seccion: 'equipo' } })
   let tree = h.render()
   assert.ok(h.button(tree, 'Invitar miembro'))
   assert.doesNotMatch(h.text(tree), /Aprobar en local|elena@empresa.example/)
@@ -392,12 +393,12 @@ test('ordinary member cannot invite or manage others; administrator cannot grant
   const espacio = (await load('lib/empresas/production-store.ts').espacioEmpresaReal()).data
   const member = { ...espacio.miembros[1], rol: 'miembro', permisos: { ...espacio.miembros[1].permisos, equipo: false } }
   const memberSpace = { ...espacio, actor: { ...espacio.actor, id: member.usuarioId }, miembroActual: member }
-  const employee = workspaceHarness(load, memberSpace)
+  const employee = workspaceHarness(load, memberSpace, 'EmpresaWorkspaceReal', { props: { seccion: 'equipo' } })
   const employeeTree = employee.render()
   assert.equal(employee.button(employeeTree, 'Invitar miembro'), undefined)
   assert.equal(employee.button(employeeTree, 'Gestionar miembro'), undefined)
   const admin = { ...member, rol: 'administrador', permisos: { ...member.permisos, equipo: true } }
-  const manager = workspaceHarness(load, { ...memberSpace, miembroActual: admin })
+  const manager = workspaceHarness(load, { ...memberSpace, miembroActual: admin }, 'EmpresaWorkspaceReal', { props: { seccion: 'equipo' } })
   let tree = manager.render()
   manager.button(tree, 'Invitar miembro').props.onClick()
   tree = manager.render()
@@ -590,12 +591,12 @@ function sharedProfileHarness(datos, options = {}) {
     useCallback: fn => fn, useEffect() {},
   } })
   const { PerfilEmpresaEditor } = runtime.load('components/empresas/perfil-empresa-editor.tsx')
-  const wrapper = PerfilEmpresaEditor({ datos, puedeEditar: options.editable !== false })
+  const wrapper = PerfilEmpresaEditor({ datos, puedeEditar: options.editable !== false, gestionEmpresa: options.gestionEmpresa })
   const component = wrapper.props.children
   const Profile = runtime.load('components/perfil-profesional.tsx').default
   assert.equal(component.type, Profile, 'The whole company editor is the actual professional component')
   function children(node) {
-    if (['PreferenciasDemandas', 'DatosLegalesEmpresaCard', 'BarraEdicionEmpresa', 'EditarSeccionEmpresa'].includes(node.type?.name)) return [node.type(node.props)]
+    if (['PreferenciasDemandas', 'DatosLegalesEmpresaCard', 'EditarSeccionEmpresa'].includes(node.type?.name)) return [node.type(node.props)]
     return ['children', 'coverActions', 'avatarActions', 'avatar'].map(key => node.props?.[key])
   }
   function all(node, predicate, found = []) {
@@ -634,6 +635,11 @@ test('company owner keeps professional profile capabilities while team managemen
   assert.deepEqual(tabs, ['sobre-mi', 'portfolio', 'valoraciones'])
   for (const section of ['Sobre la empresa', 'Servicios', 'Zona de trabajo', 'Contacto', 'Habilidades', 'Certificaciones', 'Idiomas', 'Estadísticas', 'Avisos de nuevas demandas']) assert.match(h.text(tree), new RegExp(section))
   assert.equal(h.all(tree, node => node.type === 'h1').length, 1)
+  const header = h.selector(tree, 'ProfileHeader')
+  assert.ok(header, 'Companies use the same cover and identity layout as individual professionals')
+  assert.equal(header.props.avatar.type.name, 'ProfileHeaderAvatar', 'The logo uses the shared profile avatar')
+  assert.ok(h.button(header, 'Editar perfil'), 'The edit action lives inside the shared profile header')
+  assert.equal(h.all(tree, node => node.type?.name === 'BarraEdicionEmpresa').length, 0, 'No toolbar precedes the profile cover')
   assert.equal(h.field(tree, 'Nombre comercial'), undefined)
   assert.equal(h.adaptador.datos.proyectos_completados, 20, 'Completed contracts are not inferred from portfolio size')
   assert.equal(h.adaptador.datos.portfolio[0].trabajo_id, 'work')
@@ -646,6 +652,17 @@ test('company owner keeps professional profile capabilities while team managemen
   const readonly = sharedProfileHarness(datos, { editable: false })
   assert.equal(readonly.button(readonly.render(), 'Editar perfil'), undefined)
   assert.equal(readonly.all(readonly.render(), node => node.type?.name === 'Dialog' && node.props.open === true).length, 0)
+})
+
+test('company management is supplied once by the workspace beside the shared profile', async () => {
+  const datos = await completeProfileFixture()
+  const gestionEmpresa = React.createElement('nav', { 'aria-label': 'Gestión de prueba' }, 'Datos legales y verificación')
+  const h = sharedProfileHarness(datos, { gestionEmpresa })
+  const tree = h.render()
+  assert.equal(h.adaptador.gestionEmpresa, gestionEmpresa)
+  assert.equal(h.all(tree, node => node === gestionEmpresa).length, 1, 'One management card is shared across responsive layouts')
+  assert.equal(tree.props.children[0].type.name, 'ProfileHeader', 'The profile cover remains first')
+  assert.ok(h.selector(tree, 'Tabs'), 'Management does not replace profile content')
 })
 
 test('shared company editor saves all professional fields through the company action and returns to its single preview', async () => {
@@ -697,7 +714,7 @@ test('cancel restores the company profile, both photos and private range using t
   for (const [id, type] of [['avatar-upload', 'logo'], ['cover-upload', 'portada']]) await h.field(h.render(), id).props.onChange({ currentTarget: { files: [new File(['photo'], `${type}.webp`, { type: 'image/webp' })], value: 'selected' } })
   h.selector(h.render(), 'RangoPrecio').props.onChange([5000, 10000])
   h.button(h.render(), 'Cancelar').props.onClick()
-  const header = h.selector(h.render(), 'CabeceraPerfilEmpresa')
+  const header = h.selector(h.render(), 'ProfileHeader')
   assert.equal(header.props.coverUrl, datos.empresa.portadaUrl)
   assert.equal(header.props.avatar.props.src, datos.empresa.logoUrl)
   assert.deepEqual(uploads, ['logo', 'portada'])

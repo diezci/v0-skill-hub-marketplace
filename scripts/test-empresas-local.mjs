@@ -189,14 +189,17 @@ test('solicitudes fijan proveedor y cliente, y el perfil comercial no reescribe 
 test('cobertura explícita admite todo el catálogo y rechaza valores ajenos sin reescribir el perfil', async () => {
   const store = await nuevo()
   const empresa = (await store.publica('reformas-garcia')).empresa
-  correcto(await store.guardarPerfil(actores.owner, { ...empresa, provincias: PROVINCIAS_ES, servicios: CATEGORIAS_SERVICIO_NOMBRES }))
+  // The previous editor sends only these fields; the professional editor keeps
+  // its independent public location (covered below).
+  const anterior = { nombre: empresa.nombre, descripcion: empresa.descripcion, web: empresa.web, ubicacion: empresa.ubicacion }
+  correcto(await store.guardarPerfil(actores.owner, { ...anterior, provincias: PROVINCIAS_ES, servicios: CATEGORIAS_SERVICIO_NOMBRES }))
   const saved = (await store.publica('reformas-garcia')).empresa
   assert.deepEqual(saved.provincias, PROVINCIAS_ES)
   assert.deepEqual(saved.servicios, CATEGORIAS_SERVICIO_NOMBRES)
   assert.equal(saved.ubicacion, PROVINCIAS_ES.join(', '))
   assert.equal(saved.razonSocial, empresa.razonSocial)
-  error(await store.guardarPerfil(actores.owner, { ...empresa, provincias: ['Alcobendas'], servicios: ['Fontanería'] }), /provincia válida/)
-  error(await store.guardarPerfil(actores.owner, { ...empresa, provincias: ['Madrid'], servicios: ['Reformas y Construcción'] }), /servicio válido/)
+  error(await store.guardarPerfil(actores.owner, { ...anterior, provincias: ['Alcobendas'], servicios: ['Fontanería'] }), /provincia válida/)
+  error(await store.guardarPerfil(actores.owner, { ...anterior, provincias: ['Madrid'], servicios: ['Reformas y Construcción'] }), /servicio válido/)
   assert.deepEqual((await store.publica('reformas-garcia')).empresa.provincias, PROVINCIAS_ES)
 })
 

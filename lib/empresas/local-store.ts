@@ -9,6 +9,23 @@ import type { ActorEmpresa, ActividadEmpresa, EmpresaFicha, EmpresaPublica, Espa
 
 interface InvitacionPrivada extends InvitacionEmpresa { tokenHash: string; creadaPor: string }
 interface DocumentoPrivado { id: string; archivo: string; sha256: string }
+interface ImagenEmpresaLocal { id: string; empresaId: string; tipo: "image/png" | "image/jpeg" | "image/webp" }
+export type InputPortfolioEmpresaLocal = {
+  titulo: string; descripcion: string; imagen_url: string; categoria: string; fecha_completado: string
+  ubicacion?: string; duracion?: string; presupuesto?: number | null; trabajo_id?: string
+  evidencia_acreditacion?: string; contexto_proveedor?: string
+}
+export type InputRevisionPortfolioLocal = {
+  tipo: "personal" | "empresa"; itemId: string; revisionId: string
+  decision: "acreditado" | "requiere_informacion"; nota: string
+}
+interface ProyectoPortfolioLocal {
+  id: string; empresa_id: string; trabajo_id: string | null; titulo: string; descripcion: string
+  categoria: string; ubicacion: string; imagenes: string[]; duracion: string; fecha_proyecto: string
+  presupuesto: number | null; contexto_proveedor: string; participantes_ids: string[]; created_at: string
+  evidencia_acreditacion: string; acreditacion: "diime" | "pendiente" | "acreditado" | "requiere_informacion"
+  nota_acreditacion: string | null; rango_precio?: string; revision_id: string; presentado_en: string
+}
 export interface EstadoEmpresaLocal extends ReturnType<typeof crearDatosEmpresaIniciales> {
   version: 1
   invitaciones: InvitacionPrivada[]
@@ -16,6 +33,9 @@ export interface EstadoEmpresaLocal extends ReturnType<typeof crearDatosEmpresaI
   documentos: DocumentoPrivado[]
   actividad: ActividadEmpresa[]
   solicitudes: SolicitudPresupuestoEmpresa[]
+  proyectosPortfolio: ProyectoPortfolioLocal[]
+  imagenesEmpresa: ImagenEmpresaLocal[]
+  revisionesPortfolio: { itemId: string; revisionId: string; decision: string; nota: string; revisadoPor: string; fecha: string }[]
 }
 
 export type InputMiembro = { nombre: string; email: string; rol: Exclude<RolEmpresa, "principal">; permisos: PermisosEmpresa }
@@ -105,10 +125,52 @@ function invitacionPublica(invitacion: InvitacionPrivada): InvitacionEmpresa {
 }
 function fichaPublica(estado: EstadoEmpresaLocal): EmpresaPublica {
   const { representanteNombre: _representante, cargoLegal: _cargo, presupuestoMinInteres: _min, presupuestoMaxInteres: _max, ...empresa } = estado.empresa
-  return { empresa, miembros: estado.miembros.filter((m) => m.estado === "activo" && m.perfilPublico).map(miembroPublico), trabajos: estado.trabajos, resenas: estado.resenas, local: true }
+  empresa.proyectosCompletados = estado.contratosPortfolio.filter((t) => t.empresaId === estado.empresa.id && t.estado === "completado").length
+  const trabajos = estado.proyectosPortfolio.filter((p) => p.trabajo_id
+    ? estado.contratosPortfolio.some((t) => t.id === p.trabajo_id && t.empresaId === estado.empresa.id && t.estado === "completado")
+    : p.acreditacion === "acreditado").map((p) => ({
+      id: p.id, empresaId: p.empresa_id, trabajoId: p.trabajo_id || undefined,
+      titulo: p.titulo, descripcion: p.descripcion, categoria: p.categoria, ubicacion: p.ubicacion,
+      imagen: p.imagenes[0], imagenes: p.imagenes, duracion: p.duracion, contextoProveedor: p.contexto_proveedor,
+      fecha: p.fecha_proyecto, participantesIds: p.participantes_ids, creadoEn: p.created_at,
+      acreditacion: p.trabajo_id ? "diime" as const : "acreditado" as const,
+      // Only a coarse range belongs in the public projection, never evidence or the exact amount.
+      rangoPrecio: p.rango_precio || rangoPortfolioLocal(p.presupuesto),
+    }))
+  return { empresa, miembros: estado.miembros.filter((m) => m.estado === "activo" && m.perfilPublico).map(miembroPublico), trabajos, resenas: estado.resenas, local: true }
+}
+function rangoPortfolioLocal(importe: number | null) {
+  if (!importe || importe <= 0) return ""
+  const limites = [100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000]
+  const superior = limites.findIndex((n) => importe < n)
+  const formato = (n: number) => n.toLocaleString("es-ES")
+  return superior === 0 ? "Hasta 100 €" : superior < 0 ? "Más de 100.000 €" : `${formato(limites[superior - 1])}–${formato(limites[superior])} €`
+}
+function esImagenGuardadaLocal(estado: EstadoEmpresaLocal, url: string) {
+  const id = url.match(/^\/api\/empresas\/imagen-local\/([0-9a-f-]{36})$/)?.[1]
+  return !!id && estado.imagenesEmpresa.some((imagen) => imagen.id === id && imagen.empresaId === estado.empresa.id)
+}
+function imagenLocalValida(bytes: Uint8Array, tipo: ImagenEmpresaLocal["tipo"]) {
+  if (tipo === "image/png") return bytes.length >= 24 && [137, 80, 78, 71, 13, 10, 26, 10].every((b, i) => bytes[i] === b)
+    && bytes[8] === 0 && bytes[9] === 0 && bytes[10] === 0 && bytes[11] === 13 && Buffer.from(bytes.slice(12, 16)).toString() === "IHDR"
+  if (tipo === "image/jpeg") return bytes.length >= 4 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255
+  return tipo === "image/webp" && bytes.length >= 16 && Buffer.from(bytes.slice(0, 4)).toString() === "RIFF"
+    && Buffer.from(bytes.slice(8, 12)).toString() === "WEBP" && ["VP8 ", "VP8L", "VP8X"].includes(Buffer.from(bytes.slice(12, 16)).toString())
+}
+function portfolioInicial(estado: ReturnType<typeof crearDatosEmpresaIniciales>): ProyectoPortfolioLocal[] {
+  return estado.trabajos.map((t) => {
+    const contrato = estado.contratosPortfolio.find((c) => c.id === (t.trabajoId || t.id) && c.empresaId === estado.empresa.id && c.estado === "completado")
+    return { id: t.id, empresa_id: t.empresaId, trabajo_id: contrato?.id || null, titulo: t.titulo, descripcion: t.descripcion,
+      categoria: t.categoria, ubicacion: t.ubicacion, imagenes: t.imagenes || (t.imagen ? [t.imagen] : []), duracion: t.duracion || "",
+      fecha_proyecto: t.fecha, presupuesto: contrato?.precioAcordado ?? null, contexto_proveedor: t.contextoProveedor || "",
+      participantes_ids: t.participantesIds, created_at: t.creadoEn || `${t.fecha}T12:00:00.000Z`, rango_precio: t.rangoPrecio,
+      evidencia_acreditacion: "", acreditacion: contrato ? "diime" : "pendiente", nota_acreditacion: null,
+      revision_id: randomUUID(), presentado_en: t.creadoEn || `${t.fecha}T12:00:00.000Z` }
+  })
 }
 function estadoInicial(): EstadoEmpresaLocal {
-  return { version: 1, ...crearDatosEmpresaIniciales(), invitaciones: [], verificacion: null, documentos: [], solicitudes: [], actividad: [{ id: "actividad-inicial", actorNombre: "Equipo Diime", accion: "Empresa de ejemplo preparada para la prueba local. La verificación inicial es ficticia.", fecha: "2026-09-17T08:00:00.000Z" }] }
+  const datos = crearDatosEmpresaIniciales()
+  return { version: 1, ...datos, proyectosPortfolio: portfolioInicial(datos), imagenesEmpresa: [], revisionesPortfolio: [], invitaciones: [], verificacion: null, documentos: [], solicitudes: [], actividad: [{ id: "actividad-inicial", actorNombre: "Equipo Diime", accion: "Empresa de ejemplo preparada para la prueba local. La verificación inicial es ficticia.", fecha: "2026-09-17T08:00:00.000Z" }] }
 }
 function actorConocido(actor: ActorEmpresa) {
   const registrado = ACTORES_EMPRESA_LOCAL[actor.id]
@@ -164,7 +226,7 @@ function buscarInvitacion(estado: EstadoEmpresaLocal, token: string) {
 
 /** Almacén exclusivo de la prueba local. No consulta ni modifica servicios externos. */
 export class EmpresaLocalStore {
-  constructor(readonly directorio = path.join(process.cwd(), "outputs", "empresas-local")) {}
+  constructor(readonly directorio = (process.env.NODE_ENV !== "production" && process.env.DIIME_EMPRESAS_LOCAL_DIR?.trim()) || path.join(process.cwd(), "outputs", "empresas-local")) {}
   private get archivo() { return path.join(this.directorio, "state.json") }
   private async serializado<T>(operacion: () => Promise<T>): Promise<T> {
     const anterior = colas.get(this.archivo) ?? Promise.resolve()
@@ -176,6 +238,15 @@ export class EmpresaLocalStore {
     try {
       const estado = JSON.parse(await readFile(this.archivo, "utf8")) as EstadoEmpresaLocal
       asegurar(estado.version === 1 && estado.empresa.id === "reformas-garcia", "El estado local no es compatible. Conserva una copia y reinicia la prueba.")
+      // Upgrade existing local fixtures without resetting their legal/profile edits.
+      estado.contratosPortfolio ??= crearDatosEmpresaIniciales().contratosPortfolio
+      estado.proyectosPortfolio ??= portfolioInicial(estado)
+      estado.imagenesEmpresa ??= []
+      estado.revisionesPortfolio ??= []
+      for (const proyecto of estado.proyectosPortfolio) {
+        proyecto.revision_id ??= randomUUID()
+        proyecto.presentado_en ??= proyecto.created_at
+      }
       caducarInvitaciones(estado)
       return estado
     } catch (error) {
@@ -211,6 +282,114 @@ export class EmpresaLocalStore {
       const estado = await this.cargar()
       if (id !== estado.empresa.id && id !== estado.empresa.slug) return null
       return fichaPublica(estado)
+    })
+  }
+  async portfolio(actor: ActorEmpresa): Promise<ResultadoEmpresa<ProyectoPortfolioLocal[]>> {
+    return this.operar(actor, (estado) => {
+      exigirPermiso(estado, actor, "perfil")
+      return estado.proyectosPortfolio.filter((p) => p.empresa_id === estado.empresa.id)
+    })
+  }
+  async trabajosCompletadosPortfolio(actor: ActorEmpresa) {
+    return this.operar(actor, (estado) => {
+      exigirPermiso(estado, actor, "perfil")
+      return estado.contratosPortfolio.filter((t) => t.empresaId === estado.empresa.id && t.estado === "completado").map((t) => ({
+        id: t.id, precio_acordado: t.precioAcordado, fecha_fin: t.fechaFin, oferta: { archivos: t.imagenes },
+        solicitud: { titulo: t.titulo, descripcion: t.descripcion, ubicacion: t.ubicacion, categoria: { nombre: t.categoria } },
+      }))
+    })
+  }
+  async guardarProyectoPortfolio(actor: ActorEmpresa, input: InputPortfolioEmpresaLocal, itemId: string | null = null): Promise<ResultadoEmpresa<{ id: string }>> {
+    return this.operar(actor, (estado) => {
+      exigirPermiso(estado, actor, "perfil")
+      const anterior = itemId === null ? null : estado.proyectosPortfolio.find((p) => p.id === itemId && p.empresa_id === estado.empresa.id)
+      asegurar(itemId === null || anterior, "Ese proyecto no está disponible para tu empresa.")
+      const trabajoId = texto(input.trabajo_id || "", "Trabajo", 0, 100)
+      const contrato = trabajoId ? estado.contratosPortfolio.find((t) => t.id === trabajoId && t.empresaId === estado.empresa.id && t.estado === "completado") : null
+      asegurar(!trabajoId || contrato, "Ese trabajo no está disponible para el portfolio.")
+      const evidencia = texto(input.evidencia_acreditacion || "", "Evidencias", contrato ? 0 : 20, 4000)
+      const imagen = texto(input.imagen_url, "Imagen", 0, 2048)
+      asegurar(!imagen || /^https:\/\/[^\s@]+$/.test(imagen) || /^\/images\/empresas-local\/[\w.-]+\.svg$/.test(imagen) || esImagenGuardadaLocal(estado, imagen), "La imagen debe estar alojada mediante https://.")
+      const fecha = texto(input.fecha_completado, "Fecha", 0, 10)
+      asegurar(!fecha || (/^\d{4}-\d{2}-\d{2}$/.test(fecha) && Number.isFinite(Date.parse(fecha)) && new Date(fecha).toISOString().slice(0, 10) === fecha), "Revisa los datos del proyecto.")
+      const presupuesto = input.presupuesto ?? null
+      asegurar(presupuesto === null || (typeof presupuesto === "number" && Number.isFinite(presupuesto) && presupuesto >= 0 && presupuesto <= 99999999.99), "Indica un presupuesto válido.")
+      const proyecto: ProyectoPortfolioLocal = {
+        id: anterior?.id || randomUUID(), empresa_id: estado.empresa.id, trabajo_id: contrato?.id || null,
+        titulo: contrato?.titulo || texto(input.titulo, "Título", 1, 500), descripcion: contrato?.descripcion || texto(input.descripcion, "Descripción", 1, 20000),
+        categoria: contrato?.categoria || texto(input.categoria, "Categoría", 0, 200), ubicacion: contrato?.ubicacion || texto(input.ubicacion || "", "Ubicación", 0, 500),
+        imagenes: imagen ? [imagen] : [], duracion: texto(input.duracion || "", "Duración", 0, 200), fecha_proyecto: fecha,
+        presupuesto, contexto_proveedor: texto(input.contexto_proveedor || "", "Contexto", 0, 20000),
+        participantes_ids: contrato?.participantesIds || [actor.id], created_at: anterior?.created_at || new Date().toISOString(),
+        evidencia_acreditacion: evidencia, acreditacion: contrato ? "diime" : "pendiente", nota_acreditacion: null,
+        revision_id: randomUUID(), presentado_en: new Date().toISOString(),
+      }
+      // External edits always return to review; clients cannot pass an approval.
+      estado.proyectosPortfolio = [proyecto, ...estado.proyectosPortfolio.filter((p) => p.id !== proyecto.id)]
+      actividad(estado, actor, contrato ? "Añadió al portfolio un trabajo completado en Diime." : "Envió un proyecto externo del portfolio a revisión.")
+      return { id: proyecto.id }
+    })
+  }
+  async eliminarProyectoPortfolio(actor: ActorEmpresa, itemId: string): Promise<ResultadoEmpresa<{ success: true }>> {
+    return this.operar(actor, (estado) => {
+      exigirPermiso(estado, actor, "perfil")
+      asegurar(estado.proyectosPortfolio.some((p) => p.id === itemId && p.empresa_id === estado.empresa.id), "Ese proyecto no está disponible para tu empresa.")
+      estado.proyectosPortfolio = estado.proyectosPortfolio.filter((p) => p.id !== itemId)
+      actividad(estado, actor, "Eliminó un proyecto del portfolio.")
+      return { success: true as const }
+    })
+  }
+  async acreditacionesPortfolio(actor: ActorEmpresa) {
+    return this.operar(actor, (estado) => {
+      asegurar(actor.plataformaAdmin, "Solo el equipo de Diime puede revisar proyectos.")
+      return estado.proyectosPortfolio.filter((p) => !p.trabajo_id && p.empresa_id === estado.empresa.id).map((p) => ({
+        tipo: "empresa" as const, item_id: p.id, revision_id: p.revision_id,
+        estado: p.acreditacion === "diime" ? "pendiente" as const : p.acreditacion,
+        titulo: p.titulo, descripcion: p.descripcion, imagenes: p.imagenes, evidencia_acreditacion: p.evidencia_acreditacion,
+        contexto_proveedor: p.contexto_proveedor, proveedor: estado.empresa.nombre, proveedor_id: p.empresa_id,
+        presentado_en: p.presentado_en, nota: p.nota_acreditacion,
+      }))
+    })
+  }
+  async revisarAcreditacionPortfolio(actor: ActorEmpresa, input: InputRevisionPortfolioLocal): Promise<ResultadoEmpresa<{ success: true }>> {
+    return this.operar(actor, (estado) => {
+      asegurar(actor.plataformaAdmin, "Solo el equipo de Diime puede revisar proyectos.")
+      asegurar(input && ["acreditado", "requiere_informacion"].includes(input.decision) && typeof input.nota === "string"
+        && input.nota.trim().length >= 10 && input.nota.trim().length <= 2000,
+      "Indica una decisión y el motivo de la revisión (10–2.000 caracteres).")
+      const proyecto = estado.proyectosPortfolio.find((p) => input.tipo === "empresa" && p.id === input.itemId && p.empresa_id === estado.empresa.id)
+      asegurar(proyecto && !proyecto.trabajo_id, "Este proyecto no está disponible para revisión.")
+      asegurar(!estado.miembros.some((m) => m.usuarioId === actor.id), "No puedes acreditar tus propios proyectos ni los de tu empresa.")
+      asegurar(proyecto.revision_id === input.revisionId, "El proyecto ha cambiado. Recarga antes de revisar.")
+      asegurar(input.decision !== "acreditado" || proyecto.evidencia_acreditacion.trim().length >= 20, "Faltan referencias o evidencias para acreditar este proyecto.")
+      const nota = texto(input.nota, "Nota", 10, 2000)
+      proyecto.acreditacion = input.decision
+      proyecto.nota_acreditacion = nota
+      estado.revisionesPortfolio.push({ itemId: proyecto.id, revisionId: proyecto.revision_id, decision: input.decision, nota, revisadoPor: actor.id, fecha: new Date().toISOString() })
+      actividad(estado, actor, input.decision === "acreditado" ? "Acreditó un proyecto externo del portfolio." : "Solicitó información sobre un proyecto del portfolio.")
+      return { success: true as const }
+    })
+  }
+  async guardarImagen(actor: ActorEmpresa, empresaId: string, bytes: Uint8Array, tipo: string): Promise<ResultadoEmpresa<{ url: string }>> {
+    return this.operar(actor, async (estado) => {
+      exigirPermiso(estado, actor, "perfil")
+      asegurar(empresaId === estado.empresa.id, "La empresa activa ha cambiado. Recarga la página antes de guardar.")
+      asegurar(bytes instanceof Uint8Array && bytes.byteLength > 0 && bytes.byteLength <= 3 * 1024 * 1024, "El logo no puede superar los 3 MB.")
+      asegurar(["image/png", "image/jpeg", "image/webp"].includes(tipo) && imagenLocalValida(bytes, tipo as ImagenEmpresaLocal["tipo"]), "El archivo no coincide con una imagen PNG, JPEG o WebP válida.")
+      const id = randomUUID()
+      await mkdir(path.join(this.directorio, "imagenes"), { recursive: true, mode: 0o700 })
+      await writeFile(path.join(this.directorio, "imagenes", id), bytes, { mode: 0o600, flag: "wx" })
+      estado.imagenesEmpresa.push({ id, empresaId, tipo: tipo as ImagenEmpresaLocal["tipo"] })
+      return { url: `/api/empresas/imagen-local/${id}` }
+    })
+  }
+  async imagen(id: string): Promise<{ contenido: Uint8Array; tipo: string } | null> {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) return null
+    return this.serializado(async () => {
+      const estado = await this.cargar()
+      const imagen = estado.imagenesEmpresa.find((i) => i.id === id && i.empresaId === estado.empresa.id)
+      if (!imagen) return null
+      return { contenido: await readFile(path.join(this.directorio, "imagenes", id)), tipo: imagen.tipo }
     })
   }
   async empleado(usuarioId: string): Promise<{ perfil: MiembroEmpresaPublico; empresa: EmpresaPublica } | null> {
@@ -256,6 +435,7 @@ export class EmpresaLocalStore {
       asegurar(!preferencias.error, preferencias.error || "")
       for (const imagen of [input.logoUrl, input.portadaUrl]) {
         if (imagen) {
+          if (imagen === "/kitchen-renovation-open-concept.jpg" || esImagenGuardadaLocal(estado, imagen)) continue
           let url: URL
           try { url = new URL(imagen) } catch { throw new ErrorEmpresa("La imagen debe estar alojada mediante https://.") }
           asegurar(url.protocol === "https:" && !url.username && !url.password, "La imagen debe estar alojada mediante https://.")
