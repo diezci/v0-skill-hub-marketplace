@@ -9,7 +9,7 @@
     "test:hitos": "node --test scripts/test-hitos-domain.mjs scripts/test-hitos-actions.mjs scripts/test-hitos-stripe.mjs scripts/test-hitos-ui.mjs scripts/test-hitos-factura.mjs scripts/test-hitos-avisos.mjs",
     "test:hitos:db": "node supabase/tests/hitos-planes.test.mjs && node supabase/tests/hitos-finanzas.test.mjs",
     "test:auth-native": "node --test scripts/test-native-auth.mjs scripts/test-logout-navigation.mjs scripts/test-auth-retorno.mjs",
-    "test:justificante-native": "node --test scripts/test-justificante-native.mjs",
+    "test:justificante-native": "node --test scripts/test-justificante-native.mjs scripts/test-justificante-recuperacion.mjs",
     "test:trabajos-pago": "node --test scripts/test-trabajos-estado-pago.mjs && node scripts/test-listados-recuperacion.mjs",
     "build": "next build",
     "cap:sync": "cap sync",

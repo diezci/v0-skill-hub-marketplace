@@ -2,31 +2,56 @@ import { localeDe, type Idioma, traducir } from "@/lib/i18n"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
+const falloTemporal = (status?: number) => status === 0 || (status !== undefined && status >= 500 && status < 600)
+const noDisponible = "no_disponible" as const
+
+function resultadoDeFallos(...estados: (number | undefined)[]) {
+  return estados.every(falloTemporal) ? noDisponible : null
+}
+
 // Datos completos de una contratación para su propuesta, justificante y desglose.
 // Solo las partes con acceso económico vigente (o un admin) pueden verlos.
 export async function obtenerDatosContratacion(trabajoId: string) {
+  try {
+    return await cargarDatosContratacion(trabajoId)
+  } catch (error) {
+    // Las bibliotecas normalmente devuelven los errores de transporte en la respuesta.
+    // fetch también puede rechazar la promesa antes de que exista esa respuesta.
+    if (error instanceof Error) {
+      const falloRed = error.name === "TypeError" && error.message === "fetch failed"
+      if (falloRed || error.name === "TimeoutError" || error.name === "AbortError") return noDisponible
+    }
+    throw error
+  }
+}
+
+async function cargarDatosContratacion(trabajoId: string) {
   const supabase = await createClient()
   if (!supabase) return null
   const {
     data: { user },
+    error: errorAuth,
   } = await supabase.auth.getUser()
+  if (errorAuth) return errorAuth.name === "AuthRetryableFetchError" || falloTemporal(errorAuth.status) ? noDisponible : null
   if (!user) return null
 
-  const { data: documento, error: errorDocumento } = await supabase.rpc("documento_contratacion", {
+  const { data: documento, error: errorDocumento, status: estadoDocumento } = await supabase.rpc("documento_contratacion", {
     p_trabajo_id: trabajoId,
   })
-  if (errorDocumento || !documento?.trabajo) return null
+  if (errorDocumento) return resultadoDeFallos(estadoDocumento)
+  if (!documento?.trabajo) return null
   const trabajo = documento.trabajo
 
   // El rol admin se comprueba siempre, incluso si esa misma cuenta coincide
   // excepcionalmente con una de las partes. Inferirlo como "no es parte" hacía
   // que un admin participante no pudiera abrir las dos vistas documentales.
-  const { data: perfilActual, error: errorPerfil } = await supabase
+  const { data: perfilActual, error: errorPerfil, status: estadoPerfil } = await supabase
     .from("profiles")
     .select("es_admin, cuenta_eliminada")
     .eq("id", user.id)
     .maybeSingle()
-  if (errorPerfil || !perfilActual || perfilActual.cuenta_eliminada) return null
+  if (errorPerfil) return resultadoDeFallos(estadoPerfil)
+  if (!perfilActual || perfilActual.cuenta_eliminada) return null
   const esAdmin = !!perfilActual?.es_admin
   const [clienteActual, proveedorActual] = await Promise.all([
     supabase.rpc("empresa_puede_operar_trabajo", {
@@ -36,7 +61,8 @@ export async function obtenerDatosContratacion(trabajoId: string) {
       p_trabajo_id: trabajo.id, p_permiso: "ver_cobros", p_parte: "proveedor",
     }),
   ])
-  if (clienteActual.error || proveedorActual.error) return null
+  const fallosRoles = [clienteActual, proveedorActual].filter(resultado => resultado.error)
+  if (fallosRoles.length) return resultadoDeFallos(...fallosRoles.map(resultado => resultado.status))
   // Los autores contractuales permanecen sellados. La consulta y su vista
   // económica dependen del operador o administrador empresarial actual.
   const esCliente = clienteActual.data === true
@@ -49,8 +75,9 @@ export async function obtenerDatosContratacion(trabajoId: string) {
   if (trabajo.modalidad_pago === "hitos") {
     const admin = createAdminClient()
     if (!admin) return null
-    const { data, error } = await admin.from("trabajos_hitos").select("*").eq("trabajo_id", trabajo.id).eq("activo", true).order("orden")
-    if (error || !data?.length) return null
+    const { data, error, status } = await admin.from("trabajos_hitos").select("*").eq("trabajo_id", trabajo.id).eq("activo", true).order("orden")
+    if (error) return resultadoDeFallos(status)
+    if (!data?.length) return null
     hitos = data
   }
 
@@ -65,10 +92,8 @@ export async function obtenerDatosContratacion(trabajoId: string) {
       .order("created_at", { ascending: false }),
   ])
 
-  const errorCarga = [clienteR, profesionalR, proDatosR, escrowR].find(
-    (resultado: any) => resultado?.error,
-  )?.error
-  if (errorCarga) return null
+  const fallosCarga = [clienteR, profesionalR, proDatosR, escrowR].filter(resultado => resultado.error)
+  if (fallosCarga.length) return resultadoDeFallos(...fallosCarga.map(resultado => resultado.status))
 
   const estadosContratados = new Set([
     "retenido",
@@ -89,10 +114,10 @@ export async function obtenerDatosContratacion(trabajoId: string) {
   // empresa (con su CIF) y a quien actúa en su nombre.
   // Va por RPC porque `empresas` tiene RLS y cada parte no puede leer la empresa
   // de la otra; la función solo responde a las partes de este trabajo.
-  const { data: facturacion, error: errorFacturacion } = await supabase.rpc("facturacion_trabajo", {
+  const { data: facturacion, error: errorFacturacion, status: estadoFacturacion } = await supabase.rpc("facturacion_trabajo", {
     p_trabajo_id: trabajo.id,
   })
-  if (errorFacturacion) return null
+  if (errorFacturacion) return resultadoDeFallos(estadoFacturacion)
   const facturacionPor = (parte: "cliente" | "profesional") =>
     (facturacion as any[] | null)?.find((f) => f.parte === parte) ?? null
 
@@ -101,10 +126,10 @@ export async function obtenerDatosContratacion(trabajoId: string) {
   // El correo ya no se lee de `profiles` (ver scripts/043). Va por RPC, que solo
   // devuelve contactos autorizados. Puede no devolver el contacto personal
   // histórico a un operador nuevo; no se amplía ese permiso desde esta vista.
-  const { data: contactos, error: errorContactos } = await supabase.rpc("contacto_perfiles", {
+  const { data: contactos, error: errorContactos, status: estadoContactos } = await supabase.rpc("contacto_perfiles", {
     p_ids: [trabajo.cliente_id, trabajo.profesional_id],
   })
-  if (errorContactos) return null
+  if (errorContactos) return resultadoDeFallos(estadoContactos)
   const emailDe = (id: string) => (contactos as any[] | null)?.find((c) => c.id === id)?.email ?? null
 
   return {

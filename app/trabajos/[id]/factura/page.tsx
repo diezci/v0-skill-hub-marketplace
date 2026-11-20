@@ -139,6 +139,18 @@ export default async function FacturaPage({
   const consulta = await searchParams
   const datos = await obtenerDatosContratacion(id)
   if (!datos) notFound()
+  if (datos === "no_disponible") {
+    const vista = Array.isArray(consulta.vista) ? consulta.vista[0] : consulta.vista
+    return (
+      <main className="container mx-auto max-w-3xl px-4 pb-16 pt-24">
+        <p role="alert">{t("No se pudo cargar el justificante.")}</p>
+        <form method="get" className="mt-4">
+          {(vista === "cliente" || vista === "proveedor") && <input type="hidden" name="vista" value={vista} />}
+          <button type="submit" className="text-sm text-primary underline">{t("Reintentar")}</button>
+        </form>
+      </main>
+    )
+  }
 
   const {
     trabajo,

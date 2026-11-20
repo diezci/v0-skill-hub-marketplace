@@ -1,4 +1,5 @@
 export const EN_FACTURACION: Record<string, string> = {
+  "No se pudo cargar el justificante.": "The receipt could not be loaded.",
   "Reembolso previsto": "Expected refund",
   "Coste previsto tras la liquidación": "Expected cost after settlement",
   "Importe bruto previsto en la liquidación": "Expected gross settlement amount",
